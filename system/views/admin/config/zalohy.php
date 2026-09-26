@@ -16,7 +16,7 @@
 <?php endif ?>
 	<p><button class="tl" type="submit" formaction="<?= e($modul->url('aktualizuj')) ?>" data-potvrdit="<?= e(t('Aktualizovat systém? Nejprve se vytvoří záloha databáze. Web bude několik vteřin nedostupný.')) ?>"><?= e(t('Aktualizovat na %s', $aktualizace['nova']['verze'])) ?></button></p>
 </div>
-<p class="napoveda"><?= e(t('Před aktualizací se zazálohuje databáze. Balíček se přijme jen s platným podpisem vydavatele. Nepřepisuje se config.php, nahraná média ani vlastní šablony webu.')) ?></p>
+<p class="napoveda"><?= e(t('Před aktualizací se zazálohuje databáze. Balíček se přijme jen s platným podpisem vydavatele. Nepřepisuje se config.php, nahraná média ani vlastní PHP šablona.')) ?></p>
 <?php else: ?>
 <p><?= e(t('Máte aktuální verzi.')) ?><?= $aktualizace['overeno'] ? ' <small>' . e(t('Ověřeno %s.', datum((new DateTimeImmutable())->setTimestamp((int) $aktualizace['overeno']), true))) . '</small>' : '' ?></p>
 <?php endif ?>

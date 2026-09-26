@@ -22,7 +22,7 @@ final class Rozsireni
         'jazyky' => ['Jazykové verze webu', 'Web ve více jazycích: každá další verze (/en/…) má své stránky, kategorie a novinky, přepínač jazyků a značky hreflang. Jazyky vyberete v Nastavení → Základní.', false],
         'api' => ['Veřejné API', 'Čtecí JSON API pro jiný web nebo aplikaci: /api/novinky, /api/novinky/<adresa>, /api/kategorie, /api/stranky.', false],
         'asistent' => ['AI asistent', 'V builderu nové sekce podle popisu a přepisy textů, v novinkách titulky, perex, SEO popis, štítky, korektura, popisy obrázků a překlad. Potřebuje vlastní klíč Claude, OpenAI, Google nebo Mistral (níže); text se posílá jen po kliknutí na tlačítko asistenta.', false],
-        'claude' => ['Napojení na Claude', 'MCP server na adrese /mcp: Claude s právy vašeho účtu staví stránky v builderu, upravuje záhlaví, patičku, kolekce a vzhled a píše novinky – vždy jako koncept ke schválení. Přístupový token si každý vytvoří v nabídce Můj účet.', false],
+        'claude' => ['Napojení na Claude', 'MCP server na adrese /mcp: Claude s právy vašeho účtu staví stránky v builderu, upravuje záhlaví, patičku, kolekce a vzhled a píše novinky. Stránky a novinky ukládá jako koncepty, které zveřejníte vy; menu, vzhled a nastavení platí hned. Přístupový token si každý vytvoří v nabídce Můj účet.', false],
     ];
 
     /** @return list<string> */

@@ -43,8 +43,5 @@ $pole = array_merge($k['pole'], array_fill(0, 3, ['klic' => '', 'popisek' => '',
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit kolekci')) ?>"> <a class="navigace" href="<?= e($modul->url()) ?>"><?= e(t('Zpět')) ?></a></p>
 </form>
 <?php if ($k['idk'] > 0): ?>
-<form class="formular" method="post" action="<?= e($modul->url('smaz')) ?>" data-potvrdit="<?= e(t('Smazat kolekci i se všemi položkami? Výpisy na webu zmizí.')) ?>">
-<?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>">
-<button class="navigace nebezpecne" type="submit"><?= e(t('Smazat kolekci')) ?></button>
-</form>
+<div class="navigace-radek akce-dole"><form class="vradku" method="post" action="<?= e($modul->url('smaz')) ?>" data-potvrdit="<?= e(t('Smazat kolekci i se všemi položkami? Výpisy na webu zmizí.')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat kolekci')) ?></button></form></div>
 <?php endif ?>

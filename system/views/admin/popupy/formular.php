@@ -22,7 +22,10 @@ $vyber = function (string $jmeno, array $moznosti, string $hodnota, bool $preloz
     return $html . '</select>';
 };
 ?>
-<p class="navigace-radek"><a class="tl" href="<?= e($modul->url('stavitel', ['id' => $p['idpp']])) ?>"><?= e(t('Upravit obsah v builderu')) ?></a></p>
+<div class="navigace-radek"><a class="tl" href="<?= e($modul->url('stavitel', ['id' => $p['idpp']])) ?>"><?= e(t('Upravit obsah v builderu')) ?></a>
+	<form class="vradku" method="post" action="<?= e($modul->url('prepni')) ?>"><?= $csrf ?><input type="hidden" name="idpp" value="<?= (int) $p['idpp'] ?>"><input type="hidden" name="z" value="edit"><button class="navigace" type="submit"><?= e($p['aktivni'] ? t('Vypnout') : t('Zapnout')) ?></button></form>
+	<?php if ($p['aktivni']): ?><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span><?php elseif ($p['stavba'] === null): ?><span class="stitek stitek-koncept"><?= e(t('nepublikované')) ?></span><?php else: ?><span class="stitek"><?= e(t('vypnuté')) ?></span><?php endif ?>
+	<span class="napoveda"><?= e(t('Počet zobrazení')) ?>: <?= (int) $p['zobrazeni'] ?> · <?= e(t('Zavření')) ?>: <?= (int) $p['zavreni'] ?> · <?= e(t('Konverze')) ?>: <?= (int) $p['konverze'] ?></span></div>
 <form class="formular" method="post" action="<?= e($modul->url('uloz')) ?>">
 <?= $csrf ?>
 <input type="hidden" name="idpp" value="<?= (int) $p['idpp'] ?>">
@@ -33,7 +36,7 @@ $vyber = function (string $jmeno, array $moznosti, string $hodnota, bool $preloz
 <legend><?= e(t('Kdy se okno ukáže')) ?></legend>
 <div class="radek"><label for="spoustec"><?= e(t('Spouštěč')) ?></label><div><?= $vyber('spoustec', Popupy::SPOUSTECE, $p['spoustec']) ?></div></div>
 <div class="radek"><label for="hodnota"><?= e(t('Hodnota spouštěče')) ?></label><div><input class="textpole" size="5" type="number" id="hodnota" name="hodnota" min="0" max="3600" value="<?= (int) $p['hodnota'] ?>"><span class="napoveda"><?= e(t('Sekundy u času a nečinnosti, procenta stránky u rolování, počet stránek u návštěvy.')) ?></span></div></div>
-<div class="radek"><label for="cetnost"><?= e(t('Četnost')) ?></label><div><?= $vyber('cetnost', Popupy::CETNOSTI, $p['cetnost']) ?> <label for="dni" class="vradku"><?= e(t('počet dní')) ?></label> <input class="textpole" size="5" type="number" id="dni" name="dni" min="1" max="365" value="<?= (int) $p['dni'] ?>"><span class="napoveda"><?= e(t('Pamatuje si to prohlížeč návštěvníka (sessionStorage a localStorage), ne cookies.')) ?></span></div></div>
+<div class="radek"><label for="cetnost"><?= e(t('Četnost')) ?></label><div><?= $vyber('cetnost', Popupy::CETNOSTI, $p['cetnost']) ?> <span data-aktivni-kdyz="cetnost=dni"> <label for="dni" class="vradku"><?= e(t('počet dní')) ?></label> <input class="textpole" size="5" type="number" id="dni" name="dni" min="1" max="365" value="<?= (int) $p['dni'] ?>"></span><span class="napoveda"><?= e(t('Pamatuje si to prohlížeč návštěvníka (sessionStorage a localStorage), ne cookies.')) ?></span></div></div>
 </fieldset>
 <fieldset>
 <legend><?= e(t('Kde se okno ukáže')) ?></legend>
@@ -41,11 +44,12 @@ $vyber = function (string $jmeno, array $moznosti, string $hodnota, bool $preloz
 <label><input type="radio" name="kde" value="vse"<?= $pr['kde'] === 'vse' ? ' checked' : '' ?>> <?= e(t('na celém webu')) ?></label>
 <label><input type="radio" name="kde" value="vybrane"<?= $pr['kde'] === 'vybrane' ? ' checked' : '' ?>> <?= e(t('jen na vybraných stránkách, v kolekcích nebo v novinkách')) ?></label>
 </div></div>
-<div class="radek"><label for="stranky"><?= e(t('Stránky')) ?></label><div><select id="stranky" name="stranky[]" multiple size="8">
+<div data-aktivni-kdyz="kde=vybrane">
+<div class="radek"><span class="popisek"><?= e(t('Stránky')) ?></span><div class="volby volby-seznam">
 <?php foreach ($stranky as $s): ?>
-	<option value="<?= (int) $s['ids'] ?>"<?= in_array((int) $s['ids'], $pr['stranky'], true) ? ' selected' : '' ?>><?= e(($s['jazyk'] !== '' ? strtoupper($s['jazyk']) . ' · ' : '') . $s['titulek']) ?></option>
+<label><input type="checkbox" name="stranky[]" value="<?= (int) $s['ids'] ?>"<?= in_array((int) $s['ids'], $pr['stranky'], true) ? ' checked' : '' ?>> <?= e(($s['jazyk'] !== '' ? strtoupper($s['jazyk']) . ' · ' : '') . $s['titulek']) ?></label>
 <?php endforeach ?>
-</select><span class="napoveda"><?= e(t('Víc stránek vyberete s klávesou Ctrl nebo Cmd.')) ?></span></div></div>
+</div></div>
 <?php if ($kolekce !== []): ?>
 <div class="radek"><span class="popisek"><?= e(t('Stránky položek kolekcí')) ?></span><div class="volby">
 <?php foreach ($kolekce as $k): ?>
@@ -54,6 +58,7 @@ $vyber = function (string $jmeno, array $moznosti, string $hodnota, bool $preloz
 </div></div>
 <?php endif ?>
 <div class="radek"><span class="popisek"><?= e(t('Novinky')) ?></span><div class="volby"><label><input type="checkbox" name="novinky" value="1"<?= $pr['novinky'] ? ' checked' : '' ?>> <?= e(t('výpis novinek, kategorie a jednotlivé novinky')) ?></label></div></div>
+</div>
 <?php if ($jazyky !== []): ?>
 <div class="radek"><label for="jazyk"><?= e(t('Jazyková verze')) ?></label><div><?= $vyber('jazyk', ['' => t('všechny')] + $jazyky, $pr['jazyk'], false) ?></div></div>
 <?php endif ?>
@@ -63,13 +68,10 @@ $vyber = function (string $jmeno, array $moznosti, string $hodnota, bool $preloz
 <div class="radek"><label for="odkud"><?= e(t('Jen odkud přišel')) ?></label><div><input class="textpole" id="odkud" name="odkud" value="<?= e($pr['odkud']) ?>" maxlength="80"><span class="napoveda"><?= e(t('Část adresy webu, ze kterého návštěvník přišel (např. facebook.com). Prázdné = odkudkoli.')) ?></span></div></div>
 </fieldset>
 <div class="radek"><label for="poradi"><?= e(t('Pořadí')) ?></label><div><input class="textpole" size="5" type="number" id="poradi" name="poradi" value="<?= (int) $p['poradi'] ?>"><span class="napoveda"><?= e(t('Když by se ukázalo víc oken, přednost má menší číslo. Přes otevřené okno se další neotevře.')) ?></span></div></div>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit nastavení')) ?>"> <a class="navigace" href="<?= e($modul->url()) ?>"><?= e(t('Zpět')) ?></a></p>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit nastavení')) ?>"></p>
 </form>
-<form class="formular" method="post" action="<?= e($modul->url('vynuluj')) ?>" data-potvrdit="<?= e(t('Vynulovat počitadla zobrazení, zavření a konverzí?')) ?>">
-<?= $csrf ?><input type="hidden" name="idpp" value="<?= (int) $p['idpp'] ?>">
-<button class="navigace" type="submit"><?= e(t('Vynulovat počitadla')) ?></button>
-</form>
-<form class="formular" method="post" action="<?= e($modul->url('smaz')) ?>" data-potvrdit="<?= e(t('Smazat pop-up okno? Z webu zmizí hned.')) ?>">
-<?= $csrf ?><input type="hidden" name="idpp" value="<?= (int) $p['idpp'] ?>">
-<button class="navigace nebezpecne" type="submit"><?= e(t('Smazat okno')) ?></button>
-</form>
+<div class="navigace-radek akce-dole">
+<a class="navigace" href="<?= e($modul->url()) ?>"><?= e(t('Všechna pop-up okna')) ?></a>
+<form class="vradku" method="post" action="<?= e($modul->url('vynuluj')) ?>" data-potvrdit="<?= e(t('Vynulovat počitadla zobrazení, zavření a konverzí?')) ?>"><?= $csrf ?><input type="hidden" name="idpp" value="<?= (int) $p['idpp'] ?>"><button class="navigace" type="submit"><?= e(t('Vynulovat počitadla')) ?></button></form>
+<form class="vradku" method="post" action="<?= e($modul->url('smaz')) ?>" data-potvrdit="<?= e(t('Smazat pop-up okno? Z webu zmizí hned.')) ?>"><?= $csrf ?><input type="hidden" name="idpp" value="<?= (int) $p['idpp'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat okno')) ?></button></form>
+</div>

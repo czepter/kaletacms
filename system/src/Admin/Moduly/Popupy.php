@@ -76,9 +76,13 @@ final class Popupy extends Modul
         if (!preg_match(Okna::VZOR_ADRESY, $adresa) || $this->db->value('SELECT idpp FROM {popupy} WHERE adresa = ? AND idpp <> ?', [$adresa, $p['idpp']]) !== null) {
             return $this->zpet(t('Adresu „%s“ už používá jiné okno.', $adresa), 'edit', ['id' => $p['idpp']], 'chyba');
         }
+        // „na celém webu“: výběr míst je ve formuláři neaktivní a neodešle se – zůstane uložený pro případ, že se k němu vrátíte
+        $vybrane = $r->post('kde') === 'vybrane';
         $pravidla = Okna::vycistiPravidla([
-            'kde' => $r->post('kde'), 'stranky' => is_array($_POST['stranky'] ?? null) ? $_POST['stranky'] : [], 'kolekce' => is_array($_POST['kolekce'] ?? null) ? $_POST['kolekce'] : [],
-            'novinky' => $r->postBool('novinky'), 'jazyk' => $r->post('jazyk'), 'od' => $r->post('od'), 'do' => $r->post('do'),
+            'kde' => $r->post('kde'),
+            'stranky' => $vybrane ? (is_array($_POST['stranky'] ?? null) ? $_POST['stranky'] : []) : $p['pravidla']['stranky'],
+            'kolekce' => $vybrane ? (is_array($_POST['kolekce'] ?? null) ? $_POST['kolekce'] : []) : $p['pravidla']['kolekce'],
+            'novinky' => $vybrane ? $r->postBool('novinky') : $p['pravidla']['novinky'], 'jazyk' => $r->post('jazyk'), 'od' => $r->post('od'), 'do' => $r->post('do'),
             'zarizeni' => $r->post('zarizeni'), 'utm' => $r->post('utm'), 'odkud' => $r->post('odkud'),
         ]);
         $this->db->update('popupy', [
@@ -87,7 +91,7 @@ final class Popupy extends Modul
             'spoustec' => isset(Okna::SPOUSTECE[$r->post('spoustec')]) ? $r->post('spoustec') : $p['spoustec'],
             'hodnota' => max(0, min(3600, $r->postInt('hodnota'))),
             'cetnost' => isset(Okna::CETNOSTI[$r->post('cetnost')]) ? $r->post('cetnost') : $p['cetnost'],
-            'dni' => max(1, min(365, $r->postInt('dni', 7))),
+            'dni' => $r->post('dni') !== '' ? max(1, min(365, $r->postInt('dni', 7))) : (int) $p['dni'], // pole je aktivní jen u četnosti „dni“
             'poradi' => max(-9999, min(9999, $r->postInt('poradi', 100))),
             'pravidla' => (string) json_encode($pravidla, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s'),
         ], ['idpp' => $p['idpp']]);
@@ -103,13 +107,15 @@ final class Popupy extends Modul
         if ($p === null) {
             return $this->zpet();
         }
+        // z nastavení okna se zůstane v nastavení, ze seznamu v seznamu
+        [$akce, $par] = $this->request->post('z') === 'edit' ? ['edit', ['id' => $p['idpp']]] : ['', []];
         if (!$p['aktivni'] && $p['stavba'] === null) {
-            return $this->zpet('Okno nejdřív publikujte v builderu – teprve pak ho jde zapnout.', '', [], 'chyba');
+            return $this->zpet('Okno nejdřív publikujte v builderu – teprve pak ho jde zapnout.', $akce, $par, 'chyba');
         }
         $this->db->update('popupy', ['aktivni' => $p['aktivni'] ? 0 : 1], ['idpp' => $p['idpp']]);
         \Kaleta\Front\Cache::vymaz();
 
-        return $this->zpet($p['aktivni'] ? 'Okno je vypnuté – na webu se už neukáže.' : 'Okno je zapnuté a ukáže se na webu podle pravidel.');
+        return $this->zpet($p['aktivni'] ? 'Okno je vypnuté – na webu se už neukáže.' : 'Okno je zapnuté a ukáže se na webu podle pravidel.', $akce, $par);
     }
 
     protected function akceVynuluj(): Response

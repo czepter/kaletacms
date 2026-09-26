@@ -70,7 +70,7 @@ final class Casti extends Modul
             \Kaleta\Front\Cache::vymaz();
         }
 
-        return $this->zpet($varianta !== '' ? 'Varianta byla smazána – vybrané stránky mají zase výchozí podobu.' : 'Část webu se vrátila na šablonu. Předchozí podobu najdete ve verzích, když ji znovu otevřete v builderu.');
+        return $this->zpet($varianta !== '' ? 'Varianta byla smazána – vybrané stránky mají zase výchozí podobu.' : 'Část webu se vrátila na výchozí podobu. Předchozí podobu najdete ve verzích, když ji znovu otevřete v builderu.');
     }
 
     /** Formulář varianty záhlaví nebo patičky: název a stránky, na kterých platí. */

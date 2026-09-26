@@ -31,7 +31,7 @@ $nastaveniRozsireni = [
 <?php endforeach ?>
 </div>
 <p class="napoveda"><?= e(t('Odkazy u rozšíření se objeví po jeho zapnutí a uložení.')) ?></p>
-<p class="napoveda"><?= e(t('Vždy zapnuté jádro: Stránky, Kolekce, Média, Vzhled webu, Části webu, Menu, Komponenty, Uživatelé a Nastavení.')) ?></p>
+<p class="napoveda"><?= e(t('Vždy zapnuté jádro: Stránky, Kolekce, Média, Vzhled webu, Části webu, Menu, Komponenty, Pop-up okna, Uživatelé a role, Import a export, Protokol změn a Nastavení.')) ?></p>
 <details class="pokrocile" id="asistent"<?= in_array('asistent', $zapnutaRozsireni, true) ? ' open' : '' ?>>
 <summary><?= e(t('AI asistent – poskytovatel, klíč a model')) ?></summary>
 <input type="hidden" name="ai_poskytovatel_puvodni" value="<?= e($hodnoty['ai_poskytovatel']) ?>">

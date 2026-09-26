@@ -17,7 +17,7 @@ final class Identita
 {
     /** klíč => [název, popis, CSS font-family] */
     public const array PISMA_TITULKU = [
-        'vychozi' => ['Podle šablony', 'písmo, se kterým šablona přichází', ''],
+        'vychozi' => ['Výchozí písmo', 'písmo výchozího vzhledu webu', ''],
         'elegantni' => ['Elegantní patkové', 'Bodoni, Didot – elegance a móda', '"Bodoni 72", Didot, "Bodoni MT", "Playfair Display", Georgia, serif'],
         'klasicke' => ['Klasické patkové', 'Georgia – seriózní a dobře čitelné', 'Georgia, "Times New Roman", Times, serif'],
         'knizni' => ['Knižní', 'Charter, Cambria – klidné a literární', 'Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif'],
@@ -28,7 +28,7 @@ final class Identita
     ];
 
     public const array PISMA_TEXTU = [
-        'vychozi' => ['Podle šablony', '', ''],
+        'vychozi' => ['Výchozí písmo', '', ''],
         'patkove' => ['Patkové', 'Georgia – pohodlné pro dlouhé čtení', 'Georgia, "Times New Roman", Times, serif'],
         'knizni' => ['Knižní', 'Charter, Cambria', 'Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif'],
         'moderni' => ['Bezpatkové', 'systémové písmo zařízení', 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'],

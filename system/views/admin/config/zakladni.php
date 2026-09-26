@@ -43,7 +43,7 @@ $pole('email_webu', 'E-mail webu', 'email', 'Chodí na něj upozornění systém
 		<option value="<?= e($kod) ?>"<?= $hodnoty['jazyk_webu'] === $kod ? ' selected' : '' ?>><?= e($nazevJazyka) ?></option>
 <?php endforeach ?>
 	</select>
-	<span class="napoveda"><?= e(t('V tomto jazyce jsou texty šablony (Hledat, Novinky, Číst dál…) a web se tak hlásí vyhledávačům.')) ?></span></div>
+	<span class="napoveda"><?= e(t('V tomto jazyce jsou texty webu (Hledat, Novinky, Číst dál…) a web se tak hlásí vyhledávačům.')) ?></span></div>
 </div>
 <?php if (Kaleta\Core\Rozsireni::je($app->settings(), 'jazyky')): ?>
 <div class="radek" id="jazyky_dalsi">
@@ -73,7 +73,7 @@ $pole('email_webu', 'E-mail webu', 'email', 'Chodí na něj upozornění systém
 		<option value="<?= (int) $idStranky ?>"<?= (int) $hodnoty['titulni_stranka'] === (int) $idStranky ? ' selected' : '' ?>><?= e($titulekStranky) ?></option>
 <?php endforeach ?>
 	</select>
-	<span class="napoveda"><?= e(t('Stránka, která se ukáže na adrese webu. Novinky jsou vždy na /novinky.')) ?></span></div>
+	<span class="napoveda"><?= e(t('Stránka, která se ukáže na adrese webu. Novinky jsou vždy na %s.', substr($app->url('novinky'), strlen($app->request->basePath())))) ?></span></div>
 </div>
 <?php $pole('pocet_clanku', 'Novinek na stránku', 'cislo', '', 'min="1" max="100"'); ?>
 </fieldset>

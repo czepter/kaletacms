@@ -44,6 +44,12 @@ final class Stranky extends Modul
 
         $stranky = $this->db->all('SELECT * FROM {stranky} WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . ($kos ? 'smazano DESC' : 'jazyk, poradi, titulek'), $params);
 
+        // sloupec „V navigaci“: s vlastním menu podle položek menu (stránka nebo odkaz na její adresu), jinak příznak v_menu
+        foreach ($stranky as &$s) {
+            $s['v_menu'] = \Kaleta\Core\Menu::obsahujeStranku($this->db, (int) $s['ids'], (string) $s['jazyk'], (string) $s['seo_link']) ?? (bool) $s['v_menu'];
+        }
+        unset($s);
+
         return $this->view('vypis', 'Stránky', [
             'stranky' => $kos || $hledat !== '' ? $stranky : self::stromem($stranky),
             'kos' => $kos, 'hledat' => $hledat,

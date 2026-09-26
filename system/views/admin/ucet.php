@@ -36,8 +36,12 @@ $akce = e($app->url('admin.php?akce=ucet'));
 <div class="radek"><label for="foto"><?= e(t('Moje fotka')) ?></label><div><input class="textpole siroke" type="text" id="foto" name="foto" value="<?= e($user['foto']) ?>" maxlength="255" data-obrazek><span class="napoveda"><?= e(t('Čtvercová fotka, stačí 300 × 300 px.')) ?></span></div></div>
 <div class="radek"><label for="bio"><?= e(t('Pár vět o mně')) ?></label><div><textarea class="textbox nizky" id="bio" name="bio" rows="4" maxlength="1200"><?= e((string) $user['bio']) ?></textarea><span class="napoveda"><?= e(t('Zobrazí se jako medailonek pod vašimi novinkami. Čím se ve firmě zabýváte a co máte za sebou.')) ?></span></div></div>
 <div class="radek"><label for="jazyk"><?= e(t('Jazyk administrace')) ?></label><div><select id="jazyk" name="jazyk">
-<?php foreach (Kaleta\Core\Jazyk::ADMINISTRACE as $kodJazyka => $nazevJazyka): ?>
-	<option value="<?= e($kodJazyka) ?>"<?= ($user['jazyk'] ?: 'cs') === $kodJazyka ? ' selected' : '' ?>><?= e($nazevJazyka) ?></option>
+<?php
+// vybraný je jazyk, ve kterém administrace opravdu běží (bez vlastní volby jazyk webu, když ho administrace umí)
+$jazykAdministrace = $user['jazyk'] ?: Kaleta\Core\Jazyk::vychozi($app->settings());
+$jazykAdministrace = isset(Kaleta\Core\Jazyk::ADMINISTRACE[$jazykAdministrace]) ? $jazykAdministrace : 'cs';
+foreach (Kaleta\Core\Jazyk::ADMINISTRACE as $kodJazyka => $nazevJazyka): ?>
+	<option value="<?= e($kodJazyka) ?>"<?= $jazykAdministrace === $kodJazyka ? ' selected' : '' ?>><?= e($nazevJazyka) ?></option>
 <?php endforeach ?>
 </select><span class="napoveda">Language · Jazyk</span></div></div>
 </fieldset>
@@ -137,7 +141,7 @@ $akce = e($app->url('admin.php?akce=ucet'));
 	<button class="navigace nebezpecne" type="submit" name="odpojit_klient" value="<?= e($a['klient']) ?>" data-potvrdit="<?= e(t('Odpojit aplikaci? Do webu se už nedostane, dokud ji znovu nepovolíte.')) ?>"><?= e(t('Odpojit')) ?></button></p>
 <?php endforeach ?>
 <?php endif ?>
-<p><?= e(t('Claude bude s webem pracovat')) ?> <strong><?= e(t('vaším jménem a s vašimi právy')) ?></strong>: <?= e(t((int) $user['admin'] === 2 ? 'psát a upravovat stránky a novinky, spravovat kategorie a tvořit šablony webu.' : 'psát a upravovat novinky.')) ?> <?= e(t('Nové novinky zakládá jako koncepty a nové stránky jako skryté. Všechny jeho zásahy najdete v Protokolu změn. Token chraňte jako heslo.')) ?></p>
+<p><?= e(t('Claude bude s webem pracovat')) ?> <strong><?= e(t('vaším jménem a s vašimi právy')) ?></strong>: <?= e(t((int) $user['admin'] === 2 ? 'psát a upravovat stránky a novinky, spravovat kategorie, kolekce a vzhled webu.' : 'psát a upravovat novinky.')) ?> <?= e(t('Nové novinky zakládá jako koncepty a nové stránky jako skryté. Všechny jeho zásahy najdete v Protokolu změn. Token chraňte jako heslo.')) ?></p>
 <?php foreach ($tokeny as $t): ?>
 <p><span class="stitek"><?= e($t['nazev']) ?></span> <?= e(t('vytvořen %s', datum($t['vytvoren']))) ?>, <?= e($t['pouzit'] ? t('naposledy použit %s', datum($t['pouzit'], true)) : t('zatím nepoužit')) ?>
 	<button class="navigace nebezpecne" type="submit" name="smaz_token" value="<?= (int) $t['idt'] ?>" data-potvrdit="<?= e(t('Zrušit token? Claude se jím už nepřihlásí.')) ?>"><?= e(t('Zrušit token')) ?></button></p>

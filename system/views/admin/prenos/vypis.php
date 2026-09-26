@@ -59,7 +59,7 @@ $faze = [
 <?php endif ?>
 
 <h2><?= e(t('Export celého webu')) ?></h2>
-<p><?= e(t('Jedním archivem dostanete všechen obsah v otevřeném formátu: stránky, novinky, kategorie, štítky, přesměrování a nahrané soubory. Hesla, klíče ani účty v něm nejsou.')) ?></p>
+<p><?= e(t('Jedním archivem dostanete celý web v otevřeném formátu (JSON): stránky, novinky, kategorie, štítky, přesměrování, menu, kolekce, pop-up okna, části webu, komponenty, sdílené třídy a nahrané soubory – jako zálohu obsahu nebo pro převod jinam. Poptávky, hesla, klíče ani účty v něm nejsou.')) ?></p>
 <?php if (!$umiZip): ?>
 <p class="hlaska"><?= e(t('Na serveru chybí rozšíření PHP zip, export proto obsahuje jen data (JSON). Složku media/ si stáhněte přes FTP.')) ?></p>
 <?php endif ?>

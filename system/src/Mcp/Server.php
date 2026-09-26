@@ -11,7 +11,7 @@ use Kaleta\Core\Rozsireni;
 
 /**
  * MCP server (Model Context Protocol, přenos "Streamable HTTP") na adrese /mcp.
- * Přes něj umí Claude pracovat s webem: číst a psát stránky a novinky, spravovat kategorie a tvořit šablony webu.
+ * Přes něj umí Claude pracovat s webem: číst a psát stránky a novinky, spravovat kategorie, kolekce, části webu a vzhled.
  *
  * Přihlášení: hlavička "Authorization: Bearer <token>" – osobní token z nabídky Můj účet, nebo token aplikace připojené
  * přes OAuth (konektor v Claudu, Front\OAuth).

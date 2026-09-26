@@ -19,7 +19,7 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 <div class="radek">
 	<label for="seo_link"><?= e(t('Adresa')) ?></label>
 	<div><input class="textpole siroke" type="text" id="seo_link" name="seo_link" value="<?= e($kategorie['seo_link']) ?>" maxlength="110" placeholder="<?= e(t('vytvoří se z názvu')) ?>">
-	<span class="napoveda"><?= e(t('Část adresy za /novinky/kategorie/.')) ?></span></div>
+	<span class="napoveda"><?= e(t('Část adresy za %s.', substr($app->url('novinky/kategorie/'), strlen($app->request->basePath())))) ?></span></div>
 </div>
 <div class="radek">
 	<label for="popis"><?= e(t('Popis')) ?></label>

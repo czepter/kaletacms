@@ -16,8 +16,8 @@
 <tbody>
 <?php foreach ($kategorie as $k): ?>
 <tr>
-	<td><a href="<?= e($modul->url('edit', ['id' => $k['idt']])) ?>"><?= e($k['nazev']) ?></a></td>
-	<td>/novinky/kategorie/<?= e($k['seo_link']) ?></td>
+	<td><a href="<?= e($modul->url('edit', ['id' => $k['idt']])) ?>"><?= e($k['nazev']) ?></a><?= ($k['jazyk'] ?? '') !== '' ? ' <span class="stitek">' . e(strtoupper($k['jazyk'])) . '</span>' : '' ?></td>
+	<td><?= e('/' . (($k['jazyk'] ?? '') !== '' ? $k['jazyk'] . '/' : '') . ltrim(substr($app->url('novinky/kategorie/' . $k['seo_link']), strlen($app->request->basePath())), '/')) ?></td>
 	<td class="cislo"><?= (int) $k['pocet_clanku'] ?></td>
 	<td class="cislo"><?= (int) $k['hodnost'] ?></td>
 	<td class="akce">

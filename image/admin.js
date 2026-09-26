@@ -236,6 +236,30 @@
 	});
 	/* ---------- drobné obsluhy místo inline skriptů (administrace má Content-Security-Policy bez 'unsafe-inline') ---------- */
 
+	// data-aktivni-kdyz="pole=hodnota": pole uvnitř bloku jsou aktivní, jen když má pole formuláře danou hodnotu
+	// (počet dní jen u četnosti „jednou za N dní“, výběr stránek jen u „jen na vybraných místech“)
+	var zavisla = document.querySelectorAll('[data-aktivni-kdyz]');
+	var obnovZavisla = function () {
+		zavisla.forEach(function (blok) {
+			var podminka = blok.getAttribute('data-aktivni-kdyz').split('=');
+			var pole = blok.closest('form') && blok.closest('form').elements[podminka[0]];
+			// zaškrtávací políčko: hodnota jen, když je zaškrtnuté („zobrazit=“ = nezaškrtnuté)
+			var hodnota = pole && pole.type === 'checkbox' ? (pole.checked ? pole.value : '') : (pole ? pole.value : '');
+			var zapnuto = !pole || hodnota === podminka[1];
+			blok.querySelectorAll('input, select, textarea').forEach(function (i) { i.disabled = !zapnuto; });
+			blok.classList.toggle('neaktivni', !zapnuto);
+		});
+	};
+	if (zavisla.length) { document.addEventListener('change', obnovZavisla); obnovZavisla(); }
+
+	// záhlaví číselného sloupce se zarovná jako čísla pod ním (buňky td.cislo v prvním řádku)
+	document.querySelectorAll('table.vypis').forEach(function (tabulka) {
+		var radek = tabulka.tBodies[0] && tabulka.tBodies[0].rows[0];
+		var hlavicka = tabulka.tHead && tabulka.tHead.rows[0];
+		if (!radek || !hlavicka || radek.cells.length !== hlavicka.cells.length) { return; }
+		Array.prototype.forEach.call(radek.cells, function (bunka, i) { if (bunka.classList.contains('cislo')) { hlavicka.cells[i].classList.add('cislo'); } });
+	});
+
 	document.addEventListener('change', function (e) {
 		var prvek = e.target;
 		if (prvek.hasAttribute && prvek.hasAttribute('data-odeslat-pri-zmene') && prvek.form) { prvek.form.submit(); }

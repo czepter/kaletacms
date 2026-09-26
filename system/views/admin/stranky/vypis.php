@@ -11,15 +11,15 @@
 $uvod = $app->settings()->int('titulni_stranka');
 $adresa = fn (array $s): string => ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '') . ((int) $s['ids'] === $uvod ? '' : $s['seo_link']);
 ?>
-<p class="navigace-radek"><a class="tl" href="<?= e($modul->url('novy')) ?>"><?= e(t('Nová stránka')) ?></a>
+<div class="navigace-radek"><a class="tl" href="<?= e($modul->url('novy')) ?>"><?= e(t('Nová stránka')) ?></a>
 	<form class="vradku" method="post" action="<?= e($modul->url('import')) ?>" enctype="multipart/form-data"><?= $csrf ?>
-		<label class="navigace"><?= e(t('Import stránky (JSON)')) ?> <input type="file" name="soubor" accept="application/json,.json" data-odeslat-pri-zmene hidden></label></form></p>
+		<label class="navigace"><?= e(t('Import stránky (JSON)')) ?> <input type="file" name="soubor" accept="application/json,.json" data-odeslat-pri-zmene></label></form></div>
+<?php if ($vKosi > 0 || $kos): // záložky jen s košem – samotné „Všechny“ nemají smysl ?>
 <nav class="zalozky" aria-label="<?= e(t('Stránky')) ?>">
 	<a href="<?= e($modul->url()) ?>"<?= $kos ? '' : ' class="aktivni" aria-current="true"' ?>><?= e(t('Všechny')) ?></a>
-<?php if ($vKosi > 0 || $kos): ?>
 	<a href="<?= e($modul->url('', ['stav' => 'kos'])) ?>"<?= $kos ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Koš')) ?> (<?= $vKosi ?>)</a>
-<?php endif ?>
 </nav>
+<?php endif ?>
 <?php if (!$kos && ($stranky !== [] || $hledat !== '')): ?>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
 	<input type="hidden" name="modul" value="stranky">

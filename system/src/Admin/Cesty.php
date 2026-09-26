@@ -25,10 +25,11 @@ final class Cesty
         [['Nastavení', 'Základní'], 'config', 'modul=config&zalozka=zakladni'],
         [['Nastavení', 'Měření'], 'config', 'modul=config&zalozka=mereni'],
         [['Nastavení', 'Pošta'], 'config', 'modul=config&zalozka=posta'],
-        [['Vzhled', 'Identita webu'], 'vzhled', 'modul=vzhled'],
+        [['Vzhled', 'Vzhled webu'], 'vzhled', 'modul=vzhled'],
+        [['Vzhled', 'Menu'], 'menu', 'modul=menu'],
         [['Zálohy a aktualizace'], 'config', 'modul=config&zalozka=zalohy'],
         [['Novinky', 'Koš'], 'novinky', 'modul=novinky&stav=kos'],
-        [['Identita webu'], 'vzhled', 'modul=vzhled'],
+        [['Vzhled webu'], 'vzhled', 'modul=vzhled'],
         [['Stav systému'], 'config', 'modul=config&zalozka=stav'],
         [['Můj účet'], '', 'akce=ucet'],
     ];

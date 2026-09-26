@@ -207,16 +207,21 @@ final class Menu
         }
     }
 
-    /** Je stránka v uloženém hlavním menu? null = menu je automatické (platí sloupec v_menu). */
-    public static function obsahujeStranku(Db $db, int $ids, string $jazyk): ?bool
+    /**
+     * Je stránka v uloženém hlavním menu – jako stránka, nebo odkazem na její adresu (/sluzby, /de/leistungen)?
+     * null = menu je automatické (platí sloupec v_menu).
+     */
+    public static function obsahujeStranku(Db $db, int $ids, string $jazyk, ?string $seo = null): ?bool
     {
         $polozky = self::nacti($db, 'hlavni', $jazyk);
         if ($polozky === null) {
             return null;
         }
+        $seo ??= (string) $db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$ids]);
+        $cesta = '/' . ($jazyk !== '' ? $jazyk . '/' : '') . $seo;
         foreach ($polozky as $p) {
             foreach ([$p, ...($p['deti'] ?? [])] as $x) {
-                if ($x['typ'] === 'stranka' && $x['ids'] === $ids) {
+                if (($x['typ'] === 'stranka' && $x['ids'] === $ids) || ($x['typ'] === 'odkaz' && $seo !== '' && rtrim((string) $x['url'], '/') === $cesta)) {
                     return true;
                 }
             }

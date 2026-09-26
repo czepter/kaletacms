@@ -173,7 +173,7 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 <div class="radek">
 	<label for="seo_link"><?= e(t('Adresa')) ?></label>
 	<div><input class="textpole siroke" type="text" id="seo_link" name="seo_link" value="<?= e($novinka['seo_link']) ?>" maxlength="150" placeholder="<?= e(t('vytvoří se z titulku')) ?>">
-	<span class="napoveda"><?= e(t('Část adresy za /novinky/. Když ji po vydání změníte, stará adresa se sama přesměruje.')) ?></span></div>
+	<span class="napoveda"><?= e(t('Část adresy za %s. Když ji po vydání změníte, stará adresa se sama přesměruje.', substr($app->url('novinky/'), strlen($app->request->basePath())))) ?></span></div>
 </div>
 <div class="radek">
 	<label for="seo_titulek"><?= e(t('Titulek pro vyhledávače')) ?></label>

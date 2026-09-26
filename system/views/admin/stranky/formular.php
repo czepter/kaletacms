@@ -98,7 +98,7 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 	<span class="popisek"><?= e(t('Zobrazení')) ?></span>
 	<div class="volby">
 		<label><input type="checkbox" name="zobrazit" value="1"<?= $stranka['zobrazit'] ? ' checked' : '' ?>> <?= e(t('Zveřejnit stránku')) ?></label><?= $uvod ? ' <span class="stitek">' . e(t('úvodní stránka webu')) . '</span>' : '' ?><?= $chyba('zobrazit') ?><br>
-		<span class="napoveda"><label for="zverejnit_od"><?= e(t('Skrytou stránku zveřejnit automaticky:')) ?></label> <input class="textpole" type="datetime-local" id="zverejnit_od" name="zverejnit_od" value="<?= e(($stranka['zverejnit_od'] ?? null) ? date('Y-m-d\TH:i', strtotime($stranka['zverejnit_od'])) : '') ?>"></span><br>
+		<span class="napoveda" data-aktivni-kdyz="zobrazit="><label for="zverejnit_od"><?= e(t('Skrytou stránku zveřejnit automaticky:')) ?></label> <input class="textpole" type="datetime-local" id="zverejnit_od" name="zverejnit_od" value="<?= e(($stranka['zverejnit_od'] ?? null) ? date('Y-m-d\TH:i', strtotime($stranka['zverejnit_od'])) : '') ?>"></span><br>
 		<label><input type="checkbox" name="v_menu" value="1"<?= ($vMenu ?? (bool) $stranka['v_menu']) ? ' checked' : '' ?>> <?= e(t('Zobrazit v hlavní navigaci webu')) ?></label>
 <?php if ($vlastniMenu): ?>
 		<span class="napoveda"><?= e(t('Web má sestavené menu – stránka se přidá na jeho konec. Pořadí a podmenu upravíte ve Vzhled → Menu.')) ?></span>

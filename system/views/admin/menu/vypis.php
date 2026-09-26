@@ -25,7 +25,7 @@ $volba = ['umisteni' => $umisteni, 'jazyk' => $jazyk];
 <?php endif ?>
 <p class="smltxt"><?= e(t($umisteni === 'hlavni'
     ? ($automaticke ? 'Menu se zatím skládá samo ze stránek zaškrtnutých „v navigaci“. Když ho tady upravíte a uložíte, bude platit tahle podoba.' : 'Pořadí měníte přetažením nebo šipkami. Šipkou vpravo zařadíte položku do podmenu té nad ní.')
-    : 'Odkazy v patičce webu (zásady ochrany soukromí, kontakt, kariéra…). Použije je šablona i prvek Navigace nastavený na menu v patičce.')) ?></p>
+    : 'Odkazy v patičce webu (zásady ochrany soukromí, kontakt, kariéra…). Použije je výchozí patička i prvek Navigace nastavený na menu v patičce.')) ?></p>
 
 <form method="post" action="<?= e($modul->url('uloz', $volba)) ?>" class="menu-formular" data-menu>
 <?= $csrf ?>
