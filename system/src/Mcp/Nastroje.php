@@ -224,10 +224,16 @@ final class Nastroje
                 return array_map(fn (array $r): array => ['id' => (int) $r['ids'], 'titulek' => $r['titulek'], 'adresa' => $this->app->request->origin()
                     . $this->app->url(($r['jazyk'] !== '' ? $r['jazyk'] . '/' : '') . ((int) $r['ids'] === $uvod || ($uvod > 0 && (int) $r['preklad_z'] === $uvod) ? '' : $r['seo_link'])),
                     'uvodni' => (int) $r['ids'] === $uvod, 'zobrazena' => (bool) $r['zobrazit'], 'v_menu' => (bool) $r['v_menu'], 'jazyk' => $r['jazyk']],
-                    $db->all('SELECT ids, titulek, seo_link, zobrazit, v_menu, jazyk, preklad_z FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, titulek'));
+                    // bez sekce Stránky (autor novinek) jen zveřejněné stránky – na ty smí odkazovat, koncepty nevidí
+                    $db->all('SELECT ids, titulek, seo_link, zobrazit, v_menu, jazyk, preklad_z FROM {stranky} WHERE smazano IS NULL' . ($auth->maModul('stranky') ? '' : ' AND zobrazit = 1') . ' ORDER BY jazyk, poradi, titulek'));
 
             case 'nacti_stranku':
-                return $this->stranka((int) ($a['id'] ?? 0));
+                $stranka = $this->stranka((int) ($a['id'] ?? 0));
+                if (!$stranka['zobrazit'] && !$auth->maModul('stranky')) {
+                    throw new \InvalidArgumentException('Stránka neexistuje. Použij nástroj seznam_stranek.');
+                }
+
+                return $stranka;
 
             case 'vytvor_stranku':
             case 'uprav_stranku':
@@ -321,7 +327,7 @@ final class Nastroje
 
             case 'stavba_z_html':
                 $cil = $this->cilStavby($a, true);
-                ['stavba' => $stavba, 'hlaseni' => $hlaseni] = ZHtml::doWebu($db, (string) ($a['html'] ?? ''), $auth->isAdmin(), !empty($a['prepsat_tridy']));
+                ['stavba' => $stavba, 'hlaseni' => $hlaseni] = ZHtml::doWebu($db, (string) ($a['html'] ?? ''), $auth->isAdmin(), $auth->isAdmin() && !empty($a['prepsat_tridy'])); // sdílené třídy mění jen správce
                 if (empty($a['prepsat_tridy'])) {
                     $hlaseni = array_map(fn (string $h): string => str_ends_with($h, 'ponechána beze změny.') ? substr($h, 0, -1) . ' (prepsat_tridy: true ji přepíše).' : $h, $hlaseni);
                 }
@@ -522,8 +528,8 @@ final class Nastroje
                     $kde[] = 'jazyk = ?';
                     $par[] = $a['jazyk'];
                 }
-                if (!empty($a['jen_zobrazene'])) {
-                    $kde[] = 'zobrazit = 1';
+                if (!empty($a['jen_zobrazene']) || !$auth->maModul('kolekce')) {
+                    $kde[] = 'zobrazit = 1'; // bez sekce Kolekce jen zveřejněné položky
                 }
                 if (is_string($a['hledat'] ?? null) && trim($a['hledat']) !== '') {
                     $kde[] = '(nazev LIKE ? OR data LIKE ?)';
@@ -631,7 +637,7 @@ final class Nastroje
                 return array_map(fn (array $r): array => ['id' => (int) $r['idt'], 'nazev' => $r['nazev'], 'adresa' => $r['seo_link'], 'jazyk' => $r['jazyk'], 'novinek' => (int) $r['pocet_clanku']], Kategorie::seznam($db));
 
             case 'vytvor_kategorii':
-                if (!$auth->smiVydavat()) {
+                if (!$auth->smiVydavat() || !$auth->maModul('kategorie')) {
                     throw new \DomainException('Kategorie smí zakládat editor nebo správce.');
                 }
                 $jmeno = mb_substr(trim((string) ($a['nazev'] ?? '')), 0, 100);
@@ -712,6 +718,9 @@ final class Nastroje
                 if (!\Kaleta\Core\Rozsireni::je($web, 'presmerovani')) {
                     throw new \DomainException('Rozšíření Přesměrování je vypnuté (Rozšíření v administraci).');
                 }
+                if (!$auth->maModul('presmerovani')) {
+                    throw new \DomainException('Přesměrování smí spravovat jen role se sekcí Přesměrování.');
+                }
                 if ($nazev === 'uloz_presmerovani') {
                     $jenAdmin();
                     $z = trim((string) parse_url((string) ($a['z'] ?? ''), PHP_URL_PATH), '/ ');
@@ -737,7 +746,7 @@ final class Nastroje
                     'nenalezeno' => $db->all('SELECT cesta, pocet, naposledy FROM {nenalezeno} ORDER BY pocet DESC LIMIT 30')];
 
             case 'smaz_stranku':
-                if (!$auth->smiVydavat()) {
+                if (!$auth->smiVydavat() || !$auth->maModul('stranky')) {
                     throw new \DomainException('Stránku smí smazat editor nebo správce.');
                 }
                 $stranka = $this->stranka((int) ($a['id'] ?? 0));
@@ -1200,7 +1209,7 @@ final class Nastroje
             'stranka' => 'stranka:' . (int) $r['ids'],
             'kolekce' => \Kaleta\Stavitel\Kolekce::klicSablony($r),
             'popup' => 'popup:' . (int) $r['idpp'],
-            default => 'cast:' . $r['typ'] . ':' . $r['jazyk'],
+            default => 'cast:' . $r['typ'] . ':' . $r['jazyk'] . ($r['varianta'] !== '' ? ':' . $r['varianta'] : ''), // odkaz na záhlaví neukáže koncept varianty
         };
         $klic = \Kaleta\Core\Nahled::klic($this->app->db(), $this->app->settings(), $podpis, $minut);
         if ($cil['druh'] === 'popup') {

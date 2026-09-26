@@ -55,6 +55,9 @@ final class Server
         }
         // dávka zpráv i jediná zpráva
         $davka = array_is_list($zprava) ? $zprava : [$zprava];
+        if (count($davka) > 50) {
+            return Response::json(['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32600, 'message' => 'Dávka má nejvýš 50 zpráv.']], 400);
+        }
         $odpovedi = array_values(array_filter(array_map($this->zpracuj(...), $davka)));
         if ($odpovedi === []) {
             return new Response('', 202);

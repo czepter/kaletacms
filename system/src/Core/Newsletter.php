@@ -108,7 +108,7 @@ final class Newsletter
     public static function proved(Settings $s, string $email, string $akce, string $zdroj = ''): void
     {
         $sluzba = $s->get('newsletter_sluzba');
-        $klic = $s->get('newsletter_klic');
+        $klic = str_replace(["\r", "\n"], '', $s->get('newsletter_klic')); // klíč jde do hlavičky – bez zalomení řádku
         $seznam = $s->get('newsletter_seznam');
         $pridat = $akce === 'pridat';
         [$metoda, $url, $hlavicky, $telo, $chybiOk] = match ($sluzba) {
@@ -151,7 +151,7 @@ final class Newsletter
     private static function http(string $metoda, string $url, array $hlavicky, ?array $telo): array
     {
         $odpoved = @file_get_contents($url, false, stream_context_create(['http' => [
-            'method' => $metoda, 'timeout' => 6, 'ignore_errors' => true,
+            'method' => $metoda, 'timeout' => 6, 'ignore_errors' => true, 'follow_location' => 0, // služba nepřesměruje požadavek jinam
             'header' => implode("\r\n", array_merge(['Content-Type: application/json; charset=utf-8', 'Accept: application/json', 'User-Agent: Kaleta/' . KALETA_VERSION], $hlavicky)) . "\r\n",
             'content' => $telo === null ? '' : (string) json_encode($telo, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ]]));

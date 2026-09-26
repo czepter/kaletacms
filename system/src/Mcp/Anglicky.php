@@ -281,6 +281,7 @@ final class Anglicky
         'Stránka musí mít název.' => 'The page needs a name.',
         'Stránka neexistuje. Použij nástroj seznam_stranek.' => 'The page does not exist. Use list_pages.',
         'Stránku smí smazat editor nebo správce.' => 'Only editors and administrators can delete pages.',
+        'Přesměrování smí spravovat jen role se sekcí Přesměrování.' => 'Only roles with the Redirects section can manage redirects.',
         'Stránky smí upravovat editor nebo správce.' => 'Only editors and administrators can change pages.',
         'Styl obsahuje zastaralé spustitelné konstrukce (expression, behavior). Nic se neuložilo.' => 'The style contains obsolete executable constructs (expression, behavior). Nothing was saved.',
         'Tento nástroj smí použít jen správce webu.' => 'Only the site administrator can use this tool.',

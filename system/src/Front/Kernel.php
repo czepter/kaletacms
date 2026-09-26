@@ -818,7 +818,7 @@ final class Kernel
         $k->cesta = $cesta;
         $k->jazyky = $jazykyHtml;
         $nahled = isset(\Kaleta\Stavitel\Casti::TYPY[$r->get('cast')]) && $r->get('stavba') === 'koncept'
-            && ($this->app->auth()->isAdmin() || $this->smiKoncept('cast:' . $r->get('cast') . ':' . Jazyk::sloupecWebu())) ? $r->get('cast') : '';
+            && ($this->app->auth()->isAdmin() || $this->smiKoncept('cast:' . $r->get('cast') . ':' . Jazyk::sloupecWebu() . ($r->get('varianta') !== '' ? ':' . $r->get('varianta') : ''))) ? $r->get('cast') : '';
         $editor = $r->get('editor') === '1' && ($nahled !== '' || ($r->get('stavba') === 'koncept' && $r->get('cast') === ''));
         $jazyk = Jazyk::sloupecWebu();
         // stránka webu může mít vlastní variantu záhlaví a patičky; v editoru varianty rozhoduje parametr ?varianta=

@@ -203,6 +203,10 @@ over('Pop-up: období a jazyk platí i pro celý web', [
     Kaleta\Stavitel\Popupy::odpovida($ppObdobi, $ppKde(['jazyk' => 'cs', 'dnes' => '2026-10-15'])), Kaleta\Stavitel\Popupy::odpovida($ppObdobi, $ppKde(['jazyk' => 'en', 'dnes' => '2026-11-01'])),
 ], [false, true, false, false]);
 $navCss = Kaleta\Stavitel\Prvky\Navigace::zakladniCss();
+over('Kolekce: hodnota v Vlastním HTML je escapovaná, formátovaný text vyčištěný', [
+    Kaleta\Stavitel\Kolekce::dosad('<div title="{{nazev}}">{{nazev}}</div>', 'kod', ['nazev' => ['<img src=x onerror=alert(1)>"', 'text']]),
+    Kaleta\Stavitel\Kolekce::dosad('<div>{{telo}}</div>', 'kod', ['telo' => ['<p>Ahoj</p><img src=x onerror=alert(1)>', 'html']]),
+], ['<div title="&lt;img src=x onerror=alert(1)&gt;&quot;">&lt;img src=x onerror=alert(1)&gt;&quot;</div>', '<div><p>Ahoj</p><img src="x"></div>']);
 over('Navigace: menu na telefonu se dá posouvat (dlouhé menu se skupinami)', (bool) preg_match('/@media \\(max-width: 767px\\).*?\\.ka-nav-menu\\[popover\\] \\{[^}]*max-height:[^}]*overflow-y: auto/s', $navCss), true);
 over('MCP anglicky: pop-up okno – hodnoty a pravidla', Kaleta\Mcp\Anglicky::argumenty('save_popup', ['type' => 'slide_in', 'trigger' => 'exit', 'frequency' => 'until_closed', 'template' => 'lead_magnet',
     'rules' => ['where' => 'selected', 'pages' => [2], 'device' => 'phone', 'campaign' => 'jaro']]),

@@ -119,7 +119,8 @@ final class Formulare
             Posta::odesli($web, $email, t('Potvrzení: %s', $web->get('nazev_webu')), $prvek['obsah']['dekujeme'] . "\n\n—\n" . $web->get('nazev_webu') . "\n" . rtrim($web->get('adresa_webu') ?: $r->origin(), '/'), '');
         }
         $dekovna = (string) ($prvek['obsah']['dekovna'] ?? '');
-        if ($dekovna !== '' && (str_starts_with($dekovna, '/') && !str_starts_with($dekovna, '//') || preg_match('#^https://#', $dekovna))) {
+        // „/\cizi.cz“ prohlížeč chápe jako //cizi.cz – zpětné lomítko v adrese děkovné stránky neprojde
+        if ($dekovna !== '' && !str_contains($dekovna, '\\') && (str_starts_with($dekovna, '/') && !str_starts_with($dekovna, '//') || preg_match('#^https://#', $dekovna))) {
             // adresa na webu je celá cesta (i s jazykem, /en/…), jen se doplní složka instalace
             // ?odeslano=<název> na děkovné stránce ohlásí konverzi měření (image/web.js), stejně jako poděkování na místě
             $dekovna = (str_starts_with($dekovna, '/') ? $r->basePath() . $dekovna : $dekovna);

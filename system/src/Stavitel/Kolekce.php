@@ -278,6 +278,8 @@ final class Kolekce
             return match ($cil) {
                 'html' => $typ === 'html' ? $h : ($typ === 'radky' ? nl2br(e($h), false) : e($h)),
                 'inline' => $typ === 'radky' ? nl2br(e($h), false) : e($prosty),
+                // Vlastní HTML se vypisuje, jak je (filtr kódu proběhl při uložení, dosazení až teď): hodnota nesmí přinést značky
+                'kod' => $typ === 'html' ? \Kaleta\Core\Html::bezpecne($h) : ($typ === 'radky' ? nl2br(e($h), false) : e($h)),
                 default => $prosty,
             };
         }, $text);
