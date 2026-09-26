@@ -218,7 +218,7 @@ final class Novinky extends Modul
         $data['seo_link'] = $this->volnySeoLink($data['seo_link'], $id);
         if ($id > 0) {
             if ([$puvodni['titulek'], $puvodni['uvod'], $puvodni['text']] !== [$data['titulek'], $data['uvod'], $data['text']]) {
-                $this->ulozRevizi($puvodni);
+                self::revize($this->db, $puvodni, $this->app->auth()->id());
             }
             $this->db->update('novinky', $data, ['idc' => $id]);
             if ($puvodni['seo_link'] !== $data['seo_link'] && $puvodni['visible']) {
@@ -233,7 +233,7 @@ final class Novinky extends Modul
         \Kaleta\Core\Hledani::indexuj($this->db, $id);
         // uložená novinka ruší rozepsaný stav na serveru (u nové je veden pod číslem 0)
         $this->db->run('DELETE FROM {novinky_koncepty} WHERE kdo = ? AND idc IN (0, ?)', [$auth->id(), $id]);
-        $this->ulozStitky($id, $r->post('stitky'));
+        self::stitky($this->db, $id, $r->post('stitky'));
         // nově vydaná novinka se oznámí (webhook, IndexNow); naplánovaná počká na svůj čas - viz Core\Oznameni
         \Kaleta\Core\Oznameni::zpracuj($this->app);
         if ($data['visible'] && !empty($puvodni['visible']) && !$data['noindex'] && strtotime($data['datum']) <= time()) {
@@ -263,7 +263,7 @@ final class Novinky extends Modul
             return $this->zpetNaWeb($r->post('zpet'), '?' . ($nahled !== '' ? $nahled . '&' : '') . 'upravit=text&chyba=1');
         }
         if ([$novinka['titulek'], $novinka['uvod'], $novinka['text']] !== array_values($data)) {
-            $this->ulozRevizi($novinka);
+            self::revize($this->db, $novinka, $this->app->auth()->id());
         }
         $this->db->update('novinky', $data + ['zmeneno' => date('Y-m-d H:i:s')], ['idc' => $novinka['idc']]);
         Galerie::zapisPouziti($this->db, (int) $novinka['idc'], (string) $novinka['obrazek'], $data['uvod'], $data['text']);
@@ -576,28 +576,29 @@ final class Novinky extends Modul
     }
 
     /** Uloží předchozí podobu novinky; drží se posledních 20 verzí. */
-    private function ulozRevizi(array $puvodni): void
+    /** Předchozí podoba novinky do historie (posledních 20 verzí) – administrace i MCP. */
+    public static function revize(\Kaleta\Core\Db $db, array $puvodni, ?int $kdo): void
     {
-        $this->db->insert('novinky_revize', [
-            'idc' => $puvodni['idc'], 'datum' => $puvodni['zmeneno'] ?? $puvodni['datum'], 'kdo' => $this->app->auth()->id(),
+        $db->insert('novinky_revize', [
+            'idc' => $puvodni['idc'], 'datum' => $puvodni['zmeneno'] ?? $puvodni['datum'], 'kdo' => $kdo,
             'titulek' => $puvodni['titulek'], 'uvod' => $puvodni['uvod'], 'text' => $puvodni['text'],
         ]);
-        $hranice = $this->db->value('SELECT idr FROM {novinky_revize} WHERE idc = ? ORDER BY idr DESC LIMIT 1 OFFSET 20', [$puvodni['idc']]);
+        $hranice = $db->value('SELECT idr FROM {novinky_revize} WHERE idc = ? ORDER BY idr DESC LIMIT 1 OFFSET 20', [$puvodni['idc']]);
         if ($hranice !== null) {
-            $this->db->run('DELETE FROM {novinky_revize} WHERE idc = ? AND idr <= ?', [$puvodni['idc'], $hranice]);
+            $db->run('DELETE FROM {novinky_revize} WHERE idc = ? AND idr <= ?', [$puvodni['idc'], $hranice]);
         }
     }
 
-    /** Štítky zapsané čárkami; neznámé se založí. */
-    private function ulozStitky(int $idc, string $vstup): void
+    /** Štítky zapsané čárkami (nejvýš 20); neznámé se založí – administrace i MCP. */
+    public static function stitky(\Kaleta\Core\Db $db, int $idc, string $vstup): void
     {
-        $this->db->delete('novinky_stitky', ['idc' => $idc]);
+        $db->delete('novinky_stitky', ['idc' => $idc]);
         $nazvy = array_unique(array_filter(array_map(fn (string $n): string => mb_substr(trim($n), 0, 80), explode(',', $vstup))));
         foreach (array_slice($nazvy, 0, 20) as $nazev) {
             $seo = slugify($nazev, 90);
-            $ids = $this->db->value('SELECT ids FROM {stitky} WHERE seo_link = ?', [$seo]);
-            $ids = $ids !== null ? (int) $ids : $this->db->insert('stitky', ['nazev' => $nazev, 'seo_link' => $seo]);
-            $this->db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) VALUES (?, ?)', [$idc, $ids]);
+            $ids = $db->value('SELECT ids FROM {stitky} WHERE seo_link = ?', [$seo]);
+            $ids = $ids !== null ? (int) $ids : $db->insert('stitky', ['nazev' => $nazev, 'seo_link' => $seo]);
+            $db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) VALUES (?, ?)', [$idc, $ids]);
         }
     }
 

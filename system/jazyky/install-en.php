@@ -4,7 +4,6 @@
 
 return [
     'Instalace Kalety' => 'Kaleta installation',
-    'Tři krátké kroky a váš web běží. Vše lze později změnit v administraci.' => 'Three short steps and your website is running. Everything can be changed later in the administration.',
     'Kontrola serveru' => 'Server check',
     'Server nesplňuje požadavky. Opravte položky označené křížkem a obnovte stránku.' => 'The server does not meet the requirements. Fix the items marked with a cross and reload the page.',
     'Instalaci se nepodařilo dokončit – zkontrolujte zvýrazněná pole.' => 'The installation could not be completed – check the highlighted fields.',

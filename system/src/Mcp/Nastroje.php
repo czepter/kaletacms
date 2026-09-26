@@ -816,17 +816,12 @@ final class Nastroje
             $id = $db->insert('novinky', $data);
         } else {
             $id = (int) $puvodni['idc'];
-            $db->insert('novinky_revize', ['idc' => $id, 'datum' => $puvodni['zmeneno'] ?? $puvodni['datum'], 'kdo' => $auth->id(), 'titulek' => $puvodni['titulek'], 'uvod' => $puvodni['uvod'], 'text' => $puvodni['text']]);
+            \Kaleta\Admin\Moduly\Novinky::revize($db, $puvodni, $auth->id()); // historie se promazává stejně jako v administraci
             $db->update('novinky', $data, ['idc' => $id]);
         }
         \Kaleta\Core\Hledani::indexuj($db, $id);
         if (array_key_exists('stitky', $a)) {
-            $db->delete('novinky_stitky', ['idc' => $id]);
-            foreach (array_slice(array_unique(array_filter(array_map(trim(...), explode(',', (string) $a['stitky'])))), 0, 20) as $stitek) {
-                $seo = slugify($stitek, 90);
-                $ids = $db->value('SELECT ids FROM {stitky} WHERE seo_link = ?', [$seo]) ?? $db->insert('stitky', ['nazev' => mb_substr($stitek, 0, 80), 'seo_link' => $seo]);
-                $db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) VALUES (?, ?)', [$id, (int) $ids]);
-            }
+            \Kaleta\Admin\Moduly\Novinky::stitky($db, $id, (string) $a['stitky']);
         }
         $ulozena = $db->one('SELECT * FROM {novinky} WHERE idc = ?', [$id]);
         Galerie::zapisPouziti($db, $id, $ulozena['obrazek'], $ulozena['uvod'], $ulozena['text']);

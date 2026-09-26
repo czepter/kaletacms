@@ -7,7 +7,6 @@ namespace Kaleta\Front;
 use Kaleta\Core\Antispam;
 use Kaleta\Core\App;
 use Kaleta\Core\Posta;
-use Kaleta\Core\Response;
 
 /**
  * Odběr novinek (rozšíření Newsletter): přihlášení z prvku Odběr novinek, potvrzení a odhlášení odkazem z e-mailu.

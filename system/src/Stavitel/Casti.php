@@ -21,9 +21,6 @@ final class Casti
         'nenalezeno' => ['Stránka nenalezena (404)', 'Obálka kolem hlášení, že stránka neexistuje – třeba s odkazy dál.'],
     ];
 
-    /** Obálky – obsahují prvek „Obsah stránky“, kam systém vloží svůj obsah. */
-    public const array OBALKY = ['novinka', 'vypis', 'nenalezeno'];
-
     /** Části, které mohou mít varianty pro vybrané stránky (landing page bez navigace, jiná patička…). */
     public const array S_VARIANTAMI = ['hlavicka', 'paticka'];
 

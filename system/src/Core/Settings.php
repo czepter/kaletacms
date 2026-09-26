@@ -160,15 +160,6 @@ final class Settings
         return in_array($key, self::PREKLADANE_VYCHOZI, true) ? t(self::DEFAULTS[$key]) : (self::DEFAULTS[$key] ?? '');
     }
 
-    /** Hodnota pro danou jazykovou verzi ('' = výchozí jazyk) bez ohledu na to, ve které verzi běží požadavek. */
-    public function proJazyk(string $key, string $jazyk): string
-    {
-        $this->values ??= $this->db->pairs('SELECT promenna, hodnota FROM {nastaveni}');
-        $vlastni = $jazyk === '' ? '' : ($this->values[$key . '_' . $jazyk] ?? '');
-
-        return $vlastni !== '' ? $vlastni : ($this->values[$key] ?? self::DEFAULTS[$key] ?? '');
-    }
-
     public function int(string $key): int
     {
         return (int) $this->get($key);

@@ -86,10 +86,4 @@ final class Cesty
 
         return isset(self::$obsazene[$slovo]);
     }
-
-    /** Po změně adres stránek (testy, uložení stránky) se obsazená slova zjistí znovu. */
-    public static function zapomen(): void
-    {
-        self::$obsazene = null;
-    }
 }

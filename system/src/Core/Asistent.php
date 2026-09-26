@@ -20,8 +20,6 @@ class Asistent
     ];
 
     /** Klíče MODELY pro typ pole "vyber" v Nastavení. */
-    public const string MODELY_KLICE = 'claude-haiku-4-5-20251001|claude-sonnet-5|claude-opus-5';
-
     /**
      * Poskytovatelé: klíč => [název, adresa API, kde získat klíč]. Adresa je pevná – z administrace ji změnit nejde (šel by
      * tudy odeslat klíč jinam); vlastní bránu nebo místní model nastaví jen konstanta KALETA_AI_URL v config.php.
