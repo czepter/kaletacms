@@ -52,6 +52,6 @@ $volba = ['umisteni' => $umisteni, 'jazyk' => $jazyk];
 <p class="tlacitka"><button class="tl" type="submit"><?= e(t('Uložit menu')) ?></button></p>
 </form>
 <?php if (!$automaticke || $umisteni !== 'hlavni'): ?>
-<form class="vradku" method="post" action="<?= e($modul->url('automaticky', $volba)) ?>" data-potvrdit="<?= e(t($umisteni === 'hlavni' ? 'Vrátit menu k automatickému skládání ze stránek? Vaše úpravy se zahodí.' : 'Vyprázdnit menu v patičce?')) ?>"><?= $csrf ?><button class="navigace nebezpecne" type="submit"><?= e(t($umisteni === 'hlavni' ? 'Vrátit na automatické menu' : 'Vyprázdnit menu')) ?></button></form>
+<div class="navigace-radek akce-dole"><form class="vradku" method="post" action="<?= e($modul->url('automaticky', $volba)) ?>" data-potvrdit="<?= e(t($umisteni === 'hlavni' ? 'Vrátit menu k automatickému skládání ze stránek? Vaše úpravy se zahodí.' : 'Vyprázdnit menu v patičce?')) ?>"><?= $csrf ?><button class="navigace nebezpecne" type="submit"><?= e(t($umisteni === 'hlavni' ? 'Vrátit na automatické menu' : 'Vyprázdnit menu')) ?></button></form></div>
 <?php endif ?>
 <script src="<?= e($app->url('image/menu.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>

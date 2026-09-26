@@ -124,9 +124,11 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 </details>
 <?php endif ?>
 <?php if ($stranka['ids']): ?>
+<div class="navigace-radek akce-dole">
 <a class="navigace" href="<?= e($modul->url('export', ['id' => (int) $stranka['ids']])) ?>"><?= e(t('Stáhnout jako JSON')) ?></a>
 <form class="vradku" method="post" action="<?= e($modul->url('duplikuj')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $stranka['ids'] ?>"><input type="hidden" name="titulek" value="<?= e($stranka['titulek']) ?>"><button class="navigace" type="submit"><?= e(t('Duplikovat stránku')) ?></button></form>
-<?php endif ?>
 <?php if (($stranka['stavba'] ?? null) !== null): ?>
 <form class="vradku" method="post" action="<?= e($modul->url('stavba_text')) ?>" data-potvrdit="<?= e(t('Vrátit stránku k obyčejnému textu? Stavba zůstane ve verzích a můžete se k ní vrátit.')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $stranka['ids'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Vrátit stránku k textu')) ?></button></form>
+<?php endif ?>
+</div>
 <?php endif ?>

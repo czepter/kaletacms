@@ -454,6 +454,8 @@ a.nebezpecne:hover {
 	gap: 8px;
 	margin: 0 0 20px;
 }
+/* další akce pod formulářem (export, duplikace, odkaz na heslo…) – odstup od tlačítka Uložit */
+.navigace-radek.akce-dole { align-items: center; margin: 24px 0 0; }
 
 /* hlášky */
 

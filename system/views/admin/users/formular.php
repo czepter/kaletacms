@@ -105,5 +105,5 @@ $role = [
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($autor['idu'] ? 'Uložit' : 'Přidat uživatele')) ?>"></p>
 </form>
 <?php if ($autor['idu'] && $autor['email'] !== '' && !$autor['blokovat']): ?>
-<form class="vradku" method="post" action="<?= e($modul->url('odkaz_hesla')) ?>" data-potvrdit="<?= e(t('Poslat uživateli e-mailem odkaz na nastavení nového hesla?')) ?>"><?= $csrf ?><input type="hidden" name="idu" value="<?= (int) $autor['idu'] ?>"><input type="hidden" name="user" value="<?= e($autor['user']) ?>"><button class="navigace" type="submit"><?= e(t('Poslat odkaz na nové heslo')) ?></button></form>
+<div class="navigace-radek akce-dole"><form class="vradku" method="post" action="<?= e($modul->url('odkaz_hesla')) ?>" data-potvrdit="<?= e(t('Poslat uživateli e-mailem odkaz na nastavení nového hesla?')) ?>"><?= $csrf ?><input type="hidden" name="idu" value="<?= (int) $autor['idu'] ?>"><input type="hidden" name="user" value="<?= e($autor['user']) ?>"><button class="navigace" type="submit"><?= e(t('Poslat odkaz na nové heslo')) ?></button></form></div>
 <?php endif ?>
