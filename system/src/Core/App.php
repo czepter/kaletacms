@@ -99,8 +99,8 @@ final class App
             $path = Cesty::verejna($path, $jazyk, $this->db());
         }
         if ($this->jazykPrefix !== '') {
-            $cesta = explode('?', $path, 2)[0];
-            if ((!str_contains($cesta, '.') || $cesta === 'rss.xml' || $cesta === 'feed.json') && !preg_match('#^(api/|mcp$)#', $cesta)) {
+            $bezDotazu = explode('?', $path, 2)[0];
+            if ((!str_contains($bezDotazu, '.') || $bezDotazu === 'rss.xml' || $bezDotazu === 'feed.json') && !preg_match('#^(api/|mcp$)#', $bezDotazu)) {
                 $path = $this->jazykPrefix . ($path === '' ? '/' : '/' . $path);
             }
         }

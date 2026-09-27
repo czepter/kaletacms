@@ -79,13 +79,27 @@ foreach (file($channel . '/../nove-soubory.txt', FILE_IGNORE_NEW_LINES) as $s) {
     if ($s === 'system/aktualizace.pub') {
         $content = $pub . $content;
     }
+    if ($s === 'system/bootstrap.php') {
+        // the package is a new release: its version is what the site shows after the update and what triggers the one-time cleanup
+        $content = (string) preg_replace("/const KALETA_VERSION = '[^']*';/", "const KALETA_VERSION = '99.0.0';", $content);
+    }
     $zip->addFromString($s, $content);
     if (!preg_match($unhashed, $s)) {
         $hashes[$s] = hash('sha256', $content);
     }
 }
+// like tools/release.php: classes of the old release that the new one no longer has ride along for the update request
+$newFiles = array_flip(file($channel . '/../nove-soubory.txt', FILE_IGNORE_NEW_LINES));
+$legacy = [];
+foreach (file($channel . '/../stare-soubory.txt', FILE_IGNORE_NEW_LINES) as $s) {
+    if (str_starts_with($s, 'system/src/') && !isset($newFiles[$s]) && is_file($site . '/' . $s)) {
+        $content = (string) file_get_contents($site . '/' . $s);
+        $zip->addFromString($s, $content);
+        $legacy[$s] = hash('sha256', $content);
+    }
+}
 ksort($hashes);
-$zip->addFromString('system/soubory.json', $fileList('99.0.0', $hashes));
+$zip->addFromString('system/soubory.json', substr($fileList('99.0.0', $hashes), 0, -2) . ",\n    \"legacy\": " . json_encode((object) $legacy, JSON_UNESCAPED_SLASHES) . "\n}\n");
 $zip->close();
 $sha = hash_file('sha256', $channel . '/kaleta.zip');
 file_put_contents($channel . '/aktualizace.json', json_encode(['verze' => '99.0.0', 'url' => "http://127.0.0.1:$port/kaleta.zip", 'sha256' => $sha, 'min_php' => '8.4', 'zmeny' => ['test'],
@@ -93,7 +107,7 @@ file_put_contents($channel . '/aktualizace.json', json_encode(['verze' => '99.0.
 echo '  ok     ' . count($hashes) . " files in the package\n";
 PHP
 # a class file of the old release that the new one no longer has: the update must delete it
-echo '<?php // removed in the new version' > "$WORK/web/system/src/Core/ZrusenaTrida.php"; echo system/src/Core/ZrusenaTrida.php >> "$WORK/stare-soubory.txt"
+echo '<?php // removed in the new version' > "$WORK/web/system/zrusene.php"; echo system/zrusene.php >> "$WORK/stare-soubory.txt"
 php "$WORK/balicek.php" "$ROOT" "$WORK/web" "$WORK/kanal" "$CHANNEL_PORT"
 (cd "$WORK/kanal" && exec php -S "127.0.0.1:$CHANNEL_PORT" > /dev/null 2>&1) & CHANNEL_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$CHANNEL_PORT/aktualizace.json" && break; sleep 0.2; done
@@ -101,10 +115,10 @@ for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$CHANNEL_PORT/ak
 echo "== update through the admin"
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('aktualizace_url','http://127.0.0.1:$CHANNEL_PORT/aktualizace.json') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'aktualizace_cache'"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?modul=config&zalozka=zalohy"; TOKEN=$(csrf)
-curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?modul=config&akce=aktualizuj" -d "_csrf=$TOKEN"
+curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?modul=config&akce=aktualizuj" -d "_csrf=$TOKEN"
 if grep -q "99.0.0" "$WORK/response"; then echo "  ok     update installed"; else
   echo "  CHYBA  update failed:"; sed 's/<[^>]*>//g' "$WORK/response" | grep -i -m3 'aktualiz'; exit 1; fi
-cmp -s "$ROOT/system/bootstrap.php" "$WORK/web/system/bootstrap.php" && echo "  ok     new core in place" || { echo "  CHYBA  system/bootstrap.php is not the new one"; ERRORS=$((ERRORS+1)); }
+cmp -s "$ROOT/system/src/helpers.php" "$WORK/web/system/src/helpers.php" && grep -q "KALETA_VERSION = '99.0.0'" "$WORK/web/system/bootstrap.php" && echo "  ok     new core in place" || { echo "  CHYBA  the core is not the new one"; ERRORS=$((ERRORS+1)); }
 LAST_MIGRATION=$(ls "$ROOT"/system/sql/migrace/*.sql | sed 's/.*\/\([0-9]*\)-.*/\1/' | sort -n | tail -1 | sed 's/^0*//')
 LEFTOVERS=$(comm -23 <(sort "$WORK/stare-soubory.txt") <(sort "$WORK/nove-soubory.txt") | grep -vE '^(tools/|docs/|\.github/|\.claude/|CLAUDE\.md$|\.gitignore$|\.gitleaks\.toml$|install\.php$|media/|storage/|image/ukazka/)' \
   | while read -r s; do [ -e "$WORK/web/$s" ] && echo "$s"; done || true)

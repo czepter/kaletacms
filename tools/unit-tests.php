@@ -967,7 +967,7 @@ check('Asistent: u jiného poskytovatele než Claude je potřeba zadat jeho mode
 
 /* ---------- class renames (tools/rename.php) ---------- */
 $classAliases = require KALETA_SYSTEM . '/class-aliases.php';
-check('class aliases: every old name resolves to its new class', array_filter($classAliases, fn (string $newName, string $oldName): bool => !class_exists($oldName) || !is_a($oldName, $newName, true), ARRAY_FILTER_USE_BOTH), []);
+check('class aliases: every old name resolves to its new class', array_filter($classAliases, fn (string $newName, string $oldName): bool => trait_exists($oldName) ? !trait_exists($newName) : (!class_exists($oldName) && !interface_exists($oldName) || !is_a($oldName, $newName, true)), ARRAY_FILTER_USE_BOTH), []);
 check('class aliases: no old name is still a class file', array_filter(array_keys($classAliases), fn (string $oldName): bool => is_file(KALETA_SYSTEM . '/src/' . str_replace('\\', '/', substr($oldName, 7)) . '.php')), []);
 exec('php ' . escapeshellarg(__DIR__ . '/rename.php') . ' --self-test', $renameOutput, $renameCode);
 check('tools/rename.php self-test', $renameCode, 0);

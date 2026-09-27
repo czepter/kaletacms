@@ -128,13 +128,13 @@ final class TextNovinky
         if ($url === '') {
             return '';
         }
-        $adresa = preg_match('#^(https?:)?/#i', $url) ? $url : $zaklad . '/' . $url;
+        $zdrojMedia = preg_match('#^(https?:)?/#i', $url) ? $url : $zaklad . '/' . $url;
         $pripona = strtolower(pathinfo((string) parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION));
         if (in_array($pripona, ['mp3', 'm4a', 'ogg', 'oga', 'wav', 'aac'], true)) {
-            return '<figure class="ka-medium ka-medium-zvuk"><audio controls preload="none" src="' . e($adresa) . '"></audio></figure>';
+            return '<figure class="ka-medium ka-medium-zvuk"><audio controls preload="none" src="' . e($zdrojMedia) . '"></audio></figure>';
         }
         if (in_array($pripona, ['mp4', 'webm', 'm4v'], true)) {
-            return '<figure class="ka-medium"><video controls preload="metadata" playsinline src="' . e($adresa) . '"></video></figure>';
+            return '<figure class="ka-medium"><video controls preload="metadata" playsinline src="' . e($zdrojMedia) . '"></video></figure>';
         }
         $vlozit = match (true) {
             (bool) preg_match('#(?:youtube\.com/(?:watch\?(?:.*&)?v=|shorts/|live/|embed/)|youtu\.be/)([A-Za-z0-9_-]{11})#', $url, $m) => 'https://www.youtube-nocookie.com/embed/' . $m[1] . '?autoplay=1',
@@ -145,7 +145,7 @@ final class TextNovinky
             return '';
         }
         if ($vlozit === '') {
-            return '<div class="ka-medium-odkaz"><a class="ka-tl" href="' . e($adresa) . '" rel="noopener">▶ ' . e(t('Přehrát')) . '</a></div>';
+            return '<div class="ka-medium-odkaz"><a class="ka-tl" href="' . e($zdrojMedia) . '" rel="noopener">▶ ' . e(t('Přehrát')) . '</a></div>';
         }
         // přehrávač cizí služby se vloží až po kliknutí: do té doby se k ní nic neposílá (soukromí, rychlost)
         return '<figure class="ka-medium"><button type="button" class="ka-medium-spustit" data-vlozit="' . e($vlozit) . '" data-titulek="' . e($titulek) . '">'

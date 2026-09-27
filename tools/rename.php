@@ -12,6 +12,8 @@
  *   'classes'    => ['Kaleta\Stavitel\Prvky\Nadpis' => 'Heading', ...]           new short name (namespace from 'namespaces')
  *   'names'      => ['nainstaluj' => 'install', 'JEN_CASTI' => 'PARTS_ONLY', ...] methods, functions, constants, properties
  *                                                                                and variables – one translation everywhere
+ *   'functions'  => ['datum' => 'format_date', ...]      global functions only (calls and declarations outside classes), so a
+ *                                                    helper and a method of the same Czech name can get different names
  *   'vars'       => ['chyb' => 'errors', ...]          local variables only (never members: a property that is in 'vars'
  *                                                    but not in 'names' is refused)
  *   'paths'      => ['tools/', 'system/src/Core/']   optional: rewrite only files under these paths
@@ -39,6 +41,8 @@ final class Rename
     private array $classes = [];
     /** @var array<string, string> */
     private array $names;
+    /** @var array<string, string> */
+    private array $functions;
     /** @var array<string, string> names + local variables: what a variable token may become */
     private array $vars;
     /** @var list<string> */
@@ -59,7 +63,8 @@ final class Rename
         $this->namespaces = $map['namespaces'] ?? [];
         uksort($this->namespaces, fn (string $a, string $b): int => strlen($b) <=> strlen($a));
         $this->names = $map['names'] ?? [];
-        $this->vars = $this->names + ($map['vars'] ?? []);
+        $this->functions = $map['functions'] ?? [];
+        $this->vars = ($map['vars'] ?? []) + $this->names; // a variable takes its 'vars' name first, so a method can be a verb and a variable a noun
         foreach ($knownClasses as $fqcn) {
             $pos = strrpos($fqcn, '\\');
             $ns = $pos === false ? '' : substr($fqcn, 0, $pos);
@@ -173,6 +178,18 @@ final class Rename
                     continue;
                 }
             }
+            if ($x->is(T_STRING) && isset($this->functions[$text]) && ($p = $this->prev($t, $i)) !== null
+                && !$t[$p]->is([T_OBJECT_OPERATOR, T_NULLSAFE_OBJECT_OPERATOR, T_DOUBLE_COLON, T_CONST]) && ($classBodies === [] || !$t[$p]->is(T_FUNCTION))
+                && ($next = $this->next($t, $i)) !== null && $t[$next]->text === '(') {
+                $out[] = $this->functions[$text]; // a global function: its call or its declaration outside a class
+                $this->count($text, true);
+                continue;
+            }
+            if ($x->is(T_STRING) && $this->isNamedArgument($t, $i) && isset($this->vars[$text])) {
+                $out[] = $this->vars[$text]; // a named argument is the parameter's variable name
+                $this->count($text, true);
+                continue;
+            }
             if ($x->is(T_STRING) && isset($this->names[$text]) && !$this->isClassContext($t, $i)) {
                 $out[] = $this->names[$text];
                 $this->count($text, true);
@@ -185,14 +202,21 @@ final class Rename
                 $property = $static || ($classBodies !== [] && end($classBodies) === $depth && ($paren === 0 || $this->promoted($t, $i)));
                 if ($property && !isset($this->names[$name])) {
                     $this->problems[] = "$file:{$x->line}: \${$name} is a property – put it in 'names', not 'vars'";
+                } elseif ($property && $this->vars[$name] !== $this->names[$name] && !$static && $paren > 0) {
+                    $this->problems[] = "$file:{$x->line}: promoted constructor property \${$name} is also a variable – 'vars' and 'names' must agree";
                 } elseif ($property || !$view) {
-                    $out[] = '$' . $this->vars[$name];
+                    $out[] = '$' . ($property ? $this->names[$name] : $this->vars[$name]);
                     $this->count($name, true);
                     continue;
                 }
             }
             if ($x->is(T_DOC_COMMENT)) {
                 $out[] = $this->rewriteDoc($text, $ns, $imports, $view);
+                continue;
+            }
+            if ($x->is(T_CONSTANT_ENCAPSED_STRING) && isset($this->names[$member = substr($text, 1, -1)]) && $this->isMemberNameArgument($t, $i)) {
+                $out[] = $text[0] . $this->names[$member] . $text[0]; // new ReflectionMethod(X::class, 'name'), method_exists($x, 'name')
+                $this->count($member, true);
                 continue;
             }
             if ($x->is([T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE])) {
@@ -274,8 +298,8 @@ final class Rename
 
             return isset($imports[$first]) ? $imports[$first] . substr($name, strlen($first)) : ltrim($ns . '\\' . $name, '\\');
         }
-        if (!preg_match('/^[A-Z][a-z]/', $name)) {
-            return null; // classes are PascalCase; CONSTANTS and methods are not
+        if (!preg_match('/^[A-Z][A-Za-z0-9]*[a-z]/', $name)) {
+            return null; // classes are PascalCase (ZHtml too); CONSTANTS and methods are not
         }
 
         return $imports[$name] ?? ltrim($ns . '\\' . $name, '\\');
@@ -309,6 +333,40 @@ final class Rename
         }
 
         return '\\' . $new;
+    }
+
+    /** The second argument of reflection and *_exists calls, which names a member. @param list<PhpToken> $t */
+    private function isMemberNameArgument(array $t, int $i): bool
+    {
+        $prev = $this->prev($t, $i);
+        if ($prev === null || $t[$prev]->text !== ',') {
+            return false;
+        }
+        for ($j = $prev - 1, $paren = 0; $j >= 0; $j--) {
+            if ($t[$j]->text === ')') {
+                $paren++;
+            } elseif ($t[$j]->text === '(') {
+                if ($paren-- === 0) {
+                    $fn = $this->prev($t, $j);
+
+                    return $fn !== null && in_array(ltrim($t[$fn]->text, '\\'), ['ReflectionMethod', 'ReflectionProperty', 'ReflectionClassConstant', 'method_exists', 'property_exists'], true);
+                }
+            } elseif ($paren === 0 && $t[$j]->text === ',') {
+                return false; // only the second argument
+            }
+        }
+
+        return false;
+    }
+
+    /** name: in a call – f(nazev: 1). @param list<PhpToken> $t */
+    private function isNamedArgument(array $t, int $i): bool
+    {
+        $next = $this->next($t, $i);
+        $prev = $this->prev($t, $i);
+
+        return $next !== null && $t[$next]->text === ':' && $prev !== null && in_array($t[$prev]->text, ['(', ','], true)
+            && ($after = $this->next($t, $next)) !== null && $t[$after]->text !== ':';
     }
 
     /** A constructor parameter with a visibility or readonly modifier is also a property. @param list<PhpToken> $t */
@@ -359,6 +417,31 @@ final class Rename
 
             return $m[1] . $rest;
         }, $doc);
+    }
+
+    /**
+     * PHP inside shell scripts (php -r '…', heredocs): class names, class file paths and ::member( / ->member( calls.
+     * Text-level, so only these safe shapes – variables inside the snippets are left alone.
+     */
+    public function rewriteShell(string $code): string
+    {
+        $code = $this->movePaths($code);
+        foreach ($this->classes as $old => $new) {
+            foreach (['\\\\', '\\'] as $sep) { // Kaleta\\Core\\X in double quotes, Kaleta\Core\X in single quotes
+                $code = (string) preg_replace('/' . preg_quote(str_replace('\\', $sep, $old), '/') . '(?![A-Za-z0-9_])/', str_replace('\\', $sep, $new), $code);
+            }
+        }
+        foreach ($this->names as $old => $new) {
+            $code = (string) preg_replace('/(::|->)' . preg_quote($old, '/') . '(?=\()/', '$1' . $new, $code);
+            if (preg_match('/^[A-Z][A-Z0-9_]*$/', $old)) {
+                $code = (string) preg_replace('/::' . preg_quote($old, '/') . '(?![A-Za-z0-9_])/', '::' . $new, $code); // X::CONSTANT
+            }
+        }
+        foreach ($this->functions as $old => $new) {
+            $code = (string) preg_replace('/(?<![A-Za-z0-9_>:$\\-])' . preg_quote($old, '/') . '(?=\()/', $new, $code);
+        }
+
+        return $code;
     }
 
     public function movePaths(string $text): string
@@ -713,9 +796,27 @@ function selfTest(): int
     }
     $r = new Rename(['vars' => ['odpoved' => 'answer', 'pocet' => 'count']], []);
     $got = $r->rewrite("<?php\nfunction f(\$odpoved) { return \$odpoved . \$x->odpoved . g(odpoved: 1); }\nnew class { public \$pocet; };\n", 'v', false);
-    if ($got !== "<?php\nfunction f(\$answer) { return \$answer . \$x->odpoved . g(odpoved: 1); }\nnew class { public \$pocet; };\n" || count($r->problems) !== 1) {
+    if ($got !== "<?php\nfunction f(\$answer) { return \$answer . \$x->odpoved . g(answer: 1); }\nnew class { public \$pocet; };\n" || count($r->problems) !== 1) {
         $fail++;
         echo "  FAIL vars: $got " . json_encode($r->problems) . "\n";
+    }
+    $r = new Rename(['names' => ['chyba' => 'fail'], 'vars' => ['chyba' => 'error']], []);
+    $got = $r->rewrite("<?php\nnamespace T;\nfinal class A { public function chyba(string \$chyba): void { \$this->chyba(chyba: \$chyba); } }\n", 'w', false);
+    if ($got !== "<?php\nnamespace T;\nfinal class A { public function fail(string \$error): void { \$this->fail(error: \$error); } }\n") {
+        $fail++;
+        echo "  FAIL vars before names: $got\n";
+    }
+    $r = new Rename(['functions' => ['datum' => 'format_date'], 'names' => ['datum' => 'date']], []);
+    $got = $r->rewrite("<?php\nfunction datum(\$v) { return \$v; }\nfinal class W { public static function datum(): string { return datum(1) . self::datum() . \$this->datum(); } }\n", 'f', false);
+    if ($got !== "<?php\nfunction format_date(\$v) { return \$v; }\nfinal class W { public static function date(): string { return format_date(1) . self::date() . \$this->date(); } }\n") {
+        $fail++;
+        echo "  FAIL functions: $got\n";
+    }
+    $r = new Rename(['names' => ['sekce' => 'section']], []);
+    $got = $r->rewrite("<?php\n\$m = new ReflectionMethod(A::class, 'sekce'); method_exists(\$a, 'sekce'); f('x', 'sekce');\n", 'r', false);
+    if ($got !== "<?php\n\$m = new ReflectionMethod(A::class, 'section'); method_exists(\$a, 'section'); f('x', 'sekce');\n") {
+        $fail++;
+        echo "  FAIL reflection: $got\n";
     }
     // collisions: two variables of one function, a member and an inherited one
     $r = new Rename(['names' => ['nazev' => 'name']], []);
@@ -808,6 +909,15 @@ foreach (['image', 'layout'] as $dir) {
         }
     }
 }
+foreach (glob($root . '/tools/*.sh') ?: [] as $sh) {
+    $f = substr($sh, strlen($root) + 1);
+    if ($only === [] || array_filter($only, fn (string $p): bool => str_starts_with($f, $p)) !== []) {
+        $code = (string) file_get_contents($sh);
+        if (($new = $r->rewriteShell($code)) !== $code) {
+            $changed[$f] = $new;
+        }
+    }
+}
 $moves = [];
 foreach ($map['files'] ?? [] as $from => $to) {
     if (!is_file($root . '/' . $from)) {
@@ -831,7 +941,7 @@ foreach ($r->stringHits as $name => $places) {
     $places = array_values(array_unique($places));
     echo "  review (string/JS/CSS) $name: " . implode(', ', array_slice($places, 0, 6)) . (count($places) > 6 ? ' … +' . (count($places) - 6) : '') . "\n";
 }
-$unused = array_diff(array_keys(($map['names'] ?? []) + ($map['vars'] ?? [])), array_keys($r->counts));
+$unused = array_diff(array_keys(($map['names'] ?? []) + ($map['vars'] ?? []) + ($map['functions'] ?? [])), array_keys($r->counts));
 if ($unused !== []) {
     echo "  not found in code: " . implode(', ', $unused) . "\n";
 }
@@ -865,6 +975,9 @@ file_put_contents($aliasFile, substr($source, 0, (int) strpos($source, "return [
 $bad = 0;
 foreach (array_unique([...array_keys($changed), ...array_values($moves)]) as $f) {
     $f = $moves[$f] ?? $f;
+    if (!str_ends_with($f, '.php')) {
+        continue;
+    }
     exec('php -l ' . escapeshellarg($root . '/' . $f) . ' 2>&1', $o, $code);
     if ($code !== 0) {
         echo "syntax error after rename: $f\n";

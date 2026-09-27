@@ -97,10 +97,24 @@ foreach ($files as $file) {
         $hashes[$file] = hash_file('sha256', $root . '/' . $file);
     }
 }
+// classes of the previous release that this one renamed or removed ride along unchanged: the previous release installs
+// this package and, in the same request, may still load its own classes after its cleanup. The new version deletes them
+// on the first admin load (Aktualizace::uklidZrusene, 'legacy' list).
+$legacy = [];
+$previous = trim((string) shell_exec('cd ' . escapeshellarg($root) . ' && git describe --tags --abbrev=0 HEAD^ 2>/dev/null'));
+if ($previous !== '') {
+    foreach (array_filter(explode("\n", (string) shell_exec('cd ' . escapeshellarg($root) . ' && git ls-tree -r --name-only ' . escapeshellarg($previous) . ' -- system/src/'))) as $old) {
+        if (!in_array($old, $files, true)) {
+            $content = (string) shell_exec('cd ' . escapeshellarg($root) . ' && git show ' . escapeshellarg($previous . ':' . $old));
+            $zip->addFromString($old, $content);
+            $legacy[$old] = hash('sha256', $content);
+        }
+    }
+}
 require_once $root . '/system/src/Core/Integrita.php';
 ksort($hashes);
 $zip->addFromString('system/soubory.json', json_encode([
-    'verze' => $version, 'soubory' => $hashes,
+    'verze' => $version, 'soubory' => $hashes, 'legacy' => $legacy,
     'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Integrita::kPodpisu($version, $hashes), $sk)),
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
 $zip->close();

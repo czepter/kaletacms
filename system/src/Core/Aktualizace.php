@@ -323,6 +323,17 @@ final class Aktualizace
                 @rmdir(dirname($soubor)); // složka zmizí, jen když zůstala prázdná
             }
         }
+        // soubory předchozího vydání, které balíček nese jen kvůli průběhu aktualizace: starý kód, který ji instaluje,
+        // v tomtéž požadavku ještě načítá své třídy (přejmenované třídy by jinak chyběly) – nová verze je pak smaže
+        $legacy = json_decode((string) @file_get_contents($koren . '/system/soubory.json'), true)['legacy'] ?? [];
+        foreach (is_array($legacy) ? $legacy : [] as $relativni => $otisk) {
+            $soubor = $koren . '/' . $relativni;
+            if (str_starts_with((string) $relativni, 'system/src/') && !str_contains((string) $relativni, '..') && is_file($soubor)
+                && hash_equals((string) $otisk, (string) hash_file('sha256', $soubor)) && @unlink($soubor)) {
+                $smazano++;
+                for ($slozka = dirname($soubor); $slozka !== $koren . '/system/src' && @rmdir($slozka); $slozka = dirname($slozka));
+            }
+        }
 
         return $smazano;
     }
