@@ -130,10 +130,7 @@ final class Novinky extends Modul
             return $this->zpet();
         }
         $kopie = array_intersect_key($novinka, array_flip(['uvod', 'text', 'obrazek', 'obrazek_popis', 'obrazek_autor', 'tema', 't_slova', 'seo_popis', 'noindex', 'faq', 'jazyk']));
-        $seo = mb_substr($novinka['seo_link'] . '-kopie', 0, 150);
-        for ($i = 2, $zaklad = $seo; $this->db->value('SELECT 1 FROM {novinky} WHERE seo_link = ?', [$seo]) !== null; $i++) {
-            $seo = $zaklad . '-' . $i;
-        }
+        $seo = \Kaleta\Core\Adresa::volna($novinka['seo_link'] . '-kopie', fn (string $a): bool => $this->db->value('SELECT 1 FROM {novinky} WHERE seo_link = ?', [$a]) !== null);
         $id = $this->db->insert('novinky', $kopie + ['titulek' => mb_substr(t('%s (kopie)', $novinka['titulek']), 0, 255), 'seo_link' => $seo, 'visible' => 0,
             'datum' => date('Y-m-d H:i:s'), 'autor' => $this->app->auth()->id(), 'zmeneno' => date('Y-m-d H:i:s')]);
         $this->db->run('INSERT INTO {novinky_stitky} (idc, ids) SELECT ?, ids FROM {novinky_stitky} WHERE idc = ?', [$id, $novinka['idc']]);
@@ -613,12 +610,7 @@ final class Novinky extends Modul
 
     private function volnySeoLink(string $seo, int $idc): string
     {
-        $kandidat = $seo;
-        for ($i = 2; $this->db->value('SELECT idc FROM {novinky} WHERE seo_link = ? AND idc <> ?', [$kandidat, $idc]) !== null; $i++) {
-            $kandidat = $seo . '-' . $i;
-        }
-
-        return $kandidat;
+        return \Kaleta\Core\Adresa::volna($seo, fn (string $a): bool => $this->db->value('SELECT idc FROM {novinky} WHERE seo_link = ? AND idc <> ?', [$a, $idc]) !== null);
     }
 
     /** Hodnota z <input type="datetime-local"> -> DATETIME; prázdné nebo neplatné = null. */

@@ -4,9 +4,14 @@
  * @var Kaleta\Admin\Moduly\Kategorie $modul
  * @var string $csrf
  * @var list<array<string, mixed>> $kategorie
+ * @var list<string> $jazykyWebu
+ * @var string $jazyk
  */
 ?>
 <p class="navigace-radek"><a class="tl" href="<?= e($modul->url('novy')) ?>"><?= e(t('Nová kategorie')) ?></a> <a class="navigace" href="<?= e($app->url('admin.php?modul=novinky')) ?>"><?= e(t('Zpět na novinky')) ?></a></p>
+<?php if ($jazykyWebu !== []): ?>
+<form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt"><input type="hidden" name="modul" value="kategorie"><?= $app->view->render('admin/filtr_jazyka', ['jazykyWebu' => $jazykyWebu, 'jazyk' => $jazyk, 'odeslat' => true]) ?></form>
+<?php endif ?>
 <?php if ($kategorie === []): ?>
 <?= $app->view->render('admin/prazdno', ['ikona' => 'rubriky', 'nadpis' => t('Zatím není založena žádná kategorie.'), 'text' => t('Každá novinka patří do jedné kategorie – bez ní novinka nepůjde uložit.'), 'akce' => [$modul->url('novy'), t('Založit první kategorii')]]) ?>
 <?php else: ?>

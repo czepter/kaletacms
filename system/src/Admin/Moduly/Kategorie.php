@@ -54,7 +54,9 @@ final class Kategorie extends Modul
 
     protected function akceVypis(): Response
     {
-        return $this->view('vypis', 'Kategorie', ['kategorie' => self::seznam($this->db)]);
+        [$jazykyWebu, $jazyk, $sloupec] = $this->filtrJazyka();
+
+        return $this->view('vypis', 'Kategorie', ['kategorie' => self::seznam($this->db, $sloupec), 'jazykyWebu' => $jazykyWebu, 'jazyk' => $jazyk]);
     }
 
     protected function akceNovy(): Response
@@ -88,10 +90,7 @@ final class Kategorie extends Modul
             return $this->formular(['idt' => $id] + $data, ['nazev' => 'Vyplňte název kategorie.']);
         }
 
-        $zaklad = $data['seo_link'];
-        for ($i = 2; $this->db->value('SELECT idt FROM {kategorie} WHERE seo_link = ? AND idt <> ?', [$data['seo_link'], $id]) !== null; $i++) {
-            $data['seo_link'] = $zaklad . '-' . $i;
-        }
+        $data['seo_link'] = \Kaleta\Core\Adresa::volna($data['seo_link'], fn (string $a): bool => $this->db->value('SELECT idt FROM {kategorie} WHERE seo_link = ? AND idt <> ?', [$a, $id]) !== null, 120);
 
         if ($id > 0) {
             $puvodni = $this->db->value('SELECT seo_link FROM {kategorie} WHERE idt = ?', [$id]);

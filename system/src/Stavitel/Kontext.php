@@ -36,6 +36,12 @@ final class Kontext
     /** Hotový přepínač jazykových verzí webu (prázdný u jednojazyčného webu). */
     public string $jazyky = '';
 
+    /** @var array<string, array{nazev:string, url:string, aktivni:bool, preklad:bool}> jazykové verze pro prvek Přepínač jazyků */
+    public array $jazykySeznam = [];
+
+    /** Přepínač světlého a tmavého vzhledu pro návštěvníky (prázdný, když je vypnutý); prvek Navigace ho přidá za menu. */
+    public string $tema = '';
+
     /** @var array<string, array{0: string, 1: string}>|null hodnoty položky kolekce pro {{značky}} (uvnitř Výpisu kolekce a na detailu) */
     public ?array $polozka = null;
 

@@ -695,6 +695,12 @@ over('DesignSystem: typografické styly jako tokeny, úprava ve Vzhledu', [str_c
     str_contains(Kaleta\Stavitel\DesignSystem::css(Kaleta\Stavitel\DesignSystem::vycisti(['typografie' => ['perex' => ['krok' => '2', 'tloustka' => '500'], 'titulek' => ['krok' => '99']]])), '--ka-typ-perex: 500 var(--ka-krok-2)/1.55'),
     Kaleta\Stavitel\DesignSystem::vycisti(['typografie' => ['titulek' => ['krok' => '99']]])['typografie']], [true, true, []]);
 over('Styl::css: obrázek pozadí z Médií od kořene instalace', str_contains(Kaleta\Stavitel\Styl::css('#s', ['zaklad' => ['obrazek_pozadi' => 'media/2026/09/a.jpg']], '', '/web'), 'url("/web/media/2026/09/a.jpg")'), true);
+$obsazeneAdresy = ['o-nas' => 1, 'o-nas-2' => 1, str_repeat('a', 10) => 1];
+over('Volná adresa: číslo za obsazenou, s číslem se vejde do sloupce', [
+    Kaleta\Core\Adresa::volna('o-nas', fn (string $a): bool => isset($obsazeneAdresy[$a])),
+    Kaleta\Core\Adresa::volna('sluzby', fn (string $a): bool => isset($obsazeneAdresy[$a])),
+    Kaleta\Core\Adresa::volna(str_repeat('a', 12), fn (string $a): bool => isset($obsazeneAdresy[$a]), 10),
+], ['o-nas-3', 'sluzby', 'aaaaaaaa-2']);
 over('Kontejner jako odkaz: odkazy uvnitř se změní na span', Kaleta\Stavitel\Prvky\Kontejner::vykresli(['znacka' => 'div', 'obsah' => ['odkaz' => '/k']], '', '<p>x</p><a class="ka-tlacitko" href="/y" target="_blank">B</a><abbr>z</abbr>', new Kaleta\Stavitel\Kontext((new ReflectionClass(Kaleta\Core\App::class))->newInstanceWithoutConstructor())),
     '<a class="ka-karta-odkaz" href="/k"><p>x</p><span class="ka-tlacitko">B</span><abbr>z</abbr></a>');
 over('Menu::vycisti: neznámý typ, nebezpečná adresa a třetí úroveň vypadnou', Kaleta\Core\Menu::vycisti([

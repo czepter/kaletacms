@@ -195,12 +195,7 @@ final class WpImport
      */
     public static function volnaAdresa(string $zaklad, callable $obsazena): string
     {
-        $adresa = $zaklad;
-        for ($i = 2; $obsazena($adresa); $i++) {
-            $adresa = $zaklad . '-' . $i;
-        }
-
-        return $adresa;
+        return Adresa::volna($zaklad, $obsazena, 120);
     }
 
     /** Cesta staré adresy pro přesměrování (bez domény a lomítek na krajích); prázdná = není co přesměrovat. */

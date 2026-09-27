@@ -572,9 +572,7 @@ final class Nastroje
                 }
                 // adresa je jedinečná v jazyce: překlad položky má mít stejnou (přepínač jazyků a hreflang ji podle ní najdou)
                 $jazykPolozky = array_key_exists('jazyk', $a) ? Jazyk::sloupec($web, (string) $a['jazyk']) : (string) ($puvodni['jazyk'] ?? '');
-                for ($i = 2, $zaklad = $seo; $db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$kolekce['idk'], $jazykPolozky, $seo, (int) ($puvodni['idp'] ?? 0)]) !== null; $i++) {
-                    $seo = $zaklad . '-' . $i;
-                }
+                $seo = \Kaleta\Core\Adresa::volna($seo, fn (string $a): bool => $db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$kolekce['idk'], $jazykPolozky, $a, (int) ($puvodni['idp'] ?? 0)]) !== null);
                 $radek = ['nazev' => $nazevPolozky, 'seo_link' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')]
                     + (array_key_exists('jazyk', $a) ? ['jazyk' => $jazykPolozky] : [])
                     + (array_key_exists('poradi', $a) ? ['poradi' => max(-9999, min(9999, (int) $a['poradi']))] : [])
@@ -1354,11 +1352,6 @@ final class Nastroje
 
     private function volnaAdresa(string $tabulka, string $klic, string $seo): string
     {
-        $kandidat = $seo;
-        for ($i = 2; $this->app->db()->value("SELECT {$klic} FROM {{$tabulka}} WHERE seo_link = ?", [$kandidat]) !== null; $i++) {
-            $kandidat = $seo . '-' . $i;
-        }
-
-        return $kandidat;
+        return \Kaleta\Core\Adresa::volna($seo, fn (string $a): bool => $this->app->db()->value("SELECT {$klic} FROM {{$tabulka}} WHERE seo_link = ?", [$a]) !== null, $tabulka === 'novinky' ? 160 : 120);
     }
 }

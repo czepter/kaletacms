@@ -34,8 +34,13 @@ final class Stranky extends Modul
     {
         $kos = $this->request->get('stav') === 'kos';
         $hledat = mb_substr(trim($this->request->get('hledat')), 0, 100);
+        [$jazykyWebu, $jazyk, $sloupec] = $this->filtrJazyka();
         $where = [$kos ? 'smazano IS NOT NULL' : 'smazano IS NULL'];
         $params = [];
+        if ($sloupec !== null) {
+            $where[] = 'jazyk = ?';
+            $params[] = $sloupec;
+        }
         if ($hledat !== '') {
             $where[] = '(titulek LIKE ? OR seo_link LIKE ?)';
             $vzor = '%' . addcslashes($hledat, '%_\\') . '%';
@@ -52,7 +57,7 @@ final class Stranky extends Modul
 
         return $this->view('vypis', 'Stránky', [
             'stranky' => $kos || $hledat !== '' ? $stranky : self::stromem($stranky),
-            'kos' => $kos, 'hledat' => $hledat,
+            'kos' => $kos, 'hledat' => $hledat, 'jazykyWebu' => $jazykyWebu, 'jazyk' => $jazyk,
             'vKosi' => (int) $this->db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NOT NULL'),
         ]);
     }
@@ -397,12 +402,7 @@ final class Stranky extends Modul
     /** Volná adresa odvozená z $zaklad: o-nas, o-nas-2, o-nas-3… */
     private function volnaAdresa(string $zaklad, int $id): string
     {
-        $adresa = $zaklad;
-        for ($i = 2; $this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$adresa, $id]) !== null; $i++) {
-            $adresa = mb_substr($zaklad, 0, 105) . '-' . $i;
-        }
-
-        return $adresa;
+        return \Kaleta\Core\Adresa::volna($zaklad, fn (string $a): bool => $this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$a, $id]) !== null, 120);
     }
 
     /** Smazání = přesun do koše: stránka zmizí z webu, adresa zůstane rezervovaná a jde ji obnovit. */

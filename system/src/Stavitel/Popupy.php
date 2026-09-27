@@ -139,13 +139,7 @@ final class Popupy
     /** Volná adresa okna (#popup-<adresa>) odvozená z textu. */
     public static function adresa(Db $db, string $z, int $idpp = 0): string
     {
-        $zaklad = slugify($z, 50) ?: 'popup';
-        $adresa = $zaklad;
-        for ($i = 2; $db->value('SELECT idpp FROM {popupy} WHERE adresa = ? AND idpp <> ?', [$adresa, $idpp]) !== null; $i++) {
-            $adresa = $zaklad . '-' . $i;
-        }
-
-        return $adresa;
+        return \Kaleta\Core\Adresa::volna(slugify($z, 50) ?: 'popup', fn (string $a): bool => $db->value('SELECT idpp FROM {popupy} WHERE adresa = ? AND idpp <> ?', [$a, $idpp]) !== null, 60);
     }
 
     /**

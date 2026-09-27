@@ -186,6 +186,11 @@ header and footer of a new language start as a copy of the default language's on
 A language whose home page has no published translation yet is not offered to visitors: it stays out of the language
 switcher, `hreflang` and the sitemap until you publish its home page, so you can prepare a translation in peace.
 
+On the first visit, a visitor whose browser prefers one of the site's languages is sent to that version of the page (when it
+has a translation); their choice in the language switcher is remembered in the browser, without cookies. Search engine
+robots are never redirected. The switcher sits next to the menu by default; to move it to the footer, add the **Language
+switcher** element to the footer (a dropdown that opens upwards) and turn off *Language switcher* on the Navigation element.
+
 ## 10. AI assistant and Claude
 
 Enable the **assistant** under **Extensions**. Choose a provider (Anthropic Claude, OpenAI, Google Gemini, Mistral), enter

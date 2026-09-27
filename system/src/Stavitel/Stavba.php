@@ -35,7 +35,7 @@ final class Stavba
         Prvky\Ikona::class, Prvky\Galerie::class, Prvky\Zalozky::class, Prvky\Karusel::class, Prvky\Mapa::class, Prvky\Okno::class, Prvky\Drobecky::class,
         Prvky\Pocitadlo::class, Prvky\Prubeh::class, Prvky\Hodnoceni::class, Prvky\Odpocet::class, Prvky\Socialni::class, Prvky\Hledani::class,
         Prvky\Novinky::class, Prvky\VypisKolekce::class, Prvky\Formular::class, Prvky\Newsletter::class, Prvky\Komponenta::class, Prvky\Html::class, Prvky\Nahoru::class,
-        Prvky\Logo::class, Prvky\Navigace::class, Prvky\Udaje::class, Prvky\ObsahStranky::class,
+        Prvky\Logo::class, Prvky\Navigace::class, Prvky\Jazyky::class, Prvky\Udaje::class, Prvky\ObsahStranky::class,
     ];
 
     /** @return class-string<Prvek>|null */

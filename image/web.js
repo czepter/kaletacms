@@ -474,3 +474,31 @@
 		});
 	})();
 })();
+
+/* ---------- jazykové verze: při první návštěvě verze v jazyce prohlížeče, pak vždy volba návštěvníka ----------
+ * Bez cookies – volba je v localStorage. Přesměruje jen při vstupu na web (ne při procházení), jen na stránku, která má
+ * v tom jazyce překlad (odkazy hreflang v hlavičce), a nikdy roboty vyhledávačů. Klik v přepínači jazyků volbu změní. */
+(function () {
+	var alternativy = document.querySelectorAll('link[rel="alternate"][hreflang]:not([hreflang="x-default"])');
+	if (alternativy.length < 2 || navigator.webdriver || /bot|crawl|spider|slurp|facebookexternalhit|preview|lighthouse|headless/i.test(navigator.userAgent)) { return; }
+	var uloz = function (jazyk) { try { localStorage.setItem('ka-jazyk', jazyk); } catch (e) { /* úložiště nedostupné – nic */ } };
+	document.addEventListener('click', function (e) {
+		var odkaz = e.target.closest && e.target.closest('.ka-jazyky a[hreflang], .ka-jazyky-vyber a[hreflang]');
+		if (odkaz) { uloz(odkaz.getAttribute('hreflang')); }
+	});
+	var ulozeny = null;
+	try { ulozeny = localStorage.getItem('ka-jazyk'); } catch (e) { return; }
+	if (ulozeny) { return; }
+	var verze = {};
+	alternativy.forEach(function (l) { verze[l.getAttribute('hreflang').toLowerCase().slice(0, 2)] = l.href; });
+	var aktualni = (document.documentElement.lang || '').toLowerCase().slice(0, 2);
+	var chci = null;
+	(navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || '']).some(function (j) {
+		j = String(j).toLowerCase().slice(0, 2);
+		if (verze[j]) { chci = j; return true; }
+		return false;
+	});
+	uloz(chci || aktualni);
+	var zWebu = document.referrer !== '' && document.referrer.indexOf(location.origin + '/') === 0;
+	if (chci && chci !== aktualni && !zWebu) { location.replace(verze[chci]); }
+})();

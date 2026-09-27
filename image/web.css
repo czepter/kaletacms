@@ -150,6 +150,12 @@ figure.galerie figcaption { grid-column: 1 / -1; }
 	.ka-jazyky-vyber [popover] a[aria-current] { background: var(--ka-barva-primarni-jemna); color: var(--ka-barva-primarni); font-weight: 600; }
 	.ka-jazyky-vyber [popover] small { color: var(--ka-barva-tlumeny); font-size: 0.75em; letter-spacing: 0.06em; }
 	@supports not (top: anchor(bottom)) { .ka-jazyky-vyber [popover] { top: 4.5rem; right: max(1rem, (100vw - var(--ka-sirka, 72rem)) / 2); } }
+	/* prvek Přepínač jazyků v patičce: nabídka nad tlačítkem, zarovnaná k jeho levému okraji */
+	.ka-jazyky-vyber--nahoru [popover] { top: auto; bottom: anchor(top); right: auto; left: anchor(left); margin: 0 0 6px; }
+	@supports not (top: anchor(bottom)) { .ka-jazyky-vyber--nahoru [popover] { top: auto; bottom: 4.5rem; left: 1rem; right: auto; } }
+	.ka-jazyky-prvek { margin-inline-start: 0; } /* samostatný prvek: odstup od menu nepotřebuje */
+	.ka-jazyky-sipka { stroke-width: 2; opacity: 0.7; }
+	.ka-jazyky-vyber--nahoru .ka-jazyky-sipka { rotate: 180deg; }
 	/* přepínač vzhledu (světlý / tmavý / podle zařízení) – stejná nabídka jako jazyky, položky jsou tlačítka */
 	.ka-tema-tl { padding: 0.5em 0.6em; }
 	.ka-tema-ikona { display: none; }

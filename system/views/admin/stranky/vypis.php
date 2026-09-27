@@ -20,9 +20,10 @@ $adresa = fn (array $s): string => ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '')
 	<a href="<?= e($modul->url('', ['stav' => 'kos'])) ?>"<?= $kos ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Koš')) ?> (<?= $vKosi ?>)</a>
 </nav>
 <?php endif ?>
-<?php if (!$kos && ($stranky !== [] || $hledat !== '')): ?>
+<?php if (!$kos && ($stranky !== [] || $hledat !== '' || $jazyk !== '')): ?>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
 	<input type="hidden" name="modul" value="stranky">
+<?= $app->view->render('admin/filtr_jazyka', ['jazykyWebu' => $jazykyWebu, 'jazyk' => $jazyk]) ?>
 	<label><?= e(t('Název nebo adresa obsahuje:')) ?> <input class="textpole" type="search" name="hledat" value="<?= e($hledat) ?>" size="20"></label>
 	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>">
 </form>

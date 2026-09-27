@@ -809,14 +809,14 @@ final class Kernel
         return $klic !== '' && \Kaleta\Core\Nahled::over($this->app->db(), $this->app->settings(), $cil, $klic);
     }
 
-    private function castiWebu(string $obsah, array $meta, string $jazykyHtml, string $cesta): array
+    private function castiWebu(string $obsah, array $meta, string $prepinacJazyku, string $cesta): array
     {
         $r = $this->app->request;
         $db = $this->app->db();
         $k = $this->kontext();
         $k->menu = ['hlavni' => $this->menu('hlavni'), 'paticka' => $this->menu('paticka')];
         $k->cesta = $cesta;
-        $k->jazyky = $jazykyHtml;
+        $k->jazyky = $prepinacJazyku;
         $nahled = isset(\Kaleta\Stavitel\Casti::TYPY[$r->get('cast')]) && $r->get('stavba') === 'koncept'
             && ($this->app->auth()->isAdmin() || $this->smiKoncept('cast:' . $r->get('cast') . ':' . Jazyk::sloupecWebu() . ($r->get('varianta') !== '' ? ':' . $r->get('varianta') : ''))) ? $r->get('cast') : '';
         $editor = $r->get('editor') === '1' && ($nahled !== '' || ($r->get('stavba') === 'koncept' && $r->get('cast') === ''));
@@ -968,15 +968,18 @@ final class Kernel
         }
         $meta['drobecky'] ??= $this->kontext()->drobecky;
         $jazyky = $this->jazyky($novinka);
-        $jazykyHtml = $jazyky === [] ? '' : $this->view->render('jazyky', ['jazyky' => $jazyky]);
-        // přepínač světlý / tmavý vzhled pro návštěvníky – na stejném místě jako jazyky (záhlaví, prvek Navigace)
-        if (in_array($this->app->settings()->get('tmavy_rezim'), ['auto', 'tmavy'], true) && $this->app->settings()->bool('tmavy_prepinac')) {
-            $jazykyHtml .= $this->view->render('tema', ['vychozi' => $this->app->settings()->get('tmavy_rezim') === 'tmavy' ? 'tmavy' : 'auto']);
-        }
+        $prepinacJazyku = $jazyky === [] ? '' : $this->view->render('jazyky', ['jazyky' => $jazyky]);
+        // přepínač světlý / tmavý vzhled pro návštěvníky – vedle jazyků (šablona, prvek Navigace)
+        $tema = in_array($this->app->settings()->get('tmavy_rezim'), ['auto', 'tmavy'], true) && $this->app->settings()->bool('tmavy_prepinac')
+            ? $this->view->render('tema', ['vychozi' => $this->app->settings()->get('tmavy_rezim') === 'tmavy' ? 'tmavy' : 'auto']) : '';
+        $jazykyHtml = $prepinacJazyku . $tema;
+        // prvky builderu: Navigace přidá přepínač jazyků (volitelně) a vzhledu, Přepínač jazyků skládá z tohoto seznamu
+        $this->kontext()->jazykySeznam = $jazyky;
+        $this->kontext()->tema = $tema;
         // kanonická adresa: cesta bez parametrů, u stránkování s číslem strany (strana 2 není kopie strany 1)
         $stranaVypisu = $this->app->request->getInt('strana', 1);
         $kanonicka = $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')) . ($stranaVypisu > 1 ? '?strana=' . $stranaVypisu : '');
-        [$obsah, $casti, $meta] = $this->castiWebu($obsah, $meta, $jazykyHtml, (string) parse_url($kanonicka, PHP_URL_PATH));
+        [$obsah, $casti, $meta] = $this->castiWebu($obsah, $meta, $prepinacJazyku, (string) parse_url($kanonicka, PHP_URL_PATH));
         $popupy = (string) ($meta['popupy'] ?? '');
         unset($meta['popupy']);
         $html = $this->view->render('base', [
@@ -1000,8 +1003,8 @@ final class Kernel
         $html = ObrazkyHtml::dopln($this->app->db(), $html); // rozměry a barva podkladu obrázků – méně poskakování stránky
         $html = $this->systemoveOdkazy($html);
         // image/web.js jen na stránkách, které ho potřebují (galerie a fotky v textu, video, sdílení, záložky, karusel, okno, formulář,
-        // počítadlo, odpočet, podmenu – Esc ho zavře, pop-up okna)
-        if (!preg_match('/data-(vlozit|sdilet|kopirovat|zalozky|karusel|formular|odeslano|pocitadlo|odpocet|tema-volba)|popover role="dialog"|galerie|class="(?:text|perex)[" ][\s\S]*?<img|cookies-|<li class="podmenu|data-popup=/', $html)) {
+        // počítadlo, odpočet, podmenu – Esc ho zavře, pop-up okna, jazykové verze – při první návštěvě jazyk prohlížeče)
+        if (!preg_match('/data-(vlozit|sdilet|kopirovat|zalozky|karusel|formular|odeslano|pocitadlo|odpocet|tema-volba)|popover role="dialog"|galerie|class="(?:text|perex)[" ][\s\S]*?<img|cookies-|<li class="podmenu|data-popup=|rel="alternate" hreflang=/', $html)) {
             $html = (string) preg_replace('#<script src="[^"]*/image/web\.js[^"]*"[^>]*></script>\n?#', '', $html);
         }
         // prvky s podmínkou zobrazení (datum, přihlášení) se skládají pokaždé znovu – cache by je ukazovala podle stavu v okamžiku uložení

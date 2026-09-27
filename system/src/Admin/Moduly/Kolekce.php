@@ -99,8 +99,11 @@ final class Kolekce extends Modul
             return $this->chyba('Kolekce neexistuje.', 404);
         }
 
-        return $this->view('polozky', $k['nazev'], ['k' => $k, 'jazyky' => Jazyk::dalsi($this->app->settings()),
-            'polozky' => $this->db->all('SELECT idp, nazev, seo_link, poradi, zobrazit, jazyk, datum FROM {kolekce_polozky} WHERE idk = ? ORDER BY poradi, nazev', [$k['idk']])]);
+        [$jazykyWebu, $jazyk, $sloupec] = $this->filtrJazyka();
+
+        return $this->view('polozky', $k['nazev'], ['k' => $k, 'jazyky' => Jazyk::dalsi($this->app->settings()), 'jazykyWebu' => $jazykyWebu, 'jazyk' => $jazyk,
+            'polozky' => $this->db->all('SELECT idp, nazev, seo_link, poradi, zobrazit, jazyk, datum FROM {kolekce_polozky} WHERE idk = ?' . ($sloupec !== null ? ' AND jazyk = ?' : '') . ' ORDER BY jazyk, poradi, nazev',
+                $sloupec !== null ? [$k['idk'], $sloupec] : [$k['idk']])]);
     }
 
     protected function akcePolozka(): Response
@@ -137,9 +140,7 @@ final class Kolekce extends Modul
         $seo = slugify($r->post('seo_link') !== '' ? $r->post('seo_link') : $nazev, 150);
         // adresa je jedinečná v jazyce: překlad položky smí mít stejnou (/compare/wordpress, /de/compare/wordpress)
         $jazyk = Jazyk::sloupec($this->app->settings(), $r->post('jazyk'));
-        for ($i = 2, $zaklad = $seo; $this->db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$k['idk'], $jazyk, $seo, $idp]) !== null; $i++) {
-            $seo = $zaklad . '-' . $i;
-        }
+        $seo = \Kaleta\Core\Adresa::volna($seo, fn (string $a): bool => $this->db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$k['idk'], $jazyk, $a, $idp]) !== null);
         $radek = ['idk' => $k['idk'], 'nazev' => $nazev, 'seo_link' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
             'poradi' => max(-9999, min(9999, $r->postInt('poradi'))), 'zobrazit' => $r->postBool('zobrazit') ? 1 : 0,
             'jazyk' => $jazyk, 'zmeneno' => date('Y-m-d H:i:s')];
@@ -164,10 +165,7 @@ final class Kolekce extends Modul
         if ($p === null) {
             return $this->zpet('', 'polozky', ['id' => $idk]);
         }
-        $seo = mb_substr($p['seo_link'] . '-kopie', 0, 150);
-        for ($i = 2, $zaklad = $seo; $this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ?', [$idk, $p['jazyk'], $seo]) !== null; $i++) {
-            $seo = $zaklad . '-' . $i;
-        }
+        $seo = \Kaleta\Core\Adresa::volna($p['seo_link'] . '-kopie', fn (string $a): bool => $this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ?', [$idk, $p['jazyk'], $a]) !== null);
         $id = $this->db->insert('kolekce_polozky', ['idk' => $idk, 'nazev' => mb_substr(t('%s (kopie)', $p['nazev']), 0, 200), 'seo_link' => $seo, 'data' => $p['data'],
             'poradi' => $p['poradi'], 'zobrazit' => 0, 'jazyk' => $p['jazyk'], 'datum' => date('Y-m-d H:i:s')]);
 

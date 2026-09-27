@@ -183,6 +183,11 @@ začínají jako kopie těch ve výchozím jazyce.
 Jazyk, jehož úvodní stránka ještě nemá zveřejněný překlad, se návštěvníkům nenabízí: chybí v přepínači jazyků, `hreflang`
 i v mapě webu, dokud jeho úvod nezveřejníte. Překlad tak můžete v klidu připravit.
 
+Při první návštěvě web pošle návštěvníka, jehož prohlížeč dává přednost některému z jazyků webu, na tu verzi stránky (když
+má překlad); jeho volbu v přepínači jazyků si pamatuje prohlížeč, bez cookies. Roboty vyhledávačů web nepřesměrovává.
+Přepínač je výchozí vedle menu; do patičky ho přesunete prvkem **Přepínač jazyků** (rozbalovací nabídka, otevírá se nahoru)
+a u prvku Navigace vypnete volbu *Přepínač jazyků*.
+
 ## 10. AI asistent a Claude
 
 **Asistent** zapnete v **Rozšíření**. Vyberte poskytovatele (Anthropic Claude, OpenAI, Google Gemini, Mistral), vložte

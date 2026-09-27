@@ -858,4 +858,5 @@ return [
     'Chci slevu' => 'Get the discount',
     'Nadpis okna' => 'Window heading',
     'VITEJTE10' => 'WELCOME10',
+    'Přepínač jazyků – ukáže se, když má web víc jazykových verzí' => 'Language switcher – it shows when the site has more language versions',
 ];

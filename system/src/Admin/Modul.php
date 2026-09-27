@@ -90,6 +90,21 @@ abstract class Modul
 
     /** Přesměrování zpět do modulu s hláškou (vzor Post/Redirect/Get). */
     /** Návrat na stránku webu po úpravě „přímo na webu“: jen místní cesta pod kořenem webu, nikdy cizí adresa. */
+    /**
+     * Filtr jazykové verze ve výpisech (stránky, kategorie, položky kolekcí) podle ?jazyk=kód.
+     *
+     * @return array{0: list<string>, 1: string, 2: ?string} jazyky webu (prázdné = jediný jazyk), zvolený kód, hodnota sloupce jazyk (null = všechny)
+     */
+    protected function filtrJazyka(): array
+    {
+        $web = $this->app->settings();
+        $dalsi = \Kaleta\Core\Jazyk::dalsi($web);
+        $jazyky = $dalsi === [] ? [] : [\Kaleta\Core\Jazyk::vychozi($web), ...$dalsi];
+        $kod = in_array($this->request->get('jazyk'), $jazyky, true) ? $this->request->get('jazyk') : '';
+
+        return [$jazyky, $kod, $kod === '' ? null : \Kaleta\Core\Jazyk::sloupec($web, $kod)];
+    }
+
     protected function zpetNaWeb(string $cil, string $dodatek = ''): Response
     {
         $koren = $this->app->request->basePath() . '/';

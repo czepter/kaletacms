@@ -8,6 +8,8 @@
  * @var array<string, mixed> $k
  * @var list<array<string, mixed>> $polozky
  * @var list<string> $jazyky další jazyky webu (šablona detailu pro každý zvlášť)
+ * @var list<string> $jazykyWebu všechny jazyky webu pro filtr (prázdné = jediný jazyk)
+ * @var string $jazyk zvolený jazyk filtru ('' = všechny)
  */
 ?>
 <p class="navigace-radek"><a class="tl" href="<?= e($modul->url('polozka', ['id' => $k['idk']])) ?>"><?= e(t('Přidat položku')) ?></a>
@@ -21,7 +23,10 @@
 <?php endforeach ?>
 <?php endif ?>
 <?php endif ?></p>
-<?php if ($polozky === []): ?>
+<?php if ($jazykyWebu !== []): ?>
+<form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt"><input type="hidden" name="modul" value="kolekce"><input type="hidden" name="akce" value="polozky"><input type="hidden" name="id" value="<?= (int) $k['idk'] ?>"><?= $app->view->render('admin/filtr_jazyka', ['jazykyWebu' => $jazykyWebu, 'jazyk' => $jazyk, 'odeslat' => true]) ?></form>
+<?php endif ?>
+<?php if ($polozky === [] && $jazyk === ''): ?>
 <?= $app->view->render('admin/prazdno', ['ikona' => 'kolekce', 'nadpis' => t('Kolekce je zatím prázdná.'), 'text' => t('Přidejte první položku – na web ji pak dostanete prvkem Výpis kolekce v builderu.'), 'akce' => [$modul->url('polozka', ['id' => $k['idk']]), t('Přidat položku')]]) ?>
 <?php else: ?>
 <div class="tab-obal">

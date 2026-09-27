@@ -29,6 +29,7 @@ final class Navigace extends Prvek
             'mobil' => ['typ' => 'prepinac', 'popisek' => 'Na telefonu schovat za tlačítko', 'vychozi' => true],
             'mega' => ['typ' => 'prepinac', 'popisek' => 'Podmenu jako široký panel (mega menu)', 'vychozi' => false],
             'zvyrazneni' => ['typ' => 'vyber', 'popisek' => 'Zvýraznění aktivní položky', 'vychozi' => 'pozadi', 'moznosti' => ['pozadi' => 'podbarvení', 'podtrzeni' => 'podtržení doplňkovou barvou']],
+            'jazyky' => ['typ' => 'prepinac', 'popisek' => 'Přepínač jazyků (vypněte, když je jinde, třeba v patičce)', 'vychozi' => true],
         ];
     }
 
@@ -97,7 +98,7 @@ final class Navigace extends Prvek
         if ($polozky === '' && $k->editor) {
             $polozky = '<li><span>' . e(t('Menu sestavíte ve Vzhled → Menu')) . '</span></li>';
         }
-        $menu = '<ul>' . $polozky . '</ul>' . $k->jazyky;
+        $menu = '<ul>' . $polozky . '</ul>' . (($p['obsah']['jazyky'] ?? true) ? $k->jazyky : '') . $k->tema;
         $tridy = 'ka-nav' . (!empty($p['obsah']['mega']) ? ' ka-nav--mega' : '') . (($p['obsah']['zvyrazneni'] ?? '') === 'podtrzeni' ? ' ka-nav--podtrzeni' : '');
         if (!$p['obsah']['mobil']) {
             return '<nav' . Text::sTridou($a, $tridy) . ' aria-label="' . e(t('Hlavní navigace')) . '"><div class="ka-nav-menu">' . $menu . '</div></nav>';
