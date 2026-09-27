@@ -53,13 +53,13 @@ header and footer:
 
 ### Newsletter
 
-Two steps: the first in 1.3, the second in 1.4.
+Two steps: the first in 1.3, the second in 1.5.
 
 1. **Subscribers sent to the mailing service the site already uses**. After the double opt-in the address goes to
    Brevo, MailerLite, Mailchimp, Ecomail or SmartEmailing (API key and list in the admin), or to any service through the
    existing webhook (Make, Zapier). Unsubscribing in Kaleta removes the address there too. Deliverability, bounces and
    spam rules stay with the specialist service.
-2. **1.4 – a minimal built-in mailing for small lists** – “send the latest news to subscribers”:
+2. **1.5 – a minimal built-in mailing for small lists** – “send the latest news to subscribers”:
    - an e-mail editor in the same builder, with an e-mail-safe set of elements (section, one or two columns, heading,
      text, image, button, divider, news list) rendered to table-based HTML with inline styles from the design system;
    - preview on desktop and phone, test e-mail to yourself, send now or scheduled;
@@ -71,9 +71,27 @@ Two steps: the first in 1.3, the second in 1.4.
 
    A full campaign tool (segments, automations, A/B tests) stays out of scope – that is what the connected services are for.
 
+## 1.4 – English identifiers in the code base
+
+The code moves from Czech names to English, one area per release, so contributors can read it. Nothing changes for
+sites: stored data, build JSON, CSS hooks, MCP tools and old admin links keep working. Terms and the list of what stays
+are in [docs/glossary.md](glossary.md).
+
+1. Preparation: the glossary, `tools/rename.php` (renames by PHP tokens, refuses name collisions), old class names as
+   aliases, and `tools/test-update.sh` – every change is tested as an update from the previous release.
+2. Tools and tests.
+3. PHP classes by area: core, public site, admin, MCP, builder.
+4. Admin scripts, styles and templates.
+5. Admin modules and actions in URLs, with the old URLs redirected and permissions migrated.
+6. Settings keys, copied by a migration (old keys read as a fallback for two releases).
+7. UI source texts in English, Czech moved to a dictionary like the other languages.
+
+## 1.5 – newsletter mailing
+
+The second newsletter step described above.
+
 ## Later
 
-- English identifiers in the code base.
 - Legal text templates with a clear disclaimer (privacy policy, terms, cookie policy) per country.
 - Right-to-left languages.
 - “Related content” block across collections for hub-and-spoke sites.

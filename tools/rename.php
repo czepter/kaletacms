@@ -1,0 +1,799 @@
+<?php
+/**
+ * Kaleta – map-driven renaming of PHP identifiers (Czech → English, see docs/glossary.md).
+ *
+ *   php tools/rename.php <map.php>            dry run: what would change, collisions, string literals to review
+ *   php tools/rename.php <map.php> --apply    rewrite the files and move class files (git mv)
+ *   php tools/rename.php --inventory          declared identifiers (classes, functions, constants, properties, variables)
+ *   php tools/rename.php --self-test
+ *
+ * A map file returns:
+ *   'namespaces' => ['Kaleta\Stavitel\Prvky' => 'Kaleta\Builder\Elements', ...]  longest prefix wins
+ *   'classes'    => ['Kaleta\Stavitel\Prvky\Nadpis' => 'Heading', ...]           new short name (namespace from 'namespaces')
+ *   'names'      => ['nainstaluj' => 'install', 'JEN_CASTI' => 'PARTS_ONLY', ...] methods, functions, constants, properties
+ *                                                                                and variables – one translation everywhere
+ *
+ * Works on tokens, not text: string literals are never changed (database columns, build JSON keys, settings keys, URLs and
+ * MCP tool names are contracts), comments only in docblock tags (@param, @var, @return …). Variables are renamed in classes
+ * and scripts but not in views (system/views, layout), whose variables come from the string keys passed to render().
+ * Before writing it refuses the map when two variables of one function, two members of one class, or a method and an
+ * inherited one would end up with the same name.
+ */
+
+declare(strict_types=1);
+
+if (PHP_SAPI !== 'cli') {
+    exit('CLI only.');
+}
+
+final class Rename
+{
+    /** @var array<string, string> */
+    private array $namespaces;
+    /** @var array<string, string> old FQCN => new FQCN */
+    private array $classes = [];
+    /** @var array<string, string> */
+    private array $names;
+    /** @var list<string> */
+    public array $problems = [];
+    /** @var array<string, list<string>> old name => places in string literals, JS and CSS */
+    public array $stringHits = [];
+    /** @var array<string, int> */
+    public array $counts = [];
+    /** @var array<string, string> old path => new path of moved class files and namespace folders (system/src/…) */
+    private array $paths = [];
+
+    /**
+     * @param array{namespaces?: array<string, string>, classes?: array<string, string>, names?: array<string, string>} $map
+     * @param list<string> $knownClasses FQCNs declared in the project
+     */
+    public function __construct(array $map, array $knownClasses)
+    {
+        $this->namespaces = $map['namespaces'] ?? [];
+        uksort($this->namespaces, fn (string $a, string $b): int => strlen($b) <=> strlen($a));
+        $this->names = $map['names'] ?? [];
+        foreach ($knownClasses as $fqcn) {
+            $pos = strrpos($fqcn, '\\');
+            $ns = $pos === false ? '' : substr($fqcn, 0, $pos);
+            $short = $map['classes'][$fqcn] ?? substr($fqcn, $pos === false ? 0 : $pos + 1);
+            $new = ltrim($this->namespace($ns) . '\\' . $short, '\\');
+            if ($new !== $fqcn) {
+                $this->classes[$fqcn] = $new;
+            }
+        }
+        $path = fn (string $fqcn): string => 'system/src/' . str_replace('\\', '/', substr($fqcn, 7));
+        foreach ($this->classes as $old => $new) {
+            if (str_starts_with($old, 'Kaleta\\') && str_starts_with($new, 'Kaleta\\')) {
+                $this->paths[$path($old) . '.php'] = $path($new) . '.php';
+            }
+        }
+        foreach ($this->namespaces as $old => $new) {
+            if (str_starts_with($old, 'Kaleta\\') && str_starts_with($new, 'Kaleta\\')) {
+                $this->paths[$path($old)] = $path($new);
+            }
+        }
+        uksort($this->paths, fn (string $a, string $b): int => strlen($b) <=> strlen($a));
+        foreach (array_keys($map['classes'] ?? []) as $fqcn) {
+            if (!in_array($fqcn, $knownClasses, true)) {
+                $this->problems[] = "map: unknown class $fqcn";
+            }
+        }
+        foreach ($this->names as $old => $new) {
+            if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $new)) {
+                $this->problems[] = "map: invalid name „{$new}“ for $old";
+            }
+        }
+    }
+
+    /** @return array<string, string> old FQCN => new FQCN */
+    public function classMap(): array
+    {
+        return $this->classes;
+    }
+
+    public function namespace(string $ns): string
+    {
+        foreach ($this->namespaces as $old => $new) {
+            if ($ns === $old || str_starts_with($ns, $old . '\\')) {
+                return $new . substr($ns, strlen($old));
+            }
+        }
+
+        return $ns;
+    }
+
+    /** Rewrites one PHP source. $view: variables stay (they come from render() string keys), only static properties change. */
+    public function rewrite(string $code, string $file, bool $view): string
+    {
+        $t = PhpToken::tokenize($code);
+        $n = count($t);
+        $ns = '';
+        $imports = []; // alias => FQCN
+        $depth = 0;
+        $out = [];
+        for ($i = 0; $i < $n; $i++) {
+            $x = $t[$i];
+            $text = $x->text;
+            if ($x->text === '{' || $x->is([T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES])) {
+                $depth++;
+            } elseif ($x->text === '}') {
+                $depth--;
+            }
+            if ($x->is(T_NAMESPACE) && ($next = $this->next($t, $i)) !== null && $t[$next]->is([T_STRING, T_NAME_QUALIFIED])) {
+                $ns = $t[$next]->text;
+                $out[] = $text;
+                for ($j = $i + 1; $j < $next; $j++) {
+                    $out[] = $t[$j]->text;
+                }
+                $out[] = $this->namespace($ns);
+                $this->count('namespace ' . $ns, $this->namespace($ns) !== $ns);
+                $i = $next;
+                continue;
+            }
+            if ($x->is(T_USE) && $depth === 0 && ($next = $this->next($t, $i)) !== null && $t[$next]->text !== '(') {
+                // top-level import (a closure's use (...) in a script is not one): use A\B; use A\B as C; use A\{B, C as D}; (use function / use const pass through)
+                $end = $i;
+                while ($end < $n && $t[$end]->text !== ';') {
+                    $end++;
+                }
+                $out[] = $this->rewriteUse(array_slice($t, $i, $end - $i + 1), $imports);
+                $i = $end;
+                continue;
+            }
+            if ($x->is([T_NAME_FULLY_QUALIFIED, T_NAME_QUALIFIED, T_STRING]) && !$this->isMember($t, $i)) {
+                $resolved = $this->resolve($text, $x->id, $ns, $imports);
+                if ($resolved !== null && isset($this->classes[$resolved])) {
+                    $out[] = $this->refer($this->classes[$resolved], $text, $x->id, $ns, $imports, $resolved);
+                    $this->count($resolved, true);
+                    continue;
+                }
+            }
+            if ($x->is(T_STRING) && isset($this->names[$text]) && !$this->isClassContext($t, $i)) {
+                $out[] = $this->names[$text];
+                $this->count($text, true);
+                continue;
+            }
+            if ($x->is(T_VARIABLE) && $text !== '$this' && isset($this->names[substr($text, 1)])) {
+                $prev = $this->prev($t, $i);
+                if (!$view || ($prev !== null && $t[$prev]->is(T_DOUBLE_COLON))) {
+                    $out[] = '$' . $this->names[substr($text, 1)];
+                    $this->count(substr($text, 1), true);
+                    continue;
+                }
+            }
+            if ($x->is(T_DOC_COMMENT)) {
+                $out[] = $this->rewriteDoc($text, $ns, $imports, $view);
+                continue;
+            }
+            if ($x->is([T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE])) {
+                // the one change inside strings: paths of moved class files and folders (tests, tools)
+                $moved = str_contains($text, 'system/src/') ? $this->movePaths($text) : $text;
+                $this->count('path', $moved !== $text);
+                if ($moved !== $text) {
+                    $out[] = $moved;
+                    continue;
+                }
+                $this->scanString($text, $file . ':' . $x->line);
+            }
+            $out[] = $text;
+        }
+
+        return implode('', $out);
+    }
+
+    /** @param list<PhpToken> $stmt @param array<string, string> $imports */
+    private function rewriteUse(array $stmt, array &$imports): string
+    {
+        $kind = $stmt[1]->is(T_WHITESPACE) && isset($stmt[2]) && in_array(strtolower($stmt[2]->text), ['function', 'const'], true) ? 'other' : 'class';
+        $code = implode('', array_map(fn (PhpToken $x): string => $x->text, $stmt));
+        if ($kind !== 'class') {
+            return $code;
+        }
+        $body = trim(substr($code, 3, -1));
+        if (preg_match('/^(.*)\\\\\{(.*)\}$/s', $body, $m)) {
+            $prefix = ltrim($m[1], '\\');
+            $parts = [];
+            foreach (explode(',', $m[2]) as $part) {
+                if (trim($part) === '') {
+                    continue;
+                }
+                [$name, $alias] = $this->splitAlias(trim($part));
+                $old = $prefix . '\\' . $name;
+                $imports[$alias ?? $this->short($name)] = $old;
+                $new = $this->classes[$old] ?? $old;
+                $this->count($old, isset($this->classes[$old]));
+                $parts[] = [$new, $alias];
+            }
+            // a group import cannot span namespaces after a move: write one import per class
+            $lines = array_map(fn (array $p): string => 'use ' . $p[0] . ($p[1] !== null ? ' as ' . $p[1] : '') . ';', $parts);
+
+            return implode("\n", $lines);
+        }
+        [$name, $alias] = $this->splitAlias($body);
+        $old = ltrim($name, '\\');
+        $imports[$alias ?? $this->short($old)] = $old;
+        if (!isset($this->classes[$old])) {
+            return $code;
+        }
+        $this->count($old, true);
+
+        return 'use ' . $this->classes[$old] . ($alias !== null ? ' as ' . $alias : '') . ';';
+    }
+
+    /** @return array{0: string, 1: ?string} */
+    private function splitAlias(string $part): array
+    {
+        return preg_match('/^(\S+)\s+as\s+(\w+)$/i', $part, $m) ? [$m[1], $m[2]] : [$part, null];
+    }
+
+    private function short(string $fqcn): string
+    {
+        $pos = strrpos($fqcn, '\\');
+
+        return $pos === false ? $fqcn : substr($fqcn, $pos + 1);
+    }
+
+    /** @param array<string, string> $imports */
+    private function resolve(string $name, int $id, string $ns, array $imports): ?string
+    {
+        if ($id === T_NAME_FULLY_QUALIFIED) {
+            return substr($name, 1);
+        }
+        if ($id === T_NAME_QUALIFIED) {
+            $first = strstr($name, '\\', true);
+
+            return isset($imports[$first]) ? $imports[$first] . substr($name, strlen($first)) : ltrim($ns . '\\' . $name, '\\');
+        }
+        if (!preg_match('/^[A-Z][a-z]/', $name)) {
+            return null; // classes are PascalCase; CONSTANTS and methods are not
+        }
+
+        return $imports[$name] ?? ltrim($ns . '\\' . $name, '\\');
+    }
+
+    /** New way to write a reference to $new from a file in (old) namespace $ns. @param array<string, string> $imports */
+    private function refer(string $new, string $text, int $id, string $ns, array $imports, string $old): string
+    {
+        $newNs = $this->namespace($ns);
+        if ($id === T_STRING && isset($imports[$text])) {
+            // imported: the import line is rewritten; an implicit alias follows the new short name
+            return $this->short($old) === $text ? $this->short($new) : $text;
+        }
+        if ($id === T_NAME_FULLY_QUALIFIED) {
+            return '\\' . $new;
+        }
+        if ($id === T_NAME_QUALIFIED && isset($imports[strstr($text, '\\', true)])) {
+            $first = strstr($text, '\\', true);
+            $base = $this->classes[$imports[$first]] ?? $imports[$first];
+            if (str_starts_with($new, $base . '\\')) {
+                return $first . substr($new, strlen($base));
+            }
+
+            return '\\' . $new;
+        }
+        if ($newNs === '') {
+            return $new;
+        }
+        if (str_starts_with($new, $newNs . '\\')) {
+            return substr($new, strlen($newNs) + 1);
+        }
+
+        return '\\' . $new;
+    }
+
+    /** @param list<PhpToken> $t */
+    private function isMember(array $t, int $i): bool
+    {
+        $prev = $this->prev($t, $i);
+
+        return $prev !== null && ($t[$prev]->is([T_OBJECT_OPERATOR, T_NULLSAFE_OBJECT_OPERATOR, T_DOUBLE_COLON, T_FUNCTION, T_CONST]));
+    }
+
+    /** A T_STRING that names a class (never renamed as a member): before ::class, after new/extends/implements/instanceof. @param list<PhpToken> $t */
+    private function isClassContext(array $t, int $i): bool
+    {
+        $prev = $this->prev($t, $i);
+
+        return $prev !== null && $t[$prev]->is([T_NEW, T_EXTENDS, T_IMPLEMENTS, T_INSTANCEOF, T_NAMESPACE]);
+    }
+
+    /** @param array<string, string> $imports */
+    private function rewriteDoc(string $doc, string $ns, array $imports, bool $view): string
+    {
+        return (string) preg_replace_callback('/^(\s*(?:\/\*\*)?\s*\*?\s*@(?:param|var|return|throws|property|method|template|extends|implements|phpstan-[a-z-]+|psalm-[a-z-]+)\b)(.*)$/m', function (array $m) use ($ns, $imports, $view): string {
+            $rest = (string) preg_replace_callback('/(\\\\?[A-Z][A-Za-z0-9]*(?:\\\\[A-Za-z0-9]+)*)|\$([A-Za-z_][A-Za-z0-9_]*)|(?<=::)([A-Za-z_][A-Za-z0-9_]*)/', function (array $w) use ($ns, $imports, $view): string {
+                if (($w[1] ?? '') !== '') {
+                    $id = str_starts_with($w[1], '\\') ? T_NAME_FULLY_QUALIFIED : (str_contains($w[1], '\\') ? T_NAME_QUALIFIED : T_STRING);
+                    $resolved = $this->resolve($w[1], $id, $ns, $imports);
+
+                    return $resolved !== null && isset($this->classes[$resolved]) ? $this->refer($this->classes[$resolved], $w[1], $id, $ns, $imports, $resolved) : $w[1];
+                }
+                if (($w[2] ?? '') !== '') {
+                    return !$view && isset($this->names[$w[2]]) ? '$' . $this->names[$w[2]] : $w[0];
+                }
+
+                return $this->names[$w[3]] ?? $w[3];
+            }, $m[2]);
+
+            return $m[1] . $rest;
+        }, $doc);
+    }
+
+    public function movePaths(string $text): string
+    {
+        foreach ($this->paths as $old => $new) {
+            $text = (string) preg_replace('#' . preg_quote($old, '#') . '(?![A-Za-z0-9_])#', $new, $text);
+        }
+
+        return $text;
+    }
+
+    private function scanString(string $text, string $place): void
+    {
+        foreach ($this->names as $old => $new) {
+            if (strlen($old) > 3 && preg_match('/(?<![A-Za-z0-9_])' . preg_quote($old, '/') . '(?![A-Za-z0-9_])/', $text)) {
+                $this->stringHits[$old][] = $place;
+            }
+        }
+        foreach ($this->classes as $old => $new) {
+            if (str_contains(str_replace('\\\\', '\\', $text), $old)) {
+                $this->stringHits[$old][] = $place;
+            }
+        }
+    }
+
+    public function scanAsset(string $code, string $file): void
+    {
+        foreach (explode("\n", $code) as $no => $line) {
+            foreach ($this->names as $old => $new) {
+                if (strlen($old) > 3 && preg_match('/(?<![A-Za-z0-9_-])' . preg_quote($old, '/') . '(?![A-Za-z0-9_-])/', $line)) {
+                    $this->stringHits[$old][] = $file . ':' . ($no + 1);
+                }
+            }
+        }
+    }
+
+    private function count(string $name, bool $changed): void
+    {
+        if ($changed) {
+            $this->counts[$name] = ($this->counts[$name] ?? 0) + 1;
+        }
+    }
+
+    /** @param list<PhpToken> $t */
+    private function prev(array $t, int $i): ?int
+    {
+        for ($j = $i - 1; $j >= 0; $j--) {
+            if (!$t[$j]->isIgnorable()) {
+                return $j;
+            }
+        }
+
+        return null;
+    }
+
+    /** @param list<PhpToken> $t */
+    private function next(array $t, int $i): ?int
+    {
+        for ($j = $i + 1, $n = count($t); $j < $n; $j++) {
+            if (!$t[$j]->isIgnorable()) {
+                return $j;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Variables of one function (including its closures and arrow functions) that would merge into one name.
+     * Checked on the original code: every variable of the outermost function body, then mapped.
+     */
+    public function variableCollisions(string $code, string $file): void
+    {
+        $t = PhpToken::tokenize($code);
+        $n = count($t);
+        for ($i = 0; $i < $n; $i++) {
+            if (!$t[$i]->is(T_FUNCTION)) {
+                continue;
+            }
+            // find the body: first "{" after the parameter list, or ";" for abstract methods
+            $j = $i;
+            $paren = 0;
+            while ($j < $n) {
+                $c = $t[$j]->text;
+                if ($c === '(') {
+                    $paren++;
+                } elseif ($c === ')') {
+                    $paren--;
+                } elseif ($paren === 0 && ($c === '{' || $c === ';')) {
+                    break;
+                }
+                $j++;
+            }
+            if ($j >= $n || $t[$j]->text === ';') {
+                continue;
+            }
+            $depth = 0;
+            $vars = [];
+            for ($k = $i; $k < $n; $k++) {
+                if ($t[$k]->text === '{' || $t[$k]->is([T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES])) {
+                    $depth++;
+                } elseif ($t[$k]->text === '}') {
+                    $depth--;
+                    if ($depth === 0 && $k > $j) {
+                        break;
+                    }
+                }
+                if ($t[$k]->is(T_VARIABLE) && $t[$k]->text !== '$this') {
+                    $prev = $this->prev($t, $k);
+                    if ($prev === null || !$t[$prev]->is(T_DOUBLE_COLON)) {
+                        $vars[substr($t[$k]->text, 1)] = true;
+                    }
+                }
+            }
+            $this->collide(array_keys($vars), $file . ':' . $t[$i]->line, 'variables');
+            $i = $k; // nested functions were part of this scope
+        }
+    }
+
+    /** @param list<string> $olds */
+    private function collide(array $olds, string $place, string $what): void
+    {
+        $seen = [];
+        foreach ($olds as $old) {
+            $new = $this->names[$old] ?? $old;
+            if (isset($seen[$new]) && $seen[$new] !== $old) {
+                $this->problems[] = "$place: $what „{$seen[$new]}“ and „{$old}“ would both become „{$new}“";
+            }
+            $seen[$new] = $old;
+        }
+    }
+
+    /**
+     * Members of each class (methods, constants, properties) and inherited methods that would merge into one name.
+     *
+     * @param array<string, array{parent: ?string, interfaces: list<string>, methods: list<string>, consts: list<string>, props: list<string>, file: string}> $classes
+     */
+    public function memberCollisions(array $classes): void
+    {
+        foreach ($classes as $fqcn => $c) {
+            $this->collide($c['methods'], $c['file'] . " ($fqcn)", 'methods');
+            $this->collide($c['consts'], $c['file'] . " ($fqcn)", 'constants');
+            $this->collide($c['props'], $c['file'] . " ($fqcn)", 'properties');
+            $ancestors = [];
+            $queue = array_filter([$c['parent'], ...$c['interfaces']]);
+            while ($queue !== []) {
+                $a = array_shift($queue);
+                if (isset($classes[$a]) && !isset($ancestors[$a])) {
+                    $ancestors[$a] = true;
+                    array_push($queue, ...array_filter([$classes[$a]['parent'], ...$classes[$a]['interfaces']]));
+                }
+            }
+            foreach (array_keys($ancestors) as $a) {
+                foreach ([['methods', 'method'], ['consts', 'constant']] as [$kind, $label]) {
+                    foreach ($c[$kind] as $own) {
+                        foreach ($classes[$a][$kind] as $inherited) {
+                            if ($own !== $inherited && ($this->names[$own] ?? $own) === ($this->names[$inherited] ?? $inherited)) {
+                                $this->problems[] = "{$c['file']} ($fqcn): $label „{$own}“ would override „{$inherited}“ of $a";
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Declarations in one file: classes with their parent, interfaces and members.
+ *
+ * @return array<string, array{parent: ?string, interfaces: list<string>, methods: list<string>, consts: list<string>, props: list<string>, file: string}>
+ */
+function declarations(string $code, string $file): array
+{
+    $t = PhpToken::tokenize($code);
+    $n = count($t);
+    $ns = '';
+    $imports = [];
+    $classes = [];
+    $current = null;
+    $classDepth = -1;
+    $depth = 0;
+    $paren = 0;
+    $fullName = function (string $name) use (&$ns, &$imports): string {
+        if ($name[0] === '\\') {
+            return substr($name, 1);
+        }
+        $first = str_contains($name, '\\') ? strstr($name, '\\', true) : $name;
+
+        return isset($imports[$first]) ? $imports[$first] . substr($name, strlen($first)) : ltrim($ns . '\\' . $name, '\\');
+    };
+    $nextName = function (int $i) use ($t, $n): array {
+        for ($j = $i + 1; $j < $n; $j++) {
+            if (!$t[$j]->isIgnorable()) {
+                return [$j, $t[$j]];
+            }
+        }
+
+        return [$n, null];
+    };
+    for ($i = 0; $i < $n; $i++) {
+        $x = $t[$i];
+        if ($x->text === '{' || $x->is([T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES])) {
+            $depth++;
+        } elseif ($x->text === '}') {
+            $depth--;
+            if ($current !== null && $depth === $classDepth) {
+                $current = null;
+            }
+        }
+        if ($x->text === '(') {
+            $paren++;
+        } elseif ($x->text === ')') {
+            $paren--;
+        }
+        if ($x->is(T_NAMESPACE)) {
+            [, $name] = $nextName($i);
+            if ($name !== null && $name->is([T_STRING, T_NAME_QUALIFIED])) {
+                $ns = $name->text;
+            }
+        } elseif ($x->is(T_USE) && $depth === 0 && ($nextName($i)[1]?->text ?? '') !== '(') {
+            $stmt = '';
+            for ($j = $i + 1; $j < $n && $t[$j]->text !== ';'; $j++) {
+                $stmt .= $t[$j]->text;
+            }
+            $stmt = trim($stmt);
+            if (!preg_match('/^(function|const)\s/i', $stmt) && !str_contains($stmt, '{')) {
+                $alias = preg_match('/^(\S+)\s+as\s+(\w+)$/i', $stmt, $m) ? $m[2] : substr(strrchr('\\' . $stmt, '\\'), 1);
+                $imports[$alias] = ltrim($m[1] ?? $stmt, '\\');
+            }
+        } elseif ($x->is([T_CLASS, T_INTERFACE, T_TRAIT, T_ENUM]) && $current === null) {
+            [$j, $name] = $nextName($i);
+            $prevTok = null;
+            for ($k = $i - 1; $k >= 0; $k--) {
+                if (!$t[$k]->isIgnorable()) {
+                    $prevTok = $t[$k];
+                    break;
+                }
+            }
+            if ($name === null || !$name->is(T_STRING) || ($prevTok !== null && $prevTok->is(T_DOUBLE_COLON))) {
+                continue; // anonymous class or ::class
+            }
+            $fqcn = ltrim($ns . '\\' . $name->text, '\\');
+            $classes[$fqcn] = ['parent' => null, 'interfaces' => [], 'methods' => [], 'consts' => [], 'props' => [], 'file' => $file];
+            for ($k = $j + 1; $k < $n && $t[$k]->text !== '{'; $k++) {
+                if ($t[$k]->is(T_EXTENDS)) {
+                    [$k, $p] = $nextName($k);
+                    $classes[$fqcn][$x->is(T_INTERFACE) ? 'interfaces' : 'parent'] = $x->is(T_INTERFACE) ? [$fullName($p->text)] : $fullName($p->text);
+                } elseif ($t[$k]->is([T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED, T_STRING]) && $k > $j && $classes[$fqcn]['parent'] !== $fullName($t[$k]->text)) {
+                    $classes[$fqcn]['interfaces'][] = $fullName($t[$k]->text);
+                }
+            }
+            $current = $fqcn;
+            $classDepth = $depth;
+        } elseif ($current !== null && $depth === $classDepth + 1) {
+            if ($x->is(T_FUNCTION)) {
+                [, $name] = $nextName($i);
+                if ($name !== null && $name->is(T_STRING)) {
+                    $classes[$current]['methods'][] = $name->text;
+                }
+            } elseif ($x->is(T_CONST)) {
+                for ($j = $i + 1; $j < $n && $t[$j]->text !== '='; $j++) {
+                    $last = $t[$j]->is(T_STRING) ? $t[$j]->text : ($last ?? null);
+                }
+                if (isset($last)) {
+                    $classes[$current]['consts'][] = $last;
+                    unset($last);
+                }
+            } elseif ($x->is(T_VARIABLE) && $paren === 0) {
+                $classes[$current]['props'][] = substr($x->text, 1);
+            }
+        }
+        if ($current !== null && $x->is(T_FUNCTION) && ($name = $nextName($i)[1]) !== null && $name->text === '__construct') {
+            // promoted constructor properties
+            for ($j = $i; $j < $n && $t[$j]->text !== '{' && $t[$j]->text !== ';'; $j++) {
+                if ($t[$j]->is([T_PUBLIC, T_PROTECTED, T_PRIVATE, T_READONLY])) {
+                    for ($k = $j; $k < $n && !$t[$k]->is(T_VARIABLE); $k++);
+                    $classes[$current]['props'][] = substr($t[$k]->text, 1);
+                    $j = $k;
+                }
+            }
+        }
+    }
+
+    return $classes;
+}
+
+/** @return list<string> PHP files the tool works on, relative to $root */
+function phpFiles(string $root): array
+{
+    $files = [];
+    foreach (['system', 'layout', 'tools'] as $dir) {
+        $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root . '/' . $dir, FilesystemIterator::SKIP_DOTS));
+        foreach ($it as $f) {
+            if ($f->isFile() && str_ends_with($f->getFilename(), '.php') && !str_contains($f->getPathname(), '/tools/fixtures/') && $f->getPathname() !== __FILE__) {
+                $files[] = substr($f->getPathname(), strlen($root) + 1);
+            }
+        }
+    }
+    foreach (glob($root . '/*.php') ?: [] as $f) {
+        $files[] = basename($f);
+    }
+    sort($files);
+
+    return $files;
+}
+
+function isView(string $file): bool
+{
+    return str_starts_with($file, 'system/views/') || str_starts_with($file, 'layout/');
+}
+
+function selfTest(): int
+{
+    $known = ['Kaleta\Stavitel\Prvek', 'Kaleta\Stavitel\Prvky\Nadpis', 'Kaleta\Stavitel\Kontext', 'Kaleta\Core\Db'];
+    $map = [
+        'namespaces' => ['Kaleta\Stavitel\Prvky' => 'Kaleta\Builder\Elements', 'Kaleta\Stavitel' => 'Kaleta\Builder'],
+        'classes' => ['Kaleta\Stavitel\Prvek' => 'Element', 'Kaleta\Stavitel\Prvky\Nadpis' => 'Heading', 'Kaleta\Stavitel\Kontext' => 'Context'],
+        'names' => ['vykresli' => 'render', 'nazev' => 'title', 'JEN_CASTI' => 'PARTS_ONLY', 'uroven' => 'level'],
+    ];
+    $cases = [
+        // [source, expected, view?]
+        ["<?php\nnamespace Kaleta\\Stavitel\\Prvky;\n\nuse Kaleta\\Stavitel\\Kontext;\nuse Kaleta\\Stavitel\\Prvek;\n\n/** @param Kontext \$k */\nfinal class Nadpis extends Prvek\n{\n    public const bool JEN_CASTI = false;\n    public static function vykresli(array \$p, Kontext \$k, string \$nazev = 'nazev'): string\n    {\n        return \$nazev . self::JEN_CASTI . \$k->nazev . \"{\$nazev}\";\n    }\n}\n",
+         "<?php\nnamespace Kaleta\\Builder\\Elements;\n\nuse Kaleta\\Builder\\Context;\nuse Kaleta\\Builder\\Element;\n\n/** @param Context \$k */\nfinal class Heading extends Element\n{\n    public const bool PARTS_ONLY = false;\n    public static function render(array \$p, Context \$k, string \$title = 'nazev'): string\n    {\n        return \$title . self::PARTS_ONLY . \$k->title . \"{\$title}\";\n    }\n}\n", false],
+        ["<?php\nnamespace Kaleta\\Stavitel;\n\nfinal class Stavba\n{\n    const PRVKY = [Prvky\\Nadpis::class, \\Kaleta\\Core\\Db::class];\n    public function x(): string { return Prvky\\Nadpis::vykresli(uroven: 1); }\n}\n",
+         "<?php\nnamespace Kaleta\\Builder;\n\nfinal class Stavba\n{\n    const PRVKY = [Elements\\Heading::class, \\Kaleta\\Core\\Db::class];\n    public function x(): string { return Elements\\Heading::render(level: 1); }\n}\n", false],
+        ["<?= e(\$nazev) ?><?= Kaleta\\Stavitel\\Prvky\\Nadpis::JEN_CASTI ?><?= \$k->nazev ?>",
+         "<?= e(\$nazev) ?><?= Kaleta\\Builder\\Elements\\Heading::PARTS_ONLY ?><?= \$k->title ?>", true],
+        ["<?php\nnamespace Kaleta\\Core;\n\nuse Kaleta\\Stavitel\\{Prvek, Kontext as K};\n\nfinal class Db { public function a(K \$k): Prvek { return new \\Kaleta\\Stavitel\\Prvky\\Nadpis(); } }\n",
+         "<?php\nnamespace Kaleta\\Core;\n\nuse Kaleta\\Builder\\Element;\nuse Kaleta\\Builder\\Context as K;\n\nfinal class Db { public function a(K \$k): Element { return new \\Kaleta\\Builder\\Elements\\Heading(); } }\n", false],
+    ];
+    $cases[] = ["<?php\n\$f = glob('system/src/Stavitel/Prvky/*.php') + ['system/src/Stavitel/Kontext.php', 'system/src/Stavitel/Kontextove.php'];\n",
+        "<?php\n\$f = glob('system/src/Builder/Elements/*.php') + ['system/src/Builder/Context.php', 'system/src/Builder/Kontextove.php'];\n", false];
+    $fail = 0;
+    foreach ($cases as $no => [$src, $expected, $view]) {
+        $r = new Rename($map, $known);
+        $got = $r->rewrite($src, "case$no", $view);
+        if ($got !== $expected) {
+            $fail++;
+            echo "  FAIL case $no\n--- expected\n$expected\n--- got\n$got\n";
+        }
+    }
+    // collisions: two variables of one function, a member and an inherited one
+    $r = new Rename(['names' => ['nazev' => 'name']], []);
+    $r->variableCollisions("<?php function f(\$nazev) { \$name = 1; return fn () => \$name . \$nazev; }", 'v');
+    $r->memberCollisions([
+        'A' => ['parent' => null, 'interfaces' => [], 'methods' => ['name'], 'consts' => [], 'props' => [], 'file' => 'a'],
+        'B' => ['parent' => 'A', 'interfaces' => [], 'methods' => ['nazev'], 'consts' => [], 'props' => [], 'file' => 'b'],
+    ]);
+    if (count($r->problems) !== 2) {
+        $fail++;
+        echo "  FAIL collisions: " . json_encode($r->problems) . "\n";
+    }
+    $d = declarations("<?php\nnamespace X;\nuse Y\\Z;\nfinal class A extends Z implements \\I {\n const K = 1;\n public function __construct(private int \$p) {}\n protected \$q;\n function m() { \$local = function () {}; }\n}\n", 'f');
+    if (($d['X\A'] ?? null) !== ['parent' => 'Y\Z', 'interfaces' => ['I'], 'methods' => ['__construct', 'm'], 'consts' => ['K'], 'props' => ['p', 'q'], 'file' => 'f']) {
+        $fail++;
+        echo "  FAIL declarations: " . json_encode($d) . "\n";
+    }
+    echo $fail === 0 ? "rename self-test OK\n" : "rename self-test: $fail failed\n";
+
+    return $fail === 0 ? 0 : 1;
+}
+
+// --- command line
+$root = dirname(__DIR__);
+$args = array_slice($argv, 1);
+if (in_array('--self-test', $args, true)) {
+    exit(selfTest());
+}
+$files = phpFiles($root);
+$declared = [];
+foreach ($files as $f) {
+    $declared += declarations((string) file_get_contents($root . '/' . $f), $f);
+}
+if (in_array('--inventory', $args, true)) {
+    $vars = [];
+    foreach ($files as $f) {
+        foreach (PhpToken::tokenize((string) file_get_contents($root . '/' . $f)) as $x) {
+            if ($x->is(T_VARIABLE) && $x->text !== '$this') {
+                $vars[substr($x->text, 1)][isView($f) ? 'view' : 'code'] = true;
+            }
+        }
+    }
+    $functions = [];
+    foreach ($files as $f) {
+        if (!str_starts_with($f, 'system/src/') || str_contains((string) file_get_contents($root . '/' . $f), "\nnamespace ")) {
+            continue;
+        }
+        preg_match_all('/^function (\w+)/m', (string) file_get_contents($root . '/' . $f), $m);
+        array_push($functions, ...$m[1]);
+    }
+    ksort($vars);
+    echo json_encode(['classes' => $declared, 'functions' => $functions, 'variables' => array_map(fn (array $v): string => implode('+', array_keys($v)), $vars)], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
+    exit(0);
+}
+$mapFile = $args[0] ?? '';
+if ($mapFile === '' || !is_file($mapFile)) {
+    exit("Usage: php tools/rename.php <map.php> [--apply] | --inventory | --self-test\n");
+}
+$apply = in_array('--apply', $args, true);
+$r = new Rename(require $mapFile, array_keys($declared));
+
+$changed = [];
+foreach ($files as $f) {
+    $code = (string) file_get_contents($root . '/' . $f);
+    if (!isView($f)) {
+        $r->variableCollisions($code, $f);
+    }
+    $new = $r->rewrite($code, $f, isView($f));
+    if ($new !== $code) {
+        $changed[$f] = $new;
+    }
+}
+$r->memberCollisions($declared);
+foreach (['image', 'layout'] as $dir) {
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root . '/' . $dir, FilesystemIterator::SKIP_DOTS)) as $a) {
+        if ($a->isFile() && preg_match('/\.(js|css)$/', $a->getFilename())) {
+            $r->scanAsset((string) file_get_contents($a->getPathname()), substr($a->getPathname(), strlen($root) + 1));
+        }
+    }
+}
+$moves = [];
+foreach ($r->classMap() as $old => $new) {
+    $from = 'system/src/' . str_replace('\\', '/', substr($old, 7)) . '.php';
+    $to = 'system/src/' . str_replace('\\', '/', substr($new, 7)) . '.php';
+    if (str_starts_with($old, 'Kaleta\\') && str_starts_with($new, 'Kaleta\\') && is_file($root . '/' . $from)) {
+        $moves[$from] = $to;
+        if (is_file($root . '/' . $to) && !isset($moves[$to])) {
+            $r->problems[] = "class file $to already exists";
+        }
+    }
+}
+
+echo count($changed) . " files change, " . count($moves) . " class files move, " . array_sum($r->counts) . " references\n";
+foreach ($r->stringHits as $name => $places) {
+    $places = array_values(array_unique($places));
+    echo "  review (string/JS/CSS) $name: " . implode(', ', array_slice($places, 0, 6)) . (count($places) > 6 ? ' … +' . (count($places) - 6) : '') . "\n";
+}
+$unused = array_diff(array_keys((require $mapFile)['names'] ?? []), array_keys($r->counts));
+if ($unused !== []) {
+    echo "  not found in code: " . implode(', ', $unused) . "\n";
+}
+if ($r->problems !== []) {
+    echo "\nREFUSED – " . count($r->problems) . " problems:\n  " . implode("\n  ", array_unique($r->problems)) . "\n";
+    exit(1);
+}
+if (!$apply) {
+    echo "dry run – add --apply to write\n";
+    exit(0);
+}
+foreach ($changed as $f => $code) {
+    file_put_contents($root . '/' . $f, $code);
+}
+foreach ($moves as $from => $to) {
+    @mkdir(dirname($root . '/' . $to), 0775, true);
+    exec('cd ' . escapeshellarg($root) . ' && git mv ' . escapeshellarg($from) . ' ' . escapeshellarg($to), $o, $code);
+    if ($code !== 0) {
+        echo "git mv $from failed\n";
+        exit(1);
+    }
+    @rmdir(dirname($root . '/' . $from));
+}
+// old class names keep working through the autoloader (system/class-aliases.php); an older alias follows a second rename
+$aliasFile = $root . '/system/class-aliases.php';
+$aliases = array_map(fn (string $to): string => $r->classMap()[$to] ?? $to, (array) require $aliasFile) + $r->classMap();
+ksort($aliases);
+$source = (string) file_get_contents($aliasFile);
+file_put_contents($aliasFile, substr($source, 0, (int) strpos($source, "return [")) . "return [\n"
+    . implode('', array_map(fn (string $old, string $new): string => '    ' . var_export($old, true) . ' => ' . var_export($new, true) . ",\n", array_keys($aliases), $aliases)) . "];\n");
+$bad = 0;
+foreach (array_unique([...array_keys($changed), ...array_values($moves)]) as $f) {
+    $f = $moves[$f] ?? $f;
+    exec('php -l ' . escapeshellarg($root . '/' . $f) . ' 2>&1', $o, $code);
+    if ($code !== 0) {
+        echo "syntax error after rename: $f\n";
+        $bad++;
+    }
+}
+echo $bad === 0 ? "applied\n" : "applied with $bad syntax errors\n";
+exit($bad === 0 ? 0 : 1);

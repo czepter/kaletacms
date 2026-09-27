@@ -32,6 +32,13 @@ spl_autoload_register(static function (string $class): void {
     $file = KALETA_SYSTEM . '/src/' . str_replace('\\', '/', substr($class, 7)) . '.php';
     if (is_file($file)) {
         require $file;
+        return;
+    }
+    // a class renamed to English still answers to its old name (code outside the core, e.g. a custom layout)
+    static $aliases = null;
+    $aliases ??= require KALETA_SYSTEM . '/class-aliases.php';
+    if (isset($aliases[$class])) {
+        class_alias($aliases[$class], $class);
     }
 });
 

@@ -48,7 +48,7 @@ cat > "$PRACE/balicek.php" <<'PHP'
 [, $koren, $web, $kanal, $port] = $argv;
 require $koren . '/system/src/Core/Podpis.php';
 require $koren . '/system/src/Core/Integrita.php';
-$vynechat = '#^(tools/|docs/|\.github/|\.claude/|CLAUDE\.md$|\.gitignore$|\.gitleaks\.toml$)#';
+$vynechat = '#^(tools/|docs/|\.github/|\.claude/|CLAUDE\.md$|\.gitignore$|\.gitleaks\.toml$|\.git-blame-ignore-revs$)#';
 $bezOtisku = '#^(media|storage)/|^install\.php$#';
 $par = sodium_crypto_sign_keypair();
 $sk = sodium_crypto_sign_secretkey($par);

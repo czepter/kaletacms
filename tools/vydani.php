@@ -77,7 +77,7 @@ if (!isset(Kaleta\Core\Podpis::klice($verejny)[$idKlice])) {
 
 // --- balíček ze souborů sledovaných gitem
 $soubory = array_filter(explode("\n", (string) shell_exec('cd ' . escapeshellarg($koren) . ' && git ls-files')));
-$vynechat = ['tools/', 'docs/', '.github/', '.claude/', 'CLAUDE.md', '.gitignore', '.gitleaks.toml']; // kořenový CLAUDE.md je pro vývoj; layout/CLAUDE.md (pravidla šablon) do balíčku patří
+$vynechat = ['tools/', 'docs/', '.github/', '.claude/', 'CLAUDE.md', '.gitignore', '.gitleaks.toml', '.git-blame-ignore-revs']; // kořenový CLAUDE.md je pro vývoj; layout/CLAUDE.md (pravidla šablon) do balíčku patří
 @mkdir($koren . '/dist');
 $zipSoubor = $koren . "/dist/kaleta-{$verze}.zip";
 @unlink($zipSoubor);

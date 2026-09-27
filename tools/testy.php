@@ -965,5 +965,12 @@ try {
 }
 over('Asistent: u jiného poskytovatele než Claude je potřeba zadat jeho model', str_contains($aiChyba, 'Zadejte název modelu'), true);
 
+/* ---------- class renames (tools/rename.php) ---------- */
+$aliasyTrid = require KALETA_SYSTEM . '/class-aliases.php';
+over('class aliases: every old name resolves to its new class', array_filter($aliasyTrid, fn (string $nova, string $stara): bool => !class_exists($stara) || !is_a($stara, $nova, true), ARRAY_FILTER_USE_BOTH), []);
+over('class aliases: no old name is still a class file', array_filter(array_keys($aliasyTrid), fn (string $stara): bool => is_file(KALETA_SYSTEM . '/src/' . str_replace('\\', '/', substr($stara, 7)) . '.php')), []);
+exec('php ' . escapeshellarg(__DIR__ . '/rename.php') . ' --self-test', $prejmenovani, $prejmenovaniKod);
+over('tools/rename.php self-test', $prejmenovaniKod, 0);
+
 echo $chyb === 0 ? "  ok     jednotkové testy ({$celkem})\n" : "  NALEZENO CHYB: {$chyb} z {$celkem}\n";
 exit($chyb === 0 ? 0 : 1);
