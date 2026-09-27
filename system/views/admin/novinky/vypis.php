@@ -1,7 +1,7 @@
 <?php
 /**
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\Novinky $modul
+ * @var Kaleta\Admin\Modules\News $modul
  * @var string $csrf
  * @var list<array<string, mixed>> $novinky
  * @var int $celkem
@@ -17,10 +17,10 @@ $kos = $filtr['stav'] === 'kos';
 $strankaUrl = fn (int $s): string => $modul->url('', array_filter($filtr) + ['strana' => $s]);
 ?>
 <p class="navigace-radek"><a class="tl" href="<?= e($modul->url('novy')) ?>"><?= e(t('Nová novinka')) ?></a>
-<?php if ($app->auth()->maModul('kategorie')): ?>
+<?php if ($app->auth()->hasModule('kategorie')): ?>
 	<a class="navigace" href="<?= e($app->url('admin.php?modul=kategorie')) ?>"><?= e(t('Kategorie')) ?></a>
 <?php endif ?>
-<?php if ($app->auth()->maModul('stitky')): ?>
+<?php if ($app->auth()->hasModule('stitky')): ?>
 	<a class="navigace" href="<?= e($app->url('admin.php?modul=stitky')) ?>"><?= e(t('Štítky')) ?></a>
 <?php endif ?>
 	<a class="navigace" href="<?= e($modul->url('odkazy')) ?>"><?= e(t('Nefunkční odkazy')) ?></a></p>
@@ -54,7 +54,7 @@ $strankaUrl = fn (int $s): string => $modul->url('', array_filter($filtr) + ['st
 		<select name="jazyk">
 			<option value=""><?= e(t('všechny')) ?></option>
 <?php foreach ($jazykyWebu as $kod): ?>
-			<option value="<?= e($kod) ?>"<?= $filtr['jazyk'] === $kod ? ' selected' : '' ?>><?= e(\Kaleta\Core\Jazyk::DOSTUPNE[$kod][0]) ?></option>
+			<option value="<?= e($kod) ?>"<?= $filtr['jazyk'] === $kod ? ' selected' : '' ?>><?= e(\Kaleta\Core\Language::AVAILABLE[$kod][0]) ?></option>
 <?php endforeach ?>
 		</select>
 	</label>
@@ -88,7 +88,7 @@ $strankaUrl = fn (int $s): string => $modul->url('', array_filter($filtr) + ['st
 <tr class="nevydany">
 	<td><?= e($c['titulek']) ?></td>
 	<td><?= e($c['tema_jm']) ?></td>
-	<td class="cislo"><?= e(datum($c['smazano'], true)) ?></td>
+	<td class="cislo"><?= e(format_date($c['smazano'], true)) ?></td>
 	<td class="akce"><button class="navigace" type="submit" form="obnov-jeden" name="smaz[]" value="<?= (int) $c['idc'] ?>"><?= e(t('Obnovit')) ?></button></td>
 	<td class="stred"><input type="checkbox" name="smaz[]" value="<?= (int) $c['idc'] ?>" aria-label="<?= e(t('Označit')) ?>: <?= e($c['titulek']) ?>"></td>
 </tr>
@@ -99,7 +99,7 @@ $strankaUrl = fn (int $s): string => $modul->url('', array_filter($filtr) + ['st
 <p class="media-hromadne">
 	<?= e(t('S označenými:')) ?>
 	<input class="tl" type="submit" value="<?= e(t('Obnovit')) ?>">
-<?php if ($app->auth()->smiVydavat()): ?>
+<?php if ($app->auth()->canPublish()): ?>
 	<button class="navigace nebezpecne" type="submit" formaction="<?= e($modul->url('smaz_natrvalo')) ?>" data-potvrdit="<?= e(t('Smazat označené novinky natrvalo? Nejde to vrátit.')) ?>"><?= e(t('Smazat natrvalo')) ?></button>
 <?php endif ?>
 </p>
@@ -118,8 +118,8 @@ $strankaUrl = fn (int $s): string => $modul->url('', array_filter($filtr) + ['st
 	<td><a href="<?= e($modul->url('edit', ['id' => $c['idc']])) ?>"><?= e($c['titulek']) ?></a></td>
 	<td><?= e($c['tema_jm']) ?></td>
 	<td><?= e($c['autor_jm'] ?: $c['autor_login']) ?></td>
-	<td class="cislo"><?= e(datum($c['datum'], true)) ?></td>
-<?php if (!$c['visible'] && (int) $c['autor_uroven'] === 0 && $app->auth()->smiVydavat()): // koncept autora: čeká, až ho editor vydá ?>
+	<td class="cislo"><?= e(format_date($c['datum'], true)) ?></td>
+<?php if (!$c['visible'] && (int) $c['autor_uroven'] === 0 && $app->auth()->canPublish()): // koncept autora: čeká, až ho editor vydá ?>
 	<td><span class="stitek stitek-ceka" title="<?= e(t('Autor novinek sám nevydává – novinku zkontrolujte a vydejte.')) ?>"><?= e(t('čeká na vydání')) ?></span></td>
 <?php else: ?>
 	<td><span class="stitek stitek-<?= !$c['visible'] ? 'koncept' : (strtotime($c['datum']) > time() ? 'plan' : 'vydano') ?>"><?= e(t(!$c['visible'] ? 'koncept' : (strtotime($c['datum']) > time() ? 'naplánováno' : 'vydáno'))) ?></span></td>

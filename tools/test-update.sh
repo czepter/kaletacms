@@ -46,15 +46,15 @@ echo "== package of the working tree, signed with a throwaway key"
 cat > "$WORK/balicek.php" <<'PHP'
 <?php
 [, $root, $site, $channel, $port] = $argv;
-require $root . '/system/src/Core/Podpis.php';
-require $root . '/system/src/Core/Integrita.php';
+require $root . '/system/src/Core/Signature.php';
+require $root . '/system/src/Core/Integrity.php';
 $exclude = '#^(tools/|docs/|\.github/|\.claude/|CLAUDE\.md$|\.gitignore$|\.gitleaks\.toml$|\.git-blame-ignore-revs$)#';
 $unhashed = '#^(media|storage)/|^install\.php$#';
 $pair = sodium_crypto_sign_keypair();
 $sk = sodium_crypto_sign_secretkey($pair);
 $pub = base64_encode(sodium_crypto_sign_publickey($pair)) . " test\n";
 $fileList = fn (string $version, array $hashes): string => json_encode(['verze' => $version, 'soubory' => $hashes,
-    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Integrita::kPodpisu($version, $hashes), $sk))], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Integrity::stringToSign($version, $hashes), $sk))], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
 
 // old site: trusts the throwaway key and knows the files of its release
 file_put_contents($site . '/system/aktualizace.pub', $pub);
@@ -103,7 +103,7 @@ $zip->addFromString('system/soubory.json', substr($fileList('99.0.0', $hashes), 
 $zip->close();
 $sha = hash_file('sha256', $channel . '/kaleta.zip');
 file_put_contents($channel . '/aktualizace.json', json_encode(['verze' => '99.0.0', 'url' => "http://127.0.0.1:$port/kaleta.zip", 'sha256' => $sha, 'min_php' => '8.4', 'zmeny' => ['test'],
-    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Podpis::zpravaBalicku('99.0.0', $sha, false), $sk))]));
+    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage('99.0.0', $sha, false), $sk))]));
 echo '  ok     ' . count($hashes) . " files in the package\n";
 PHP
 # a class file of the old release that the new one no longer has: the update must delete it
@@ -123,7 +123,7 @@ LAST_MIGRATION=$(ls "$ROOT"/system/sql/migrace/*.sql | sed 's/.*\/\([0-9]*\)-.*/
 LEFTOVERS=$(comm -23 <(sort "$WORK/stare-soubory.txt") <(sort "$WORK/nove-soubory.txt") | grep -vE '^(tools/|docs/|\.github/|\.claude/|CLAUDE\.md$|\.gitignore$|\.gitleaks\.toml$|install\.php$|media/|storage/|image/ukazka/)' \
   | while read -r s; do [ -e "$WORK/web/$s" ] && echo "$s"; done || true)
 [ -z "$LEFTOVERS" ] && echo "  ok     files dropped since $FROM are gone" || { echo "  CHYBA  files of $FROM left behind:"; echo "$LEFTOVERS" | head -10; ERRORS=$((ERRORS+1)); }
-INTEGRITY=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $k = Kaleta\Core\Integrita::kontrola(); echo $k["stav"], " ", $k["info"];')
+INTEGRITY=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $k = Kaleta\Core\Integrity::check(); echo $k["stav"], " ", $k["info"];')
 expect "core files match the package (integrity check)" "${INTEGRITY%% *}" ok
 [ "${INTEGRITY%% *}" = ok ] || echo "         $INTEGRITY"
 
@@ -136,7 +136,7 @@ grep -q "Testovací firma" <(curl -s "$B/") && echo "  ok     content kept" || {
 check "admin dashboard" /admin.php
 # releases before 1.1 migrate on the first admin load after the update, later ones during the update itself
 expect "database migrated to $LAST_MIGRATION" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'verze_db'")" "$LAST_MIGRATION"
-for m in $(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; foreach (Kaleta\Admin\Kernel::MODULY as $m) { echo $m::IDENT, "\n"; }'); do check "admin $m" "/admin.php?modul=$m"; done
+for m in $(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; foreach (Kaleta\Admin\Kernel::MODULES as $m) { echo $m::IDENT, "\n"; }'); do check "admin $m" "/admin.php?modul=$m"; done
 for z in zakladni seo stav zalohy; do check "admin settings/$z" "/admin.php?modul=config&zalozka=$z"; done
 grep -q 'name="password"' "$WORK/response" && { echo "  CHYBA  the update logged the admin out"; ERRORS=$((ERRORS+1)); } || echo "  ok     admin session survived"
 

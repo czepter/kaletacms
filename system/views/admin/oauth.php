@@ -8,7 +8,7 @@
  * @var array<string, mixed> $user
  * @var string $adresa  server, kam se aplikace po souhlasu vrátí
  */
-$role = t(Kaleta\Core\Auth::TYPY[(int) $user['admin']] ?? '');
+$role = t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '');
 ?>
 <div class="oauth-souhlas">
 	<p class="oauth-kdo"><strong><?= e($ceka['nazev']) ?></strong> <?= e(t('chce pracovat s webem %s.', $app->settings()->get('nazev_webu'))) ?></p>

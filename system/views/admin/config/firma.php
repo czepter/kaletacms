@@ -1,6 +1,6 @@
 <?php
 /** Záložka Firma: údaje pro web (prvek Údaje firmy) a pro vyhledávače (schema.org Organization / LocalBusiness). */
-use Kaleta\Front\Firma;
+use Kaleta\Front\Company;
 
 ?>
 <p class="hlaska"><?= e(t('Údaje vyplníte jednou a web je použije všude: v patičce a na kontaktu (prvek Údaje firmy v builderu) i pro Google, Mapy a AI asistenty – ti tak správně odpoví na otázku, kdy máte otevřeno nebo kde vás najít.')) ?></p>
@@ -12,7 +12,7 @@ $pole('firma_nazev', 'Obchodní firma', 'text', 'Přesný název podle rejstří
 <div class="radek">
 	<label for="firma_typ"><?= e(t('Druh podniku')) ?></label>
 	<div><select id="firma_typ" name="firma_typ">
-<?php foreach (Firma::TYPY as $typ => $popis): ?>
+<?php foreach (Company::TYPES as $typ => $popis): ?>
 		<option value="<?= e($typ) ?>"<?= $hodnoty['firma_typ'] === $typ ? ' selected' : '' ?>><?= e(t($popis)) ?></option>
 <?php endforeach ?>
 	</select>

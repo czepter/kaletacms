@@ -1,7 +1,7 @@
 <?php
 /**
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\ProtokolZmen $modul
+ * @var Kaleta\Admin\Modules\ChangeLog $modul
  * @var list<array<string, mixed>> $zaznamy
  * @var array<int, string> $uzivatele
  * @var int $kdo
@@ -13,7 +13,7 @@
  * @var int $celkem
  */
 // názvy modulů z administrace (i těch, které přibudou) a několik míst mimo moduly
-$nazvy = array_map(fn (string $class): string => $class::NAZEV, array_combine(array_map(fn (string $class): string => $class::IDENT, Kaleta\Admin\Kernel::MODULY), Kaleta\Admin\Kernel::MODULY))
+$nazvy = array_map(fn (string $class): string => $class::NAME, array_combine(array_map(fn (string $class): string => $class::IDENT, Kaleta\Admin\Kernel::MODULES), Kaleta\Admin\Kernel::MODULES))
     + ['asistent' => 'AI asistent', 'mcp' => 'Claude (MCP)', 'claude' => 'Claude (MCP)', 'prihlaseni' => 'Přihlášení', 'ucet' => 'Můj účet'];
 $akce = ['uloz' => 'uložení', 'smaz' => 'smazání', 'smaz_natrvalo' => 'smazání natrvalo', 'obnov' => 'obnovení z koše', 'duplikuj' => 'kopie',
     'vydat' => 'vydání', 'hromadne' => 'hromadná akce', 'nahraj' => 'nahrání', 'login' => 'přihlášení', 'neuspech' => 'neúspěšný pokus',
@@ -45,7 +45,7 @@ $akce = ['uloz' => 'uložení', 'smaz' => 'smazání', 'smaz_natrvalo' => 'smaz�
 <tbody>
 <?php foreach ($zaznamy as $z): ?>
 <tr<?= $z['akce'] === 'neuspech' ? ' class="nevydany"' : '' ?>>
-	<td class="cislo"><?= e(datum($z['cas'], true)) ?></td>
+	<td class="cislo"><?= e(format_date($z['cas'], true)) ?></td>
 	<td><?= e($z['jmeno'] !== '' ? $z['jmeno'] : '–') ?></td>
 	<td><?= e(isset($nazvy[$z['modul']]) ? t($nazvy[$z['modul']]) : $z['modul']) ?></td>
 	<td><?= e(t($akce[$z['akce']] ?? $z['akce'])) ?></td>

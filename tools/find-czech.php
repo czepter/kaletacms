@@ -51,7 +51,7 @@ function hasDiacritics(string $text): bool
 {
     // názvy jazyků v nabídkách (Slovenčina, Íslenska…) jsou ve svém jazyce záměrně
     static $languages = null;
-    $languages ??= array_column((function (): array { require_once dirname(__DIR__) . '/system/src/Core/Jazyk.php'; return \Kaleta\Core\Jazyk::DOSTUPNE; })(), 0);
+    $languages ??= array_column((function (): array { require_once dirname(__DIR__) . '/system/src/Core/Language.php'; return \Kaleta\Core\Language::AVAILABLE; })(), 0);
 
     return preg_match('/[ěščřžůťďňáéíóúýĚŠČŘŽŮŤĎŇÁÉÍÓÚÝ]/u', str_replace([...POVOLENA, ...$languages], '', $text)) === 1;
 }

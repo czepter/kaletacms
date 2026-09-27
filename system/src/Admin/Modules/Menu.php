@@ -1,0 +1,76 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kaleta\Admin\Modules;
+
+use Kaleta\Admin\Module;
+use Kaleta\Core\Language;
+use Kaleta\Core\Menu as MenuWebu;
+use Kaleta\Core\Response;
+
+/**
+ * Vzhled → Menu: hlavní menu a menu v patičce pro každou jazykovou verzi. Položky jsou stránky, vlastní odkazy,
+ * novinky a skupiny, pod každou jedna úroveň podmenu. Dokud hlavní menu nikdo neuloží, skládá se ze stránek „v menu“.
+ */
+final class Menu extends Module
+{
+    public const string IDENT = 'menu';
+    public const string NAME = 'Menu';
+    public const string GROUP = 'Vzhled';
+    public const string ICON = 'menu';
+    public const bool ADMIN_ONLY = true;
+
+    protected function akceVypis(): Response
+    {
+        [$location, $language] = $this->selection();
+        $saved = MenuWebu::load($this->db, $location, $language);
+        $pages = $this->db->all('SELECT ids, titulek, zobrazit, v_menu FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$language]);
+        // automatické hlavní menu se v editoru ukáže tak, jak ho vidí návštěvník – uložením se z něj stane vlastní
+        $items = $saved ?? ($location === 'hlavni'
+            ? [...array_map(fn (array $s): array => ['typ' => 'stranka', 'ids' => (int) $s['ids'], 'text' => ''], array_values(array_filter($pages, fn (array $s): bool => $s['zobrazit'] && $s['v_menu']))), ...(\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky') ? [['typ' => 'novinky', 'text' => '']] : [])]
+            : []);
+        $siteSettings = $this->app->settings();
+        $languages = array_merge([''], Language::additional($siteSettings));
+
+        return $this->view('vypis', 'Menu', [
+            'umisteni' => $location, 'jazyk' => $language, 'automaticke' => $saved === null, 'polozky' => $items,
+            'stranky' => array_map(fn (array $s): array => ['ids' => (int) $s['ids'], 'titulek' => $s['titulek'], 'skryta' => !$s['zobrazit']], $pages),
+            'jazyky' => array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[Language::ofContent($siteSettings, $j)][0], $languages)),
+        ]);
+    }
+
+    protected function akceUloz(): Response
+    {
+        [$location, $language] = $this->selection();
+        if ($this->request->isPost()) {
+            $items = json_decode((string) ($_POST['polozky'] ?? ''), true);
+            if (!is_array($items)) {
+                return $this->back('Menu se nepodařilo uložit – zkuste to prosím znovu.', '', ['umisteni' => $location, 'jazyk' => $language], 'chyba');
+            }
+            MenuWebu::save($this->db, $location, $language, $items);
+        }
+
+        return $this->back('Menu bylo uloženo.', '', ['umisteni' => $location, 'jazyk' => $language]);
+    }
+
+    /** Hlavní menu se vrátí k automatickému skládání ze stránek „v menu“; menu v patičce se vyprázdní. */
+    protected function akceAutomaticky(): Response
+    {
+        [$location, $language] = $this->selection();
+        if ($this->request->isPost()) {
+            MenuWebu::save($this->db, $location, $language, null);
+        }
+
+        return $this->back($location === 'hlavni' ? 'Menu se zase skládá samo ze stránek zařazených do navigace.' : 'Menu v patičce je prázdné.', '', ['umisteni' => $location, 'jazyk' => $language]);
+    }
+
+    /** @return array{0: string, 1: string} umístění a jazyk (sloupec) z adresy */
+    private function selection(): array
+    {
+        $location = $this->request->get('umisteni');
+        $language = $this->request->get('jazyk');
+
+        return [isset(MenuWebu::LOCATIONS[$location]) ? $location : 'hlavni', in_array($language, Language::additional($this->app->settings()), true) ? $language : ''];
+    }
+}

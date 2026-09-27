@@ -13,38 +13,38 @@ namespace Kaleta\Core;
 final class Antispam
 {
     /** Formulář odeslaný dřív se odmítne (robot); image/web.js odeslání o zbytek odloží (atribut data-cekat). */
-    public const int MIN_SEKUND = 4;
-    private const int MAX_SEKUND = 4 * 3600;
+    public const int MIN_SECONDS = 4;
+    private const int MAX_SECONDS = 4 * 3600;
 
     public function __construct(private readonly Db $db, private readonly Settings $settings)
     {
     }
 
     /** Tajný klíč instalace; vznikne při prvním použití. */
-    public function klic(): string
+    public function key(): string
     {
-        $klic = $this->settings->get('tajny_klic');
-        if ($klic === '') {
-            $klic = bin2hex(random_bytes(32));
-            $this->settings->set('tajny_klic', $klic);
+        $key = $this->settings->get('tajny_klic');
+        if ($key === '') {
+            $key = bin2hex(random_bytes(32));
+            $this->settings->set('tajny_klic', $key);
         }
 
-        return $klic;
+        return $key;
     }
 
     /** Skrytá pole do formuláře: podepsaný čas vystavení a past na roboty. */
-    public function pole(string $ucel): string
+    public function fields(string $purpose): string
     {
-        $cas = (string) time();
+        $time = (string) time();
 
-        return '<input type="hidden" name="as_cas" value="' . $cas . '" data-cekat="' . self::MIN_SEKUND . '"><input type="hidden" name="as_podpis" value="' . hash_hmac('sha256', $ucel . '|' . $cas, $this->klic()) . '">'
+        return '<input type="hidden" name="as_cas" value="' . $time . '" data-cekat="' . self::MIN_SECONDS . '"><input type="hidden" name="as_podpis" value="' . hash_hmac('sha256', $purpose . '|' . $time, $this->key()) . '">'
             . '<div style="position:absolute;left:-9999px" aria-hidden="true"><label>' . e(t('Toto pole nevyplňujte')) . ' <input type="text" name="web_adresa" tabindex="-1" autocomplete="off"></label></div>';
     }
 
     /** @return string|null důvod odmítnutí (už přeložený do jazyka webu; 'robot' je značka, ne text), null = v pořádku */
-    public function over(Request $request, string $ucel): ?string
+    public function verify(Request $request, string $purpose): ?string
     {
-        return match ($this->duvod($request, $ucel)) {
+        return match ($this->reason($request, $purpose)) {
             null => null,
             'robot' => 'robot',
             'rychle' => t('To bylo příliš rychlé. Zkuste to prosím znovu za pár vteřin.'),
@@ -54,42 +54,42 @@ final class Antispam
     }
 
     /** @return 'robot'|'podpis'|'rychle'|'vyprselo'|null kód důvodu odmítnutí (formuláře builderu podle něj volí hlášení), null = v pořádku */
-    public function duvod(Request $request, string $ucel): ?string
+    public function reason(Request $request, string $purpose): ?string
     {
         if ($request->post('web_adresa') !== '') {
             return 'robot';
         }
-        $cas = $request->postInt('as_cas');
-        if (!hash_equals(hash_hmac('sha256', $ucel . '|' . $cas, $this->klic()), $request->post('as_podpis'))) {
+        $time = $request->postInt('as_cas');
+        if (!hash_equals(hash_hmac('sha256', $purpose . '|' . $time, $this->key()), $request->post('as_podpis'))) {
             return 'podpis';
         }
-        $stari = time() - $cas;
-        if ($stari < self::MIN_SEKUND) {
+        $age = time() - $time;
+        if ($age < self::MIN_SECONDS) {
             return 'rychle';
         }
 
-        return $stari > self::MAX_SEKUND ? 'vyprselo' : null;
+        return $age > self::MAX_SECONDS ? 'vyprselo' : null;
     }
 
     /** Kolikrát už IP adresa danou akci za posledních $minut provedla. */
-    public function pocet(string $ip, string $typ, int $cil, int $minut): int
+    public function count(string $ip, string $type, int $target, int $minutes): int
     {
         return (int) $this->db->value(
             'SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = ? AND cil = ? AND ip_adresa = ? AND cas > NOW() - INTERVAL ? MINUTE',
-            [$typ, $cil, self::otisk($ip), $minut],
+            [$type, $target, self::hash($ip), $minutes],
         );
     }
 
-    public function zapis(string $ip, string $typ, int $cil): void
+    public function write(string $ip, string $type, int $target): void
     {
-        $this->db->insert('kontrola_ip', ['ip_adresa' => self::otisk($ip), 'typ' => $typ, 'cil' => $cil, 'cas' => date('Y-m-d H:i:s')]);
+        $this->db->insert('kontrola_ip', ['ip_adresa' => self::hash($ip), 'typ' => $type, 'cil' => $target, 'cas' => date('Y-m-d H:i:s')]);
         if (random_int(1, 50) === 1) {
             $this->db->run("DELETE FROM {kontrola_ip} WHERE cas < NOW() - INTERVAL 40 DAY");
         }
     }
 
     /** Do tabulky se neukládá IP adresa, jen její otisk. */
-    public static function otisk(string $ip): string
+    public static function hash(string $ip): string
     {
         return substr(hash('sha256', 'kaleta|' . $ip), 0, 40);
     }

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Kaleta\Mcp;
 
-use Kaleta\Admin\Protokol;
+use Kaleta\Admin\ChangeLog;
 use Kaleta\Core\App;
 use Kaleta\Core\Response;
-use Kaleta\Core\Rozsireni;
+use Kaleta\Core\Extensions;
 
 /**
  * MCP server (Model Context Protocol, přenos "Streamable HTTP") na adrese /mcp.
@@ -19,7 +19,7 @@ use Kaleta\Core\Rozsireni;
  */
 final class Server
 {
-    private const string PROTOKOL = '2025-03-26';
+    private const string PROTOCOL = '2025-03-26';
 
     public function __construct(private readonly App $app)
     {
@@ -28,66 +28,66 @@ final class Server
     public function handle(): Response
     {
         $r = $this->app->request;
-        if (!Rozsireni::je($this->app->settings(), 'claude')) {
+        if (!Extensions::isEnabled($this->app->settings(), 'claude')) {
             return Response::json(['chyba' => 'Napojení na Claude je vypnuté (nabídka Rozšíření).'], 404);
         }
-        $mistni = in_array((string) parse_url($r->origin(), PHP_URL_HOST), ['localhost', '127.0.0.1'], true);
-        if (!$r->isHttps() && !$mistni) {
+        $isLocal = in_array((string) parse_url($r->origin(), PHP_URL_HOST), ['localhost', '127.0.0.1'], true);
+        if (!$r->isHttps() && !$isLocal) {
             return Response::json(['chyba' => 'MCP je dostupné jen přes HTTPS.'], 403);
         }
         if (!$r->isPost()) {
             return new Response('', 405, ['Allow' => 'POST']);
         }
-        $user = $this->uzivatel();
+        $user = $this->user();
         if ($user === null) {
             // odkaz na metadata OAuth: podle nich se konektor Claude sám zaregistruje a požádá uživatele o souhlas
             return new Response(json_encode(['chyba' => 'Neplatný nebo chybějící token.']), 401, ['Content-Type' => 'application/json',
-                'WWW-Authenticate' => 'Bearer resource_metadata="' . (new \Kaleta\Front\OAuth($this->app))->adresaMetadat() . '"']);
+                'WWW-Authenticate' => 'Bearer resource_metadata="' . (new \Kaleta\Front\OAuth($this->app))->metadataUrl() . '"']);
         }
-        $this->app->auth()->prihlasJako($user);
-        if ($this->app->auth()->chybiPovinne2fa($this->app->settings())) {
+        $this->app->auth()->signInAs($user);
+        if ($this->app->auth()->isMissingRequired2fa($this->app->settings())) {
             return Response::json(['chyba' => 'Web vyžaduje dvoufázové přihlášení. Zapněte si ho v administraci v Můj účet – do té doby napojení nefunguje.'], 403);
         }
 
-        $zprava = json_decode((string) file_get_contents('php://input'), true);
-        if (!is_array($zprava)) {
+        $message = json_decode((string) file_get_contents('php://input'), true);
+        if (!is_array($message)) {
             return Response::json(['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32700, 'message' => 'Neplatný JSON.']], 400);
         }
         // dávka zpráv i jediná zpráva
-        $davka = array_is_list($zprava) ? $zprava : [$zprava];
-        if (count($davka) > 50) {
+        $batch = array_is_list($message) ? $message : [$message];
+        if (count($batch) > 50) {
             return Response::json(['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32600, 'message' => 'Dávka má nejvýš 50 zpráv.']], 400);
         }
-        $odpovedi = array_values(array_filter(array_map($this->zpracuj(...), $davka)));
-        if ($odpovedi === []) {
+        $responses = array_values(array_filter(array_map($this->process(...), $batch)));
+        if ($responses === []) {
             return new Response('', 202);
         }
 
-        return Response::json(array_is_list($zprava) ? $odpovedi : $odpovedi[0]);
+        return Response::json(array_is_list($message) ? $responses : $responses[0]);
     }
 
     /** @param array<string, mixed> $z @return array<string, mixed>|null null = oznámení bez odpovědi */
-    private function zpracuj(array $z): ?array
+    private function process(array $z): ?array
     {
         $id = $z['id'] ?? null;
-        $metoda = (string) ($z['method'] ?? '');
+        $method = (string) ($z['method'] ?? '');
         if ($id === null) {
             return null;
         }
-        $ok = fn (array $vysledek): array => ['jsonrpc' => '2.0', 'id' => $id, 'result' => $vysledek];
-        $nastroje = new Nastroje($this->app);
+        $ok = fn (array $result): array => ['jsonrpc' => '2.0', 'id' => $id, 'result' => $result];
+        $tools = new Tools($this->app);
 
-        return match ($metoda) {
+        return match ($method) {
             'initialize' => $ok([
-                'protocolVersion' => is_string($z['params']['protocolVersion'] ?? null) ? $z['params']['protocolVersion'] : self::PROTOKOL,
+                'protocolVersion' => is_string($z['params']['protocolVersion'] ?? null) ? $z['params']['protocolVersion'] : self::PROTOCOL,
                 'capabilities' => ['tools' => new \stdClass()],
                 'serverInfo' => ['name' => 'Kaleta – ' . $this->app->settings()->get('nazev_webu'), 'version' => KALETA_VERSION],
-                'instructions' => Anglicky::pokyny(),
+                'instructions' => Translator::instructions(),
             ]),
             'ping' => $ok([]),
-            'tools/list' => $ok(['tools' => Anglicky::seznam($nastroje->seznam())]), // české názvy zůstávají skrytými aliasy
-            'tools/call' => $ok($this->zavolej($nastroje, (string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
-            default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Neznámá metoda: ' . $metoda]],
+            'tools/list' => $ok(['tools' => Translator::listAll($tools->listAll())]), // české názvy zůstávají skrytými aliasy
+            'tools/call' => $ok($this->call($tools, (string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
+            default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Neznámá metoda: ' . $method]],
         };
     }
 
@@ -95,36 +95,36 @@ final class Server
      * Volání nástroje. Anglický název (tools/list) se přeloží na český nástroj a zpět (Anglicky); český název je skrytý
      * alias pro napojení z doby před 1.1 a chová se jako dřív.
      *
-     * @param array<string, mixed> $argumenty
+     * @param array<string, mixed> $arguments
      * @return array<string, mixed>
      */
-    private function zavolej(Nastroje $nastroje, string $nazev, array $argumenty): array
+    private function call(Tools $tools, string $name, array $arguments): array
     {
-        $cesky = Anglicky::cesky($nazev);
-        $anglicky = $cesky !== null || !in_array($nazev, $nastroje->nazvy(), true);
+        $czech = Translator::czech($name);
+        $isEnglish = $czech !== null || !in_array($name, $tools->names(), true);
         try {
-            $seznam = $cesky !== null ? Anglicky::seznam($nastroje->seznam()) : $nastroje->seznam();
-            $argumenty = self::rozbalJson($seznam, $nazev, $argumenty);
-            $nezname = self::nezname($seznam, $nazev, $argumenty);
-            if ($cesky !== null) {
-                $argumenty = Anglicky::argumenty($nazev, $argumenty);
+            $items = $czech !== null ? Translator::listAll($tools->listAll()) : $tools->listAll();
+            $arguments = self::extractJson($items, $name, $arguments);
+            $unknownParams = self::unknownParams($items, $name, $arguments);
+            if ($czech !== null) {
+                $arguments = Translator::arguments($name, $arguments);
             }
-            $vysledek = $nastroje->zavolej($cesky ?? $nazev, $argumenty);
-            if ($nastroje->meni($cesky ?? $nazev)) {
-                Protokol::zapis($this->app, 'claude', $cesky ?? $nazev, mb_substr((string) ($argumenty['titulek'] ?? $argumenty['nazev'] ?? $argumenty['sablona'] ?? $argumenty['id'] ?? ''), 0, 200));
-                \Kaleta\Front\Cache::vymaz();
+            $result = $tools->call($czech ?? $name, $arguments);
+            if ($tools->isWriteTool($czech ?? $name)) {
+                ChangeLog::write($this->app, 'claude', $czech ?? $name, mb_substr((string) ($arguments['titulek'] ?? $arguments['nazev'] ?? $arguments['sablona'] ?? $arguments['id'] ?? ''), 0, 200));
+                \Kaleta\Front\Cache::clear();
             }
-            if ($nezname !== [] && is_array($vysledek) && !array_is_list($vysledek)) {
+            if ($unknownParams !== [] && is_array($result) && !array_is_list($result)) {
                 // překlep v názvu parametru by se jinak ztratil beze stopy (nástroj ho nezná, a tak ho vynechá)
-                $vysledek['nezname_parametry'] = $nezname;
+                $result['nezname_parametry'] = $unknownParams;
             }
-            if ($cesky !== null) {
-                $vysledek = Anglicky::vysledek($nazev, $vysledek);
+            if ($czech !== null) {
+                $result = Translator::result($name, $result);
             }
 
-            return ['content' => [['type' => 'text', 'text' => is_string($vysledek) ? $vysledek : json_encode($vysledek, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]]];
+            return ['content' => [['type' => 'text', 'text' => is_string($result) ? $result : json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]]];
         } catch (\InvalidArgumentException | \DomainException $e) {
-            return ['content' => [['type' => 'text', 'text' => $anglicky ? Anglicky::zprava($e->getMessage()) : $e->getMessage()]], 'isError' => true];
+            return ['content' => [['type' => 'text', 'text' => $isEnglish ? Translator::message($e->getMessage()) : $e->getMessage()]], 'isError' => true];
         }
     }
 
@@ -132,55 +132,55 @@ final class Server
      * Objekt nebo pole poslané jako text JSON (klient bez schématu nástroje, některé proxy) se rozbalí podle typu
      * parametru ve schématu – jinak by ho nástroj nepoznal a hodnoty potichu vynechal.
      *
-     * @param list<array<string, mixed>> $seznam definice nástrojů (tools/list)
-     * @param array<string, mixed> $argumenty
+     * @param list<array<string, mixed>> $items definice nástrojů (tools/list)
+     * @param array<string, mixed> $arguments
      * @return array<string, mixed>
      */
-    public static function rozbalJson(array $seznam, string $nazev, array $argumenty): array
+    public static function extractJson(array $items, string $name, array $arguments): array
     {
-        foreach ($seznam as $nastroj) {
-            if (($nastroj['name'] ?? '') !== $nazev) {
+        foreach ($items as $tool) {
+            if (($tool['name'] ?? '') !== $name) {
                 continue;
             }
-            $vlastnosti = (array) ($nastroj['inputSchema']['properties'] ?? []);
-            foreach ($argumenty as $klic => $hodnota) {
+            $properties = (array) ($tool['inputSchema']['properties'] ?? []);
+            foreach ($arguments as $key => $value) {
                 // typ může být i výčet, např. ["array", "null"] u položek menu
-                $typy = (array) ($vlastnosti[$klic]['type'] ?? []);
+                $types = (array) ($properties[$key]['type'] ?? []);
                 // logická hodnota poslaná jako text: „false“ by v PHP byla pravda (skrytá stránka by se zveřejnila)
-                if (is_string($hodnota) && in_array('boolean', $typy, true) && in_array(strtolower(trim($hodnota)), ['true', 'false', '1', '0', ''], true)) {
-                    $argumenty[$klic] = in_array(strtolower(trim($hodnota)), ['true', '1'], true);
+                if (is_string($value) && in_array('boolean', $types, true) && in_array(strtolower(trim($value)), ['true', 'false', '1', '0', ''], true)) {
+                    $arguments[$key] = in_array(strtolower(trim($value)), ['true', '1'], true);
                     continue;
                 }
-                if (!is_string($hodnota) || !array_intersect($typy, ['object', 'array']) || !preg_match('/^\s*[\[{]/', $hodnota)) {
+                if (!is_string($value) || !array_intersect($types, ['object', 'array']) || !preg_match('/^\s*[\[{]/', $value)) {
                     continue;
                 }
-                $rozbaleno = json_decode($hodnota, true);
-                if (!is_array($rozbaleno)) {
+                $decoded = json_decode($value, true);
+                if (!is_array($decoded)) {
                     continue;
                 }
-                $druh = $rozbaleno === [] ? null : (array_is_list($rozbaleno) ? 'array' : 'object'); // [] i {} sedí na oba typy
-                if ($druh === null || in_array($druh, $typy, true)) {
-                    $argumenty[$klic] = $rozbaleno;
+                $kind = $decoded === [] ? null : (array_is_list($decoded) ? 'array' : 'object'); // [] i {} sedí na oba typy
+                if ($kind === null || in_array($kind, $types, true)) {
+                    $arguments[$key] = $decoded;
                 }
             }
             break;
         }
 
-        return $argumenty;
+        return $arguments;
     }
 
     /**
      * Parametry, které nástroj ve schématu nemá – vrátí se ve výsledku, ať volající ví, že se nepoužily.
      *
-     * @param list<array<string, mixed>> $seznam
-     * @param array<string, mixed> $argumenty
+     * @param list<array<string, mixed>> $items
+     * @param array<string, mixed> $arguments
      * @return list<string>
      */
-    public static function nezname(array $seznam, string $nazev, array $argumenty): array
+    public static function unknownParams(array $items, string $name, array $arguments): array
     {
-        foreach ($seznam as $nastroj) {
-            if (($nastroj['name'] ?? '') === $nazev) {
-                return array_values(array_diff(array_map('strval', array_keys($argumenty)), array_keys((array) ($nastroj['inputSchema']['properties'] ?? []))));
+        foreach ($items as $tool) {
+            if (($tool['name'] ?? '') === $name) {
+                return array_values(array_diff(array_map('strval', array_keys($arguments)), array_keys((array) ($tool['inputSchema']['properties'] ?? []))));
             }
         }
 
@@ -188,16 +188,16 @@ final class Server
     }
 
     /** @return array<string, mixed>|null uživatel podle tokenu */
-    private function uzivatel(): ?array
+    private function user(): ?array
     {
-        $hlavicka = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
+        $header = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
         $db = $this->app->db();
         $ip = substr(hash('sha256', 'kaleta|' . $this->app->request->ip()), 0, 40);
         if ((int) $db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'mcp' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [$ip]) >= 20) {
             return null;
         }
         // osobní token z Můj účet (kaleta_…) nebo přístupový token aplikace připojené přes OAuth (kaleta_oa_…, platí hodinu)
-        if (!preg_match('/^Bearer\s+(kaleta_(?:oa_)?[a-f0-9]{48})$/', $hlavicka, $m)) {
+        if (!preg_match('/^Bearer\s+(kaleta_(?:oa_)?[a-f0-9]{48})$/', $header, $m)) {
             return null;
         }
         $token = $db->one("SELECT t.idt, u.* FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0 AND t.druh <> 'obnova' AND (t.expirace IS NULL OR t.expirace > ?)",

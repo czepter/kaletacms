@@ -3,7 +3,7 @@
  * Části webu: záhlaví, patička a obálky – stav (ze šablony / z builderu) a vstup do builderu.
  *
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\Casti $modul
+ * @var Kaleta\Admin\Modules\SiteParts $modul
  * @var string $csrf
  * @var array<string, array{0:string, 1:string}> $typy
  * @var list<string> $jazyky  '' = výchozí jazyk webu
@@ -26,7 +26,7 @@
 	<td><?= e($nazvyJazyku[$jazyk]) ?></td>
 <?php endif ?>
 	<td><?php if ($r !== null && $r['publikovana']): ?><span class="stitek stitek-vydano"><?= e(t('z builderu')) ?></span><?php else: ?><span class="stitek"><?= e(t('výchozí')) ?></span><?php endif ?><?= $r !== null && $r['zmeny'] ? ' <span class="stitek stitek-koncept">' . e(t('nepublikované změny')) . '</span>' : '' ?></td>
-	<td class="akce"><a href="<?= e($modul->url('stavitel', $parametry)) ?>"><?= e(t($r === null ? 'Upravit v builderu' : 'Builder')) ?></a><?php if (in_array($typ, Kaleta\Stavitel\Casti::S_VARIANTAMI, true)): ?> · <a href="<?= e($modul->url('varianta', $parametry)) ?>"><?= e(t('Přidat variantu')) ?></a><?php endif ?><?php if ($r !== null): ?> ·
+	<td class="akce"><a href="<?= e($modul->url('stavitel', $parametry)) ?>"><?= e(t($r === null ? 'Upravit v builderu' : 'Builder')) ?></a><?php if (in_array($typ, Kaleta\Builder\SiteParts::WITH_VARIANTS, true)): ?> · <a href="<?= e($modul->url('varianta', $parametry)) ?>"><?= e(t('Přidat variantu')) ?></a><?php endif ?><?php if ($r !== null): ?> ·
 		<form class="vradku" method="post" action="<?= e($modul->url('sablona', $parametry)) ?>" data-potvrdit="<?= e(t('Vrátit část na výchozí podobu? Podoba z builderu zůstane ve verzích.')) ?>"><?= $csrf ?><button class="navigace nebezpecne" type="submit"><?= e(t('Vrátit na výchozí')) ?></button></form><?php endif ?></td>
 </tr>
 <?php foreach ($varianty[$typ . ':' . $jazyk] ?? [] as $v): $pv = $parametry + ['varianta' => $v['varianta']]; $naStrankach = array_filter(array_map(fn (int $i): ?string => $nazvyStranek[$i] ?? null, array_map('intval', json_decode((string) $v['stranky'], true) ?: []))); ?>

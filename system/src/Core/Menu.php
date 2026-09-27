@@ -12,30 +12,30 @@ namespace Kaleta\Core;
 final class Menu
 {
     /** @var array<string, string> umístění => popisek */
-    public const array UMISTENI = ['hlavni' => 'Hlavní menu', 'paticka' => 'Menu v patičce'];
+    public const array LOCATIONS = ['hlavni' => 'Hlavní menu', 'paticka' => 'Menu v patičce'];
 
-    public const array TYPY = ['stranka', 'odkaz', 'novinky', 'skupina'];
+    public const array TYPES = ['stranka', 'odkaz', 'novinky', 'skupina'];
 
-    public const int MAX_POLOZEK = 80;
+    public const int MAX_ITEMS = 80;
 
     /** @return list<array<string, mixed>>|null uložené položky, null = menu se skládá automaticky */
-    public static function nacti(Db $db, string $umisteni, string $jazyk): ?array
+    public static function load(Db $db, string $location, string $language): ?array
     {
-        $json = $db->value('SELECT polozky FROM {menu} WHERE umisteni = ? AND jazyk = ?', [$umisteni, $jazyk]);
+        $json = $db->value('SELECT polozky FROM {menu} WHERE umisteni = ? AND jazyk = ?', [$location, $language]);
 
-        return $json === null ? null : self::vycisti(json_decode((string) $json, true));
+        return $json === null ? null : self::sanitize(json_decode((string) $json, true));
     }
 
     /** Uloží položky; null vrátí menu do automatického režimu. */
-    public static function uloz(Db $db, string $umisteni, string $jazyk, ?array $polozky): void
+    public static function save(Db $db, string $location, string $language, ?array $items): void
     {
-        if ($polozky === null) {
-            $db->run('DELETE FROM {menu} WHERE umisteni = ? AND jazyk = ?', [$umisteni, $jazyk]);
+        if ($items === null) {
+            $db->run('DELETE FROM {menu} WHERE umisteni = ? AND jazyk = ?', [$location, $language]);
 
             return;
         }
         $db->run('INSERT INTO {menu} (umisteni, jazyk, polozky, zmeneno) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE polozky = VALUES(polozky), zmeneno = NOW()',
-            [$umisteni, $jazyk, (string) json_encode(self::vycisti($polozky), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
+            [$location, $language, (string) json_encode(self::sanitize($items), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
     }
 
     /**
@@ -43,43 +43,43 @@ final class Menu
      *
      * @return list<array<string, mixed>>
      */
-    public static function vycisti(mixed $vstup, int $hloubka = 0, int &$pocet = 0): array
+    public static function sanitize(mixed $input, int $depth = 0, int &$count = 0): array
     {
-        $vysledek = [];
-        foreach (is_array($vstup) ? $vstup : [] as $p) {
-            if (!is_array($p) || $pocet >= self::MAX_POLOZEK || !in_array($p['typ'] ?? null, self::TYPY, true)) {
+        $result = [];
+        foreach (is_array($input) ? $input : [] as $p) {
+            if (!is_array($p) || $count >= self::MAX_ITEMS || !in_array($p['typ'] ?? null, self::TYPES, true)) {
                 continue;
             }
-            $polozka = ['typ' => $p['typ'], 'text' => mb_substr(trim((string) ($p['text'] ?? '')), 0, 80)];
+            $item = ['typ' => $p['typ'], 'text' => mb_substr(trim((string) ($p['text'] ?? '')), 0, 80)];
             if ($p['typ'] === 'stranka') {
-                $polozka['ids'] = (int) ($p['ids'] ?? 0);
-                if ($polozka['ids'] <= 0) {
+                $item['ids'] = (int) ($p['ids'] ?? 0);
+                if ($item['ids'] <= 0) {
                     continue;
                 }
             } elseif ($p['typ'] === 'odkaz') {
-                $polozka['url'] = trim((string) ($p['url'] ?? ''));
-                $polozka['nove_okno'] = !empty($p['nove_okno']);
-                if ($polozka['text'] === '' || !self::platnaAdresa($polozka['url'])) {
+                $item['url'] = trim((string) ($p['url'] ?? ''));
+                $item['nove_okno'] = !empty($p['nove_okno']);
+                if ($item['text'] === '' || !self::isValidUrl($item['url'])) {
                     continue;
                 }
-            } elseif ($p['typ'] === 'skupina' && $polozka['text'] === '') {
+            } elseif ($p['typ'] === 'skupina' && $item['text'] === '') {
                 continue;
             }
-            $pocet++;
-            if ($hloubka === 0) {
-                $deti = self::vycisti($p['deti'] ?? [], 1, $pocet);
-                if ($deti !== []) {
-                    $polozka['deti'] = $deti;
+            $count++;
+            if ($depth === 0) {
+                $children = self::sanitize($p['deti'] ?? [], 1, $count);
+                if ($children !== []) {
+                    $item['deti'] = $children;
                 }
             }
-            $vysledek[] = $polozka;
+            $result[] = $item;
         }
 
-        return $vysledek;
+        return $result;
     }
 
     /** Adresa vlastního odkazu: https, cesta na webu (/…), kotva, e-mail nebo telefon. */
-    public static function platnaAdresa(string $url): bool
+    public static function isValidUrl(string $url): bool
     {
         return (bool) preg_match('#^(https?://[^\s<>"]{1,500}|/[^\s<>"]{0,500}|\#[A-Za-z0-9_-]{1,80}|mailto:[^\s<>"]{3,200}|tel:[+\d ()-]{3,40})$#', $url);
     }
@@ -89,121 +89,121 @@ final class Menu
      *
      * @return list<array{text: string, url: string, nove_okno: bool, deti: list<array<string, mixed>>, novinky?: bool, auto?: bool}>  auto = odkaz na novinky přidaný automatickým menu
      */
-    public static function polozky(App $app, string $umisteni, string $jazyk, int $uvod): array
+    public static function items(App $app, string $location, string $language, int $home): array
     {
         $db = $app->db();
-        $stranky = [];
-        foreach ($db->all('SELECT ids, titulek, seo_link, v_menu FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND jazyk = ? ORDER BY poradi, titulek', [$jazyk]) as $s) {
-            $stranky[(int) $s['ids']] = $s;
+        $pages = [];
+        foreach ($db->all('SELECT ids, titulek, seo_link, v_menu FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND jazyk = ? ORDER BY poradi, titulek', [$language]) as $s) {
+            $pages[(int) $s['ids']] = $s;
         }
-        $adresa = fn (array $s): string => $app->url((int) $s['ids'] === $uvod ? '' : $s['seo_link']);
-        $ulozene = self::nacti($db, $umisteni, $jazyk);
-        if ($ulozene === null) {
-            if ($umisteni !== 'hlavni') {
+        $url = fn (array $s): string => $app->url((int) $s['ids'] === $home ? '' : $s['seo_link']);
+        $saved = self::load($db, $location, $language);
+        if ($saved === null) {
+            if ($location !== 'hlavni') {
                 return [];
             }
             // automaticky: stránky „v menu“ podle pořadí a na konci novinky (prvek Navigace je může vypnout)
-            $auto = array_map(fn (array $s): array => ['text' => $s['titulek'], 'url' => $adresa($s), 'nove_okno' => false, 'deti' => []],
-                array_values(array_filter($stranky, fn (array $s): bool => (bool) $s['v_menu'])));
-            if (Rozsireni::je($app->settings(), 'novinky')) {
+            $auto = array_map(fn (array $s): array => ['text' => $s['titulek'], 'url' => $url($s), 'nove_okno' => false, 'deti' => []],
+                array_values(array_filter($pages, fn (array $s): bool => (bool) $s['v_menu'])));
+            if (Extensions::isEnabled($app->settings(), 'novinky')) {
                 $auto[] = ['text' => t('Novinky'), 'url' => $app->url('novinky'), 'nove_okno' => false, 'deti' => [], 'novinky' => true, 'auto' => true];
             }
 
             return $auto;
         }
-        $sNovinkami = Rozsireni::je($app->settings(), 'novinky');
-        $preved = function (array $p) use (&$preved, $stranky, $adresa, $app, $sNovinkami): ?array {
-            $deti = array_values(array_filter(array_map($preved, $p['deti'] ?? [])));
+        $withNews = Extensions::isEnabled($app->settings(), 'novinky');
+        $convert = function (array $p) use (&$convert, $pages, $url, $app, $withNews): ?array {
+            $children = array_values(array_filter(array_map($convert, $p['deti'] ?? [])));
 
             return match ($p['typ']) {
-                'stranka' => isset($stranky[$p['ids']])
-                    ? ['text' => $p['text'] !== '' ? $p['text'] : $stranky[$p['ids']]['titulek'], 'url' => $adresa($stranky[$p['ids']]), 'nove_okno' => false, 'deti' => $deti]
+                'stranka' => isset($pages[$p['ids']])
+                    ? ['text' => $p['text'] !== '' ? $p['text'] : $pages[$p['ids']]['titulek'], 'url' => $url($pages[$p['ids']]), 'nove_okno' => false, 'deti' => $children]
                     : null,
-                'novinky' => !$sNovinkami ? null : ['text' => $p['text'] !== '' ? $p['text'] : t('Novinky'), 'url' => $app->url('novinky'), 'nove_okno' => false, 'deti' => $deti, 'novinky' => true],
-                'odkaz' => ['text' => $p['text'], 'url' => str_starts_with($p['url'], '/') ? $app->url($p['url']) : $p['url'], 'nove_okno' => $p['nove_okno'], 'deti' => $deti],
-                'skupina' => $deti === [] ? null : ['text' => $p['text'], 'url' => '', 'nove_okno' => false, 'deti' => $deti],
+                'novinky' => !$withNews ? null : ['text' => $p['text'] !== '' ? $p['text'] : t('Novinky'), 'url' => $app->url('novinky'), 'nove_okno' => false, 'deti' => $children, 'novinky' => true],
+                'odkaz' => ['text' => $p['text'], 'url' => str_starts_with($p['url'], '/') ? $app->url($p['url']) : $p['url'], 'nove_okno' => $p['nove_okno'], 'deti' => $children],
+                'skupina' => $children === [] ? null : ['text' => $p['text'], 'url' => '', 'nove_okno' => false, 'deti' => $children],
                 default => null,
             };
         };
 
-        return array_values(array_filter(array_map($preved, $ulozene)));
+        return array_values(array_filter(array_map($convert, $saved)));
     }
 
     /**
      * Seznam <li> (bez obalového <ul>) pro šablonu i prvek Navigace. Položka s podmenu má třídu „podmenu“ a vnořený <ul>;
      * aktivní odkaz dostane aria-current, jeho nadřazená položka třídu „aktivni“.
      *
-     * @param list<array<string, mixed>> $polozky z polozky()
-     * @param string $cesta  cesta zobrazené stránky (např. /web/en/sluzby)
-     * @param string $koren  adresa úvodu ($app->url('')) – úvod je aktivní jen přesnou shodou
+     * @param list<array<string, mixed>> $items z polozky()
+     * @param string $path  cesta zobrazené stránky (např. /web/en/sluzby)
+     * @param string $root  adresa úvodu ($app->url('')) – úvod je aktivní jen přesnou shodou
      */
-    public static function html(array $polozky, string $cesta, string $koren): string
+    public static function html(array $items, string $path, string $root): string
     {
-        $aktivni = function (string $url) use ($cesta, $koren): bool {
+        $active = function (string $url) use ($path, $root): bool {
             if ($url === '' || preg_match('#^[a-z]+:|^\##i', $url)) {
                 return false;
             }
-            $cil = rtrim((string) parse_url($url, PHP_URL_PATH), '/');
+            $target = rtrim((string) parse_url($url, PHP_URL_PATH), '/');
 
-            return $cil === rtrim($cesta, '/') || ($cil !== rtrim($koren, '/') && $cil !== '' && str_starts_with($cesta, $cil . '/'));
+            return $target === rtrim($path, '/') || ($target !== rtrim($root, '/') && $target !== '' && str_starts_with($path, $target . '/'));
         };
-        $li = function (array $p) use (&$li, $aktivni): string {
-            $je = $aktivni($p['url']);
-            $odkaz = $p['url'] === ''
+        $li = function (array $p) use (&$li, $active): string {
+            $isEnabled = $active($p['url']);
+            $link = $p['url'] === ''
                 ? '<button type="button" class="menu-skupina">' . e($p['text']) . '</button>' // skupina bez odkazu: tlačítko jde zaměřit klávesnicí a otevřít podmenu
-                : '<a href="' . e($p['url']) . '"' . ($je ? ' aria-current="page"' : '') . ($p['nove_okno'] ? ' target="_blank" rel="noopener"' : '') . '>' . e($p['text']) . '</a>';
+                : '<a href="' . e($p['url']) . '"' . ($isEnabled ? ' aria-current="page"' : '') . ($p['nove_okno'] ? ' target="_blank" rel="noopener"' : '') . '>' . e($p['text']) . '</a>';
             if ($p['deti'] === []) {
-                return '<li>' . $odkaz . '</li>';
+                return '<li>' . $link . '</li>';
             }
-            $vnitrek = implode('', array_map($li, $p['deti']));
-            $vetev = str_contains($vnitrek, 'aria-current');
+            $inner = implode('', array_map($li, $p['deti']));
+            $branch = str_contains($inner, 'aria-current');
 
-            return '<li class="podmenu' . ($vetev ? ' aktivni' : '') . '">' . $odkaz . '<ul>' . $vnitrek . '</ul></li>';
+            return '<li class="podmenu' . ($branch ? ' aktivni' : '') . '">' . $link . '<ul>' . $inner . '</ul></li>';
         };
 
-        return implode('', array_map($li, $polozky));
+        return implode('', array_map($li, $items));
     }
 
     /**
      * Zařazení stránky do menu z jejího formuláře (zaškrtávátko „v navigaci“): v automatickém režimu stačí sloupec v_menu,
      * v uloženém menu se stránka přidá na konec, nebo se odebere (její podmenu se posune o úroveň výš).
      */
-    public static function nastavStranku(Db $db, int $ids, string $jazyk, bool $vMenu): void
+    public static function setPage(Db $db, int $ids, string $language, bool $inMenu): void
     {
-        $polozky = self::nacti($db, 'hlavni', $jazyk);
-        if ($polozky === null) {
+        $items = self::load($db, 'hlavni', $language);
+        if ($items === null) {
             return;
         }
-        $je = false;
-        $bez = [];
-        foreach ($polozky as $p) {
+        $isEnabled = false;
+        $without = [];
+        foreach ($items as $p) {
             if ($p['typ'] === 'stranka' && $p['ids'] === $ids) {
-                $je = true;
-                if (!$vMenu) {
-                    array_push($bez, ...($p['deti'] ?? []));
+                $isEnabled = true;
+                if (!$inMenu) {
+                    array_push($without, ...($p['deti'] ?? []));
                     continue;
                 }
             }
-            $deti = [];
+            $children = [];
             foreach ($p['deti'] ?? [] as $d) {
                 if ($d['typ'] === 'stranka' && $d['ids'] === $ids) {
-                    $je = true;
-                    if (!$vMenu) {
+                    $isEnabled = true;
+                    if (!$inMenu) {
                         continue;
                     }
                 }
-                $deti[] = $d;
+                $children[] = $d;
             }
             if (isset($p['deti'])) {
-                $p['deti'] = $deti;
+                $p['deti'] = $children;
             }
-            $bez[] = $p;
+            $without[] = $p;
         }
-        if ($vMenu && !$je) {
-            $bez[] = ['typ' => 'stranka', 'ids' => $ids, 'text' => ''];
+        if ($inMenu && !$isEnabled) {
+            $without[] = ['typ' => 'stranka', 'ids' => $ids, 'text' => ''];
         }
-        if ($vMenu !== $je || !$vMenu) {
-            self::uloz($db, 'hlavni', $jazyk, $bez);
+        if ($inMenu !== $isEnabled || !$inMenu) {
+            self::save($db, 'hlavni', $language, $without);
         }
     }
 
@@ -211,17 +211,17 @@ final class Menu
      * Je stránka v uloženém hlavním menu – jako stránka, nebo odkazem na její adresu (/sluzby, /de/leistungen)?
      * null = menu je automatické (platí sloupec v_menu).
      */
-    public static function obsahujeStranku(Db $db, int $ids, string $jazyk, ?string $seo = null): ?bool
+    public static function hasPage(Db $db, int $ids, string $language, ?string $seo = null): ?bool
     {
-        $polozky = self::nacti($db, 'hlavni', $jazyk);
-        if ($polozky === null) {
+        $items = self::load($db, 'hlavni', $language);
+        if ($items === null) {
             return null;
         }
         $seo ??= (string) $db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$ids]);
-        $cesta = '/' . ($jazyk !== '' ? $jazyk . '/' : '') . $seo;
-        foreach ($polozky as $p) {
+        $path = '/' . ($language !== '' ? $language . '/' : '') . $seo;
+        foreach ($items as $p) {
             foreach ([$p, ...($p['deti'] ?? [])] as $x) {
-                if (($x['typ'] === 'stranka' && $x['ids'] === $ids) || ($x['typ'] === 'odkaz' && $seo !== '' && rtrim((string) $x['url'], '/') === $cesta)) {
+                if (($x['typ'] === 'stranka' && $x['ids'] === $ids) || ($x['typ'] === 'odkaz' && $seo !== '' && rtrim((string) $x['url'], '/') === $path)) {
                     return true;
                 }
             }

@@ -11,7 +11,7 @@
 <article class="novinka">
 	<header>
 		<p class="novinka-info">
-			<time datetime="<?= e(date('c', strtotime($novinka['datum']))) ?>"><?= e(datum($novinka['datum'])) ?></time>
+			<time datetime="<?= e(date('c', strtotime($novinka['datum']))) ?>"><?= e(format_date($novinka['datum'])) ?></time>
 			· <a href="<?= e($url('novinky/kategorie/' . $novinka['tema_seo'])) ?>"><?= e($novinka['tema_jm']) ?></a>
 <?php if ($novinka['autor_jm'] !== null): ?>
 			· <?= e($novinka['autor_jm']) ?>
@@ -24,7 +24,7 @@
 <?php endif ?>
 	<div class="perex"><?= $novinka['uvod'] ?></div>
 <?php if (!empty($novinka['aktualizovano'])): ?>
-	<p class="novinka-aktualizovano"><?= e(t('Aktualizováno')) ?> <?= e(datum($novinka['aktualizovano'], true)) ?></p>
+	<p class="novinka-aktualizovano"><?= e(t('Aktualizováno')) ?> <?= e(format_date($novinka['aktualizovano'], true)) ?></p>
 <?php endif ?>
 	<div class="text"><?= $novinka['text'] ?></div>
 	<?= $novinka['faq_html'] ?? '' ?>
@@ -36,7 +36,7 @@
 		<h2><?= e(t('Další novinky')) ?></h2>
 		<ul>
 <?php foreach ($souvisejici as $s): ?>
-			<li><a href="<?= e($url('novinky/' . $s['seo_link'])) ?>"><?= e($s['titulek']) ?></a> <small><?= e(datum($s['datum'])) ?></small></li>
+			<li><a href="<?= e($url('novinky/' . $s['seo_link'])) ?>"><?= e($s['titulek']) ?></a> <small><?= e(format_date($s['datum'])) ?></small></li>
 <?php endforeach ?>
 		</ul>
 	</aside>

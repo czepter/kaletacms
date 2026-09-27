@@ -1,6 +1,6 @@
 <?php
 /**
- * @var Kaleta\Admin\Moduly\Stranky $modul
+ * @var Kaleta\Admin\Modules\Pages $modul
  * @var string $csrf
  * @var array<string, mixed> $stranka
  * @var array<string, string> $chyby
@@ -39,7 +39,7 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 	<label for="sablona"><?= e(t('Začít podle šablony')) ?></label>
 	<div><select id="sablona" name="sablona">
 		<option value=""><?= e(t('prázdná stránka (text)')) ?></option>
-<?php foreach (Kaleta\Stavitel\Knihovna::SABLONY_STRANEK as $klic => [$nazev]): ?>
+<?php foreach (Kaleta\Builder\Library::PAGE_TEMPLATES as $klic => [$nazev]): ?>
 		<option value="<?= e($klic) ?>"><?= e(t($nazev)) ?></option>
 <?php endforeach ?>
 	</select><span class="napoveda"><?= e(t('Šablona poskládá stránku z hotových sekcí s ukázkovými texty a otevře ji v builderu.')) ?></span></div>
@@ -117,7 +117,7 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 <summary><?= e(t('Historie textu (%s)', count($revize))) ?></summary>
 <ul class="revize">
 <?php foreach ($revize as $v): ?>
-	<li><?= e(datum($v['datum'], true)) ?><?= $v['kdo'] ? ' · ' . e($v['kdo']) : '' ?> · <?= e($v['titulek']) ?>
+	<li><?= e(format_date($v['datum'], true)) ?><?= $v['kdo'] ? ' · ' . e($v['kdo']) : '' ?> · <?= e($v['titulek']) ?>
 		<form class="vradku" method="post" action="<?= e($modul->url('obnov_verzi')) ?>" data-potvrdit="<?= e(t('Obnovit tuto verzi textu? Současná podoba zůstane v historii.')) ?>"><?= $csrf ?><input type="hidden" name="idr" value="<?= (int) $v['idr'] ?>"><button class="navigace" type="submit"><?= e(t('Obnovit')) ?></button></form></li>
 <?php endforeach ?>
 </ul>

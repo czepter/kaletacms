@@ -4,7 +4,7 @@
  * Přehled webu: první kroky, upozornění, počty, návštěvnost, nové poptávky a naposledy upravený obsah.
  *
  * @var Kaleta\Core\App $app
- * @var array<string, class-string<Kaleta\Admin\Modul>> $moduly
+ * @var array<string, class-string<Kaleta\Admin\Module>> $moduly
  * @var array<string, array{0: int, 1: string}> $pocty  popisek => [počet, adresa]
  * @var list<array{0: string, 1: string}> $upozorneni  [text, adresa]
  * @var list<array<string, mixed>> $poptavky
@@ -41,7 +41,7 @@
 <?php endif ?>
 <div class="dlazdice">
 <?php foreach ($pocty as $popis => [$pocet, $adresa]): ?>
-	<a class="dlazdice-polozka" href="<?= e($app->url($adresa)) ?>"><strong><?= pocet($pocet) ?></strong><span><?= e(t($popis)) ?></span></a>
+	<a class="dlazdice-polozka" href="<?= e($app->url($adresa)) ?>"><strong><?= format_count($pocet) ?></strong><span><?= e(t($popis)) ?></span></a>
 <?php endforeach ?>
 </div>
 <?php if (count($navstevnost) >= 2):
@@ -52,10 +52,10 @@
     $max = max(1, ...array_values($dny));
 ?>
 <section class="prehled-graf" aria-label="<?= e(t('Návštěvnost za 14 dní')) ?>">
-	<h2><?= e(t('Návštěvnost za 14 dní')) ?> <small><?= e(t('%s návštěv', pocet(array_sum($dny)))) ?></small></h2>
+	<h2><?= e(t('Návštěvnost za 14 dní')) ?> <small><?= e(t('%s návštěv', format_count(array_sum($dny)))) ?></small></h2>
 	<svg viewBox="0 0 280 70" preserveAspectRatio="none" role="img" aria-label="<?= e(t('Návštěvnost za 14 dní')) ?>">
 <?php $x = 0; foreach ($dny as $den => $pocet): $v = max(1, (int) round($pocet / $max * 62)); ?>
-		<rect x="<?= $x * 20 + 2 ?>" y="<?= 66 - $v ?>" width="16" height="<?= $v ?>" rx="2" data-tip="<?= e(t('%s: %s návštěv', datum($den), $pocet)) ?>" aria-label="<?= e(t('%s: %s návštěv', datum($den), $pocet)) ?>" tabindex="0"></rect>
+		<rect x="<?= $x * 20 + 2 ?>" y="<?= 66 - $v ?>" width="16" height="<?= $v ?>" rx="2" data-tip="<?= e(t('%s: %s návštěv', format_date($den), $pocet)) ?>" aria-label="<?= e(t('%s: %s návštěv', format_date($den), $pocet)) ?>" tabindex="0"></rect>
 <?php $x++; endforeach ?>
 	</svg>
 	<p class="smltxt"><a href="<?= e($app->url('admin.php?modul=stat')) ?>"><?= e(t('Celá statistika')) ?></a></p>
@@ -71,7 +71,7 @@
 <tr<?= (int) $p['stav'] === 0 ? '' : ' class="nevydany"' ?>>
 	<td><a href="<?= e($app->url('admin.php?modul=poptavky&akce=detail&id=' . (int) $p['idp'])) ?>"><?= e($p['formular'] !== '' ? $p['formular'] : t('Poptávka')) ?></a><?= (int) $p['stav'] === 0 ? ' <span class="stitek stitek-koncept">' . e(t('nová')) . '</span>' : '' ?></td>
 	<td><?= e($p['email']) ?></td>
-	<td class="cislo"><?= e(datum($p['datum'], true)) ?></td>
+	<td class="cislo"><?= e(format_date($p['datum'], true)) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -88,7 +88,7 @@
 <tr>
 	<td><a href="<?= e($u['url']) ?>"><?= e($u['titulek']) ?></a><?= $u['stav'] !== '' ? ' <span class="stitek stitek-koncept">' . e($u['stav']) . '</span>' : '' ?></td>
 	<td><?= e($u['druh']) ?></td>
-	<td class="cislo"><?= e(datum($u['kdy'], true)) ?></td>
+	<td class="cislo"><?= e(format_date($u['kdy'], true)) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

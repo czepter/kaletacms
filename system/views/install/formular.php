@@ -75,7 +75,7 @@ $splneno = !in_array(false, array_column($pozadavky, 'ok'), true);
 		<div class="cele"><label for="nazev_webu"><?= e(t('Název webu')) ?></label><input type="text" id="nazev_webu" name="nazev_webu" value="<?= e($data['nazev_webu']) ?>" required></div>
 		<fieldset class="cele weby">
 			<legend><?= e(t('Začít s webem')) ?></legend>
-<?php foreach (Kaleta\Stavitel\Knihovna::WEBY as $klic => $w): $barvy = Kaleta\Stavitel\DesignSystem::PREDVOLBY[$w['predvolba']][2]['barvy']; ?>
+<?php foreach (Kaleta\Builder\Library::SITES as $klic => $w): $barvy = Kaleta\Builder\DesignSystem::PRESETS[$w['predvolba']][2]['barvy']; ?>
 			<label class="web"><input type="radio" name="web" value="<?= e($klic) ?>"<?= ($data['web'] ?: 'firemni') === $klic ? ' checked' : '' ?>>
 				<span class="vzorky"><i style="background:<?= e($barvy['primarni']) ?>"></i><i style="background:<?= e($barvy['sekundarni']) ?>"></i><i style="background:<?= e($barvy['plocha']) ?>"></i></span>
 				<strong><?= e(t($w['nazev'])) ?></strong><small><?= e(t($w['popis'])) ?></small></label>
@@ -88,7 +88,7 @@ $splneno = !in_array(false, array_column($pozadavky, 'ok'), true);
 		<div><label for="password"><?= e(t('Heslo')) ?></label><input type="password" id="password" name="password" autocomplete="new-password" minlength="10" required><?= $chyba('password') ?><span class="napoveda"><?= e(t('Alespoň 10 znaků.')) ?></span></div>
 		<div><label for="password2"><?= e(t('Heslo znovu')) ?></label><input type="password" id="password2" name="password2" autocomplete="new-password" required></div>
 		<div class="cele"><label for="jazyk_webu"><?= e(t('Jazyk webu')) ?></label><select id="jazyk_webu" name="jazyk_webu">
-<?php foreach (Kaleta\Core\Jazyk::DOSTUPNE as $kod => [$nazevJazyka]): ?>
+<?php foreach (Kaleta\Core\Language::AVAILABLE as $kod => [$nazevJazyka]): ?>
 			<option value="<?= e($kod) ?>"<?= $data['jazyk_webu'] === $kod ? ' selected' : '' ?>><?= e($nazevJazyka) ?></option>
 <?php endforeach ?>
 		</select><span class="napoveda"><?= e(t('V tomto jazyce vzniknou ukázkové stránky a texty pro návštěvníky. Administrace zůstane v jazyce instalace.')) ?></span></div>
@@ -104,7 +104,7 @@ $splneno = !in_array(false, array_column($pozadavky, 'ok'), true);
 	<h2><span>4</span> <?= e(t('Co chcete mít zapnuté')) ?></h2>
 	<p><?= e(t('Rozšíření lze kdykoli zapnout nebo vypnout v administraci (Rozšíření). Vypnutím se nic nesmaže.')) ?></p>
 	<div class="rozsireni">
-<?php foreach (Kaleta\Core\Rozsireni::SEZNAM as $klic => [$nazevRozsireni, $popisRozsireni]): ?>
+<?php foreach (Kaleta\Core\Extensions::CATALOG as $klic => [$nazevRozsireni, $popisRozsireni]): ?>
 		<label class="web"><input type="checkbox" name="rozsireni[]" value="<?= e($klic) ?>"<?= in_array($klic, $rozsireni, true) ? ' checked' : '' ?>>
 			<strong><?= e(t($nazevRozsireni)) ?></strong><small><?= e(t($popisRozsireni)) ?></small></label>
 <?php endforeach ?>

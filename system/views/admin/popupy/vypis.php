@@ -3,11 +3,11 @@
  * Pop-up okna webu s počitadly.
  *
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\Popupy $modul
+ * @var Kaleta\Admin\Modules\Popups $modul
  * @var string $csrf
  * @var list<array<string, mixed>> $okna
  */
-use Kaleta\Stavitel\Popupy;
+use Kaleta\Builder\Popups;
 
 ?>
 <p class="navigace-radek"><a class="tl" href="<?= e($modul->url('novy')) ?>"><?= e(t('Nové pop-up okno')) ?></a></p>
@@ -20,12 +20,12 @@ use Kaleta\Stavitel\Popupy;
 <tbody>
 <?php foreach ($okna as $p): ?>
 <?php
-    $jednotka = Popupy::SPOUSTECE[$p['spoustec']][1] ?? '';
-    $kdy = t(Popupy::SPOUSTECE[$p['spoustec']][0] ?? '') . ($jednotka !== '' ? ': ' . $p['hodnota'] . ' ' . t($jednotka) : '');
+    $jednotka = Popups::TRIGGERS[$p['spoustec']][1] ?? '';
+    $kdy = t(Popups::TRIGGERS[$p['spoustec']][0] ?? '') . ($jednotka !== '' ? ': ' . $p['hodnota'] . ' ' . t($jednotka) : '');
 ?>
 <tr>
-	<td><a href="<?= e($modul->url('stavitel', ['id' => $p['idpp']])) ?>"><strong><?= e($p['nazev']) ?></strong></a><br><span class="napoveda"><?= e(t(Popupy::TYPY[$p['typ']][0] ?? '')) ?> · <code>#popup-<?= e($p['adresa']) ?></code></span></td>
-	<td><?= e($kdy) ?><br><span class="napoveda"><?= e($p['pravidla']['kde'] === 'vse' ? t('na celém webu') : t('na vybraných místech')) ?><?= $p['spoustec'] !== 'klik' ? ' · ' . e(t(Popupy::CETNOSTI[$p['cetnost']] ?? '')) : '' ?></span></td>
+	<td><a href="<?= e($modul->url('stavitel', ['id' => $p['idpp']])) ?>"><strong><?= e($p['nazev']) ?></strong></a><br><span class="napoveda"><?= e(t(Popups::TYPES[$p['typ']][0] ?? '')) ?> · <code>#popup-<?= e($p['adresa']) ?></code></span></td>
+	<td><?= e($kdy) ?><br><span class="napoveda"><?= e($p['pravidla']['kde'] === 'vse' ? t('na celém webu') : t('na vybraných místech')) ?><?= $p['spoustec'] !== 'klik' ? ' · ' . e(t(Popups::FREQUENCIES[$p['cetnost']] ?? '')) : '' ?></span></td>
 	<td><?php if ($p['aktivni']): ?><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span><?php elseif ($p['stavba'] === null): ?><span class="stitek stitek-koncept"><?= e(t('nepublikované')) ?></span><?php else: ?><span class="stitek"><?= e(t('vypnuté')) ?></span><?php endif ?><?= $p['stavba_koncept'] !== null && $p['stavba'] !== null && $p['stavba_koncept'] !== $p['stavba'] ? ' <span class="stitek stitek-koncept">' . e(t('nepublikované změny')) . '</span>' : '' ?></td>
 	<td class="cislo"><?= (int) $p['zobrazeni'] ?></td>
 	<td class="cislo"><?= (int) $p['zavreni'] ?></td>

@@ -11,7 +11,7 @@ echo '<?xml version="1.0" encoding="utf-8"?>' . "\n";
 	<title><?= e($web->get('nazev_webu')) ?></title>
 	<link><?= e($adresa) ?></link>
 	<description><?= e($web->get('popis_webu')) ?></description>
-	<language><?= e(\Kaleta\Core\Jazyk::kod()) ?></language>
+	<language><?= e(\Kaleta\Core\Language::code()) ?></language>
 	<generator>Kaleta <?= e(KALETA_VERSION) ?></generator>
 <?php foreach ($novinky as $c): ?>
 	<item>

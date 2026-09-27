@@ -1,7 +1,7 @@
 <?php
 /**
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\Menu $modul
+ * @var Kaleta\Admin\Modules\Menu $modul
  * @var string $csrf
  * @var string $umisteni  hlavni | paticka
  * @var string $jazyk     sloupec jazyka ('' = výchozí)
@@ -13,7 +13,7 @@
 $volba = ['umisteni' => $umisteni, 'jazyk' => $jazyk];
 ?>
 <nav class="zalozky" aria-label="<?= e(t('Menu')) ?>">
-<?php foreach (Kaleta\Core\Menu::UMISTENI as $klic => $nazev): ?>
+<?php foreach (Kaleta\Core\Menu::LOCATIONS as $klic => $nazev): ?>
 	<a href="<?= e($modul->url('', ['umisteni' => $klic, 'jazyk' => $jazyk])) ?>"<?= $klic === $umisteni ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($nazev)) ?></a>
 <?php endforeach ?>
 </nav>
@@ -44,7 +44,7 @@ $volba = ['umisteni' => $umisteni, 'jazyk' => $jazyk];
 	</label>
 	<button class="navigace" type="button" data-menu-pridej="stranka"><?= e(t('Přidat stránku')) ?></button>
 	<button class="navigace" type="button" data-menu-pridej="odkaz"><?= e(t('Vlastní odkaz')) ?></button>
-<?php if (Kaleta\Core\Rozsireni::je($app->settings(), 'novinky')): ?>
+<?php if (Kaleta\Core\Extensions::isEnabled($app->settings(), 'novinky')): ?>
 	<button class="navigace" type="button" data-menu-pridej="novinky"><?= e(t('Novinky')) ?></button>
 <?php endif ?>
 	<button class="navigace" type="button" data-menu-pridej="skupina" title="<?= e(t('Položka bez odkazu, která jen otevírá podmenu')) ?>"><?= e(t('Skupina')) ?></button>

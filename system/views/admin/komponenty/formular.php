@@ -3,11 +3,11 @@
  * Název a vlastnosti komponenty.
  *
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\Komponenty $modul
+ * @var Kaleta\Admin\Modules\Components $modul
  * @var string $csrf
  * @var array<string, mixed> $k
  */
-use Kaleta\Stavitel\Komponenty;
+use Kaleta\Builder\Components;
 
 $vlastnosti = array_merge($k['vlastnosti'], array_fill(0, 3, ['klic' => '', 'popisek' => '', 'typ' => 'text', 'vychozi' => '']));
 ?>
@@ -26,7 +26,7 @@ $vlastnosti = array_merge($k['vlastnosti'], array_fill(0, 3, ['klic' => '', 'pop
 <tr>
 	<td><input class="textpole" name="vlastnosti[<?= $i ?>][popisek]" value="<?= e($v['popisek']) ?>" maxlength="80" aria-label="<?= e(t('Popisek')) ?>"><input type="hidden" name="vlastnosti[<?= $i ?>][klic]" value="<?= e($v['klic']) ?>"></td>
 	<td><select name="vlastnosti[<?= $i ?>][typ]" aria-label="<?= e(t('Typ')) ?>">
-<?php foreach (Komponenty::TYPY as $typ => $nazev): ?>
+<?php foreach (Components::TYPES as $typ => $nazev): ?>
 		<option value="<?= e($typ) ?>"<?= $v['typ'] === $typ ? ' selected' : '' ?>><?= e(t($nazev)) ?></option>
 <?php endforeach ?>
 	</select></td>

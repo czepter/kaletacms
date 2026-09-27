@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Kaleta\Admin;
 
 use Kaleta\Core\App;
-use Kaleta\Core\Migrace;
+use Kaleta\Core\Migration;
 use Kaleta\Core\Response;
-use Kaleta\Core\Rozsireni;
+use Kaleta\Core\Extensions;
 
 /**
  * Administrace. Adresy: admin.php?modul=<ident>&akce=<akce>
@@ -17,30 +17,30 @@ final class Kernel
     /**
      * Moduly v pořadí, v jakém jsou v menu (po skupinách Obsah, Vzhled, Správa).
      *
-     * @var list<class-string<Modul>>
+     * @var list<class-string<Module>>
      */
-    public const array MODULY = [
-        Moduly\Stranky::class,
-        Moduly\Novinky::class,
-        Moduly\Kolekce::class,
-        Moduly\Poptavky::class,
-        Moduly\Odberatele::class,
-        Moduly\Kategorie::class,
-        Moduly\Stitky::class,
-        Moduly\Galerie::class,
-        Moduly\Vzhled::class,
-        Moduly\Casti::class,
-        Moduly\Menu::class,
-        Moduly\Komponenty::class,
-        Moduly\Popupy::class,
-        Moduly\Autori::class,
-        Moduly\Role::class,
-        Moduly\Statistika::class,
-        Moduly\Presmerovani::class,
-        Moduly\ProtokolZmen::class,
-        Moduly\Prenos::class,
-        Moduly\RozsireniAdmin::class,
-        Moduly\Konfigurace::class,
+    public const array MODULES = [
+        Modules\Pages::class,
+        Modules\News::class,
+        Modules\Collections::class,
+        Modules\Enquiries::class,
+        Modules\Subscribers::class,
+        Modules\Categories::class,
+        Modules\Tags::class,
+        Modules\Media::class,
+        Modules\Appearance::class,
+        Modules\SiteParts::class,
+        Modules\Menu::class,
+        Modules\Components::class,
+        Modules\Popups::class,
+        Modules\Users::class,
+        Modules\Roles::class,
+        Modules\Stats::class,
+        Modules\Redirects::class,
+        Modules\ChangeLog::class,
+        Modules\Transfer::class,
+        Modules\Extensions::class,
+        Modules\Settings::class,
     ];
 
     public function __construct(public readonly App $app)
@@ -53,8 +53,8 @@ final class Kernel
         $request = $app->request;
 
         // jazyk administrace: volba uživatele (Můj účet); přihlašovací stránka se řídí jazykem webu. Nastavuje se jako první, aby i hláška o vypršelém formuláři byla přeložená
-        $jazyk = (string) ($app->auth()->user()['jazyk'] ?? '') ?: \Kaleta\Core\Jazyk::vychozi($app->settings());
-        \Kaleta\Core\Jazyk::nastav(isset(\Kaleta\Core\Jazyk::ADMINISTRACE[$jazyk]) ? $jazyk : 'cs', 'admin-');
+        $language = (string) ($app->auth()->user()['jazyk'] ?? '') ?: \Kaleta\Core\Language::defaults($app->settings());
+        \Kaleta\Core\Language::set(isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$language]) ? $language : 'cs', 'admin-');
         if ($request->isPost() && !$app->session->csrfValid($request)) {
             return $this->page('Neplatný požadavek', $app->view->render('admin/chyba', [
                 'text' => 'Platnost formuláře vypršela. Vraťte se zpět, obnovte stránku a odešlete jej znovu.',
@@ -64,19 +64,19 @@ final class Kernel
         // každá změna v administraci zneplatní cache stránek webu; průběžné požadavky editorů (rozepsaný stav, asistent,
         // koncept stavby) web nemění - kdyby cache mazaly, při práci by byla pořád studená
         if ($request->isPost() && !in_array($request->get('akce'), ['koncept', 'asistent', 'stavba_uloz', 'nahled', 'stavba_ai_text'], true)) {
-            \Kaleta\Front\Cache::vymaz();
+            \Kaleta\Front\Cache::clear();
         }
-        $akce = $request->get('akce');
+        $action = $request->get('akce');
         // adresa webu: starší instalace ji ještě nemá - zapíše se podle adresy, na které pracuje přihlášený administrátor
         if ($app->settings()->get('adresa_webu') === '' && $app->auth()->isAdmin()) {
             $app->settings()->set('adresa_webu', $request->origin());
         }
         $request->setOrigin($app->settings()->get('adresa_webu'));
-        $app->casovePasmo();
+        $app->applyTimezone();
         if ($app->auth()->user() === null) {
-            return $akce === 'heslo' ? (new ObnovaHesla($app))->handle() : $this->login();
+            return $action === 'heslo' ? (new PasswordReset($app))->handle() : $this->login();
         }
-        if ($akce === 'logout' && $request->isPost()) {
+        if ($action === 'logout' && $request->isPost()) {
             $app->auth()->logout();
 
             return Response::redirect($app->url('admin.php'));
@@ -84,111 +84,111 @@ final class Kernel
 
         // po přechodu na novou verzi jednorázově uklidit známé zrušené soubory (viz Aktualizace::ZRUSENE)
         if ($app->auth()->isAdmin() && $app->settings()->get('uklizeno_verze') !== KALETA_VERSION) {
-            \Kaleta\Core\Aktualizace::uklidZrusene(KALETA_ROOT, $app->settings()->get('layout'));
+            \Kaleta\Core\Updater::cleanUpRemoved(KALETA_ROOT, $app->settings()->get('layout'));
             $app->settings()->set('uklizeno_verze', KALETA_VERSION);
         }
 
         // aktualizace struktury databáze po nahrání nové verze systému
-        if ($app->auth()->isAdmin() && $app->settings()->int('verze_db') < Migrace::posledni()) {
+        if ($app->auth()->isAdmin() && $app->settings()->int('verze_db') < Migration::latest()) {
             try {
-                foreach (Migrace::proved($app->db(), $app->settings()) as $migrace) {
-                    $app->session->flash('info', t('Databáze byla aktualizována: %s', $migrace));
+                foreach (Migration::apply($app->db(), $app->settings()) as $migration) {
+                    $app->session->flash('info', t('Databáze byla aktualizována: %s', $migration));
                 }
             } catch (\Throwable $e) {
                 // administrace musí zůstat použitelná, aby šla nainstalovat oprava (Nastavení → Zálohy a aktualizace)
-                Migrace::zapisChybu($e);
+                Migration::writeError($e);
                 $app->session->flash('chyba', t('Aktualizace databáze se nepovedla: %s. Web běží dál; nainstalujte opravu v Nastavení → Zálohy a aktualizace, nebo napište na info@kaletacms.com.', $e->getMessage()));
             }
         }
 
         if ($app->auth()->isAdmin()) {
-            \Kaleta\Core\Zaloha::automaticka($app->db(), $app->settings());
+            \Kaleta\Core\Backup::createAutomatic($app->db(), $app->settings());
         }
         if ($app->auth()->user() !== null) {
-            Moduly\Novinky::vysypKos($app->db()); // koš drží novinky i stránky 30 dní
-            Moduly\Stranky::vysypKos($app->db());
+            Modules\News::emptyTrash($app->db()); // koš drží novinky i stránky 30 dní
+            Modules\Pages::emptyTrash($app->db());
         }
 
         $ident = $request->get('modul');
         // povinné dvoufázové přihlášení: kdo ho ještě nemá, smí jen do Můj účet (a odhlásit se), dokud ho nezapne
-        if ($app->auth()->chybiPovinne2fa($app->settings()) && !in_array($akce, ['ucet', 'token'], true)) {
+        if ($app->auth()->isMissingRequired2fa($app->settings()) && !in_array($action, ['ucet', 'token'], true)) {
             $app->session->flash('chyba', t('Web vyžaduje dvoufázové přihlášení. Zapněte si ho prosím níže – do té doby je administrace zamčená.'));
 
             return Response::redirect($app->url('admin.php?akce=ucet'));
         }
-        if ($akce === 'token') {
+        if ($action === 'token') {
             // editor po novém přihlášení v jiné záložce si tu vezme platný token formulářů a pokračuje v ukládání
             return Response::json(['csrf' => $app->session->csrfToken()]);
         }
-        if ($akce === 'ucet') {
-            return (new Ucet($this))->handle();
+        if ($action === 'ucet') {
+            return (new Account($this))->handle();
         }
-        if ($akce === 'oauth') {
-            return $this->souhlasOAuth();
+        if ($action === 'oauth') {
+            return $this->handleOAuthConsent();
         }
-        if ($akce === 'pruvodce_skryt' && $request->isPost() && $app->auth()->isAdmin()) {
+        if ($action === 'pruvodce_skryt' && $request->isPost() && $app->auth()->isAdmin()) {
             $app->settings()->set('pruvodce_skryt', '1');
 
             return Response::redirect($app->url('admin.php'));
         }
         if ($ident === '') {
-            $nova = $app->auth()->isAdmin() ? (new \Kaleta\Core\Aktualizace($app->settings()))->stav()['nova'] : null;
-            if ($nova !== null) {
+            $newVersion = $app->auth()->isAdmin() ? (new \Kaleta\Core\Updater($app->settings()))->state()['nova'] : null;
+            if ($newVersion !== null) {
                 // text se překládá tady (s číslem verze); cestu v nabídce promění v odkaz až vykreslení hlášky (Admin\Cesty)
-                $app->session->flash(!empty($nova['bezpecnostni']) ? 'chyba' : 'info', !empty($nova['bezpecnostni'])
-                    ? t('Je k dispozici BEZPEČNOSTNÍ aktualizace %s – nainstalujete ji v Nastavení → Zálohy a aktualizace.', (string) $nova['verze'])
-                    : t('Je k dispozici nová verze %s – nainstalujete ji v Nastavení → Zálohy a aktualizace.', (string) $nova['verze']));
+                $app->session->flash(!empty($newVersion['bezpecnostni']) ? 'chyba' : 'info', !empty($newVersion['bezpecnostni'])
+                    ? t('Je k dispozici BEZPEČNOSTNÍ aktualizace %s – nainstalujete ji v Nastavení → Zálohy a aktualizace.', (string) $newVersion['verze'])
+                    : t('Je k dispozici nová verze %s – nainstalujete ji v Nastavení → Zálohy a aktualizace.', (string) $newVersion['verze']));
             }
 
             return $this->page('', $app->view->render('admin/desktop', $this->desktop()));
         }
-        $class = $this->moduly()[$ident] ?? null;
+        $class = $this->modules()[$ident] ?? null;
         if ($class === null) {
             return $this->page('Chyba', $app->view->render('admin/chyba', ['text' => 'K tomuto modulu nemáte přístup.']), 403);
         }
 
-        $odpoved = (new $class($this))->handle($akce === '' ? 'vypis' : $akce);
-        if ($request->isPost() && $odpoved->status === 302 && $akce !== 'poradi') {
+        $response = (new $class($this))->handle($action === '' ? 'vypis' : $action);
+        if ($request->isPost() && $response->status === 302 && $action !== 'poradi') {
             // každá provedená změna v administraci jde do protokolu
-            $popis = $request->post('titulek') ?: ($request->post('nazev') ?: ($request->post('user') ?: $request->post('zalozka')));
-            Protokol::zapis($app, $ident, $akce, $popis);
+            $description = $request->post('titulek') ?: ($request->post('nazev') ?: ($request->post('user') ?: $request->post('zalozka')));
+            ChangeLog::write($app, $ident, $action, $description);
         }
 
-        return $odpoved;
+        return $response;
     }
 
     /**
      * Moduly dostupné přihlášenému uživateli.
      *
-     * @return array<string, class-string<Modul>> ident => třída
+     * @return array<string, class-string<Module>> ident => třída
      */
-    public function moduly(): array
+    public function modules(): array
     {
         $auth = $this->app->auth();
-        $moduly = [];
-        foreach (self::MODULY as $class) {
-            if (!Rozsireni::je($this->app->settings(), $class::ROZSIRENI)) {
+        $modules = [];
+        foreach (self::MODULES as $class) {
+            if (!Extensions::isEnabled($this->app->settings(), $class::EXTENSION)) {
                 continue;
             }
-            $povolen = $class::JEN_ADMIN ? $auth->isAdmin() : $auth->maModul($class::IDENT, $class::PRO_VSECHNY);
-            if ($povolen) {
-                $moduly[$class::IDENT] = $class;
+            $allowed = $class::ADMIN_ONLY ? $auth->isAdmin() : $auth->hasModule($class::IDENT, $class::FOR_ALL_USERS);
+            if ($allowed) {
+                $modules[$class::IDENT] = $class;
             }
         }
 
-        return $moduly;
+        return $modules;
     }
 
     /** Obalí obsah společným rámcem administrace (menu, login proužek, hlášky). */
-    public function page(string $nadpis, string $obsah, int $status = 200): Response
+    public function page(string $heading, string $content, int $status = 200): Response
     {
         $app = $this->app;
 
         return Response::html($app->view->render('admin/layout', [
             'app' => $app,
-            'nadpis' => t($nadpis),
-            'obsah' => $obsah,
-            'moduly' => $app->auth()->user() !== null ? $this->moduly() : [],
+            'nadpis' => t($heading),
+            'obsah' => $content,
+            'moduly' => $app->auth()->user() !== null ? $this->modules() : [],
             'aktivni' => $app->request->get('modul'),
             'user' => $app->auth()->user(),
             'hlasky' => $app->session->takeFlashes(),
@@ -202,58 +202,58 @@ final class Kernel
      */
     private function desktop(): array
     {
-        $data = ['app' => $this->app, 'moduly' => $this->moduly()];
+        $data = ['app' => $this->app, 'moduly' => $this->modules()];
         $db = $this->app->db();
-        $jen = ' AND smazano IS NULL' . $this->app->auth()->articleScope();      // pro dotazy bez aliasu (novinky v koši se nepočítají)
-        $jenC = ' AND c.smazano IS NULL' . $this->app->auth()->articleScope('c.');  // pro dotazy s aliasem c
+        $scope = ' AND smazano IS NULL' . $this->app->auth()->articleScope();      // pro dotazy bez aliasu (novinky v koši se nepočítají)
+        $aliasedScope = ' AND c.smazano IS NULL' . $this->app->auth()->articleScope('c.');  // pro dotazy s aliasem c
 
-        $moduly = $this->moduly();
-        $upozorneni = [];
-        if (isset($moduly['presmerovani'])) {
-            $chybi = (int) $db->value('SELECT COUNT(*) FROM {nenalezeno} WHERE naposledy > NOW() - INTERVAL 7 DAY AND pocet >= 3');
-            if ($chybi > 0) {
-                $upozorneni[] = [t('Návštěvníci za poslední týden opakovaně nenašli %d adres (chyba 404). Přesměrujte je na správné stránky.', $chybi), $this->app->url('admin.php?modul=presmerovani')];
+        $modules = $this->modules();
+        $warnings = [];
+        if (isset($modules['presmerovani'])) {
+            $missing = (int) $db->value('SELECT COUNT(*) FROM {nenalezeno} WHERE naposledy > NOW() - INTERVAL 7 DAY AND pocet >= 3');
+            if ($missing > 0) {
+                $warnings[] = [t('Návštěvníci za poslední týden opakovaně nenašli %d adres (chyba 404). Přesměrujte je na správné stránky.', $missing), $this->app->url('admin.php?modul=presmerovani')];
             }
         }
         if ($this->app->auth()->isAdmin()) {
-            $zaloha = \Kaleta\Core\Zaloha::seznam()[0]['cas'] ?? 0;
-            if (time() - $zaloha > 8 * 86400) {
-                $upozorneni[] = [$zaloha === 0 ? t('Web zatím nemá žádnou zálohu databáze.') : t('Poslední záloha databáze je z %s.', datum(date('Y-m-d H:i:s', $zaloha))), $this->app->url('admin.php?modul=config&zalozka=zalohy')];
+            $backup = \Kaleta\Core\Backup::listAll()[0]['cas'] ?? 0;
+            if (time() - $backup > 8 * 86400) {
+                $warnings[] = [$backup === 0 ? t('Web zatím nemá žádnou zálohu databáze.') : t('Poslední záloha databáze je z %s.', format_date(date('Y-m-d H:i:s', $backup))), $this->app->url('admin.php?modul=config&zalozka=zalohy')];
             }
         }
         // naposledy upravený obsah: stránky i novinky dohromady
-        $upravene = [];
-        if (isset($moduly['stranky'])) {
+        $edited = [];
+        if (isset($modules['stranky'])) {
             foreach ($db->all('SELECT ids, titulek, zmeneno, zobrazit, stavba_koncept IS NOT NULL AS koncept FROM {stranky} WHERE smazano IS NULL AND zmeneno IS NOT NULL ORDER BY zmeneno DESC LIMIT 6') as $r) {
-                $upravene[] = ['druh' => t('Stránka'), 'titulek' => $r['titulek'], 'kdy' => (string) $r['zmeneno'], 'url' => $this->app->url('admin.php?modul=stranky&akce=edit&id=' . (int) $r['ids']),
+                $edited[] = ['druh' => t('Stránka'), 'titulek' => $r['titulek'], 'kdy' => (string) $r['zmeneno'], 'url' => $this->app->url('admin.php?modul=stranky&akce=edit&id=' . (int) $r['ids']),
                     'stav' => !$r['zobrazit'] ? t('skrytá') : ($r['koncept'] ? t('nepublikované změny') : '')];
             }
         }
-        if (isset($moduly['novinky'])) {
-            foreach ($db->all('SELECT c.idc, c.titulek, COALESCE(c.zmeneno, c.datum) AS kdy, c.visible, c.datum > NOW() AS plan FROM {novinky} c WHERE 1 = 1' . $jenC . ' ORDER BY COALESCE(c.zmeneno, c.datum) DESC LIMIT 6') as $r) {
-                $upravene[] = ['druh' => t('Novinka'), 'titulek' => $r['titulek'], 'kdy' => (string) $r['kdy'], 'url' => $this->app->url('admin.php?modul=novinky&akce=edit&id=' . (int) $r['idc']),
+        if (isset($modules['novinky'])) {
+            foreach ($db->all('SELECT c.idc, c.titulek, COALESCE(c.zmeneno, c.datum) AS kdy, c.visible, c.datum > NOW() AS plan FROM {novinky} c WHERE 1 = 1' . $aliasedScope . ' ORDER BY COALESCE(c.zmeneno, c.datum) DESC LIMIT 6') as $r) {
+                $edited[] = ['druh' => t('Novinka'), 'titulek' => $r['titulek'], 'kdy' => (string) $r['kdy'], 'url' => $this->app->url('admin.php?modul=novinky&akce=edit&id=' . (int) $r['idc']),
                     'stav' => !$r['visible'] ? t('koncept') : ($r['plan'] ? t('naplánovaná') : '')];
             }
         }
-        usort($upravene, fn (array $a, array $b): int => strcmp($b['kdy'], $a['kdy']));
+        usort($edited, fn (array $a, array $b): int => strcmp($b['kdy'], $a['kdy']));
 
         return $data + [
-            'pruvodce' => $this->pruvodce(),
-            'upozorneni' => $upozorneni,
+            'pruvodce' => $this->firstSteps(),
+            'upozorneni' => $warnings,
             // návštěvnost za 14 dní (vlastní měření bez cookies)
-            'navstevnost' => Rozsireni::je($this->app->settings(), 'statistika') && isset($moduly['stat'])
+            'navstevnost' => Extensions::isEnabled($this->app->settings(), 'statistika') && isset($modules['stat'])
                 ? $db->all('SELECT den, navstevy, zobrazeni FROM {stat_dny} WHERE den > CURDATE() - INTERVAL 14 DAY ORDER BY den') : [],
             'pocty' => array_filter([
                 // koncepty autorů novinek čekají na editora – dlaždice jen, když nějaké jsou
-                'Novinky od autorů čekají na vydání' => isset($moduly['novinky']) && ($ceka = Moduly\Novinky::cekaNaVydani($this->app)) > 0 ? [$ceka, 'admin.php?modul=novinky&stav=ke_vydani'] : null,
-                'Nové poptávky' => isset($moduly['poptavky']) ? [(int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0'), 'admin.php?modul=poptavky'] : null,
-                'Zveřejněné stránky' => isset($moduly['stranky']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL'), 'admin.php?modul=stranky'] : null,
-                'Stránky s nepublikovanými změnami' => isset($moduly['stranky']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE stavba_koncept IS NOT NULL AND smazano IS NULL'), 'admin.php?modul=stranky'] : null,
-                'Vydané novinky' => isset($moduly['novinky']) ? [(int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW(){$jen}"), 'admin.php?modul=novinky&stav=vydane'] : null,
-                'Koncepty novinek' => isset($moduly['novinky']) ? [(int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 0{$jen}"), 'admin.php?modul=novinky&stav=koncepty'] : null,
+                'Novinky od autorů čekají na vydání' => isset($modules['novinky']) && ($pending = Modules\News::countAwaitingPublication($this->app)) > 0 ? [$pending, 'admin.php?modul=novinky&stav=ke_vydani'] : null,
+                'Nové poptávky' => isset($modules['poptavky']) ? [(int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0'), 'admin.php?modul=poptavky'] : null,
+                'Zveřejněné stránky' => isset($modules['stranky']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL'), 'admin.php?modul=stranky'] : null,
+                'Stránky s nepublikovanými změnami' => isset($modules['stranky']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE stavba_koncept IS NOT NULL AND smazano IS NULL'), 'admin.php?modul=stranky'] : null,
+                'Vydané novinky' => isset($modules['novinky']) ? [(int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW(){$scope}"), 'admin.php?modul=novinky&stav=vydane'] : null,
+                'Koncepty novinek' => isset($modules['novinky']) ? [(int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 0{$scope}"), 'admin.php?modul=novinky&stav=koncepty'] : null,
             ]),
-            'poptavky' => isset($moduly['poptavky']) ? $db->all('SELECT idp, datum, formular, email, stav FROM {poptavky} ORDER BY idp DESC LIMIT 5') : [],
-            'upravene' => array_slice($upravene, 0, 8),
+            'poptavky' => isset($modules['poptavky']) ? $db->all('SELECT idp, datum, formular, email, stav FROM {poptavky} ORDER BY idp DESC LIMIT 5') : [],
+            'upravene' => array_slice($edited, 0, 8),
         ];
     }
 
@@ -262,7 +262,7 @@ final class Kernel
      *
      * @return list<array{nazev:string, popis:string, url:string, hotovo:bool}>
      */
-    private function pruvodce(): array
+    private function firstSteps(): array
     {
         $app = $this->app;
         $s = $app->settings();
@@ -270,7 +270,7 @@ final class Kernel
             return [];
         }
         $db = $app->db();
-        $kroky = [
+        $steps = [
             // hotovo až po vlastní volbě: vzhled a stránky ze startovacího webu se nepočítají
             ['Dejte webu tvář', 'Logo, hlavní barva a písmo.', 'admin.php?modul=vzhled', $s->get('logo_webu') !== '' || $s->bool('vzhled_ulozen') || $s->get('brand_akcent') !== ''],
             ['Vyplňte údaje o firmě', 'Adresa, telefon a otevírací doba se ukážou na kontaktu, v patičce i vyhledávačům.', 'admin.php?modul=config&zalozka=firma', $s->get('firma_ulice') !== '' && ($s->get('firma_telefon') !== '' || $s->get('firma_email') !== '' || $s->get('email_webu') !== '')],
@@ -281,13 +281,13 @@ final class Kernel
                 $db->value("SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND (seo_link LIKE '%soukromi%' OR seo_link LIKE '%osobni%' OR seo_link LIKE '%gdpr%' OR seo_link LIKE '%privacy%') AND text NOT LIKE '%[%]%' LIMIT 1") !== null],
             ['Nastavte poštu', 'Odkud web odesílá e-maily (formuláře, obnova hesla).', 'admin.php?modul=config&zalozka=posta', $s->get('posta_rezim') === 'smtp' || $s->get('posta_od') !== ''],
         ];
-        $vysledek = array_map(fn (array $k): array => ['nazev' => $k[0], 'popis' => $k[1], 'url' => $app->url($k[2]), 'hotovo' => (bool) $k[3]], $kroky);
+        $result = array_map(fn (array $k): array => ['nazev' => $k[0], 'popis' => $k[1], 'url' => $app->url($k[2]), 'hotovo' => (bool) $k[3]], $steps);
 
-        return array_filter($vysledek, fn (array $k): bool => !$k['hotovo']) === [] ? [] : $vysledek;
+        return array_filter($result, fn (array $k): bool => !$k['hotovo']) === [] ? [] : $result;
     }
 
     /** Kam po přihlášení: čeká-li připojení aplikace přes OAuth (konektor Claude), rovnou na souhlas, jinak na přehled. */
-    private function poPrihlaseni(): string
+    private function resolveAfterSignIn(): string
     {
         return $this->app->url(is_array($this->app->session->get('oauth_ceka')) ? 'admin.php?akce=oauth' : 'admin.php');
     }
@@ -295,55 +295,55 @@ final class Kernel
     private function login(): Response
     {
         $app = $this->app;
-        $chyba = null;
+        $error = null;
         // druhý krok přihlašovacím klíčem (otisk prstu, Face ID): skript image/klice.js si řekne o výzvu a pošle podpis zařízení
         if ($app->request->isPost() && in_array($app->request->post('krok'), ['klic_moznosti', 'klic'], true)) {
-            $adresa = $app->settings()->get('adresa_webu') ?: $app->request->origin();
+            $url = $app->settings()->get('adresa_webu') ?: $app->request->origin();
             if ($app->request->post('krok') === 'klic_moznosti') {
-                $moznosti = $app->auth()->vyzvaKlice($adresa);
+                $options = $app->auth()->keyChallenge($url);
 
-                return Response::json($moznosti ?? ['chyba' => t('Přihlášení vypršelo, začněte prosím znovu.')], $moznosti === null ? 400 : 200);
+                return Response::json($options ?? ['chyba' => t('Přihlášení vypršelo, začněte prosím znovu.')], $options === null ? 400 : 200);
             }
-            $chyba = $app->auth()->overKlic((array) json_decode((string) ($_POST['odpoved'] ?? ''), true), $adresa, $app->request->ip());
-            if ($chyba === null) {
-                Protokol::zapis($app, 'prihlaseni', 'login', 'přihlašovacím klíčem');
+            $error = $app->auth()->verifyKey((array) json_decode((string) ($_POST['odpoved'] ?? ''), true), $url, $app->request->ip());
+            if ($error === null) {
+                ChangeLog::write($app, 'prihlaseni', 'login', 'přihlašovacím klíčem');
             }
 
-            return Response::json($chyba === null ? ['ok' => true, 'kam' => $this->poPrihlaseni()] : ['chyba' => $chyba], $chyba === null ? 200 : 401);
+            return Response::json($error === null ? ['ok' => true, 'kam' => $this->resolveAfterSignIn()] : ['chyba' => $error], $error === null ? 200 : 401);
         }
         if ($app->request->isPost()) {
-            $druhyKrok = $app->request->post('kod') !== '' || $app->request->post('krok') === 'kod';
-            $chyba = $druhyKrok
-                ? $app->auth()->overKod($app->request->post('kod'), $app->request->ip())
+            $secondStep = $app->request->post('kod') !== '' || $app->request->post('krok') === 'kod';
+            $error = $secondStep
+                ? $app->auth()->verifyCode($app->request->post('kod'), $app->request->ip())
                 : $app->auth()->login($app->request->post('user'), $app->request->post('password'), $app->request->ip());
-            if ($chyba === null && $app->auth()->user() !== null) {
-                Protokol::zapis($app, 'prihlaseni', 'login', $druhyKrok ? 'dvoufázově' : '');
+            if ($error === null && $app->auth()->user() !== null) {
+                ChangeLog::write($app, 'prihlaseni', 'login', $secondStep ? 'dvoufázově' : '');
 
-                return Response::redirect($this->poPrihlaseni());
+                return Response::redirect($this->resolveAfterSignIn());
             }
-            if ($chyba !== null && !$druhyKrok) {
-                Protokol::zapis($app, 'prihlaseni', 'neuspech', 'účet: ' . mb_substr($app->request->post('user'), 0, 40));
+            if ($error !== null && !$secondStep) {
+                ChangeLog::write($app, 'prihlaseni', 'neuspech', 'účet: ' . mb_substr($app->request->post('user'), 0, 40));
             }
         }
 
         return Response::html($app->view->render('admin/login', [
             'app' => $app,
-            'chyba' => $chyba,
+            'chyba' => $error,
             'login' => $app->request->post('user'),
-            'kod' => $app->auth()->cekaNaKod(),
-            'klice' => $app->auth()->cekaSKlici(),
-        ]), $chyba === null ? 200 : 401);
+            'kod' => $app->auth()->isAwaitingCode(),
+            'klice' => $app->auth()->isAwaitingKey(),
+        ]), $error === null ? 200 : 401);
     }
 
     /**
      * Souhlas s připojením aplikace přes OAuth (konektor Claude): ukáže, kdo žádá a s jakými právy, a po potvrzení vrátí
      * aplikaci jednorázový kód. Žádost čeká v relaci (Front\OAuth::autorizace) nejvýš 15 minut.
      */
-    private function souhlasOAuth(): Response
+    private function handleOAuthConsent(): Response
     {
         $app = $this->app;
-        $ceka = $app->session->get('oauth_ceka');
-        if (!is_array($ceka) || time() - (int) ($ceka['cas'] ?? 0) > 900) {
+        $pending = $app->session->get('oauth_ceka');
+        if (!is_array($pending) || time() - (int) ($pending['cas'] ?? 0) > 900) {
             $app->session->set('oauth_ceka', null);
 
             return $this->page('Připojení aplikace', $app->view->render('admin/chyba', ['text' => 'Žádost o připojení aplikace vypršela nebo neexistuje. Spusťte připojení v aplikaci znovu.']), 400);
@@ -352,21 +352,21 @@ final class Kernel
         if ($app->request->isPost()) {
             $app->session->set('oauth_ceka', null);
             if (!$app->request->postBool('povolit')) {
-                return Response::redirect($oauth->odmitnuti($ceka));
+                return Response::redirect($oauth->deny($pending));
             }
-            Protokol::zapis($app, 'claude', 'připojení aplikace', mb_substr((string) $ceka['nazev'], 0, 100));
+            ChangeLog::write($app, 'claude', 'připojení aplikace', mb_substr((string) $pending['nazev'], 0, 100));
 
-            return Response::redirect($oauth->vydejKod($ceka, $app->auth()->id()));
+            return Response::redirect($oauth->issueCode($pending, $app->auth()->id()));
         }
 
-        $stranka = $this->page('Připojení aplikace', $app->view->render('admin/oauth', [
-            'app' => $app, 'csrf' => $app->session->csrfField(), 'ceka' => $ceka, 'user' => $app->auth()->user(),
-            'adresa' => (string) parse_url((string) $ceka['redirect_uri'], PHP_URL_HOST),
+        $page = $this->page('Připojení aplikace', $app->view->render('admin/oauth', [
+            'app' => $app, 'csrf' => $app->session->csrfField(), 'ceka' => $pending, 'user' => $app->auth()->user(),
+            'adresa' => (string) parse_url((string) $pending['redirect_uri'], PHP_URL_HOST),
         ]));
         // odeslání souhlasu končí přesměrováním do aplikace – CSP form-action ho musí povolit (admin.php)
-        $cil = parse_url((string) $ceka['redirect_uri']);
-        $puvod = ($cil['scheme'] ?? '') . '://' . ($cil['host'] ?? '') . (isset($cil['port']) ? ':' . $cil['port'] : '');
+        $target = parse_url((string) $pending['redirect_uri']);
+        $origin = ($target['scheme'] ?? '') . '://' . ($target['host'] ?? '') . (isset($target['port']) ? ':' . $target['port'] : '');
 
-        return new Response($stranka->body, $stranka->status, $stranka->headers + ['X-Kaleta-Form-Action' => $puvod]);
+        return new Response($page->body, $page->status, $page->headers + ['X-Kaleta-Form-Action' => $origin]);
     }
 }

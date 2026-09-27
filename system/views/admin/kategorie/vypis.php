@@ -1,7 +1,7 @@
 <?php
 /**
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\Kategorie $modul
+ * @var Kaleta\Admin\Modules\Categories $modul
  * @var string $csrf
  * @var list<array<string, mixed>> $kategorie
  * @var list<string> $jazykyWebu

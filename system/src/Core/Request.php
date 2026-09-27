@@ -21,7 +21,7 @@ final class Request
     }
 
     /** Cesta bez předpony jazykové verze ("/en/novinky/x" -> "/novinky/x"); nastavuje Front\Kernel. */
-    private ?string $cesta = null;
+    private ?string $path = null;
 
     /**
      * Adresa webu z Nastavení (adresa_webu). Hlavičce Host se nedá věřit - kdo ji podvrhne, dostal by svou doménu
@@ -29,16 +29,16 @@ final class Request
      */
     private ?string $origin = null;
 
-    public function setOrigin(string $adresa): void
+    public function setOrigin(string $url): void
     {
-        if (preg_match('#^https?://[a-z0-9.-]+(:\d+)?$#i', $adresa)) {
-            $this->origin = $adresa;
+        if (preg_match('#^https?://[a-z0-9.-]+(:\d+)?$#i', $url)) {
+            $this->origin = $url;
         }
     }
 
-    public function setPath(string $cesta): void
+    public function setPath(string $path): void
     {
-        $this->cesta = '/' . trim($cesta, '/');
+        $this->path = '/' . trim($path, '/');
     }
 
     public static function fromGlobals(): self
@@ -146,8 +146,8 @@ final class Request
      */
     public function path(): string
     {
-        if ($this->cesta !== null) {
-            return $this->cesta;
+        if ($this->path !== null) {
+            return $this->path;
         }
         $fallback = $this->get('cesta');
         if ($fallback !== '') {

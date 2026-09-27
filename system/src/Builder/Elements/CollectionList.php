@@ -1,0 +1,152 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kaleta\Builder\Elements;
+
+use Kaleta\Core\Language;
+use Kaleta\Builder\Collections;
+use Kaleta\Builder\Context;
+use Kaleta\Builder\Element;
+
+/**
+ * Výpis kolekce: vnitřek prvku je vzor jedné položky a zopakuje se pro každou položku kolekce (reference, tým, produkty…).
+ * V textech, obrázcích a odkazech uvnitř se {{pole}} nahradí hodnotou položky: {{nazev}}, {{url}}, {{datum}} a vlastní pole.
+ */
+final class CollectionList extends Element
+{
+    public const string TYPE = 'kolekce';
+    public const string NAME = 'Výpis kolekce';
+    public const string DESCRIPTION = 'Karty z kolekce (reference, tým, produkty…) – vnitřek je vzor jedné položky, {{pole}} se doplní samo.';
+    public const string ICON = 'kolekce';
+    public const string GROUP = 'Dynamické';
+    public const bool CONTAINER = true;
+    public const array HTML_TAGS = ['div', 'ul'];
+
+    public static function properties(): array
+    {
+        return [
+            'kolekce' => ['typ' => 'text', 'popisek' => 'Kolekce', 'vychozi' => '', 'max' => 110],
+            'pocet' => ['typ' => 'cislo', 'popisek' => 'Nejvýš položek', 'vychozi' => 12, 'min' => 1, 'max' => 100],
+            'razeni' => ['typ' => 'vyber', 'popisek' => 'Řazení', 'vychozi' => 'poradi', 'moznosti' => ['poradi' => 'podle pořadí v administraci', 'nazev' => 'podle názvu', 'nejnovejsi' => 'nejnovější první',
+                'pole' => 'podle pole – vzestupně', 'pole_sestupne' => 'podle pole – sestupně']],
+            'razeni_pole' => ['typ' => 'text', 'popisek' => 'Pole pro řazení (klíč, např. cena)', 'vychozi' => '', 'max' => 31],
+            'filtr_pole' => ['typ' => 'text', 'popisek' => 'Filtrovat podle pole (klíč, nepovinné)', 'vychozi' => '', 'max' => 31],
+            'filtr_hodnota' => ['typ' => 'text', 'popisek' => 'Jen položky s hodnotou (na stránce položky i {{pole}} – související obsah)', 'vychozi' => '', 'max' => 200],
+            'bez_aktualni' => ['typ' => 'prepinac', 'popisek' => 'Vynechat zobrazenou položku (související obsah na stránce položky)', 'vychozi' => false],
+            'filtry' => ['typ' => 'prepinac', 'popisek' => 'Tlačítka filtru pro návštěvníky (podle pole výše)', 'vychozi' => false],
+            'strankovani' => ['typ' => 'prepinac', 'popisek' => 'Stránkovat (po „Nejvýš položek“)', 'vychozi' => false],
+            'prazdne' => ['typ' => 'text', 'popisek' => 'Text, když kolekce nemá položky', 'vychozi' => '', 'max' => 300],
+        ];
+    }
+
+    public static function baseCss(): string
+    {
+        return '.ka-kolekce-filtry, .ka-kolekce-strany { display: flex; flex-wrap: wrap; gap: var(--ka-mezera-xs); margin: 0 0 var(--ka-mezera-m); padding: 0; list-style: none; }
+.ka-kolekce-strany { justify-content: center; margin: var(--ka-mezera-l) 0 0; }
+.ka-kolekce-filtry a, .ka-kolekce-strany a { display: block; padding: 0.4em 0.9em; border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni-plne); color: inherit; text-decoration: none; }
+.ka-kolekce-filtry a:hover, .ka-kolekce-strany a:hover { border-color: var(--ka-barva-primarni); }
+.ka-kolekce-filtry a[aria-current], .ka-kolekce-strany a[aria-current] { background: var(--ka-barva-primarni); border-color: var(--ka-barva-primarni); color: var(--ka-barva-na-primarni); }';
+    }
+
+    public static function defaultStyle(): array
+    {
+        return ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => 'auto:18rem', 'mezera' => 'l']];
+    }
+
+    public static function defaultChildren(): array
+    {
+        // třída karta z knihovny sekcí (editor ji při vložení založí, pokud na webu ještě není)
+        return [['tridy' => ['karta']] + \Kaleta\Builder\Build::fresh('kontejner', [], [
+            ['znacka' => 'h3'] + \Kaleta\Builder\Build::fresh('nadpis', ['text' => '{{nazev}}']),
+            \Kaleta\Builder\Build::fresh('tlacitko', ['text' => t('Více informací'), 'odkaz' => '{{url}}', 'varianta' => 'odkaz']),
+        ])];
+    }
+
+    /** Vnitřek pro každou položku (volá Stavba při vykreslení). */
+    public static function repeat(array $p, Context $k, callable $inner): string
+    {
+        $o = $p['obsah'];
+        $collection = $o['kolekce'] === '' ? null : Collections::bySlug($k->app->db(), (string) $o['kolekce']);
+        if ($collection === null) {
+            return $k->editor ? '<p>' . e(t('Vyberte kolekci v panelu Obsah.')) . '</p>' : '';
+        }
+        $r = $k->app->request;
+        $db = $k->app->db();
+        // návštěvníkův filtr a strana jsou v adrese pod klíčem podle id prvku (výpisů může být na stránce víc)
+        $filterParam = 'f-' . $p['id'];
+        $pageParam = 's-' . $p['id'];
+        $filterField = preg_match(Collections::KEY_PATTERN, (string) $o['filtr_pole']) ? (string) $o['filtr_pole'] : '';
+        $filterValues = $filterField !== '' && $o['filtry'] ? Collections::fieldValues($db, (int) $collection['idk'], Language::siteColumn(), $filterField) : [];
+        $selected = in_array($r->get($filterParam), $filterValues, true) ? $r->get($filterParam) : '';
+        // související obsah: hodnota filtru ze zobrazené položky ({{skupina}} na stránce položky); jinde se nefiltruje
+        $custom = $k->item;
+        $filterValue = (string) $o['filtr_hodnota'];
+        if (str_contains($filterValue, '{{')) {
+            $filterValue = $custom !== null ? Collections::fill($filterValue, 'text', $custom) : '';
+        }
+        $filter = $filterField === '' ? null : [$filterField, $selected !== '' ? $selected : $filterValue];
+        $pageNumber = $o['strankovani'] ? max(1, $r->getInt($pageParam, 1)) : 1;
+        $withoutCurrent = !empty($o['bez_aktualni']) && ($custom['url'][0] ?? '') !== '';
+        [$items, $total] = Collections::items($db, (int) $collection['idk'], Language::siteColumn(), (int) $o['pocet'] + ($withoutCurrent ? 1 : 0), (string) $o['razeni'], $filter, $pageNumber, (string) $o['razeni_pole']);
+        $k->surroundings[$p['id']] = ['pred' => self::filters($filterValues, $selected, $filterParam, $k), 'za' => $o['strankovani'] ? self::pagination($total, (int) $o['pocet'], $pageNumber, $pageParam, $selected !== '' ? [$filterParam => $selected] : [], $k) : ''];
+        $values = array_map(fn (array $item): array => Collections::values($collection, $item, $k->url(...)), $items);
+        if ($withoutCurrent) {
+            $values = array_slice(array_values(array_filter($values, fn (array $h): bool => $h['url'][0] !== $custom['url'][0])), 0, (int) $o['pocet']);
+        }
+        if ($values === []) {
+            if (!$k->editor) {
+                return $o['prazdne'] !== '' ? '<p>' . e($o['prazdne']) . '</p>' : '';
+            }
+            $values = [Collections::sample($collection)]; // v editoru vzor s popisky polí, ať je co navrhovat
+        }
+        [$previousItem, $depth] = [$k->item, $k->inLoop];
+        $k->inLoop++;
+        $html = '';
+        foreach ($values as $h) {
+            $k->item = $h;
+            $html .= $inner();
+        }
+        [$k->item, $k->inLoop] = [$previousItem, $depth];
+
+        return $html;
+    }
+
+    /** Tlačítka filtru (odkazy – fungují bez JavaScriptu a jdou sdílet). */
+    private static function filters(array $values, string $selected, string $parameter, Context $k): string
+    {
+        if ($values === []) {
+            return '';
+        }
+        $link = fn (string $value, string $text): string => '<li><a href="' . e($k->path . ($value !== '' ? '?' . http_build_query([$parameter => $value]) : '')) . '"'
+            . ($value === $selected ? ' aria-current="true"' : '') . '>' . e($text) . '</a></li>';
+
+        return '<ul class="ka-kolekce-filtry" aria-label="' . e(t('Filtr')) . '">' . $link('', t('Vše')) . implode('', array_map(fn (string $h): string => $link($h, $h), $values)) . '</ul>';
+    }
+
+    /** @param array<string, string> $keep další parametry adresy (zvolený filtr) */
+    private static function pagination(int $total, int $perPage, int $pageNumber, string $parameter, array $keep, Context $k): string
+    {
+        $pageCount = (int) ceil($total / max(1, $perPage));
+        if ($pageCount < 2) {
+            return '';
+        }
+        $html = '';
+        for ($i = 1; $i <= $pageCount; $i++) {
+            $query = http_build_query($keep + ($i > 1 ? [$parameter => $i] : []));
+            $html .= '<li><a href="' . e($k->path . ($query !== '' ? '?' . $query : '')) . '"' . ($i === $pageNumber ? ' aria-current="page"' : '') . '>' . $i . '</a></li>';
+        }
+
+        return '<ul class="ka-kolekce-strany" aria-label="' . e(t('Stránky výpisu')) . '">' . $html . '</ul>';
+    }
+
+    public static function render(array $p, string $a, string $children, Context $k): string
+    {
+        $surroundings = $k->surroundings[$p['id']] ?? ['pred' => '', 'za' => ''];
+        unset($k->surroundings[$p['id']]);
+        $listing = $children === '' ? '' : '<' . $p['znacka'] . $a . '>' . $children . '</' . $p['znacka'] . '>';
+
+        // filtry a stránkování jsou kolem mřížky (ne v ní, jinak by byly jako další karta)
+        return $surroundings['pred'] === '' && $surroundings['za'] === '' ? $listing : '<div class="ka-kolekce">' . $surroundings['pred'] . $listing . $surroundings['za'] . '</div>';
+    }
+}

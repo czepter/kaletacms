@@ -13,20 +13,20 @@ namespace Kaleta\Core;
  */
 final class Auth
 {
-    public const int AUTOR = 0;
+    public const int AUTHOR = 0;
     public const int EDITOR = 1;
     public const int ADMIN = 2;
 
-    public const array TYPY = [self::AUTOR => 'autor', self::EDITOR => 'editor', self::ADMIN => 'správce'];
+    public const array TYPES = [self::AUTHOR => 'autor', self::EDITOR => 'editor', self::ADMIN => 'správce'];
 
     /** Po tolika chybných heslech nebo kódech v řadě se účet na 15 minut zamkne (sám se zase odemkne). */
-    private const int MAX_CHYB = 10;
+    private const int MAX_ERRORS = 10;
 
     /** @var array<string, mixed>|null|false false = ještě nenačteno */
     private array|null|false $user = false;
 
     /** @var list<string>|null */
-    private ?array $moduly = null;
+    private ?array $modules = null;
 
     public function __construct(private readonly Db $db, private readonly Session $session)
     {
@@ -36,11 +36,11 @@ final class Auth
     public function login(string $login, string $password, string $ip): ?string
     {
         // Zpomalení hádání hesel: nejvýše 10 pokusů z jedné IP za 15 minut
-        $pokusu = (int) $this->db->value(
+        $attempts = (int) $this->db->value(
             "SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE",
-            [Antispam::otisk($ip)],
+            [Antispam::hash($ip)],
         );
-        if ($pokusu >= 10) {
+        if ($attempts >= 10) {
             return t('Příliš mnoho pokusů o přihlášení. Zkuste to znovu za 15 minut.');
         }
 
@@ -50,13 +50,13 @@ final class Auth
         $ok = password_verify($password, $hash) && $user !== null;
 
         if (!$ok) {
-            $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::otisk($ip), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
+            $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::hash($ip), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
                 // po 10 chybách v řadě se účet zamkne na 15 minut - ne natrvalo, jinak by kdokoli mohl správce webu vyřadit z provozu
-                $chyb = (int) $user['pocet_chyb'] + 1;
-                $this->db->update('uzivatele', $chyb >= self::MAX_CHYB
+                $errorCount = (int) $user['pocet_chyb'] + 1;
+                $this->db->update('uzivatele', $errorCount >= self::MAX_ERRORS
                     ? ['pocet_chyb' => 0, 'zamceno_do' => date('Y-m-d H:i:s', time() + 900)]
-                    : ['pocet_chyb' => $chyb], ['idu' => $user['idu']]);
+                    : ['pocet_chyb' => $errorCount], ['idu' => $user['idu']]);
             }
 
             return t('Chybné jméno nebo heslo.');
@@ -81,7 +81,7 @@ final class Auth
             return null;
         }
         $this->session->set('idu', (int) $user['idu']);
-        $this->session->set('otisk', self::otiskHesla((string) $this->db->value('SELECT password FROM {uzivatele} WHERE idu = ?', [$user['idu']])));
+        $this->session->set('otisk', self::passwordHash((string) $this->db->value('SELECT password FROM {uzivatele} WHERE idu = ?', [$user['idu']])));
         $this->user = false;
 
         return null;
@@ -91,35 +91,35 @@ final class Auth
      * Otisk hesla uložený v session: po změně hesla přestanou platit všechna ostatní přihlášení téhož účtu
      * (ukradená session, zapomenutý počítač). Sám o sobě nic neprozrazuje - je to zkrácený hash už hashovaného hesla.
      */
-    public static function otiskHesla(string $hash): string
+    public static function passwordHash(string $hash): string
     {
         return substr(hash('sha256', 'kaleta-session|' . $hash), 0, 24);
     }
 
     /** Po změně vlastního hesla: tohle přihlášení zůstává platné, ostatní ne. */
-    public function obnovPoZmeneHesla(string $novyHash): void
+    public function refreshAfterPasswordChange(string $newHash): void
     {
         $this->session->regenerate();
-        $this->session->set('otisk', self::otiskHesla($novyHash));
+        $this->session->set('otisk', self::passwordHash($newHash));
         $this->user = false;
     }
 
     /** Heslo bylo zadáno správně a čeká se na kód z ověřovací aplikace (nejdéle 5 minut). */
-    public function cekaNaKod(): bool
+    public function isAwaitingCode(): bool
     {
-        $ceka = $this->session->get('idu_ceka');
+        $pending = $this->session->get('idu_ceka');
 
-        return is_array($ceka) && time() - (int) $ceka['cas'] < 300;
+        return is_array($pending) && time() - (int) $pending['cas'] < 300;
     }
 
     /** Druhý krok přihlášení: kód z aplikace, nebo jednorázový záložní kód. @return string|null text chyby */
-    public function overKod(string $kod, string $ip): ?string
+    public function verifyCode(string $code, string $ip): ?string
     {
-        if (!$this->cekaNaKod()) {
+        if (!$this->isAwaitingCode()) {
             return t('Přihlášení vypršelo, začněte prosím znovu.');
         }
-        $pokusu = (int) $this->db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [Antispam::otisk($ip)]);
-        if ($pokusu >= 10) {
+        $attempts = (int) $this->db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [Antispam::hash($ip)]);
+        if ($attempts >= 10) {
             return t('Příliš mnoho pokusů. Zkuste to znovu za 15 minut.');
         }
         $user = $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [(int) $this->session->get('idu_ceka')['idu']]);
@@ -128,40 +128,40 @@ final class Auth
 
             return t('Účet je po řadě chybných pokusů dočasně zamčený. Zkuste to znovu za 15 minut.');
         }
-        $zalozni = $user === null ? null : Totp::pouzijZalozni($user['totp_zalozni'], $kod);
-        if ($user === null || (!Totp::over($user['totp_tajemstvi'], $kod) && $zalozni === null)) {
-            $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::otisk($ip), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
+        $backupCodes = $user === null ? null : Totp::useBackupCode($user['totp_zalozni'], $code);
+        if ($user === null || (!Totp::verify($user['totp_tajemstvi'], $code) && $backupCodes === null)) {
+            $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::hash($ip), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
                 // chybné kódy se počítají na účet, ne jen na IP adresu: kdo zná heslo, nesmí kódy zkoušet z mnoha adres
-                $chyb = (int) $user['pocet_chyb'] + 1;
-                $this->db->update('uzivatele', $chyb >= self::MAX_CHYB
+                $errorCount = (int) $user['pocet_chyb'] + 1;
+                $this->db->update('uzivatele', $errorCount >= self::MAX_ERRORS
                     ? ['pocet_chyb' => 0, 'zamceno_do' => date('Y-m-d H:i:s', time() + 900)]
-                    : ['pocet_chyb' => $chyb], ['idu' => $user['idu']]);
+                    : ['pocet_chyb' => $errorCount], ['idu' => $user['idu']]);
             }
 
             return t('Kód není správný.');
         }
         $this->db->update('uzivatele', ['pocet_chyb' => 0], ['idu' => $user['idu']]);
-        if ($zalozni !== null) {
-            $this->db->update('uzivatele', ['totp_zalozni' => $zalozni], ['idu' => $user['idu']]);
+        if ($backupCodes !== null) {
+            $this->db->update('uzivatele', ['totp_zalozni' => $backupCodes], ['idu' => $user['idu']]);
         }
         $this->session->remove('idu_ceka');
         $this->session->regenerate();
         $this->session->set('idu', (int) $user['idu']);
-        $this->session->set('otisk', self::otiskHesla((string) $user['password']));
+        $this->session->set('otisk', self::passwordHash((string) $user['password']));
         $this->user = false;
 
         return null;
     }
 
     /** Má účet, který čeká na druhý krok, zaregistrované přihlašovací klíče? */
-    public function cekaSKlici(): bool
+    public function isAwaitingKey(): bool
     {
-        return $this->cekaNaKod() && $this->kliceUctu((int) $this->session->get('idu_ceka')['idu']) !== [];
+        return $this->isAwaitingCode() && $this->accountKeys((int) $this->session->get('idu_ceka')['idu']) !== [];
     }
 
     /** @return list<array<string, mixed>> přihlašovací klíče účtu */
-    public function kliceUctu(int $idu): array
+    public function accountKeys(int $idu): array
     {
         return $this->db->all('SELECT * FROM {uzivatele_klice} WHERE idu = ? ORDER BY idk', [$idu]);
     }
@@ -171,33 +171,33 @@ final class Auth
      *
      * @return array<string, mixed>|null nastavení pro navigator.credentials.get(), null = není na co čekat
      */
-    public function vyzvaKlice(string $adresaWebu): ?array
+    public function keyChallenge(string $siteUrl): ?array
     {
-        if (!$this->cekaSKlici()) {
+        if (!$this->isAwaitingKey()) {
             return null;
         }
-        $vyzva = Passkey::vyzva();
-        $this->session->set('klic_vyzva', $vyzva);
+        $challenge = Passkey::challenge();
+        $this->session->set('klic_vyzva', $challenge);
 
-        return Passkey::moznostiPrihlaseni($vyzva, Passkey::rpId($adresaWebu), array_map(static fn (array $k): string => (string) $k['id_klice'], $this->kliceUctu((int) $this->session->get('idu_ceka')['idu'])));
+        return Passkey::signInOptions($challenge, Passkey::rpId($siteUrl), array_map(static fn (array $k): string => (string) $k['id_klice'], $this->accountKeys((int) $this->session->get('idu_ceka')['idu'])));
     }
 
     /**
      * Druhý krok přihlášení klíčem, 2. část: ověření podpisu. Neúspěch se počítá stejně jako chybný kód.
      *
-     * @param array<string, mixed> $odpoved
+     * @param array<string, mixed> $response
      * @return string|null text chyby, null = přihlášeno
      */
-    public function overKlic(array $odpoved, string $adresaWebu, string $ip): ?string
+    public function verifyKey(array $response, string $siteUrl, string $ip): ?string
     {
-        if (!$this->cekaNaKod()) {
+        if (!$this->isAwaitingCode()) {
             return t('Přihlášení vypršelo, začněte prosím znovu.');
         }
-        $pokusu = (int) $this->db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [Antispam::otisk($ip)]);
-        if ($pokusu >= 10) {
+        $attempts = (int) $this->db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [Antispam::hash($ip)]);
+        if ($attempts >= 10) {
             return t('Příliš mnoho pokusů. Zkuste to znovu za 15 minut.');
         }
-        $vyzva = (string) $this->session->get('klic_vyzva', '');
+        $challenge = (string) $this->session->get('klic_vyzva', '');
         $this->session->remove('klic_vyzva'); // výzva platí na jeden pokus
         $user = $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [(int) $this->session->get('idu_ceka')['idu']]);
         if ($user !== null && $user['zamceno_do'] !== null && strtotime($user['zamceno_do']) > time()) {
@@ -205,29 +205,29 @@ final class Auth
 
             return t('Účet je po řadě chybných pokusů dočasně zamčený. Zkuste to znovu za 15 minut.');
         }
-        $klic = $user === null ? null : $this->db->one('SELECT * FROM {uzivatele_klice} WHERE idu = ? AND otisk_id = ?', [$user['idu'], hash('sha256', Passkey::zB64((string) ($odpoved['id'] ?? '')))]);
+        $key = $user === null ? null : $this->db->one('SELECT * FROM {uzivatele_klice} WHERE idu = ? AND otisk_id = ?', [$user['idu'], hash('sha256', Passkey::fromB64((string) ($response['id'] ?? '')))]);
         try {
-            if ($klic === null) {
+            if ($key === null) {
                 throw new \RuntimeException('Tenhle klíč k účtu nepatří.');
             }
-            $pocitadlo = Passkey::overPrihlaseni($odpoved, $vyzva, Passkey::puvod($adresaWebu), Passkey::rpId($adresaWebu), (string) $klic['verejny'], (int) $klic['pocitadlo']);
+            $counter = Passkey::verifySignIn($response, $challenge, Passkey::origin($siteUrl), Passkey::rpId($siteUrl), (string) $key['verejny'], (int) $key['pocitadlo']);
         } catch (\RuntimeException $e) {
-            $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::otisk($ip), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
+            $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::hash($ip), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
-                $chyb = (int) $user['pocet_chyb'] + 1;
-                $this->db->update('uzivatele', $chyb >= self::MAX_CHYB
+                $errorCount = (int) $user['pocet_chyb'] + 1;
+                $this->db->update('uzivatele', $errorCount >= self::MAX_ERRORS
                     ? ['pocet_chyb' => 0, 'zamceno_do' => date('Y-m-d H:i:s', time() + 900)]
-                    : ['pocet_chyb' => $chyb], ['idu' => $user['idu']]);
+                    : ['pocet_chyb' => $errorCount], ['idu' => $user['idu']]);
             }
 
             return t($e->getMessage());
         }
-        $this->db->update('uzivatele_klice', ['pocitadlo' => $pocitadlo, 'pouzito' => date('Y-m-d H:i:s')], ['idk' => $klic['idk']]);
+        $this->db->update('uzivatele_klice', ['pocitadlo' => $counter, 'pouzito' => date('Y-m-d H:i:s')], ['idk' => $key['idk']]);
         $this->db->update('uzivatele', ['pocet_chyb' => 0], ['idu' => $user['idu']]);
         $this->session->remove('idu_ceka');
         $this->session->regenerate();
         $this->session->set('idu', (int) $user['idu']);
-        $this->session->set('otisk', self::otiskHesla((string) $user['password']));
+        $this->session->set('otisk', self::passwordHash((string) $user['password']));
         $this->user = false;
 
         return null;
@@ -252,10 +252,10 @@ final class Auth
                 ? $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [$id])
                 : null;
             if ($this->user !== null) {
-                $otisk = $this->session->get('otisk');
-                if ($otisk === null) {
-                    $this->session->set('otisk', self::otiskHesla((string) $this->user['password'])); // přihlášení z doby před touto kontrolou
-                } elseif (!hash_equals(self::otiskHesla((string) $this->user['password']), (string) $otisk)) {
+                $hash = $this->session->get('otisk');
+                if ($hash === null) {
+                    $this->session->set('otisk', self::passwordHash((string) $this->user['password'])); // přihlášení z doby před touto kontrolou
+                } elseif (!hash_equals(self::passwordHash((string) $this->user['password']), (string) $hash)) {
                     $this->session->remove('idu'); // heslo se od přihlášení změnilo
                     $this->user = null;
                 }
@@ -266,10 +266,10 @@ final class Auth
     }
 
     /** Přihlášení bez session - pro požadavky ověřené tokenem (MCP). */
-    public function prihlasJako(array $user): void
+    public function signInAs(array $user): void
     {
         $this->user = $user;
-        $this->moduly = null;
+        $this->modules = null;
     }
 
     public function id(): int
@@ -288,50 +288,50 @@ final class Auth
     }
 
     /** Web vyžaduje dvoufázové přihlášení a tento uživatel ho ještě nemá (smí jen do Můj účet si ho zapnout). */
-    public function chybiPovinne2fa(Settings $web): bool
+    public function isMissingRequired2fa(Settings $siteSettings): bool
     {
-        $povinne = $web->get('vynutit_2fa');
+        $required = $siteSettings->get('vynutit_2fa');
         $user = $this->user();
 
-        return $user !== null && ($povinne === 'vsichni' || ($povinne === 'spravci' && $this->isAdmin())) && (string) ($user['totp_tajemstvi'] ?? '') === '';
+        return $user !== null && ($required === 'vsichni' || ($required === 'spravci' && $this->isAdmin())) && (string) ($user['totp_tajemstvi'] ?? '') === '';
     }
 
-    public function smiVydavat(): bool
+    public function canPublish(): bool
     {
         return $this->isAdmin() || $this->isEditor();
     }
 
     /** Má přihlášený uživatel přístup k modulu? Admin vždy; ostatní podle ka_uzivatele_prava. */
-    public function maModul(string $ident, bool $proVsechny = false): bool
+    public function hasModule(string $ident, bool $forEveryone = false): bool
     {
         if ($this->user() === null) {
             return false;
         }
-        if ($this->isAdmin() || $proVsechny) {
+        if ($this->isAdmin() || $forEveryone) {
             return true;
         }
-        $this->moduly ??= array_column(
+        $this->modules ??= array_column(
             $this->db->all('SELECT ident_modulu FROM {uzivatele_prava} WHERE fk_id_user = ?', [$this->id()]),
             'ident_modulu',
         );
 
-        return in_array($ident, $this->moduly, true);
+        return in_array($ident, $this->modules, true);
     }
 
     /**
      * Smí přihlášený upravit tuto novinku? Stejná pravidla jako v administraci: modul Novinky, autor smí jen své
      * a vydanou novinku jen ten, kdo smí vydávat.
      *
-     * @param array<string, mixed> $clanek řádek ka_novinky
+     * @param array<string, mixed> $newsItem řádek ka_novinky
      */
-    public function smiUpravitClanek(array $clanek): bool
+    public function canEditArticle(array $newsItem): bool
     {
-        if (!$this->maModul('novinky')) {
+        if (!$this->hasModule('novinky')) {
             return false;
         }
-        $autori = $this->spravovaniAutori();
+        $authors = $this->managedAuthors();
 
-        return ($autori === null || in_array((int) $clanek['autor'], $autori, true)) && (empty($clanek['visible']) || $this->smiVydavat());
+        return ($authors === null || in_array((int) $newsItem['autor'], $authors, true)) && (empty($newsItem['visible']) || $this->canPublish());
     }
 
     /**
@@ -340,9 +340,9 @@ final class Auth
      */
     public function articleScope(string $alias = ''): string
     {
-        $autori = $this->spravovaniAutori();
+        $authors = $this->managedAuthors();
 
-        return $autori === null ? '' : ' AND ' . $alias . 'autor IN (' . implode(',', array_map(intval(...), $autori)) . ')';
+        return $authors === null ? '' : ' AND ' . $alias . 'autor IN (' . implode(',', array_map(intval(...), $authors)) . ')';
     }
 
     /**
@@ -350,7 +350,7 @@ final class Auth
      *
      * @return list<int>|null
      */
-    public function spravovaniAutori(): ?array
+    public function managedAuthors(): ?array
     {
         return $this->isAdmin() || $this->isEditor() ? null : [$this->id()];
     }

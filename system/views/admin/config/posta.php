@@ -49,11 +49,11 @@ $pole('posta_odpoved', 'Odpovědi posílat na', 'email', 'Nepovinné – když m
 <tbody>
 <?php foreach ($posta as $z): ?>
 <tr>
-	<td class="cislo"><?= e(datum($z['vytvoreno'], true)) ?></td>
+	<td class="cislo"><?= e(format_date($z['vytvoreno'], true)) ?></td>
 	<td><?= e($z['komu']) ?></td>
 	<td><?= e($z['predmet']) ?></td>
 	<td><?php if ($z['odeslano'] !== null): ?><span class="stitek stitek-vydano"><?= e(t('odesláno')) ?></span><?= (int) $z['pokusu'] > 1 ? ' ' . e(t('na %s. pokus', (int) $z['pokusu'])) : '' ?>
-<?php elseif ($z['dalsi_pokus'] !== null): ?><span class="stitek stitek-koncept"><?= e(t('čeká na další pokus')) ?></span> <?= e(datum($z['dalsi_pokus'], true)) ?><br><small><?= e($z['chyba']) ?></small>
+<?php elseif ($z['dalsi_pokus'] !== null): ?><span class="stitek stitek-koncept"><?= e(t('čeká na další pokus')) ?></span> <?= e(format_date($z['dalsi_pokus'], true)) ?><br><small><?= e($z['chyba']) ?></small>
 <?php else: ?><span class="stitek stitek-koncept"><?= e(t('neodesláno')) ?></span><br><small><?= e($z['chyba']) ?></small><?php endif ?></td>
 </tr>
 <?php endforeach ?>

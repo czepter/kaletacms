@@ -1,6 +1,6 @@
 <?php
 /**
- * @var Kaleta\Admin\Moduly\Odberatele $modul
+ * @var Kaleta\Admin\Modules\Subscribers $modul
  * @var Kaleta\Core\App $app
  * @var string $csrf
  * @var list<array<string, mixed>> $odberatele
@@ -18,7 +18,7 @@ $spravce = $app->auth()->isAdmin();
 <p class="smltxt"><?= e(t('Adresy z prvku Odběr novinek. Za odběratele se počítá, kdo přihlášení potvrdil odkazem v e-mailu. Rozesílejte svým nástrojem – export obsahuje i odkaz na odhlášení.')) ?></p>
 <?php if ($sluzba !== ''): ?>
 <div class="hlaska">
-	<p><?= e(t('Potvrzení odběratelé jdou automaticky do služby %s, odhlášení se z ní odebírají.', t(Newsletter::SLUZBY[$sluzba][0]))) ?>
+	<p><?= e(t('Potvrzení odběratelé jdou automaticky do služby %s, odhlášení se z ní odebírají.', t(Newsletter::SERVICES[$sluzba][0]))) ?>
 	<?= (int) $fronta['ceka'] > 0 ? e(t('Čeká na odeslání: %d.', (int) $fronta['ceka'])) : '' ?> <?= (int) $fronta['chyby'] > 0 ? '<strong>' . e(t('Nepovedlo se: %d.', (int) $fronta['chyby'])) . '</strong>' : '' ?></p>
 <?php if ($spravce): ?>
 	<p><form class="vradku" method="post" action="<?= e($modul->url('synchronizuj')) ?>"><?= $csrf ?><button class="navigace" type="submit"><?= e(t('Poslat do služby všechny potvrzené')) ?></button></form>
@@ -57,7 +57,7 @@ $spravce = $app->auth()->isAdmin();
         default => '—',
     } ?></td>
 <?php endif ?>
-	<td class="cislo"><?= e(datum($o['datum'], true)) ?></td>
+	<td class="cislo"><?= e(format_date($o['datum'], true)) ?></td>
 	<td class="smltxt"><?= e($o['zdroj']) ?></td>
 	<td class="akce"><form class="vradku" method="post" action="<?= e($modul->url('smaz')) ?>" data-potvrdit="<?= e(t('Smazat adresu ze seznamu odběratelů?')) ?>"><?= $csrf ?><input type="hidden" name="ido" value="<?= (int) $o['ido'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
 </tr>

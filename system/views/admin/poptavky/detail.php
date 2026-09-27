@@ -3,23 +3,23 @@
  * Detail poptávky.
  *
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\Poptavky $modul
+ * @var Kaleta\Admin\Modules\Enquiries $modul
  * @var string $csrf
  * @var array<string, mixed> $p
  * @var list<array{0:string, 1:string, 2?:string}> $data  [popisek, hodnota, cesta přílohy]
  * @var array<int, string> $uzivatele
  */
-use Kaleta\Admin\Moduly\Poptavky;
+use Kaleta\Admin\Modules\Enquiries;
 
 ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($modul->url()) ?>">← <?= e(t('Všechny poptávky')) ?></a></p>
 <div class="formular">
 <dl class="poptavka">
-	<dt><?= e(t('Přijato')) ?></dt><dd><?= e(datum($p['datum'], true)) ?> · <?= e($p['formular']) ?><?php if ($p['stranka'] !== ''): ?> · <a href="<?= e($p['stranka']) ?>" target="_blank" rel="noopener"><?= e($p['stranka']) ?></a><?php endif ?></dd>
+	<dt><?= e(t('Přijato')) ?></dt><dd><?= e(format_date($p['datum'], true)) ?> · <?= e($p['formular']) ?><?php if ($p['stranka'] !== ''): ?> · <a href="<?= e($p['stranka']) ?>" target="_blank" rel="noopener"><?= e($p['stranka']) ?></a><?php endif ?></dd>
 <?php if (($p['kampan'] ?? '') !== ''): ?>
-	<dt><?= e(t('Kampaň')) ?></dt><dd><?= e(Kaleta\Front\Formulare::kampanText($p['kampan'])) ?></dd>
+	<dt><?= e(t('Kampaň')) ?></dt><dd><?= e(Kaleta\Front\Forms::campaignText($p['kampan'])) ?></dd>
 <?php endif ?>
-	<dt><?= e(t('Stav')) ?></dt><dd><?= e(t(Poptavky::STAVY[(int) $p['stav']])) ?></dd>
+	<dt><?= e(t('Stav')) ?></dt><dd><?= e(t(Enquiries::STATUSES[(int) $p['stav']])) ?></dd>
 <?php foreach ($data as $i => $d): [$popisek, $hodnota] = $d; ?>
 	<dt><?= e($popisek) ?></dt><dd><?= $hodnota === '' ? '<span class="napoveda">—</span>' : (isset($d[2]) ? '<a href="' . e($modul->url('priloha', ['id' => (int) $p['idp'], 'pole' => $i])) . '">' . e($hodnota) . '</a>' : nl2br(e($hodnota))) ?></dd>
 <?php endforeach ?>

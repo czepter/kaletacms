@@ -3,10 +3,10 @@
  * Nové pop-up okno z hotového vzoru.
  *
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\Popupy $modul
+ * @var Kaleta\Admin\Modules\Popups $modul
  * @var string $csrf
  */
-use Kaleta\Stavitel\Popupy;
+use Kaleta\Builder\Popups;
 
 ?>
 <form class="formular" method="post" action="<?= e($modul->url('zaloz')) ?>">
@@ -15,8 +15,8 @@ use Kaleta\Stavitel\Popupy;
 <fieldset>
 <legend><?= e(t('Začít od')) ?></legend>
 <div class="volby">
-<?php $prvni = true; foreach (Popupy::KNIHOVNA as $klic => [$nazev, $popis, $typ]): ?>
-<label><input type="radio" name="vzor" value="<?= e($klic) ?>"<?= $prvni ? ' checked' : '' ?>> <strong><?= e(t($nazev)) ?></strong> (<?= e(mb_strtolower(t(Popupy::TYPY[$typ][0]))) ?>) – <?= e(t($popis)) ?></label>
+<?php $prvni = true; foreach (Popups::LIBRARY as $klic => [$nazev, $popis, $typ]): ?>
+<label><input type="radio" name="vzor" value="<?= e($klic) ?>"<?= $prvni ? ' checked' : '' ?>> <strong><?= e(t($nazev)) ?></strong> (<?= e(mb_strtolower(t(Popups::TYPES[$typ][0]))) ?>) – <?= e(t($popis)) ?></label>
 <?php $prvni = false; endforeach ?>
 </div>
 </fieldset>

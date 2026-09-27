@@ -10,7 +10,7 @@
 <p class="hlaska hlaska-chyba"><?= e($aktualizace['chyba']) ?></p>
 <?php elseif ($aktualizace['nova'] !== null): ?>
 <div class="hlaska hlaska-ok">
-	<p><strong><?= e(t(!empty($aktualizace['nova']['bezpecnostni']) ? 'Bezpečnostní aktualizace: verze %s' : 'K dispozici je verze %s', (string) $aktualizace['nova']['verze'])) ?></strong><?= !empty($aktualizace['nova']['vydano']) ? ' (' . e(datum((string) $aktualizace['nova']['vydano'])) . ')' : '' ?></p>
+	<p><strong><?= e(t(!empty($aktualizace['nova']['bezpecnostni']) ? 'Bezpečnostní aktualizace: verze %s' : 'K dispozici je verze %s', (string) $aktualizace['nova']['verze'])) ?></strong><?= !empty($aktualizace['nova']['vydano']) ? ' (' . e(format_date((string) $aktualizace['nova']['vydano'])) . ')' : '' ?></p>
 <?php if ($aktualizace['nova']['zmeny'] !== []): ?>
 	<ul><?php foreach ($aktualizace['nova']['zmeny'] as $zmena): ?><li><?= e($zmena) ?></li><?php endforeach ?></ul>
 <?php endif ?>
@@ -18,7 +18,7 @@
 </div>
 <p class="napoveda"><?= e(t('Před aktualizací se zazálohuje databáze. Balíček se přijme jen s platným podpisem vydavatele. Nepřepisuje se config.php, nahraná média ani vlastní PHP šablona.')) ?></p>
 <?php else: ?>
-<p><?= e(t('Máte aktuální verzi.')) ?><?= $aktualizace['overeno'] ? ' <small>' . e(t('Ověřeno %s.', datum((new DateTimeImmutable())->setTimestamp((int) $aktualizace['overeno']), true))) . '</small>' : '' ?></p>
+<p><?= e(t('Máte aktuální verzi.')) ?><?= $aktualizace['overeno'] ? ' <small>' . e(t('Ověřeno %s.', format_date((new DateTimeImmutable())->setTimestamp((int) $aktualizace['overeno']), true))) . '</small>' : '' ?></p>
 <?php endif ?>
 <?php if ($aktualizace['nastaveno']): ?>
 <p><button class="navigace" type="submit" formaction="<?= e($modul->url('zkontroluj')) ?>"><?= e(t('Zkontrolovat teď')) ?></button></p>
@@ -65,8 +65,8 @@ $pole('zaloha_region', 'Region (jen S3)', 'text', 'Například eu-central-1. U C
 <?php foreach ($zalohy as $z): ?>
 <tr>
 	<td><?= e($z['soubor']) ?></td>
-	<td class="cislo"><?= e(datum((new DateTimeImmutable())->setTimestamp((int) $z['cas']), true)) ?></td>
-	<td class="cislo"><?= pocet($z['velikost'] / 1024) ?> kB</td>
+	<td class="cislo"><?= e(format_date((new DateTimeImmutable())->setTimestamp((int) $z['cas']), true)) ?></td>
+	<td class="cislo"><?= format_count($z['velikost'] / 1024) ?> kB</td>
 	<td class="akce"><a href="<?= e($modul->url('stahni_zalohu', ['soubor' => $z['soubor']])) ?>"><?= e(t('Stáhnout')) ?></a> · <button class="navigace" type="submit" formaction="<?= e($modul->url('obnov_zalohu')) ?>" name="soubor" value="<?= e($z['soubor']) ?>" data-potvrdit="<?= e(t('Obnovit databázi z této zálohy? Všechno, co na webu přibylo po jejím vytvoření (stránky, novinky, poptávky, nastavení), se ztratí. Současný stav se předtím uloží do nové zálohy.')) ?>"><?= e(t('Obnovit')) ?></button> · <button class="navigace nebezpecne" type="submit" formaction="<?= e($modul->url('smaz_zalohu')) ?>" name="soubor" value="<?= e($z['soubor']) ?>" data-potvrdit="<?= e(t('Smazat zálohu?')) ?>"><?= e(t('Smazat')) ?></button></td>
 </tr>
 <?php endforeach ?>

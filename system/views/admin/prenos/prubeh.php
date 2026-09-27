@@ -3,7 +3,7 @@
  * Import z WordPressu, krok 3: průběh po dávkách (čtení souboru, import obsahu, stahování obrázků) a výsledek.
  * Dokud není hotovo, formulář se odesílá sám (data-auto-odeslat v image/admin.js) – každé odeslání je jedna dávka.
  *
- * @var Kaleta\Admin\Moduly\Prenos $modul
+ * @var Kaleta\Admin\Modules\Transfer $modul
  * @var Kaleta\Core\App $app
  * @var string $csrf
  * @var array<string, mixed> $stav

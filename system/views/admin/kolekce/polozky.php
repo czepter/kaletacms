@@ -3,7 +3,7 @@
  * Položky kolekce.
  *
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\Kolekce $modul
+ * @var Kaleta\Admin\Modules\Collections $modul
  * @var string $csrf
  * @var array<string, mixed> $k
  * @var list<array<string, mixed>> $polozky

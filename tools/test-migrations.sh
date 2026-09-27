@@ -24,7 +24,7 @@ migrate() {
   php -r '
     require $argv[1] . "/system/bootstrap.php";
     $db = new Kaleta\Core\Db(sprintf("mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4", $argv[2], (int) $argv[3], $argv[6]), $argv[4], $argv[5]);
-    try { echo implode(",", Kaleta\Core\Migrace::proved($db, new Kaleta\Core\Settings($db))), "\n"; }
+    try { echo implode(",", Kaleta\Core\Migration::apply($db, new Kaleta\Core\Settings($db))), "\n"; }
     catch (Throwable $e) { fwrite(STDERR, $e->getMessage() . "\n"); exit(1); }
   ' "$ROOT" "$DB_HOST" "$DB_PORT" "$DB_USER" "$DB_PASS" "$OLD"
 }

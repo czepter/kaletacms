@@ -3,7 +3,7 @@
  * Kolekce webu.
  *
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\Kolekce $modul
+ * @var Kaleta\Admin\Modules\Collections $modul
  * @var string $csrf
  * @var list<array<string, mixed>> $kolekce
  */

@@ -1,6 +1,6 @@
 <?php
 /**
- * @var Kaleta\Admin\Moduly\Presmerovani $modul
+ * @var Kaleta\Admin\Modules\Redirects $modul
  * @var string $csrf
  * @var list<array<string, mixed>> $zaznamy
  * @var list<array<string, mixed>> $nenalezeno  adresy, které v posledních 60 dnech skončily chybou 404
@@ -41,7 +41,7 @@ $cesta = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . 
 	<td>/<?= e($z['z_adresy']) ?></td>
 	<td><?= e($cesta($z['na_adresu'])) ?><?= (int) ($z['typ'] ?? 301) === 302 ? ' <span class="stitek">302</span>' : '' ?></td>
 	<td class="cislo"><?= (int) $z['pocet'] ?>×</td>
-	<td class="cislo"><?= e(datum($z['vytvoreno'])) ?></td>
+	<td class="cislo"><?= e(format_date($z['vytvoreno'])) ?></td>
 	<td class="akce"><a href="<?= e($modul->url('', ['upravit' => (int) $z['idp']])) ?>#upravit"><?= e(t('Upravit')) ?></a> ·
 		<form class="vradku" method="post" action="<?= e($modul->url('smaz')) ?>" data-potvrdit="<?= e(t('Smazat přesměrování? Stará adresa pak skončí chybou 404.')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $z['idp'] ?>"><input type="hidden" name="titulek" value="<?= e('/' . $z['z_adresy']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
 </tr>
@@ -63,7 +63,7 @@ $cesta = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . 
 <thead><tr><th scope="col"><?= e(t('Adresa')) ?></th><th scope="col"><?= e(t('Kolikrát')) ?></th><th scope="col"><?= e(t('Naposledy')) ?></th><th scope="col"><?= e(t('Akce')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($nenalezeno as $n): ?>
-<tr><td>/<?= e($n['cesta']) ?></td><td class="cislo"><?= (int) $n['pocet'] ?>×</td><td class="cislo"><?= e(datum($n['naposledy'])) ?></td>
+<tr><td>/<?= e($n['cesta']) ?></td><td class="cislo"><?= (int) $n['pocet'] ?>×</td><td class="cislo"><?= e(format_date($n['naposledy'])) ?></td>
 	<td class="akce"><a href="<?= e($modul->url('', ['z' => $n['cesta']])) ?>"><?= e(t('Přesměrovat')) ?></a></td></tr>
 <?php endforeach ?>
 </tbody></table></div>

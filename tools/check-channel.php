@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/system/bootstrap.php';
 
-use Kaleta\Core\Podpis;
+use Kaleta\Core\Signature;
 
 $manifestUrl = $argv[1] ?? 'https://kaletacms.com/aktualizace.json';
 $keys = dirname(__DIR__) . '/system/aktualizace.pub';
@@ -38,7 +38,7 @@ try {
     if (!str_starts_with($m['url'], 'https://')) {
         $errors[] = 'adresa balíčku není https';
     }
-    if (!Podpis::plati(Podpis::zpravaBalicku($m['verze'], strtolower($m['sha256']), !empty($m['bezpecnostni'])), $m['podpis'], $keys)) {
+    if (!Signature::isValid(Signature::packageMessage($m['verze'], strtolower($m['sha256']), !empty($m['bezpecnostni'])), $m['podpis'], $keys)) {
         $errors[] = 'podpis souboru aktualizace.json NEPLATÍ pro žádný klíč v system/aktualizace.pub';
     }
     $zip = tempnam(sys_get_temp_dir(), 'kaleta');

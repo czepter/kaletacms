@@ -989,7 +989,7 @@ sign_in_2fa() { # prihlas2fa <jar> → vrátí kód odpovědi na zadání druhé
   curl -s -b "$jar" -c "$jar" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$t" -d krok=kod -d "kod=$2"
 }
 expect "špatný kód z aplikace neprojde" "$(sign_in_2fa "$WORK/jar6" 000000)" "401"
-TOTP_CODE=$(php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::kod("JBSWY3DPEHPK3PXP", intdiv(time(), 30));' "$ROOT")
+TOTP_CODE=$(php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::code("JBSWY3DPEHPK3PXP", intdiv(time(), 30));' "$ROOT")
 expect "přihlášení s kódem z aplikace (TOTP)" "$(sign_in_2fa "$WORK/jar7" "$TOTP_CODE")" "302"
 expect "záložní kód projde" "$(sign_in_2fa "$WORK/jar8" abcde-12345)" "302"
 expect "záložní kód jde použít jen jednou" "$(sign_in_2fa "$WORK/jar9" abcde-12345)" "401"
@@ -1016,7 +1016,7 @@ echo "== instalace aktualizace (testovací klíč a kanál)"
 cat > "$WORK/vydani-test.php" <<'PHP'
 <?php
 [$site, $port] = [$argv[1], $argv[2]];
-require $site . '/system/src/Core/Podpis.php';
+require $site . '/system/src/Core/Signature.php';
 $pair = sodium_crypto_sign_keypair();
 $sk = sodium_crypto_sign_secretkey($pair);
 file_put_contents($site . '/system/aktualizace.pub', base64_encode(sodium_crypto_sign_publickey($pair)) . " test\n");
@@ -1032,7 +1032,7 @@ $zip->addFromString('index.php', (string) file_get_contents($site . '/index.php'
 $zip->close();
 $sha = hash_file('sha256', dirname($site) . '/kanal/k.zip');
 $m = ['verze' => '9.9.9', 'url' => "http://127.0.0.1:$port/k.zip", 'sha256' => $sha, 'min_php' => '8.4', 'zmeny' => ['test'],
-    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Podpis::zpravaBalicku('9.9.9', $sha, false), $sk))];
+    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage('9.9.9', $sha, false), $sk))];
 file_put_contents(dirname($site) . '/kanal/ok.json', json_encode($m));
 file_put_contents(dirname($site) . '/kanal/zly.json', json_encode(['podpis' => base64_encode(random_bytes(64))] + $m));
 PHP

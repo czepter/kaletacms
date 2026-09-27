@@ -36,8 +36,8 @@ final class App
         }
         // během aktualizace souborů web krátce odpovídá 503 (zámek starší než 10 minut je pozůstatek a ignoruje se);
         // slovník tu ještě není načtený, proto je pod českým textem krátká anglická věta
-        $zamek = KALETA_ROOT . '/storage/udrzba.lock';
-        if (is_file($zamek) && time() - (int) filemtime($zamek) < 600 && basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')) !== 'admin.php') {
+        $lock = KALETA_ROOT . '/storage/udrzba.lock';
+        if (is_file($lock) && time() - (int) filemtime($lock) < 600 && basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')) !== 'admin.php') {
             http_response_code(503);
             header('Retry-After: 60');
             header('Content-Type: text/html; charset=utf-8');
@@ -68,11 +68,11 @@ final class App
      * Časové pásmo webu z Nastavení platí pro PHP i pro relaci databáze (data zapisuje PHP, dotazy je porovnávají s NOW()).
      * Volají oba kernely hned po startu; do té doby platí výchozí pásmo z bootstrapu.
      */
-    public function casovePasmo(): void
+    public function applyTimezone(): void
     {
-        $pasmo = $this->settings()->get('casove_pasmo');
-        if ($pasmo !== date_default_timezone_get() && in_array($pasmo, \DateTimeZone::listIdentifiers(), true)) {
-            date_default_timezone_set($pasmo);
+        $timeZone = $this->settings()->get('casove_pasmo');
+        if ($timeZone !== date_default_timezone_get() && in_array($timeZone, \DateTimeZone::listIdentifiers(), true)) {
+            date_default_timezone_set($timeZone);
             $this->db()->pdo()->exec("SET time_zone = '" . date('P') . "'");
         }
     }
@@ -83,7 +83,7 @@ final class App
     }
 
     /** Předpona jazykové verze webu ("en"); nastavuje Front\Kernel, když čtenář prochází /en/… */
-    public string $jazykPrefix = '';
+    public string $languagePrefix = '';
 
     /**
      * Absolutní cesta v rámci instalace: url('admin.php') -> "/magazin/admin.php".
@@ -95,13 +95,13 @@ final class App
         $path = ltrim($path, '/');
         if (preg_match('#^(novinky|hledani)(?=$|[/?.])#', $path) && isset($this->config['db'])) {
             // systémové adresy v jazyce verze (/news, /search mimo češtinu) – Core\Cesty
-            $jazyk = $this->jazykPrefix !== '' ? $this->jazykPrefix : Jazyk::vychozi($this->settings());
-            $path = Cesty::verejna($path, $jazyk, $this->db());
+            $language = $this->languagePrefix !== '' ? $this->languagePrefix : Language::defaults($this->settings());
+            $path = Routes::publicPath($path, $language, $this->db());
         }
-        if ($this->jazykPrefix !== '') {
-            $bezDotazu = explode('?', $path, 2)[0];
-            if ((!str_contains($bezDotazu, '.') || $bezDotazu === 'rss.xml' || $bezDotazu === 'feed.json') && !preg_match('#^(api/|mcp$)#', $bezDotazu)) {
-                $path = $this->jazykPrefix . ($path === '' ? '/' : '/' . $path);
+        if ($this->languagePrefix !== '') {
+            $pathOnly = explode('?', $path, 2)[0];
+            if ((!str_contains($pathOnly, '.') || $pathOnly === 'rss.xml' || $pathOnly === 'feed.json') && !preg_match('#^(api/|mcp$)#', $pathOnly)) {
+                $path = $this->languagePrefix . ($path === '' ? '/' : '/' . $path);
             }
         }
 
@@ -112,14 +112,14 @@ final class App
      * Adresa novinky v JEJÍ jazykové verzi – nezávisle na tom, ze které verze přišel právě běžící požadavek
      * (oznámení o vydání se rozesílají na pozadí cizí návštěvy).
      */
-    public function urlNovinky(string $seo, string $jazyk): string
+    public function newsItemUrl(string $seo, string $language): string
     {
-        $puvodni = $this->jazykPrefix;
-        $this->jazykPrefix = in_array($jazyk, Jazyk::dalsi($this->settings()), true) ? $jazyk : '';
+        $previous = $this->languagePrefix;
+        $this->languagePrefix = in_array($language, Language::additional($this->settings()), true) ? $language : '';
         try {
             return $this->url('novinky/' . $seo);
         } finally {
-            $this->jazykPrefix = $puvodni;
+            $this->languagePrefix = $previous;
         }
     }
 
@@ -141,17 +141,17 @@ final class App
                 header('Content-Type: text/html; charset=utf-8');
             }
             // jazyk webu tu ještě nemusí být známý (chyba i při startu): česky jen návštěvníkům s češtinou nebo slovenštinou v prohlížeči
-            $cesky = (bool) preg_match('/^\s*(cs|sk)\b/i', (string) ($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? ''));
-            [$titulek, $nadpis, $pomoc] = $cesky
+            $czech = (bool) preg_match('/^\s*(cs|sk)\b/i', (string) ($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? ''));
+            [$title, $heading, $help] = $czech
                 ? ['Chyba', 'Omlouváme se, na stránce došlo k chybě.', 'Podrobnosti najde správce v souboru storage/log/chyby.log.']
                 : ['Error', 'Sorry, something went wrong on this page.', 'The site administrator can find the details in storage/log/chyby.log.'];
-            echo '<!doctype html><html lang="' . ($cesky ? 'cs' : 'en') . '"><meta charset="utf-8"><title>' . $titulek . '</title>'
+            echo '<!doctype html><html lang="' . ($czech ? 'cs' : 'en') . '"><meta charset="utf-8"><title>' . $title . '</title>'
                 . '<body style="font:14px Verdana,sans-serif;margin:3em">'
-                . '<h1 style="font-size:18px">' . $nadpis . '</h1>';
+                . '<h1 style="font-size:18px">' . $heading . '</h1>';
             if ($this->debug()) {
                 echo '<pre style="white-space:pre-wrap">' . e((string) $e) . '</pre>';
             } else {
-                echo '<p>' . $pomoc . '</p>';
+                echo '<p>' . $help . '</p>';
             }
         });
     }

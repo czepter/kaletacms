@@ -9,7 +9,7 @@
  */
 ?>
 <!doctype html>
-<html lang="<?= e(Kaleta\Core\Jazyk::kod()) ?>">
+<html lang="<?= e(Kaleta\Core\Language::code()) ?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">

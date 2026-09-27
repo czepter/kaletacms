@@ -36,7 +36,7 @@ foreach (array_slice($argv, 2) as $arg) {
 }
 if (str_starts_with($version, '--novy-klic=')) {
     // nový pár klíčů: soukromý do tools/klice/ (nikdy do gitu), veřejný se PŘIPÍŠE do system/aktualizace.pub
-    require_once $root . '/system/src/Core/Podpis.php';
+    require_once $root . '/system/src/Core/Signature.php';
     $name = substr($version, 12);
     $target = ['provozni' => $root . '/tools/klice/vydavatel.key', 'zalozni' => $root . '/tools/klice/zalozni.key'][$name] ?? exit("Použití: --novy-klic=provozni nebo --novy-klic=zalozni\n");
     if (is_file($target)) {
@@ -48,9 +48,9 @@ if (str_starts_with($version, '--novy-klic=')) {
     chmod($target, 0600);
     $pk = sodium_crypto_sign_publickey($pair);
     $pub = $root . '/system/aktualizace.pub';
-    file_put_contents($pub, rtrim((string) @file_get_contents($pub)) . "\n" . base64_encode($pk) . ' ' . $name . ' ' . date('Y-m-d') . ' id=' . Kaleta\Core\Podpis::id($pk) . "\n");
+    file_put_contents($pub, rtrim((string) @file_get_contents($pub)) . "\n" . base64_encode($pk) . ' ' . $name . ' ' . date('Y-m-d') . ' id=' . Kaleta\Core\Signature::id($pk) . "\n");
     file_put_contents($pub, ltrim((string) file_get_contents($pub)));
-    exit("Nový klíč „{$name}“ (id " . Kaleta\Core\Podpis::id($pk) . ") je v {$target}.\n"
+    exit("Nový klíč „{$name}“ (id " . Kaleta\Core\Signature::id($pk) . ") je v {$target}.\n"
         . "1) Soukromý soubor si HNED zazálohujte mimo tento počítač" . ($name === 'zalozni' ? " a z disku ho pak smažte - záložní klíč má ležet offline" : '') . ".\n"
         . "2) system/aktualizace.pub commitněte; instalace nový klíč poznají až po vydání, které ho přinese (podepsaném klíčem, který už znají).\n");
 }
@@ -62,7 +62,7 @@ if (!str_contains((string) file_get_contents($root . '/system/bootstrap.php'), "
 }
 
 // --- klíče: system/aktualizace.pub nese víc veřejných klíčů (provozní + záložní), podpis platí vůči kterémukoli - viz docs/RELEASING.md
-require_once $root . '/system/src/Core/Podpis.php';
+require_once $root . '/system/src/Core/Signature.php';
 $publicKeyFile = $root . '/system/aktualizace.pub';
 $keyFiles = ['provozni' => $root . '/tools/klice/vydavatel.key', 'zalozni' => $root . '/tools/klice/zalozni.key'];
 $privateKeyFile = $keyFiles[$options['klic']] ?? exit("Neznámý klíč „{$options['klic']}“ - použijte --klic=provozni nebo --klic=zalozni.\n");
@@ -70,8 +70,8 @@ $sk = base64_decode(trim(getenv('KALETA_KLIC') !== false ? (string) getenv('KALE
 if ($sk === false || strlen($sk) !== SODIUM_CRYPTO_SIGN_SECRETKEYBYTES) {
     exit("Soukromý klíč {$privateKeyFile} chybí nebo je poškozený. Nový pár založíte příkazem: php tools/release.php --novy-klic={$options['klic']}\n");
 }
-$keyId = Kaleta\Core\Podpis::id(sodium_crypto_sign_publickey_from_secretkey($sk));
-if (!isset(Kaleta\Core\Podpis::klice($publicKeyFile)[$keyId])) {
+$keyId = Kaleta\Core\Signature::id(sodium_crypto_sign_publickey_from_secretkey($sk));
+if (!isset(Kaleta\Core\Signature::keys($publicKeyFile)[$keyId])) {
     exit("Klíč {$keyId} není uveden v system/aktualizace.pub - instalace by jeho podpis odmítly.\n");
 }
 
@@ -111,18 +111,18 @@ if ($previous !== '') {
         }
     }
 }
-require_once $root . '/system/src/Core/Integrita.php';
+require_once $root . '/system/src/Core/Integrity.php';
 ksort($hashes);
 $zip->addFromString('system/soubory.json', json_encode([
     'verze' => $version, 'soubory' => $hashes, 'legacy' => $legacy,
-    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Integrita::kPodpisu($version, $hashes), $sk)),
+    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Integrity::stringToSign($version, $hashes), $sk)),
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
 $zip->close();
 
 $sha = hash_file('sha256', $zipFile);
 $manifest = [
     'verze' => $version, 'vydano' => date('Y-m-d'), 'url' => $options['url'], 'sha256' => $sha,
-    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Podpis::zpravaBalicku($version, $sha, $options['bezpecnostni']), $sk)),
+    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage($version, $sha, $options['bezpecnostni']), $sk)),
     'klic' => $keyId, // jen pro přehled, kterým klíčem se podepisovalo; instalace zkouší všechny klíče, které znají
     'min_php' => '8.4', 'bezpecnostni' => $options['bezpecnostni'], 'zmeny' => $options['zmeny'],
 ];

@@ -1,7 +1,7 @@
 <?php
 /**
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\Statistika $modul
+ * @var Kaleta\Admin\Modules\Stats $modul
  * @var int $dni
  * @var array<string, array{navstevy:int, zobrazeni:int}> $graf
  * @var bool $zapnuto
@@ -22,18 +22,18 @@ $zobrazeni = array_sum(array_column($graf, 'zobrazeni'));
 <?php endforeach ?>
 </nav>
 <div class="dlazdice">
-	<div class="dlazdice-polozka"><strong><?= pocet($navstev) ?></strong><span><?= e(t('Návštěvy')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= pocet($zobrazeni) ?></strong><span><?= e(t('Zobrazené stránky')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= $navstev > 0 ? pocet($zobrazeni / $navstev, 1) : '0' ?></strong><span><?= e(t('Stránek na návštěvu')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= format_count($navstev) ?></strong><span><?= e(t('Návštěvy')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= format_count($zobrazeni) ?></strong><span><?= e(t('Zobrazené stránky')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= $navstev > 0 ? format_count($zobrazeni / $navstev, 1) : '0' ?></strong><span><?= e(t('Stránek na návštěvu')) ?></span></div>
 </div>
 <h2><?= e(t('Zobrazení a návštěvy po dnech')) ?></h2>
 <div class="graf" role="img" aria-label="<?= e(t('Sloupcový graf zobrazení stránek po dnech')) ?>">
 <?php foreach ($graf as $den => $h): ?>
-<?php $popisDne = t('%s: %s zobrazení, %s návštěv', datum($den), $h['zobrazeni'], $h['navstevy']); ?>
+<?php $popisDne = t('%s: %s zobrazení, %s návštěv', format_date($den), $h['zobrazeni'], $h['navstevy']); ?>
 	<div class="graf-sloupec" data-tip="<?= e($popisDne) ?>" aria-label="<?= e($popisDne) ?>" tabindex="0"><i data-tip-kotva style="height:<?= round($h['zobrazeni'] / $max * 100, 1) ?>%"><b style="height:<?= $h['zobrazeni'] > 0 ? round($h['navstevy'] / $h['zobrazeni'] * 100, 1) : 0 ?>%"></b></i></div>
 <?php endforeach ?>
 </div>
-<p class="smltxt"><?= e(datum(array_key_first($graf))) ?> – <?= e(datum(array_key_last($graf))) ?> · <?= e(t('světlá část sloupce jsou zobrazení stránek, tmavá návštěvy. Měření nepoužívá cookies a neukládá IP adresy; roboty nepočítá.')) ?></p>
+<p class="smltxt"><?= e(format_date(array_key_first($graf))) ?> – <?= e(format_date(array_key_last($graf))) ?> · <?= e(t('světlá část sloupce jsou zobrazení stránek, tmavá návštěvy. Měření nepoužívá cookies a neukládá IP adresy; roboty nepočítá.')) ?></p>
 
 <div class="stat-tabulky">
 <div>
@@ -41,7 +41,7 @@ $zobrazeni = array_sum(array_column($graf, 'zobrazeni'));
 <?php if ($stranky === []): ?><p><?= e(t('Zatím žádná data.')) ?></p><?php else: ?>
 <div class="tab-obal"><table class="vypis"><tbody>
 <?php foreach ($stranky as $st): ?>
-<tr><td><a href="<?= e($st['cesta']) ?>" target="_blank" rel="noopener"><?= e($st['cesta']) ?></a></td><td class="cislo"><?= pocet((int) $st['pocet']) ?>×</td></tr>
+<tr><td><a href="<?= e($st['cesta']) ?>" target="_blank" rel="noopener"><?= e($st['cesta']) ?></a></td><td class="cislo"><?= format_count((int) $st['pocet']) ?>×</td></tr>
 <?php endforeach ?>
 </tbody></table></div>
 <?php endif ?>
@@ -51,7 +51,7 @@ $zobrazeni = array_sum(array_column($graf, 'zobrazeni'));
 <?php if ($clanky === []): ?><p><?= e(t('Zatím žádná data.')) ?></p><?php else: ?>
 <div class="tab-obal"><table class="vypis"><tbody>
 <?php foreach ($clanky as $c): ?>
-<tr><td><a href="<?= e($app->url('admin.php?modul=novinky&akce=edit&id=' . (int) $c['idc'])) ?>"><?= e($c['titulek']) ?></a></td><td class="cislo"><?= pocet((int) $c['pocet']) ?>×</td></tr>
+<tr><td><a href="<?= e($app->url('admin.php?modul=novinky&akce=edit&id=' . (int) $c['idc'])) ?>"><?= e($c['titulek']) ?></a></td><td class="cislo"><?= format_count((int) $c['pocet']) ?>×</td></tr>
 <?php endforeach ?>
 </tbody></table></div>
 <?php endif ?>
@@ -61,7 +61,7 @@ $zobrazeni = array_sum(array_column($graf, 'zobrazeni'));
 <?php if ($zdroje === []): ?><p><?= e(t('Zatím žádná data.')) ?></p><?php else: ?>
 <div class="tab-obal"><table class="vypis"><tbody>
 <?php foreach ($zdroje as $z): ?>
-<tr><td><?= e($z['zdroj']) ?></td><td class="cislo"><?= pocet((int) $z['pocet']) ?>×</td></tr>
+<tr><td><?= e($z['zdroj']) ?></td><td class="cislo"><?= format_count((int) $z['pocet']) ?>×</td></tr>
 <?php endforeach ?>
 </tbody></table></div>
 <?php endif ?>

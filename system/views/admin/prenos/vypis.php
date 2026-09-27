@@ -2,7 +2,7 @@
 /**
  * Import a export: krok 1 importu z WordPressu (soubor) a export celého webu.
  *
- * @var Kaleta\Admin\Moduly\Prenos $modul
+ * @var Kaleta\Admin\Modules\Transfer $modul
  * @var Kaleta\Core\App $app
  * @var string $csrf
  * @var list<array{soubor:string, velikost:int, cas:int, stav:array<string,mixed>|null}> $soubory  exporty z WordPressu ve storage/import/
@@ -25,7 +25,7 @@ $faze = [
 <form class="formular" method="post" enctype="multipart/form-data" action="<?= e($modul->url('nahraj')) ?>">
 <?= $csrf ?>
 <div class="radek"><label for="soubor"><?= e(t('Export z WordPressu')) ?></label><div><input type="file" id="soubor" name="soubor" accept=".xml,text/xml,application/xml" required>
-	<span class="napoveda"><?= e(t('Server dovolí nahrát nejvýš %s. Větší soubor zkopírujte přes FTP do složky storage/import/ – objeví se v seznamu níže.', Kaleta\Core\Soubory::velikost($limitNahrani))) ?></span></div></div>
+	<span class="napoveda"><?= e(t('Server dovolí nahrát nejvýš %s. Větší soubor zkopírujte přes FTP do složky storage/import/ – objeví se v seznamu níže.', Kaleta\Core\Files::size($limitNahrani))) ?></span></div></div>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Nahrát a zobrazit náhled')) ?>"></p>
 </form>
 <?php endif ?>
@@ -38,8 +38,8 @@ $faze = [
 <?php foreach ($soubory as $s): $stav = $s['stav']; ?>
 <tr>
 	<td><?= e($s['soubor']) ?></td>
-	<td class="cislo"><?= e(Kaleta\Core\Soubory::velikost($s['velikost'])) ?></td>
-	<td class="cislo"><?= e(datum(date('Y-m-d H:i:s', $s['cas']), true)) ?></td>
+	<td class="cislo"><?= e(Kaleta\Core\Files::size($s['velikost'])) ?></td>
+	<td class="cislo"><?= e(format_date(date('Y-m-d H:i:s', $s['cas']), true)) ?></td>
 	<td><?= $stav === null ? '–' : e(t($faze[$stav['faze']] ?? '–')) . ($stav['faze'] === 'import' ? ' (' . (int) $stav['pozice'] . ' / ' . (int) $stav['celkem'] . ')' : '') ?></td>
 	<td class="akce">
 <?php if ($stav !== null): ?>
@@ -72,8 +72,8 @@ $faze = [
 <?php foreach ($exporty as $x): ?>
 <tr>
 	<td><?= e($x['soubor']) ?></td>
-	<td class="cislo"><?= e(Kaleta\Core\Soubory::velikost($x['velikost'])) ?></td>
-	<td class="cislo"><?= e(datum(date('Y-m-d H:i:s', $x['cas']), true)) ?></td>
+	<td class="cislo"><?= e(Kaleta\Core\Files::size($x['velikost'])) ?></td>
+	<td class="cislo"><?= e(format_date(date('Y-m-d H:i:s', $x['cas']), true)) ?></td>
 	<td class="akce"><a href="<?= e($modul->url('stahni', ['soubor' => $x['soubor']])) ?>"><?= e(t('Stáhnout')) ?></a>
 		<form class="vradku" method="post" action="<?= e($modul->url('smaz_export')) ?>" data-potvrdit="<?= e(t('Smazat export %s?', $x['soubor'])) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($x['soubor']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
 </tr>

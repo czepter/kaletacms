@@ -2,7 +2,7 @@
 /**
  * Nefunkční odkazy v novinkách.
  *
- * @var Kaleta\Admin\Moduly\Novinky $modul
+ * @var Kaleta\Admin\Modules\News $modul
  * @var string $csrf
  * @var list<array<string, mixed>> $odkazy
  * @var int $zkontrolovano
@@ -26,7 +26,7 @@
 	<td><a href="<?= e($modul->url('edit', ['id' => (int) $o['idc']])) ?>"><?= e($o['titulek']) ?></a></td>
 	<td style="word-break:break-all"><a href="<?= e($o['url']) ?>" target="_blank" rel="noopener noreferrer"><?= e(mb_strimwidth($o['url'], 0, 90, '…')) ?></a></td>
 	<td><?= e((int) $o['stav'] === 0 ? t('server neodpovídá') : ((int) $o['stav'] === 404 ? t('stránka neexistuje (404)') : t('chyba %s', (int) $o['stav']))) ?></td>
-	<td class="cislo"><?= e(datum($o['cas'])) ?></td>
+	<td class="cislo"><?= e(format_date($o['cas'])) ?></td>
 	<td class="akce"><form class="vradku" method="post" action="<?= e($modul->url('odkazy')) ?>"><?= $csrf ?><input type="hidden" name="idc" value="<?= (int) $o['idc'] ?>"><button class="navigace" type="submit"><?= e(t('Zkontrolovat znovu')) ?></button></form></td>
 </tr>
 <?php endforeach ?>

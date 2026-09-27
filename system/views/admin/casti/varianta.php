@@ -3,7 +3,7 @@
  * Varianta záhlaví nebo patičky: název a stránky, na kterých platí místo výchozí podoby.
  *
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\Casti $modul
+ * @var Kaleta\Admin\Modules\SiteParts $modul
  * @var string $csrf
  * @var string $typ
  * @var string $jazyk

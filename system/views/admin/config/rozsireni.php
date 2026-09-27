@@ -1,6 +1,6 @@
 <?php
 /** Záložka Rozšíření. */
-use Kaleta\Core\Rozsireni;
+use Kaleta\Core\Extensions;
 ?>
 <p class="hlaska"><?= e(t('Rozšíření jsou volitelné části Kalety. Všechna jsou součástí systému a udržuje je tým Kaleta – nic se nestahuje ani neinstaluje. Vypnuté rozšíření zmizí z menu i z webu, jeho data zůstanou a po zapnutí se vrátí.')) ?></p>
 <?php
@@ -19,7 +19,7 @@ $nastaveniRozsireni = [
 ];
 ?>
 <div class="rozsireni-seznam">
-<?php foreach (Rozsireni::SEZNAM as $klic => [$nazev, $popis]): $zapnuto = in_array($klic, $zapnutaRozsireni, true); ?>
+<?php foreach (Extensions::CATALOG as $klic => [$nazev, $popis]): $zapnuto = in_array($klic, $zapnutaRozsireni, true); ?>
 	<div class="rozsireni-karta">
 		<input type="checkbox" id="rozsireni-<?= e($klic) ?>" name="rozsireni[]" value="<?= e($klic) ?>"<?= $zapnuto ? ' checked' : '' ?>>
 		<span><label for="rozsireni-<?= e($klic) ?>"><strong><?= e(t($nazev)) ?></strong><br><?= e(t($popis)) ?></label>
@@ -38,12 +38,12 @@ $nastaveniRozsireni = [
 <div class="radek">
 	<label for="ai_poskytovatel"><?= e(t('Poskytovatel')) ?></label>
 	<div><select id="ai_poskytovatel" name="ai_poskytovatel">
-<?php foreach (Kaleta\Core\Asistent::POSKYTOVATELE as $klic => [$nazev, , $konzole]): ?>
+<?php foreach (Kaleta\Core\Assistant::PROVIDERS as $klic => [$nazev, , $konzole]): ?>
 		<option value="<?= e($klic) ?>"<?= $hodnoty['ai_poskytovatel'] === $klic ? ' selected' : '' ?>><?= e(t($nazev)) ?></option>
 <?php endforeach ?>
 	</select>
 	<span class="napoveda"><?= e(t('Klíč si vytvoříte u poskytovatele:')) ?>
-<?php foreach (Kaleta\Core\Asistent::POSKYTOVATELE as [$nazev, , $konzole]): ?>
+<?php foreach (Kaleta\Core\Assistant::PROVIDERS as [$nazev, , $konzole]): ?>
 		<a href="<?= e($konzole) ?>" target="_blank" rel="noopener"><?= e(t($nazev)) ?></a>
 <?php endforeach ?>
 		· <?= e(t('Platíte jen za skutečné použití, jeden návrh stojí řádově haléře. Klíč se ukládá jen na vašem webu.')) ?></span></div>
@@ -60,7 +60,7 @@ $nastaveniRozsireni = [
 	<label for="ai_model"><?= e(t('Model')) ?></label>
 	<div><input class="textpole" id="ai_model" name="ai_model" value="<?= e($hodnoty['ai_model']) ?>" list="ai_modely" maxlength="80" spellcheck="false">
 	<datalist id="ai_modely">
-<?php foreach (Kaleta\Core\Asistent::MODELY as $klic => $nazev): ?>
+<?php foreach (Kaleta\Core\Assistant::MODELS as $klic => $nazev): ?>
 		<option value="<?= e($klic) ?>"><?= e(t($nazev)) ?></option>
 <?php endforeach ?>
 	</datalist>
@@ -75,7 +75,7 @@ $nastaveniRozsireni = [
 	<label for="newsletter_sluzba"><?= e(t('Služba')) ?></label>
 	<div><select id="newsletter_sluzba" name="newsletter_sluzba">
 		<option value=""><?= e(t('žádná – odběratele exportujete do CSV')) ?></option>
-<?php foreach (Kaleta\Core\Newsletter::SLUZBY as $klic => [$nazev]): ?>
+<?php foreach (Kaleta\Core\Newsletter::SERVICES as $klic => [$nazev]): ?>
 		<option value="<?= e($klic) ?>"<?= $hodnoty['newsletter_sluzba'] === $klic ? ' selected' : '' ?>><?= e(t($nazev)) ?></option>
 <?php endforeach ?>
 	</select></div>

@@ -1,6 +1,6 @@
 <?php
 /**
- * @var Kaleta\Admin\Moduly\Role $modul
+ * @var Kaleta\Admin\Modules\Roles $modul
  * @var string $csrf
  * @var array<string, mixed> $role
  * @var array<string, string> $chyby
@@ -25,7 +25,7 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 <fieldset>
 <legend><?= e(t('Novinky')) ?></legend>
 <div class="karty-volby karty-volby-text">
-<?php foreach (Kaleta\Admin\Moduly\Role::UROVNE as $hodnota => [$nazev, $popis]): ?>
+<?php foreach (Kaleta\Admin\Modules\Roles::LEVELS as $hodnota => [$nazev, $popis]): ?>
 	<label class="karta-volba"><input type="radio" name="uroven" value="<?= $hodnota ?>"<?= (int) $role['uroven'] === $hodnota ? ' checked' : '' ?>><strong><?= e(t($nazev)) ?></strong><span><?= e(t($popis)) ?></span></label>
 <?php endforeach ?>
 </div>

@@ -1,6 +1,6 @@
 <?php
 /**
- * @var Kaleta\Admin\Moduly\Role $modul
+ * @var Kaleta\Admin\Modules\Roles $modul
  * @var Kaleta\Core\App $app
  * @var string $csrf
  * @var list<array<string, mixed>> $role

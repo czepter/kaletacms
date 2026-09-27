@@ -1,7 +1,7 @@
 <?php
 /**
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\Autori $modul
+ * @var Kaleta\Admin\Modules\Users $modul
  * @var string $csrf
  * @var list<array<string, mixed>> $autori
  */
@@ -16,9 +16,9 @@
 	<td><a href="<?= e($modul->url('edit', ['id' => $a['idu']])) ?>"><?= e($a['user']) ?></a><?= $a['blokovat'] ? ' <strong>(' . e(t('blokován')) . ')</strong>' : '' ?><?= $a['totp_tajemstvi'] !== '' ? ' <span class="stitek stitek-vydano" title="' . e(t('dvoufázové přihlášení')) . '">2FA</span>' : '' ?></td>
 	<td><?= e($a['jmeno']) ?><br><span class="smltxt"><?= e($a['shrnuti']) ?></span></td>
 	<td><?= e($a['email']) ?></td>
-	<td><?= e($a['nazev_role'] ?? t(Kaleta\Core\Auth::TYPY[(int) $a['admin']] ?? '?')) ?></td>
+	<td><?= e($a['nazev_role'] ?? t(Kaleta\Core\Auth::TYPES[(int) $a['admin']] ?? '?')) ?></td>
 	<td class="cislo"><?= (int) $a['pocet_clanku'] ?></td>
-	<td class="cislo"><?= e(datum($a['posledni_login'], true)) ?: '-' ?></td>
+	<td class="cislo"><?= e(format_date($a['posledni_login'], true)) ?: '-' ?></td>
 	<td class="akce">
 		<a href="<?= e($modul->url('edit', ['id' => $a['idu']])) ?>"><?= e(t('Upravit')) ?></a>
 <?php if ((int) $a['idu'] !== $app->auth()->id()): ?>

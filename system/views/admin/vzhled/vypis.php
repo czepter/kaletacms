@@ -6,7 +6,7 @@
  * Náhled obstarává image/admin.js (data-vzhled): po každé změně si vyžádá CSS tokenů (akce nahled) a vloží ho do iframe.
  *
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\Vzhled $modul
+ * @var Kaleta\Admin\Modules\Appearance $modul
  * @var string $csrf
  * @var array<string, array{nazev:string, popis:string}> $layouty
  * @var array<string, mixed> $ds
@@ -14,14 +14,14 @@
  * @var array<string, array{nazev:string, popis:string, ds:array<string, mixed>}> $predvolby
  * @var array<string, string> $hodnoty
  */
-use Kaleta\Front\Identita;
-use Kaleta\Stavitel\DesignSystem;
+use Kaleta\Front\SiteIdentity;
+use Kaleta\Builder\DesignSystem;
 
 $px = fn (float $rem): string => (string) round($rem * 16);
 $kontrastyHtml = function (array $kontrasty): string {
     $html = '';
     foreach ($kontrasty as $k) {
-        $html .= '<li class="' . ($k['ok'] ? 'ok' : 'spatne') . '"><span>' . e(t($k['popis'])) . '</span><strong>' . e(t('%s : 1', cislo($k['pomer']))) . '</strong></li>';
+        $html .= '<li class="' . ($k['ok'] ? 'ok' : 'spatne') . '"><span>' . e(t($k['popis'])) . '</span><strong>' . e(t('%s : 1', format_number($k['pomer']))) . '</strong></li>';
     }
 
     return $html;
@@ -53,7 +53,7 @@ $zalozky = ['styl' => 'Styl', 'barvy' => 'Barvy', 'tmavy' => 'Tmavý režim', 'p
 <?php foreach ($predvolby as $klic => $p): ?>
 	<button type="button" class="vzhled-predvolba" data-predvolba="<?= e((string) json_encode($p['ds'], JSON_UNESCAPED_SLASHES)) ?>">
 		<span class="vzhled-vzorky"><?php foreach (['primarni', 'sekundarni', 'text', 'plocha'] as $b): ?><i style="background:<?= e($p['ds']['barvy'][$b]) ?>"></i><?php endforeach ?></span>
-		<strong style="font-family:<?= e(Identita::PISMA_TITULKU[$p['ds']['pismo_titulky']][2]) ?>"><?= e(t($p['nazev'])) ?></strong>
+		<strong style="font-family:<?= e(SiteIdentity::TITLE_FONTS[$p['ds']['pismo_titulky']][2]) ?>"><?= e(t($p['nazev'])) ?></strong>
 		<small><?= e(t($p['popis'])) ?></small>
 <?php if ($klic === $aktualni): ?>		<span class="stitek stitek-vydano"><?= e(t('aktuální')) ?></span>
 <?php endif ?>
@@ -68,7 +68,7 @@ $zalozky = ['styl' => 'Styl', 'barvy' => 'Barvy', 'tmavy' => 'Tmavý režim', 'p
 <fieldset>
 <legend><?= e(t('Barvy')) ?></legend>
 <div class="vzhled-barvy">
-<?php foreach (DesignSystem::BARVY as $klic => $nazev): ?>
+<?php foreach (DesignSystem::COLORS as $klic => $nazev): ?>
 	<label class="vzhled-barva">
 		<input type="color" name="ds[barvy][<?= e($klic) ?>]" value="<?= e($ds['barvy'][$klic]) ?>">
 		<span><?= e(t($nazev)) ?><small data-hex><?= e($ds['barvy'][$klic]) ?></small></span>
@@ -109,7 +109,7 @@ $zalozky = ['styl' => 'Styl', 'barvy' => 'Barvy', 'tmavy' => 'Tmavý režim', 'p
 <div class="radek">
 	<label for="ds-pismo-titulky"><?= e(t('Titulky')) ?></label>
 	<select id="ds-pismo-titulky" name="ds[pismo_titulky]">
-<?php foreach (Identita::PISMA_TITULKU as $klic => [$nazev, $popis]): if ($klic === 'vychozi') { continue; } ?>
+<?php foreach (SiteIdentity::TITLE_FONTS as $klic => [$nazev, $popis]): if ($klic === 'vychozi') { continue; } ?>
 		<option value="<?= e($klic) ?>"<?= $ds['pismo_titulky'] === $klic ? ' selected' : '' ?>><?= e(t($nazev) . ' – ' . t($popis)) ?></option>
 <?php endforeach ?>
 <?php foreach ($ds['vlastni_pisma'] as $i => $vp): ?>
@@ -120,7 +120,7 @@ $zalozky = ['styl' => 'Styl', 'barvy' => 'Barvy', 'tmavy' => 'Tmavý režim', 'p
 <div class="radek">
 	<label for="ds-pismo-text"><?= e(t('Text')) ?></label>
 	<div><select id="ds-pismo-text" name="ds[pismo_text]">
-<?php foreach (Identita::PISMA_TEXTU as $klic => [$nazev, $popis]): if ($klic === 'vychozi') { continue; } ?>
+<?php foreach (SiteIdentity::TEXT_FONTS as $klic => [$nazev, $popis]): if ($klic === 'vychozi') { continue; } ?>
 		<option value="<?= e($klic) ?>"<?= $ds['pismo_text'] === $klic ? ' selected' : '' ?>><?= e(t($nazev) . ' – ' . t($popis)) ?></option>
 <?php endforeach ?>
 <?php foreach ($ds['vlastni_pisma'] as $i => $vp): ?>
@@ -153,7 +153,7 @@ $zalozky = ['styl' => 'Styl', 'barvy' => 'Barvy', 'tmavy' => 'Tmavý režim', 'p
 	<label><span><?= e(t('Základní písmo na monitoru')) ?></span><span class="vzhled-jednotka"><input type="number" name="ds[zaklad_max]" value="<?= e($px($ds['zaklad_max'])) ?>" min="13" max="25" step="1"> px</span></label>
 <?php foreach (['pomer_min' => 'Nadpisy na telefonu', 'pomer_max' => 'Nadpisy na monitoru'] as $klic => $popisek): ?>
 	<label><span><?= e(t($popisek)) ?></span><select name="ds[<?= $klic ?>]">
-<?php foreach (DesignSystem::POMERY as $hodnota => $nazev): ?>
+<?php foreach (DesignSystem::RATIOS as $hodnota => $nazev): ?>
 		<option value="<?= e($hodnota) ?>"<?= abs((float) $hodnota - $ds[$klic]) < 0.001 ? ' selected' : '' ?>><?= e(t($nazev)) ?></option>
 <?php endforeach ?>
 	</select></label>
@@ -169,16 +169,16 @@ $zalozky = ['styl' => 'Styl', 'barvy' => 'Barvy', 'tmavy' => 'Tmavý režim', 'p
 <div class="tab-obal"><table class="vypis vzhled-typografie">
 <thead><tr><th scope="col"><?= e(t('Styl')) ?></th><th scope="col"><?= e(t('Velikost (krok škály)')) ?></th><th scope="col"><?= e(t('Tloušťka')) ?></th></tr></thead>
 <tbody>
-<?php foreach (DesignSystem::TYPOGRAFIE as $klic => [$nazev, $krok, $tloustka, $radkovani, $titulky]): $vlastni = $ds['typografie'][$klic] ?? []; ?>
+<?php foreach (DesignSystem::TYPOGRAPHY as $klic => [$nazev, $krok, $tloustka, $radkovani, $titulky]): $vlastni = $ds['typografie'][$klic] ?? []; ?>
 <tr>
 	<th scope="row"><span style="font: var(--ka-typ-<?= e($klic) ?>, inherit)<?= $klic === 'nadtitulek' ? ';text-transform:uppercase;letter-spacing:.08em' : '' ?>"><?= e(t($nazev)) ?></span></th>
 	<td><select name="ds[typografie][<?= e($klic) ?>][krok]" aria-label="<?= e(t('Velikost: %s', t($nazev))) ?>">
-<?php foreach (DesignSystem::KROKY as $k): ?>
+<?php foreach (DesignSystem::STEPS as $k): ?>
 		<option value="<?= e($k) ?>"<?= ($vlastni['krok'] ?? $krok) === $k ? ' selected' : '' ?>><?= e($k === '0' ? t('0 – základní písmo') : $k) ?></option>
 <?php endforeach ?>
 	</select></td>
 	<td><select name="ds[typografie][<?= e($klic) ?>][tloustka]" aria-label="<?= e(t('Tloušťka: %s', t($nazev))) ?>">
-<?php foreach (DesignSystem::TLOUSTKY as $w => $nazevTloustky): ?>
+<?php foreach (DesignSystem::FONT_WEIGHTS as $w => $nazevTloustky): ?>
 		<option value="<?= $w ?>"<?= (int) ($vlastni['tloustka'] ?? $tloustka) === $w ? ' selected' : '' ?>><?= e(t($nazevTloustky)) ?></option>
 <?php endforeach ?>
 	</select></td>
@@ -194,7 +194,7 @@ $zalozky = ['styl' => 'Styl', 'barvy' => 'Barvy', 'tmavy' => 'Tmavý režim', 'p
 <legend><?= e(t('Zaoblení rohů')) ?></legend>
 <div class="vzhled-zaobleni">
 <?php foreach (['0' => 'ostré', 's' => 'jemné', 'm' => 'střední', 'l' => 'velké', 'plne' => 'kulaté'] as $klic => $nazev): ?>
-	<label><input type="radio" name="ds[zaobleni]" value="<?= e($klic) ?>"<?= $ds['zaobleni'] === $klic ? ' checked' : '' ?>><i style="border-radius:<?= e($klic === 'plne' ? '999px' : DesignSystem::ZAOBLENI[$klic]) ?>"></i><?= e(t($nazev)) ?></label>
+	<label><input type="radio" name="ds[zaobleni]" value="<?= e($klic) ?>"<?= $ds['zaobleni'] === $klic ? ' checked' : '' ?>><i style="border-radius:<?= e($klic === 'plne' ? '999px' : DesignSystem::RADII[$klic]) ?>"></i><?= e(t($nazev)) ?></label>
 <?php endforeach ?>
 </div>
 <p class="napoveda"><?= e(t('Zaoblení dostanou tlačítka, karty, obrázky a pole formulářů na celém webu.')) ?></p>

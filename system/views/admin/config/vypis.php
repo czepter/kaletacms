@@ -2,7 +2,7 @@
 /**
  * Nastavení: záložky + formulář zvolené záložky (config/<zalozka>.php).
  *
- * @var Kaleta\Admin\Moduly\Konfigurace $modul
+ * @var Kaleta\Admin\Modules\Settings $modul
  * @var string $csrf
  * @var string $zalozka
  * @var array<string, string> $hodnoty
@@ -18,7 +18,7 @@
  * @var string $ulohyToken  tajná část adresy /ulohy pro cron
  * @var array<int, string> $stranky  stránky pro volbu úvodní stránky (záložka Základní)
  */
-use Kaleta\Admin\Moduly\Konfigurace;
+use Kaleta\Admin\Modules\Settings;
 
 /** Řádek formuláře: $pole('klic', 'Popisek', 'text|radky|kod|ano|cislo|url|email', 'nápověda', [atributy]) */
 $chybnaPole ??= [];
@@ -30,7 +30,7 @@ $pole = function (string $klic, string $popisek, string $druh = 'text', string $
     $popisek = t($popisek);
     $napoveda = $napoveda === '' ? '' : t($napoveda);
     // nápověda bez vlastního HTML: cesty v nabídce („Nastavení → Pošta“) se promění v odkazy
-    $nap = $napoveda !== '' ? '<span class="napoveda">' . (str_contains($napoveda, '<') ? $napoveda : Kaleta\Admin\Cesty::odkazy($app->url('admin.php'), $napoveda, ['config', 'vzhled', 'bloky'])) . '</span>' : '';
+    $nap = $napoveda !== '' ? '<span class="napoveda">' . (str_contains($napoveda, '<') ? $napoveda : Kaleta\Admin\MenuPaths::links($app->url('admin.php'), $napoveda, ['config', 'vzhled', 'bloky'])) . '</span>' : '';
     echo '<div class="radek">';
     if ($druh === 'ano') {
         echo '<span class="popisek">' . e($popisek) . '</span><div class="volby"><label><input type="checkbox" name="' . e($klic) . '" value="1"' . ($h === '1' ? ' checked' : '') . '> ' . e(t('Ano')) . '</label>' . $nap . '</div>';
@@ -45,7 +45,7 @@ $pole = function (string $klic, string $popisek, string $druh = 'text', string $
 ?>
 <?php if ($modul::IDENT === 'config'): ?>
 <nav class="zalozky" aria-label="<?= e(t('Sekce nastavení')) ?>">
-<?php foreach (Konfigurace::ZALOZKY as $klic => $nazev): ?>
+<?php foreach (Settings::TABS as $klic => $nazev): ?>
 	<a href="<?= e($modul->url('', ['zalozka' => $klic])) ?>"<?= $zalozka === $klic ? ' class="aktivni" aria-current="page"' : '' ?>><?= e(t($nazev)) ?></a>
 <?php endforeach ?>
 </nav>

@@ -37,8 +37,8 @@ final class Response
     {
         http_response_code($this->status);
         // základní bezpečnostní hlavičky; konkrétní odpověď je může přepsat
-        $vychozi = ['X-Content-Type-Options' => 'nosniff', 'Referrer-Policy' => 'strict-origin-when-cross-origin', 'X-Frame-Options' => 'SAMEORIGIN'];
-        foreach ($this->headers + $vychozi as $name => $value) {
+        $defaults = ['X-Content-Type-Options' => 'nosniff', 'Referrer-Policy' => 'strict-origin-when-cross-origin', 'X-Frame-Options' => 'SAMEORIGIN'];
+        foreach ($this->headers + $defaults as $name => $value) {
             header($name . ': ' . $value);
         }
         echo $this->body;

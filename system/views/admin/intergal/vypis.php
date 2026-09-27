@@ -3,7 +3,7 @@
  * Média: vlevo složky a filtry, vpravo nahrávání a mřížka obrázků.
  *
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\Galerie $modul
+ * @var Kaleta\Admin\Modules\Media $modul
  * @var string $csrf
  * @var list<array<string, mixed>> $obrazky
  * @var int $strana
@@ -57,9 +57,9 @@ $jeVse = $filtr['sekce'] === null && $filtr['clanek'] === 0 && !$filtr['nepouzit
 	<?= $csrf ?>
 	<input type="hidden" name="sekce" value="<?= (int) ($aktivniSlozka['ids'] ?? 0) ?>">
 	<label for="soubory"><strong><?= e(t('Nahrát obrázky a přílohy')) ?><?= $aktivniSlozka !== null ? ' – ' . e($aktivniSlozka['nazev']) : '' ?></strong> <?= e(t('– vyberte soubory, nebo je sem přetáhněte myší')) ?></label>
-	<input type="file" id="soubory" name="soubory[]" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,.svg,<?= e('.' . implode(',.', Kaleta\Core\Soubory::PRIPONY)) ?>" multiple required>
+	<input type="file" id="soubory" name="soubory[]" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,.svg,<?= e('.' . implode(',.', Kaleta\Core\Files::FILE_EXTENSIONS)) ?>" multiple required>
 	<input class="tl" type="submit" value="<?= e(t('Nahrát')) ?>">
-	<span class="napoveda"><?= e(t('Obrázky JPG, PNG, WebP a GIF i přílohy ke stažení (PDF, dokumenty, tabulky, ZIP, zvuk, video), nejvýše %s na soubor. Velké fotografie se samy zmenší na %s px a odstraní se z nich údaje o poloze.', $limit, Kaleta\Core\Obrazky::MAX_STRANA)) ?></span>
+	<span class="napoveda"><?= e(t('Obrázky JPG, PNG, WebP a GIF i přílohy ke stažení (PDF, dokumenty, tabulky, ZIP, zvuk, video), nejvýše %s na soubor. Velké fotografie se samy zmenší na %s px a odstraní se z nich údaje o poloze.', $limit, Kaleta\Core\Images::MAX_SIDE)) ?></span>
 </form>
 
 <form class="navigace-radek media-hledani" method="get" action="<?= e($app->url('admin.php')) ?>" role="search">
@@ -69,7 +69,7 @@ $jeVse = $filtr['sekce'] === null && $filtr['clanek'] === 0 && !$filtr['nepouzit
 <?php endforeach ?>
 	<input class="textpole" type="search" name="hledat" value="<?= e($filtr['hledat']) ?>" placeholder="<?= e(t('Hledat název, popis nebo soubor')) ?>" aria-label="<?= e(t('Hledat v médiích')) ?>">
 	<select name="razeni" aria-label="<?= e(t('Řazení')) ?>" data-odeslat-pri-zmene>
-<?php foreach (Kaleta\Admin\Moduly\Galerie::RAZENI as $klic => [$nazevRazeni]): ?>
+<?php foreach (Kaleta\Admin\Modules\Media::SORT_ORDERS as $klic => [$nazevRazeni]): ?>
 		<option value="<?= e($klic) ?>"<?= $filtr['razeni'] === $klic ? ' selected' : '' ?>><?= e(t($nazevRazeni)) ?></option>
 <?php endforeach ?>
 	</select>
@@ -90,7 +90,7 @@ $jeVse = $filtr['sekce'] === null && $filtr['clanek'] === 0 && !$filtr['nepouzit
 <?php endif ?>
 		<figcaption>
 			<strong title="<?= e($o['nazev']) ?>"><?= e($o['nazev'] !== '' ? $o['nazev'] : t('bez názvu')) ?></strong>
-			<span><?= $o['nahl_poloha'] === '' ? '' : (int) $o['obr_width'] . '&times;' . (int) $o['obr_height'] . ' &middot; ' ?><?= e(Kaleta\Core\Soubory::velikost((int) $o['obr_vel'])) ?> &middot; <span<?= $o['kde'] !== [] ? ' title="' . e(t('Použito: %s', implode(', ', $o['kde']))) . '"' : '' ?>><?= e((int) $o['pouzito'] > 0 ? t('použito %s×', (int) $o['pouzito']) : t('nepoužito')) ?></span></span>
+			<span><?= $o['nahl_poloha'] === '' ? '' : (int) $o['obr_width'] . '&times;' . (int) $o['obr_height'] . ' &middot; ' ?><?= e(Kaleta\Core\Files::size((int) $o['obr_vel'])) ?> &middot; <span<?= $o['kde'] !== [] ? ' title="' . e(t('Použito: %s', implode(', ', $o['kde']))) . '"' : '' ?>><?= e((int) $o['pouzito'] > 0 ? t('použito %s×', (int) $o['pouzito']) : t('nepoužito')) ?></span></span>
 <?php if ($o['nahl_poloha'] !== ''): ?>
 			<input class="galerie-popis" type="text" value="<?= e((string) $o['nazev']) ?>" maxlength="150" placeholder="<?= e(t('Popis pro nevidomé (alt)')) ?>" aria-label="<?= e(t('Popis obrázku %s', $o['nazev'])) ?>" data-popis-media="<?= (int) $o['ido'] ?>" data-adresa="<?= e($modul->url('uloz_popis')) ?>" form="">
 <?php endif ?>

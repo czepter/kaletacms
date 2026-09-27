@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Kaleta\Core;
 
-use Kaleta\Admin\Moduly\Galerie;
-use Kaleta\Admin\Moduly\Presmerovani;
-use Kaleta\Admin\Moduly\Stranky;
+use Kaleta\Admin\Modules\Media;
+use Kaleta\Admin\Modules\Redirects;
+use Kaleta\Admin\Modules\Pages;
 
 /**
  * Import z WordPressu: stránky, příspěvky (→ novinky), kategorie, štítky, přesměrování ze starých adres a (zvlášť) obrázky.
@@ -24,75 +24,75 @@ use Kaleta\Admin\Moduly\Stranky;
  */
 final class WpImport
 {
-    public const int DAVKA = 100;
-    public const int DAVKA_OBRAZKU = 10;
-    public const int SEKUND = 8;
+    public const int BATCH = 100;
+    public const int IMAGE_BATCH = 10;
+    public const int SECONDS = 8;
 
     /** Výchozí volby importu (krok Náhled). */
-    public const array VOLBY = ['jazyk' => '', 'koncepty' => true, 'stranky' => true, 'stavitel' => true, 'presmerovani' => true, 'rubrika' => 0];
+    public const array DEFAULT_OPTIONS = ['jazyk' => '', 'koncepty' => true, 'stranky' => true, 'stavitel' => true, 'presmerovani' => true, 'rubrika' => 0];
 
     /** Typy příspěvků, které umíme; ostatní (menu, vlastní typy doplňků…) náhled jen vyjmenuje. */
-    private const array TYPY = ['post', 'page', 'attachment'];
+    private const array TYPES = ['post', 'page', 'attachment'];
 
-    private string $zdroj = 'wp';
+    private string $source = 'wp';
 
     /** @var array{nazev:string, adresa:string, autori:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>} */
-    private array $hlavicka = ['nazev' => '', 'adresa' => '', 'autori' => [], 'rubriky' => [], 'stitky' => []];
+    private array $header = ['nazev' => '', 'adresa' => '', 'autori' => [], 'rubriky' => [], 'stitky' => []];
 
     /** @var array<string, int> rubriky převedené v tomto požadavku (adresa rubriky ve WordPressu => naše idt) */
-    private array $rubriky = [];
+    private array $categories = [];
 
-    private int $zbyvaStazeni = 0;
-    private float $konec = 0.0;
+    private int $downloadsLeft = 0;
+    private float $end = 0.0;
 
     /**
-     * @param string $zaklad složka webu pro adresy obrázků v textu (Request::basePath(), u webu v kořeni prázdné)
-     * @param int $autor účet, kterému budou importované články patřit
+     * @param string $base složka webu pro adresy obrázků v textu (Request::basePath(), u webu v kořeni prázdné)
+     * @param int $author účet, kterému budou importované články patřit
      */
-    public function __construct(private readonly Db $db, private readonly Settings $nastaveni, private readonly string $zaklad, private readonly int $autor)
+    public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly string $base, private readonly int $author)
     {
     }
 
     /* ---------- stavový soubor ---------- */
 
     /** @return array<string, mixed> */
-    public static function novyStav(string $soubor): array
+    public static function newState(string $file): array
     {
         return [
-            'soubor' => $soubor, 'faze' => 'analyza', 'pozice' => 0, 'celkem' => 0, 'web' => ['nazev' => '', 'adresa' => ''],
+            'soubor' => $file, 'faze' => 'analyza', 'pozice' => 0, 'celkem' => 0, 'web' => ['nazev' => '', 'adresa' => ''],
             'prehled' => ['clanky' => [], 'stranky' => [], 'rubriky' => 0, 'stitky' => 0, 'autori' => 0, 'prilohy' => 0, 'obrazky' => 0, 'jine' => [], 'zkratky' => []],
-            'prilohy' => [], 'volby' => self::VOLBY, 'nahledy' => [],
+            'prilohy' => [], 'volby' => self::DEFAULT_OPTIONS, 'nahledy' => [],
             'vysledek' => ['clanky' => 0, 'stranky' => 0, 'rubriky' => 0, 'presmerovani' => 0, 'preskoceno' => 0],
             'obr' => ['typ' => 'clanek', 'id' => 0, 'hotovo' => 0, 'celkem' => 0, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []],
         ];
     }
 
     /** @return array<string, mixed>|null */
-    public static function nactiStav(string $soubor): ?array
+    public static function loadState(string $file): ?array
     {
-        $cesta = self::souborStavu($soubor);
-        $stav = is_file($cesta) ? json_decode((string) file_get_contents($cesta), true) : null;
+        $path = self::stateFile($file);
+        $state = is_file($path) ? json_decode((string) file_get_contents($path), true) : null;
 
-        return is_array($stav) && ($stav['soubor'] ?? '') === $soubor ? array_replace_recursive(self::novyStav($soubor), $stav) : null;
+        return is_array($state) && ($state['soubor'] ?? '') === $file ? array_replace_recursive(self::newState($file), $state) : null;
     }
 
-    /** @param array<string, mixed> $stav */
-    public static function ulozStav(array $stav): void
+    /** @param array<string, mixed> $state */
+    public static function saveState(array $state): void
     {
-        $cesta = self::souborStavu((string) $stav['soubor']);
+        $path = self::stateFile((string) $state['soubor']);
         // nejdřív vedle, pak přejmenovat: přerušený zápis nesmí nechat poloviční soubor
-        file_put_contents($cesta . '.tmp', (string) json_encode($stav, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
-        rename($cesta . '.tmp', $cesta);
+        file_put_contents($path . '.tmp', (string) json_encode($state, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+        rename($path . '.tmp', $path);
     }
 
-    public static function smazStav(string $soubor): void
+    public static function deleteState(string $file): void
     {
-        @unlink(self::souborStavu($soubor));
+        @unlink(self::stateFile($file));
     }
 
-    private static function souborStavu(string $soubor): string
+    private static function stateFile(string $file): string
     {
-        return WpSoubor::slozka() . '/stav-' . substr(sha1($soubor), 0, 16) . '.json';
+        return WpFile::folder() . '/stav-' . substr(sha1($file), 0, 16) . '.json';
     }
 
     /* ---------- 1. průchod: náhled (nic nezapisuje do databáze) ---------- */
@@ -100,54 +100,54 @@ final class WpImport
     /**
      * Projde další kus souboru a přičte ho do přehledu. Až dojde na konec, přepne fázi na "nahled".
      *
-     * @param array<string, mixed> $stav
+     * @param array<string, mixed> $state
      */
-    public static function analyzuj(array &$stav, float $sekund = self::SEKUND, ?string $cesta = null): void
+    public static function analyze(array &$state, float $seconds = self::SECONDS, ?string $path = null): void
     {
-        $wp = new WpSoubor($cesta ?? (string) WpSoubor::cesta((string) $stav['soubor'])); // $cesta jen pro testy; jinak vždy soubor ze storage/import
-        if ($stav['pozice'] === 0) {
-            $h = $wp->hlavicka();
-            $stav['web'] = ['nazev' => $h['nazev'], 'adresa' => $h['adresa']];
-            $stav['prehled']['rubriky'] = count($h['rubriky']);
-            $stav['prehled']['stitky'] = count($h['stitky']);
-            $stav['prehled']['autori'] = count($h['autori']);
+        $wp = new WpFile($path ?? (string) WpFile::path((string) $state['soubor'])); // $cesta jen pro testy; jinak vždy soubor ze storage/import
+        if ($state['pozice'] === 0) {
+            $h = $wp->header();
+            $state['web'] = ['nazev' => $h['nazev'], 'adresa' => $h['adresa']];
+            $state['prehled']['rubriky'] = count($h['rubriky']);
+            $state['prehled']['stitky'] = count($h['stitky']);
+            $state['prehled']['autori'] = count($h['autori']);
         }
-        $konec = microtime(true) + $sekund;
-        foreach ($wp->polozky((int) $stav['pozice']) as $poradi => $p) {
-            self::zapocti($stav, $p);
-            $stav['pozice'] = $poradi + 1;
-            if (microtime(true) > $konec) {
+        $end = microtime(true) + $seconds;
+        foreach ($wp->items((int) $state['pozice']) as $order => $p) {
+            self::tally($state, $p);
+            $state['pozice'] = $order + 1;
+            if (microtime(true) > $end) {
                 return;
             }
         }
-        $stav['celkem'] = $stav['pozice'];
-        $stav['pozice'] = 0;
-        $stav['faze'] = 'nahled';
-        arsort($stav['prehled']['zkratky']);
-        $stav['prehled']['zkratky'] = array_slice($stav['prehled']['zkratky'], 0, 15, true);
+        $state['celkem'] = $state['pozice'];
+        $state['pozice'] = 0;
+        $state['faze'] = 'nahled';
+        arsort($state['prehled']['zkratky']);
+        $state['prehled']['zkratky'] = array_slice($state['prehled']['zkratky'], 0, 15, true);
     }
 
     /**
-     * @param array<string, mixed> $stav
-     * @param array<string, mixed> $p příspěvek z WpSoubor::polozka()
+     * @param array<string, mixed> $state
+     * @param array<string, mixed> $p příspěvek z WpFile::item()
      */
-    private static function zapocti(array &$stav, array $p): void
+    private static function tally(array &$state, array $p): void
     {
-        $prehled = &$stav['prehled'];
+        $overview = &$state['prehled'];
         if ($p['typ'] === 'attachment') {
-            $prehled['prilohy']++;
+            $overview['prilohy']++;
             if ($p['priloha_url'] !== '') {
-                $stav['prilohy'][(int) $p['id']] = $p['priloha_url']; // pro [gallery ids] a hlavní obrázky článků
+                $state['prilohy'][(int) $p['id']] = $p['priloha_url']; // pro [gallery ids] a hlavní obrázky článků
             }
         } elseif ($p['typ'] === 'post' || $p['typ'] === 'page') {
-            $kam = $p['typ'] === 'post' ? 'clanky' : 'stranky';
-            $prehled[$kam][$p['stav']] = ($prehled[$kam][$p['stav']] ?? 0) + 1;
-            $prehled['obrazky'] += substr_count(strtolower($p['obsah']), '<img');
-            foreach (WpObsah::ciziZkratky($p['obsah']) as $zkratka) {
-                $prehled['zkratky'][$zkratka] = ($prehled['zkratky'][$zkratka] ?? 0) + 1;
+            $destination = $p['typ'] === 'post' ? 'clanky' : 'stranky';
+            $overview[$destination][$p['stav']] = ($overview[$destination][$p['stav']] ?? 0) + 1;
+            $overview['obrazky'] += substr_count(strtolower($p['obsah']), '<img');
+            foreach (WpContent::unknownShortcodes($p['obsah']) as $shortcode) {
+                $overview['zkratky'][$shortcode] = ($overview['zkratky'][$shortcode] ?? 0) + 1;
             }
-        } elseif (!in_array($p['typ'], self::TYPY, true)) {
-            $prehled['jine'][$p['typ']] = ($prehled['jine'][$p['typ']] ?? 0) + 1;
+        } elseif (!in_array($p['typ'], self::TYPES, true)) {
+            $overview['jine'][$p['typ']] = ($overview['jine'][$p['typ']] ?? 0) + 1;
         }
     }
 
@@ -159,16 +159,16 @@ final class WpImport
      *
      * @return array{visible:int}|null
      */
-    public static function stavClanku(string $stavWp, bool $chranenHeslem = false): ?array
+    public static function articleStatus(string $wpStatus, bool $passwordProtected = false): ?array
     {
-        $stav = match ($stavWp) {
+        $state = match ($wpStatus) {
             'publish', 'future' => ['visible' => 1],
             'draft', 'pending' => ['visible' => 0],
             default => null,
         };
 
         // příspěvek chráněný heslem u nás nemá obdobu – nesmí se tiše zveřejnit, zůstane jako koncept
-        return $stav !== null && $chranenHeslem ? ['visible' => 0] : $stav;
+        return $state !== null && $passwordProtected ? ['visible' => 0] : $state;
     }
 
     /**
@@ -176,50 +176,50 @@ final class WpImport
      *
      * @param array<string, mixed> $p
      */
-    public static function datum(array $p, ?int $ted = null): string
+    public static function date(array $p, ?int $now = null): string
     {
-        foreach ([$p['datum'] ?? '', $p['datum_gmt'] ?? '', $p['vydano'] ?? ''] as $i => $hodnota) {
-            $cas = $hodnota === '' || str_starts_with((string) $hodnota, '0000') ? false : strtotime($hodnota . ($i === 1 ? ' UTC' : ''));
-            if ($cas !== false && $cas > 0) {
-                return date('Y-m-d H:i:s', $cas);
+        foreach ([$p['datum'] ?? '', $p['datum_gmt'] ?? '', $p['vydano'] ?? ''] as $i => $value) {
+            $time = $value === '' || str_starts_with((string) $value, '0000') ? false : strtotime($value . ($i === 1 ? ' UTC' : ''));
+            if ($time !== false && $time > 0) {
+                return date('Y-m-d H:i:s', $time);
             }
         }
 
-        return date('Y-m-d H:i:s', $ted ?? time());
+        return date('Y-m-d H:i:s', $now ?? time());
     }
 
     /**
      * Volná adresa (seo_link): když je základ obsazený, dostane pořadové číslo – stejně jako v administraci.
      *
-     * @param callable(string): bool $obsazena
+     * @param callable(string): bool $isTaken
      */
-    public static function volnaAdresa(string $zaklad, callable $obsazena): string
+    public static function availableSlug(string $base, callable $isTaken): string
     {
-        return Adresa::volna($zaklad, $obsazena, 120);
+        return Slug::makeUnique($base, $isTaken, 120);
     }
 
     /** Cesta staré adresy pro přesměrování (bez domény a lomítek na krajích); prázdná = není co přesměrovat. */
-    public static function staraCesta(string $odkaz): string
+    public static function oldPath(string $link): string
     {
-        $cesta = trim(rawurldecode((string) parse_url($odkaz, PHP_URL_PATH)), '/ ');
+        $path = trim(rawurldecode((string) parse_url($link, PHP_URL_PATH)), '/ ');
 
-        return mb_strlen($cesta) > 255 || !mb_check_encoding($cesta, 'UTF-8') ? '' : $cesta;
+        return mb_strlen($path) > 255 || !mb_check_encoding($path, 'UTF-8') ? '' : $path;
     }
 
     /** Adresa obrázku bez rozměru náhledu a bez parametrů: foto-300x200.jpg?x=1 → foto.jpg (WordPress vkládá do textu zmenšeniny). */
-    public static function bezRozmeru(string $adresa): string
+    public static function withoutSize(string $url): string
     {
-        $adresa = (string) preg_replace('/[?#].*$/', '', $adresa);
+        $url = (string) preg_replace('/[?#].*$/', '', $url);
 
-        return (string) preg_replace('#-\d{2,5}x\d{2,5}(?=\.(?:jpe?g|png|gif|webp)$)#i', '', $adresa);
+        return (string) preg_replace('#-\d{2,5}x\d{2,5}(?=\.(?:jpe?g|png|gif|webp)$)#i', '', $url);
     }
 
     /** Označení zdroje v ka_import_mapa: dva různé staré weby mají stejná čísla příspěvků, proto je v něm doména. */
-    public static function zdroj(string $adresaWebu): string
+    public static function source(string $siteUrl): string
     {
-        $domena = StahovaniObrazku::domenaZAdresy($adresaWebu);
+        $domain = ImageDownloader::domainFromUrl($siteUrl);
 
-        return mb_substr($domena === '' ? 'wp' : 'wp:' . $domena, 0, 40);
+        return mb_substr($domain === '' ? 'wp' : 'wp:' . $domain, 0, 40);
     }
 
     /* ---------- 2. průchod: import obsahu ---------- */
@@ -227,89 +227,89 @@ final class WpImport
     /**
      * Převede další dávku příspěvků. Každý příspěvek je jedna transakce: buď je v databázi celý (s komentáři a mapou), nebo vůbec.
      *
-     * @param array<string, mixed> $stav
+     * @param array<string, mixed> $state
      */
-    public function importuj(array &$stav, ?string $cesta = null, int $davka = self::DAVKA): void
+    public function import(array &$state, ?string $path = null, int $batch = self::BATCH): void
     {
-        $wp = new WpSoubor($cesta ?? (string) WpSoubor::cesta((string) $stav['soubor']));
-        $this->hlavicka = $wp->hlavicka();
-        $this->zdroj = self::zdroj((string) $stav['web']['adresa']);
-        $konec = microtime(true) + self::SEKUND;
-        $pocet = 0;
-        foreach ($wp->polozky((int) $stav['pozice']) as $poradi => $p) {
-            $this->db->transaction(function () use ($p, &$stav): void {
+        $wp = new WpFile($path ?? (string) WpFile::path((string) $state['soubor']));
+        $this->header = $wp->header();
+        $this->source = self::source((string) $state['web']['adresa']);
+        $end = microtime(true) + self::SECONDS;
+        $count = 0;
+        foreach ($wp->items((int) $state['pozice']) as $order => $p) {
+            $this->db->transaction(function () use ($p, &$state): void {
                 match ($p['typ']) {
-                    'post' => $this->clanek($p, $stav),
-                    'page' => $stav['volby']['stranky'] ? $this->stranka($p, $stav) : null,
+                    'post' => $this->article($p, $state),
+                    'page' => $state['volby']['stranky'] ? $this->page($p, $state) : null,
                     default => null,
                 };
             });
-            $stav['pozice'] = $poradi + 1;
-            if ((++$pocet >= $davka || microtime(true) > $konec) && $stav['pozice'] < $stav['celkem']) {
+            $state['pozice'] = $order + 1;
+            if ((++$count >= $batch || microtime(true) > $end) && $state['pozice'] < $state['celkem']) {
                 return; // zbytek příště; počet příspěvků (celkem) zná import z náhledu
             }
         }
-        $stav['faze'] = 'hotovo';
+        $state['faze'] = 'hotovo';
     }
 
     /**
      * @param array<string, mixed> $p
-     * @param array<string, mixed> $stav
+     * @param array<string, mixed> $state
      */
-    private function clanek(array $p, array &$stav): void
+    private function article(array $p, array &$state): void
     {
-        $stavClanku = self::stavClanku($p['stav'], $p['heslo'] !== '');
-        if ($stavClanku === null || (!$stavClanku['visible'] && !$stav['volby']['koncepty'])) {
+        $articleStatus = self::articleStatus($p['stav'], $p['heslo'] !== '');
+        if ($articleStatus === null || (!$articleStatus['visible'] && !$state['volby']['koncepty'])) {
             return;
         }
-        $idc = $this->prevedeny('clanek', (string) $p['id'], 'novinky', 'idc');
+        $idc = $this->convertedId('clanek', (string) $p['id'], 'novinky', 'idc');
         if ($idc !== null) {
-            $stav['vysledek']['preskoceno']++; // už převedená novinka zůstává, jak je – mezitím ji mohl někdo upravit
+            $state['vysledek']['preskoceno']++; // už převedená novinka zůstává, jak je – mezitím ji mohl někdo upravit
         } else {
-            $idc = $this->zalozClanek($p, $stavClanku, $stav);
+            $idc = $this->createArticle($p, $articleStatus, $state);
         }
         // hlavní obrázek si zatím jen poznamenáme – stahuje se až ve zvláštním kroku (i u dříve převedené novinky, která ho ještě nemá)
-        $nahled = (string) ($stav['prilohy'][$p['nahled']] ?? '');
-        if ($nahled !== '' && (string) $this->db->value('SELECT obrazek FROM {novinky} WHERE idc = ?', [$idc]) === '') {
-            $stav['nahledy'][$idc] = $nahled;
+        $preview = (string) ($state['prilohy'][$p['nahled']] ?? '');
+        if ($preview !== '' && (string) $this->db->value('SELECT obrazek FROM {novinky} WHERE idc = ?', [$idc]) === '') {
+            $state['nahledy'][$idc] = $preview;
         }
     }
 
     /**
      * @param array<string, mixed> $p
-     * @param array{visible:int} $stavClanku
-     * @param array<string, mixed> $stav
+     * @param array{visible:int} $articleStatus
+     * @param array<string, mixed> $state
      */
-    private function zalozClanek(array $p, array $stavClanku, array &$stav): int
+    private function createArticle(array $p, array $articleStatus, array &$state): int
     {
-        [$uvod, $text] = WpObsah::perexAText($p['perex'], $p['obsah'], $stav['prilohy']);
-        $tema = $p['rubriky'] === [] ? $this->vychoziRubrika($stav) : $this->rubrika((string) array_key_first($p['rubriky']), (string) reset($p['rubriky']), $stav);
-        $jazyk = (string) $this->db->value('SELECT jazyk FROM {kategorie} WHERE idt = ?', [$tema]); // novinka přebírá jazyk kategorie, jako při uložení v administraci
-        $titulek = mb_substr($p['titulek'] !== '' ? $p['titulek'] : t('(bez názvu)'), 0, 255);
-        $ted = date('Y-m-d H:i:s');
+        [$home, $text] = WpContent::introAndText($p['perex'], $p['obsah'], $state['prilohy']);
+        $colorScheme = $p['rubriky'] === [] ? $this->defaultCategory($state) : $this->category((string) array_key_first($p['rubriky']), (string) reset($p['rubriky']), $state);
+        $language = (string) $this->db->value('SELECT jazyk FROM {kategorie} WHERE idt = ?', [$colorScheme]); // novinka přebírá jazyk kategorie, jako při uložení v administraci
+        $title = mb_substr($p['titulek'] !== '' ? $p['titulek'] : t('(bez názvu)'), 0, 255);
+        $now = date('Y-m-d H:i:s');
 
-        $seo = self::volnaAdresa(
-            slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $titulek, 150),
-            fn (string $adresa): bool => $this->db->value('SELECT idc FROM {novinky} WHERE seo_link = ?', [$adresa]) !== null,
+        $seo = self::availableSlug(
+            slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 150),
+            fn (string $url): bool => $this->db->value('SELECT idc FROM {novinky} WHERE seo_link = ?', [$url]) !== null,
         );
         $idc = $this->db->insert('novinky', [
-            'seo_link' => $seo, 'titulek' => $titulek, 'uvod' => $uvod, 'text' => $text, 'tema' => $tema, 'jazyk' => $jazyk,
-            'autor' => $this->autor,
-            'datum' => self::datum($p),
-            'visible' => $stavClanku['visible'],
-            'zmeneno' => $ted,
-            'oznameno' => $ted, // stará novinka se neoznamuje (webhook, IndexNow)
+            'seo_link' => $seo, 'titulek' => $title, 'uvod' => $home, 'text' => $text, 'tema' => $colorScheme, 'jazyk' => $language,
+            'autor' => $this->author,
+            'datum' => self::date($p),
+            'visible' => $articleStatus['visible'],
+            'zmeneno' => $now,
+            'oznameno' => $now, // stará novinka se neoznamuje (webhook, IndexNow)
         ]);
-        foreach (array_slice($p['stitky'], 0, 20, true) as $adresa => $nazev) {
-            $this->stitek($idc, (string) $adresa, $nazev !== '' ? $nazev : (string) ($this->hlavicka['stitky'][$adresa] ?? $adresa));
+        foreach (array_slice($p['stitky'], 0, 20, true) as $url => $name) {
+            $this->tag($idc, (string) $url, $name !== '' ? $name : (string) ($this->header['stitky'][$url] ?? $url));
         }
-        Hledani::indexuj($this->db, $idc);
-        Galerie::zapisPouziti($this->db, $idc, '', $uvod, $text);
-        $this->zapisMapu('clanek', (string) $p['id'], $idc);
-        $stav['vysledek']['clanky']++;
+        Search::index($this->db, $idc);
+        Media::recordUsage($this->db, $idc, '', $home, $text);
+        $this->writeMap('clanek', (string) $p['id'], $idc);
+        $state['vysledek']['clanky']++;
 
-        if ($stav['volby']['presmerovani']) {
-            $stav['vysledek']['presmerovani'] += $this->presmeruj($p, ($jazyk !== '' ? $jazyk . '/' : '') . 'novinky/' . $seo);
+        if ($state['volby']['presmerovani']) {
+            $state['vysledek']['presmerovani'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . 'novinky/' . $seo);
         }
 
         return $idc;
@@ -317,101 +317,101 @@ final class WpImport
 
     /**
      * @param array<string, mixed> $p
-     * @param array<string, mixed> $stav
+     * @param array<string, mixed> $state
      */
-    private function stranka(array $p, array &$stav): void
+    private function page(array $p, array &$state): void
     {
-        $stavClanku = self::stavClanku($p['stav'], $p['heslo'] !== '');
-        if ($stavClanku === null || (!$stavClanku['visible'] && !$stav['volby']['koncepty'])) {
+        $articleStatus = self::articleStatus($p['stav'], $p['heslo'] !== '');
+        if ($articleStatus === null || (!$articleStatus['visible'] && !$state['volby']['koncepty'])) {
             return;
         }
-        if ($this->prevedeny('stranka', (string) $p['id'], 'stranky', 'ids') !== null) {
-            $stav['vysledek']['preskoceno']++;
+        if ($this->convertedId('stranka', (string) $p['id'], 'stranky', 'ids') !== null) {
+            $state['vysledek']['preskoceno']++;
 
             return;
         }
-        $titulek = mb_substr($p['titulek'] !== '' ? $p['titulek'] : t('(bez názvu)'), 0, 200);
-        $jazyk = Jazyk::sloupec($this->nastaveni, (string) $stav['volby']['jazyk']);
+        $title = mb_substr($p['titulek'] !== '' ? $p['titulek'] : t('(bez názvu)'), 0, 200);
+        $language = Language::column($this->settings, (string) $state['volby']['jazyk']);
         // stránka má adresu přímo pod kořenem webu, nesmí proto zabrat adresu, kterou používá systém
-        $seo = self::volnaAdresa(
-            slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $titulek, 110),
-            fn (string $adresa): bool => in_array($adresa, Stranky::VYHRAZENE, true) || isset(Jazyk::DOSTUPNE[$adresa])
-                || $this->db->value('SELECT ids FROM {stranky} WHERE seo_link = ?', [$adresa]) !== null,
+        $seo = self::availableSlug(
+            slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 110),
+            fn (string $url): bool => in_array($url, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$url])
+                || $this->db->value('SELECT ids FROM {stranky} WHERE seo_link = ?', [$url]) !== null,
         );
-        $text = WpObsah::vycisti($p['obsah'], $stav['prilohy']);
+        $text = WpContent::sanitize($p['obsah'], $state['prilohy']);
         $ids = $this->db->insert('stranky', [
-            'seo_link' => $seo, 'titulek' => $titulek, 'text' => $text,
-            'stavba' => ($stav['volby']['stavitel'] ?? false) ? $this->stavba($titulek, $text) : null,
+            'seo_link' => $seo, 'titulek' => $title, 'text' => $text,
+            'stavba' => ($state['volby']['stavitel'] ?? false) ? $this->build($title, $text) : null,
             'popis' => mb_substr(trim(html_entity_decode(strip_tags($p['perex']), ENT_QUOTES | ENT_HTML5, 'UTF-8')), 0, 300),
-            'zobrazit' => $stavClanku['visible'],
+            'zobrazit' => $articleStatus['visible'],
             'v_menu' => 0, // desítky starých stránek by zaplavily navigaci; do nabídky si je správce zařadí sám
-            'zmeneno' => date('Y-m-d H:i:s'), 'jazyk' => $jazyk,
+            'zmeneno' => date('Y-m-d H:i:s'), 'jazyk' => $language,
         ]);
-        $this->zapisMapu('stranka', (string) $p['id'], $ids);
-        $stav['vysledek']['stranky']++;
-        if ($stav['volby']['presmerovani']) {
-            $stav['vysledek']['presmerovani'] += $this->presmeruj($p, ($jazyk !== '' ? $jazyk . '/' : '') . $seo);
+        $this->writeMap('stranka', (string) $p['id'], $ids);
+        $state['vysledek']['stranky']++;
+        if ($state['volby']['presmerovani']) {
+            $state['vysledek']['presmerovani'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . $seo);
         }
     }
 
     /**
      * Kategorie podle adresy kategorie ve WordPressu (strom se zplošťuje); založí ji, když ještě není. Zakládají se jen kategorie s příspěvky.
      *
-     * @param array<string, mixed> $stav
+     * @param array<string, mixed> $state
      */
-    private function rubrika(string $adresa, string $nazev, array &$stav): int
+    private function category(string $url, string $name, array &$state): int
     {
-        if (isset($this->rubriky[$adresa])) {
-            return $this->rubriky[$adresa];
+        if (isset($this->categories[$url])) {
+            return $this->categories[$url];
         }
-        $idt = $this->prevedeny('rubrika', $adresa, 'kategorie', 'idt');
+        $idt = $this->convertedId('rubrika', $url, 'kategorie', 'idt');
         if ($idt === null) {
-            $popis = $this->hlavicka['rubriky'][$adresa] ?? ['nazev' => $nazev, 'predek' => ''];
-            $nazev = mb_substr($popis['nazev'] !== '' ? $popis['nazev'] : ($nazev !== '' ? $nazev : $adresa), 0, 100);
-            $jazyk = Jazyk::sloupec($this->nastaveni, (string) $stav['volby']['jazyk']);
-            $seo = slugify(rawurldecode($adresa), 110);
+            $description = $this->header['rubriky'][$url] ?? ['nazev' => $name, 'predek' => ''];
+            $name = mb_substr($description['nazev'] !== '' ? $description['nazev'] : ($name !== '' ? $name : $url), 0, 100);
+            $language = Language::column($this->settings, (string) $state['volby']['jazyk']);
+            $seo = slugify(rawurldecode($url), 110);
             // stejná adresa, název i jazyk = tatáž kategorie, která na webu už je; jinak nová s volnou adresou
-            $idt = $this->db->value('SELECT idt FROM {kategorie} WHERE seo_link = ? AND jazyk = ? AND LOWER(nazev) = LOWER(?)', [$seo, $jazyk, $nazev]);
+            $idt = $this->db->value('SELECT idt FROM {kategorie} WHERE seo_link = ? AND jazyk = ? AND LOWER(nazev) = LOWER(?)', [$seo, $language, $name]);
             if ($idt === null) {
                 $idt = $this->db->insert('kategorie', [
-                    'nazev' => $nazev, 'popis' => '', 'jazyk' => $jazyk,
-                    'seo_link' => self::volnaAdresa($seo, fn (string $a): bool => $this->db->value('SELECT idt FROM {kategorie} WHERE seo_link = ?', [$a]) !== null),
+                    'nazev' => $name, 'popis' => '', 'jazyk' => $language,
+                    'seo_link' => self::availableSlug($seo, fn (string $a): bool => $this->db->value('SELECT idt FROM {kategorie} WHERE seo_link = ?', [$a]) !== null),
                 ]);
-                $stav['vysledek']['rubriky']++;
+                $state['vysledek']['rubriky']++;
             }
-            $this->zapisMapu('rubrika', $adresa, (int) $idt);
+            $this->writeMap('rubrika', $url, (int) $idt);
         }
 
-        return $this->rubriky[$adresa] = (int) $idt;
+        return $this->categories[$url] = (int) $idt;
     }
 
     /**
      * Kategorie pro příspěvky bez kategorie: zvolená v náhledu, jinak se založí „Nezařazené“.
      *
-     * @param array<string, mixed> $stav
+     * @param array<string, mixed> $state
      */
-    private function vychoziRubrika(array &$stav): int
+    private function defaultCategory(array &$state): int
     {
-        $idt = (int) $stav['volby']['rubrika'];
+        $idt = (int) $state['volby']['rubrika'];
         if ($idt > 0 && $this->db->value('SELECT idt FROM {kategorie} WHERE idt = ?', [$idt]) !== null) {
             return $idt;
         }
 
-        return $stav['volby']['rubrika'] = $this->rubrika('nezarazene', t('Nezařazené'), $stav);
+        return $state['volby']['rubrika'] = $this->category('nezarazene', t('Nezařazené'), $state);
     }
 
     /** Štítek se hledá podle adresy z názvu a neznámý se založí – stejně jako při uložení novinky v administraci. */
-    private function stitek(int $idc, string $adresaWp, string $nazev): void
+    private function tag(int $idc, string $wpSlug, string $name): void
     {
-        $nazev = mb_substr(trim($nazev), 0, 80);
-        if ($nazev === '') {
+        $name = mb_substr(trim($name), 0, 80);
+        if ($name === '') {
             return;
         }
-        $seo = slugify($nazev, 90);
+        $seo = slugify($name, 90);
         $ids = $this->db->value('SELECT ids FROM {stitky} WHERE seo_link = ?', [$seo]);
-        $ids = $ids !== null ? (int) $ids : $this->db->insert('stitky', ['nazev' => $nazev, 'seo_link' => $seo]);
+        $ids = $ids !== null ? (int) $ids : $this->db->insert('stitky', ['nazev' => $name, 'seo_link' => $seo]);
         $this->db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) VALUES (?, ?)', [$idc, $ids]);
-        $this->zapisMapu('stitek', $adresaWp, $ids);
+        $this->writeMap('stitek', $wpSlug, $ids);
     }
 
     /**
@@ -419,17 +419,17 @@ final class WpImport
      *
      * @param array<string, mixed> $p
      */
-    private function presmeruj(array $p, string $nova): int
+    private function redirect(array $p, string $newVersion): int
     {
-        $pocet = 0;
-        foreach (array_unique([self::staraCesta($p['odkaz']), $p['id'] > 0 ? '?p=' . (int) $p['id'] : '']) as $stara) {
-            if ($stara !== '' && $stara !== $nova) {
-                Presmerovani::pridej($this->db, $stara, $nova);
-                $pocet++;
+        $count = 0;
+        foreach (array_unique([self::oldPath($p['odkaz']), $p['id'] > 0 ? '?p=' . (int) $p['id'] : '']) as $old) {
+            if ($old !== '' && $old !== $newVersion) {
+                Redirects::add($this->db, $old, $newVersion);
+                $count++;
             }
         }
 
-        return $pocet;
+        return $count;
     }
 
     /* ---------- 3. průchod: obrázky ze starého webu ---------- */
@@ -437,190 +437,190 @@ final class WpImport
     /**
      * Začátek (nebo opakování) stahování obrázků: počitadla od nuly; co se minule nepovedlo stáhnout, dostane druhou šanci.
      *
-     * @param array<string, mixed> $stav
+     * @param array<string, mixed> $state
      */
-    public function zacniObrazky(array &$stav): void
+    public function startImages(array &$state): void
     {
-        $this->zdroj = self::zdroj((string) $stav['web']['adresa']);
-        $this->db->run("DELETE FROM {import_mapa} WHERE zdroj = ? AND typ = 'obrazek' AND nase_id = 0", [$this->zdroj]);
-        $celkem = (int) $this->db->value("SELECT COUNT(*) FROM {import_mapa} WHERE zdroj = ? AND typ IN ('clanek', 'stranka')", [$this->zdroj]);
-        $stav['obr'] = ['typ' => 'clanek', 'id' => 0, 'hotovo' => 0, 'celkem' => $celkem, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []];
-        $stav['faze'] = 'obrazky';
+        $this->source = self::source((string) $state['web']['adresa']);
+        $this->db->run("DELETE FROM {import_mapa} WHERE zdroj = ? AND typ = 'obrazek' AND nase_id = 0", [$this->source]);
+        $total = (int) $this->db->value("SELECT COUNT(*) FROM {import_mapa} WHERE zdroj = ? AND typ IN ('clanek', 'stranka')", [$this->source]);
+        $state['obr'] = ['typ' => 'clanek', 'id' => 0, 'hotovo' => 0, 'celkem' => $total, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []];
+        $state['faze'] = 'obrazky';
     }
 
     /**
      * Stáhne další dávku obrázků: hlavní obrázek článku a obrázky v textu, které leží na doméně starého webu.
      * Pracuje nad už převedenými záznamy (ne nad souborem); pozice = poslední hotový článek nebo stránka.
      *
-     * @param array<string, mixed> $stav
+     * @param array<string, mixed> $state
      */
-    public function obrazky(array &$stav, StahovaniObrazku $stahovani): void
+    public function images(array &$state, ImageDownloader $downloader): void
     {
-        $this->zdroj = self::zdroj((string) $stav['web']['adresa']);
-        $this->zbyvaStazeni = self::DAVKA_OBRAZKU;
-        $this->konec = microtime(true) + self::SEKUND;
+        $this->source = self::source((string) $state['web']['adresa']);
+        $this->downloadsLeft = self::IMAGE_BATCH;
+        $this->end = microtime(true) + self::SECONDS;
         while (true) {
-            $id = $this->db->value('SELECT MIN(nase_id) FROM {import_mapa} WHERE zdroj = ? AND typ = ? AND nase_id > ?', [$this->zdroj, $stav['obr']['typ'], (int) $stav['obr']['id']]);
-            if ($id === null && $stav['obr']['typ'] === 'clanek') {
-                $stav['obr'] = ['typ' => 'stranka', 'id' => 0] + $stav['obr']; // po článcích stránky
+            $id = $this->db->value('SELECT MIN(nase_id) FROM {import_mapa} WHERE zdroj = ? AND typ = ? AND nase_id > ?', [$this->source, $state['obr']['typ'], (int) $state['obr']['id']]);
+            if ($id === null && $state['obr']['typ'] === 'clanek') {
+                $state['obr'] = ['typ' => 'stranka', 'id' => 0] + $state['obr']; // po článcích stránky
                 continue;
             }
             if ($id === null) {
-                $stav['faze'] = 'obrazky-hotovo';
+                $state['faze'] = 'obrazky-hotovo';
 
                 return;
             }
-            if (!$this->obrazkyZaznamu((string) $stav['obr']['typ'], (int) $id, $stav, $stahovani)) {
+            if (!$this->recordImages((string) $state['obr']['typ'], (int) $id, $state, $downloader)) {
                 return; // dávka je vyčerpaná uprostřed záznamu – příště se pokračuje tímtéž
             }
-            $stav['obr']['id'] = (int) $id;
-            $stav['obr']['hotovo']++;
-            if ($this->zbyvaStazeni <= 0 || microtime(true) > $this->konec) {
+            $state['obr']['id'] = (int) $id;
+            $state['obr']['hotovo']++;
+            if ($this->downloadsLeft <= 0 || microtime(true) > $this->end) {
                 return;
             }
         }
     }
 
     /**
-     * @param array<string, mixed> $stav
+     * @param array<string, mixed> $state
      * @return bool false = došel rozpočet dávky, záznam ještě není celý
      */
-    private function obrazkyZaznamu(string $typ, int $id, array &$stav, StahovaniObrazku $stahovani): bool
+    private function recordImages(string $type, int $id, array &$state, ImageDownloader $downloader): bool
     {
-        $zaznam = $typ === 'clanek'
+        $record = $type === 'clanek'
             ? $this->db->one('SELECT idc, titulek, uvod, text, obrazek FROM {novinky} WHERE idc = ?', [$id])
             : $this->db->one("SELECT ids, titulek, '' AS uvod, text, '' AS obrazek FROM {stranky} WHERE ids = ?", [$id]);
-        if ($zaznam === null) {
+        if ($record === null) {
             return true; // záznam mezitím někdo smazal
         }
-        $cely = true;
-        $nove = ['uvod' => (string) $zaznam['uvod'], 'text' => (string) $zaznam['text'], 'obrazek' => (string) $zaznam['obrazek']];
-        foreach (['uvod', 'text'] as $pole) {
-            $nove[$pole] = (string) preg_replace_callback('#<img\b[^>]*>#i', function (array $m) use ($stahovani, &$stav, &$cely, $zaznam): string {
+        $complete = true;
+        $newItems = ['uvod' => (string) $record['uvod'], 'text' => (string) $record['text'], 'obrazek' => (string) $record['obrazek']];
+        foreach (['uvod', 'text'] as $field) {
+            $newItems[$field] = (string) preg_replace_callback('#<img\b[^>]*>#i', function (array $m) use ($downloader, &$state, &$complete, $record): string {
                 $src = preg_match('#\bsrc="([^"]+)"#i', $m[0], $a) ? html_entity_decode($a[1], ENT_QUOTES | ENT_HTML5) : '';
-                if (!$cely || !$stahovani->povolenaAdresa($src)) {
+                if (!$complete || !$downloader->isAllowedUrl($src)) {
                     return $m[0]; // cizí obrázky (jiná doména) zůstávají, jak jsou – nestahují se nikdy
                 }
                 $alt = preg_match('#\balt="([^"]*)"#i', $m[0], $a) ? html_entity_decode($a[1], ENT_QUOTES | ENT_HTML5) : '';
-                $obr = $this->obrazek($src, $alt !== '' ? $alt : (string) $zaznam['titulek'], $stav, $stahovani);
-                if ($obr === false) {
-                    $cely = false;
+                $image = $this->image($src, $alt !== '' ? $alt : (string) $record['titulek'], $state, $downloader);
+                if ($image === false) {
+                    $complete = false;
                 }
 
-                return is_array($obr)
-                    ? '<img src="' . e($this->zaklad . '/' . $obr['obr_poloha']) . '" alt="' . e($alt) . '" width="' . (int) $obr['obr_width'] . '" height="' . (int) $obr['obr_height'] . '" loading="lazy" data-id="' . (int) $obr['ido'] . '">'
+                return is_array($image)
+                    ? '<img src="' . e($this->base . '/' . $image['obr_poloha']) . '" alt="' . e($alt) . '" width="' . (int) $image['obr_width'] . '" height="' . (int) $image['obr_height'] . '" loading="lazy" data-id="' . (int) $image['ido'] . '">'
                     : $m[0];
-            }, $nove[$pole]);
+            }, $newItems[$field]);
         }
-        $nahled = (string) ($stav['nahledy'][$id] ?? '');
-        if ($typ === 'clanek' && $cely && $nahled !== '') {
-            $obr = $this->obrazek($nahled, (string) $zaznam['titulek'], $stav, $stahovani);
-            $cely = $obr !== false;
-            if (is_array($obr) && $nove['obrazek'] === '') {
-                $nove['obrazek'] = (string) $obr['obr_poloha'];
+        $preview = (string) ($state['nahledy'][$id] ?? '');
+        if ($type === 'clanek' && $complete && $preview !== '') {
+            $image = $this->image($preview, (string) $record['titulek'], $state, $downloader);
+            $complete = $image !== false;
+            if (is_array($image) && $newItems['obrazek'] === '') {
+                $newItems['obrazek'] = (string) $image['obr_poloha'];
             }
-            if ($cely) {
-                unset($stav['nahledy'][$id]);
+            if ($complete) {
+                unset($state['nahledy'][$id]);
             }
         }
-        if ($typ === 'clanek' && $nove !== ['uvod' => $zaznam['uvod'], 'text' => $zaznam['text'], 'obrazek' => $zaznam['obrazek']]) {
-            $this->db->update('novinky', $nove, ['idc' => $id]);
-            Galerie::zapisPouziti($this->db, $id, $nove['obrazek'], $nove['uvod'], $nove['text']);
-        } elseif ($typ === 'stranka' && $nove['text'] !== $zaznam['text']) {
+        if ($type === 'clanek' && $newItems !== ['uvod' => $record['uvod'], 'text' => $record['text'], 'obrazek' => $record['obrazek']]) {
+            $this->db->update('novinky', $newItems, ['idc' => $id]);
+            Media::recordUsage($this->db, $id, $newItems['obrazek'], $newItems['uvod'], $newItems['text']);
+        } elseif ($type === 'stranka' && $newItems['text'] !== $record['text']) {
             // obrázky jsou už v Médiích: stavba importované stránky se převede znovu, aby odkazovala na ně
-            $stavba = $this->db->value('SELECT stavba FROM {stranky} WHERE ids = ?', [$id]) !== null && $this->db->value('SELECT stavba_koncept FROM {stranky} WHERE ids = ?', [$id]) === null
-                ? ['stavba' => $this->stavba((string) $zaznam['titulek'], $nove['text'])] : [];
-            $this->db->update('stranky', ['text' => $nove['text']] + $stavba, ['ids' => $id]);
+            $build = $this->db->value('SELECT stavba FROM {stranky} WHERE ids = ?', [$id]) !== null && $this->db->value('SELECT stavba_koncept FROM {stranky} WHERE ids = ?', [$id]) === null
+                ? ['stavba' => $this->build((string) $record['titulek'], $newItems['text'])] : [];
+            $this->db->update('stranky', ['text' => $newItems['text']] + $build, ['ids' => $id]);
         }
 
-        return $cely;
+        return $complete;
     }
 
     /**
      * Stránka z WordPressu jako stavba (Stavitel\ZHtml): nadpis a obsah v úzké sekci, bloky Gutenbergu jako prvky, třídy
      * WordPressu bez stylu pryč. Vlastní HTML (vložené mapy, iframe) smí vzniknout – import spouští správce.
      */
-    private function stavba(string $titulek, string $html): ?string
+    private function build(string $title, string $html): ?string
     {
-        $prevod = \Kaleta\Stavitel\ZHtml::preved('<h1>' . e($titulek) . '</h1>' . $html, true);
-        $stavba = \Kaleta\Stavitel\ZHtml::bezTrid($prevod['stavba'], array_column($this->db->all('SELECT nazev FROM {tridy}'), 'nazev'));
-        foreach ($stavba['deti'] as &$sekce) {
-            if ($sekce['typ'] === 'sekce' && !isset($sekce['kotva'])) {
-                $sekce['obsah']['sirka'] = 'uzka'; // text stránky se čte lépe v užším sloupci
+        $conversion = \Kaleta\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, true);
+        $build = \Kaleta\Builder\HtmlConverter::withoutClasses($conversion['stavba'], array_column($this->db->all('SELECT nazev FROM {tridy}'), 'nazev'));
+        foreach ($build['deti'] as &$section) {
+            if ($section['typ'] === 'sekce' && !isset($section['kotva'])) {
+                $section['obsah']['sirka'] = 'uzka'; // text stránky se čte lépe v užším sloupci
             }
         }
-        unset($sekce);
-        [$cista] = \Kaleta\Stavitel\Stavba::vycisti($stavba, true);
+        unset($section);
+        [$clean] = \Kaleta\Builder\Build::sanitize($build, true);
 
-        return $cista['deti'] === [] ? null : \Kaleta\Stavitel\Stavba::naJson($cista);
+        return $clean['deti'] === [] ? null : \Kaleta\Builder\Build::toJson($clean);
     }
 
     /**
      * Jeden obrázek: z mapy (už stažený), nebo ze starého webu přes Core\Obrazky do Médií.
      *
-     * @param array<string, mixed> $stav
+     * @param array<string, mixed> $state
      * @return array<string, mixed>|null|false řádek ka_media; null = nejde stáhnout; false = dávka je vyčerpaná
      */
-    private function obrazek(string $adresa, string $nazev, array &$stav, StahovaniObrazku $stahovani): array|null|false
+    private function image(string $url, string $name, array &$state, ImageDownloader $downloader): array|null|false
     {
-        $original = self::bezRozmeru($adresa);
-        $klic = sha1($original);
-        $ido = $this->db->value("SELECT nase_id FROM {import_mapa} WHERE zdroj = ? AND typ = 'obrazek' AND cizi_id = ?", [$this->zdroj, $klic]);
-        $radek = $ido === null ? null : $this->db->one('SELECT * FROM {media} WHERE ido = ?', [(int) $ido]);
-        if ($radek !== null || ($ido !== null && (int) $ido === 0)) {
-            return $radek; // hotovo dřív, nebo už jednou selhalo (null)
+        $original = self::withoutSize($url);
+        $key = sha1($original);
+        $ido = $this->db->value("SELECT nase_id FROM {import_mapa} WHERE zdroj = ? AND typ = 'obrazek' AND cizi_id = ?", [$this->source, $key]);
+        $row = $ido === null ? null : $this->db->one('SELECT * FROM {media} WHERE ido = ?', [(int) $ido]);
+        if ($row !== null || ($ido !== null && (int) $ido === 0)) {
+            return $row; // hotovo dřív, nebo už jednou selhalo (null)
         }
-        if ($this->zbyvaStazeni <= 0 || microtime(true) > $this->konec) {
+        if ($this->downloadsLeft <= 0 || microtime(true) > $this->end) {
             return false;
         }
-        $this->zbyvaStazeni--;
-        $docasny = WpSoubor::slozka() . '/obrazek-' . bin2hex(random_bytes(6)) . '.tmp';
+        $this->downloadsLeft--;
+        $temporary = WpFile::folder() . '/obrazek-' . bin2hex(random_bytes(6)) . '.tmp';
         try {
             try {
-                $data = $stahovani->stahni($original);
+                $data = $downloader->download($original);
             } catch (\RuntimeException $e) {
-                if ($original === $adresa) {
+                if ($original === $url) {
                     throw $e;
                 }
-                $data = $stahovani->stahni((string) preg_replace('/[?#].*$/', '', $adresa)); // originál chybí, zkusí se aspoň zmenšenina z textu
+                $data = $downloader->download((string) preg_replace('/[?#].*$/', '', $url)); // originál chybí, zkusí se aspoň zmenšenina z textu
             }
-            file_put_contents($docasny, $data);
-            $ulozeny = Obrazky::ulozSoubor($docasny, basename((string) parse_url($original, PHP_URL_PATH)));
-            $ulozeny['nazev'] = mb_substr($nazev !== '' ? $nazev : $ulozeny['nazev'], 0, 150);
-            $ulozeny['ido'] = $this->db->insert('media', $ulozeny + ['vlastnik' => $this->autor, 'datum' => date('Y-m-d H:i:s')]);
-            $this->zapisMapu('obrazek', $klic, (int) $ulozeny['ido']);
-            $stav['obr']['stazeno']++;
+            file_put_contents($temporary, $data);
+            $saved = Images::saveFile($temporary, basename((string) parse_url($original, PHP_URL_PATH)));
+            $saved['nazev'] = mb_substr($name !== '' ? $name : $saved['nazev'], 0, 150);
+            $saved['ido'] = $this->db->insert('media', $saved + ['vlastnik' => $this->author, 'datum' => date('Y-m-d H:i:s')]);
+            $this->writeMap('obrazek', $key, (int) $saved['ido']);
+            $state['obr']['stazeno']++;
 
-            return $ulozeny;
+            return $saved;
         } catch (\RuntimeException $e) {
-            $this->zapisMapu('obrazek', $klic, 0); // nezkoušet znovu u každého článku, který obrázek používá
-            $stav['obr']['chyb']++;
-            $stav['obr']['chyby'] = array_slice(array_merge($stav['obr']['chyby'], [mb_substr($original, 0, 200) . ' – ' . t($e->getMessage()) . ($e->getCode() > 0 ? ' ' . $e->getCode() : '')]), -10);
+            $this->writeMap('obrazek', $key, 0); // nezkoušet znovu u každého článku, který obrázek používá
+            $state['obr']['chyb']++;
+            $state['obr']['chyby'] = array_slice(array_merge($state['obr']['chyby'], [mb_substr($original, 0, 200) . ' – ' . t($e->getMessage()) . ($e->getCode() > 0 ? ' ' . $e->getCode() : '')]), -10);
 
             return null;
         } finally {
-            @unlink($docasny);
+            @unlink($temporary);
         }
     }
 
     /* ---------- mapa cizích a našich záznamů ---------- */
 
     /** Číslo našeho záznamu, do kterého byl cizí už převeden – jen pokud pořád existuje (smazaný se importuje znovu). */
-    private function prevedeny(string $typ, string $ciziId, string $tabulka, string $klic): ?int
+    private function convertedId(string $type, string $foreignId, string $table, string $key): ?int
     {
-        $nase = $this->db->value('SELECT nase_id FROM {import_mapa} WHERE zdroj = ? AND typ = ? AND cizi_id = ?', [$this->zdroj, $typ, mb_substr($ciziId, 0, 190)]);
-        if ($nase === null || $this->db->value('SELECT ' . $klic . ' FROM {' . $tabulka . '} WHERE ' . $klic . ' = ?', [(int) $nase]) === null) {
+        $ourId = $this->db->value('SELECT nase_id FROM {import_mapa} WHERE zdroj = ? AND typ = ? AND cizi_id = ?', [$this->source, $type, mb_substr($foreignId, 0, 190)]);
+        if ($ourId === null || $this->db->value('SELECT ' . $key . ' FROM {' . $table . '} WHERE ' . $key . ' = ?', [(int) $ourId]) === null) {
             return null;
         }
 
-        return (int) $nase;
+        return (int) $ourId;
     }
 
-    private function zapisMapu(string $typ, string $ciziId, int $naseId): void
+    private function writeMap(string $type, string $foreignId, int $ourId): void
     {
         $this->db->run(
             'INSERT INTO {import_mapa} (zdroj, typ, cizi_id, nase_id) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE nase_id = VALUES(nase_id)',
-            [$this->zdroj, $typ, mb_substr($ciziId, 0, 190), $naseId],
+            [$this->source, $type, mb_substr($foreignId, 0, 190), $ourId],
         );
     }
 }

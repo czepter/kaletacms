@@ -6,14 +6,14 @@ namespace Kaleta\Install;
 
 use Kaleta\Core\Auth;
 use Kaleta\Core\Db;
-use Kaleta\Core\Migrace;
+use Kaleta\Core\Migration;
 use Kaleta\Core\Request;
 use Kaleta\Core\Response;
-use Kaleta\Core\Rozsireni;
+use Kaleta\Core\Extensions;
 use Kaleta\Core\View;
-use Kaleta\Front\Layouty;
-use Kaleta\Stavitel\Knihovna;
-use Kaleta\Stavitel\Stavba;
+use Kaleta\Front\Layouts;
+use Kaleta\Builder\Library;
+use Kaleta\Builder\Build;
 
 /**
  * Webový instalátor: ověří server, založí tabulky, prvního admina a zapíše config.php.
@@ -30,21 +30,21 @@ final class Installer
     }
 
     /** Jazyky instalace (= jazyky administrace) a výchozí časové pásmo, které k nim nabídneme. */
-    private const array PASMA = ['cs' => 'Europe/Prague', 'en' => 'Europe/London'];
+    private const array TIME_ZONES = ['cs' => 'Europe/Prague', 'en' => 'Europe/London'];
 
-    private string $jazyk = 'cs';
+    private string $language = 'cs';
 
     /** Jazyk instalace: výslovná volba (?jazyk=, skryté pole formuláře), jinak první známý jazyk z hlavičky prohlížeče. */
-    private function zvolJazyk(): string
+    private function chooseLanguage(): string
     {
-        $volba = (string) ($_POST['jazyk'] ?? $_GET['jazyk'] ?? '');
-        if (isset(self::PASMA[$volba])) {
-            return $volba;
+        $choice = (string) ($_POST['jazyk'] ?? $_GET['jazyk'] ?? '');
+        if (isset(self::TIME_ZONES[$choice])) {
+            return $choice;
         }
-        foreach (explode(',', strtolower((string) ($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? ''))) as $cast) {
-            $kod = substr(trim($cast), 0, 2);
-            if (isset(self::PASMA[$kod])) {
-                return $kod;
+        foreach (explode(',', strtolower((string) ($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? ''))) as $part) {
+            $code = substr(trim($part), 0, 2);
+            if (isset(self::TIME_ZONES[$code])) {
+                return $code;
             }
         }
 
@@ -54,44 +54,44 @@ final class Installer
     public function handle(): Response
     {
         if (is_file(KALETA_ROOT . '/config.php')) {
-            \Kaleta\Core\Jazyk::nastav($this->zvolJazyk(), 'install-');
+            \Kaleta\Core\Language::set($this->chooseLanguage(), 'install-');
 
-            return $this->stranka('hotovo', ['jizNainstalovano' => true, 'smazano' => $this->smazSe()]);
+            return $this->page('hotovo', ['jizNainstalovano' => true, 'smazano' => $this->deleteSelf()]);
         }
 
-        $this->jazyk = $this->zvolJazyk();
-        \Kaleta\Core\Jazyk::nastav($this->jazyk, 'install-');
-        $pozadavky = $this->pozadavky();
+        $this->language = $this->chooseLanguage();
+        \Kaleta\Core\Language::set($this->language, 'install-');
+        $requirements = $this->requirements();
         $data = [
             'db_host' => 'localhost', 'db_port' => '3306', 'db_name' => '', 'db_user' => '', 'db_password' => '', 'db_prefix' => 'ka_',
             'nazev_webu' => t('Můj web'), 'user' => 'admin', 'jmeno' => '', 'email' => '',
-            'casove_pasmo' => self::PASMA[$this->jazyk], 'web' => 'firemni', 'jazyk_webu' => $this->jazyk,
+            'casove_pasmo' => self::TIME_ZONES[$this->language], 'web' => 'firemni', 'jazyk_webu' => $this->language,
         ];
-        $chyby = [];
+        $errors = [];
         // rozšíření zapnutá po instalaci: výchozí sada, po odeslání formuláře volba uživatele
-        $rozsireni = array_keys(array_filter(Rozsireni::SEZNAM, fn (array $r): bool => $r[2]));
+        $extensions = array_keys(array_filter(Extensions::CATALOG, fn (array $r): bool => $r[2]));
 
-        if ($this->request->isPost() && !in_array(false, array_column($pozadavky, 'ok'), true)) {
-            foreach (array_keys($data) as $klic) {
+        if ($this->request->isPost() && !in_array(false, array_column($requirements, 'ok'), true)) {
+            foreach (array_keys($data) as $key) {
                 // heslo k databázi se neořezává - může obsahovat mezery
-                $data[$klic] = $klic === 'db_password' ? (string) ($_POST[$klic] ?? '') : $this->request->post($klic);
+                $data[$key] = $key === 'db_password' ? (string) ($_POST[$key] ?? '') : $this->request->post($key);
             }
-            $data['jazyk_webu'] = isset(\Kaleta\Core\Jazyk::DOSTUPNE[$data['jazyk_webu']]) ? $data['jazyk_webu'] : $this->jazyk;
-            $rozsireni = array_values(array_intersect($this->request->postList('rozsireni'), array_keys(Rozsireni::SEZNAM)));
-            $chyby = $this->instaluj($data, (string) ($_POST['password'] ?? ''), (string) ($_POST['password2'] ?? ''), $rozsireni);
-            if ($chyby === []) {
-                return $this->stranka('hotovo', ['jizNainstalovano' => false, 'smazano' => $this->smazSe()]);
+            $data['jazyk_webu'] = isset(\Kaleta\Core\Language::AVAILABLE[$data['jazyk_webu']]) ? $data['jazyk_webu'] : $this->language;
+            $extensions = array_values(array_intersect($this->request->postList('rozsireni'), array_keys(Extensions::CATALOG)));
+            $errors = $this->install($data, (string) ($_POST['password'] ?? ''), (string) ($_POST['password2'] ?? ''), $extensions);
+            if ($errors === []) {
+                return $this->page('hotovo', ['jizNainstalovano' => false, 'smazano' => $this->deleteSelf()]);
             }
         }
 
-        return $this->stranka('formular', ['pozadavky' => $pozadavky, 'data' => $data, 'chyby' => $chyby, 'rozsireni' => $rozsireni]);
+        return $this->page('formular', ['pozadavky' => $requirements, 'data' => $data, 'chyby' => $errors, 'rozsireni' => $extensions]);
     }
 
     /**
      * Po instalaci instalátor smaže sám sebe, ať správce nemusí na FTP. Když to hosting nedovolí (práva k souborům),
      * zůstane výzva ke smazání a Stav systému na soubor dál upozorňuje. Ve vývojové kopii (složka .git) se nemaže.
      */
-    private function smazSe(): bool
+    private function deleteSelf(): bool
     {
         if (is_dir(KALETA_ROOT . '/.git')) {
             return false;
@@ -101,46 +101,46 @@ final class Installer
     }
 
     /** @return list<array{nazev:string, ok:bool, info:string}> */
-    private function pozadavky(): array
+    private function requirements(): array
     {
-        $zapis = fn (string $cesta): bool => is_writable(KALETA_ROOT . $cesta);
+        $write = fn (string $path): bool => is_writable(KALETA_ROOT . $path);
 
         return [
             ['nazev' => t('PHP 8.4 nebo novější'), 'ok' => PHP_VERSION_ID >= 80400, 'info' => t('běží') . ' ' . PHP_VERSION],
             ['nazev' => t('Rozšíření pdo_mysql'), 'ok' => extension_loaded('pdo_mysql'), 'info' => t('připojení k databázi MySQL / MariaDB')],
             ['nazev' => t('Rozšíření mbstring'), 'ok' => extension_loaded('mbstring'), 'info' => t('práce s češtinou')],
-            ['nazev' => t('Zápis do kořenové složky'), 'ok' => $zapis(''), 'info' => t('kvůli vytvoření config.php')],
-            ['nazev' => t('Zápis do složky storage/'), 'ok' => $zapis('/storage/log') && $zapis('/storage/cache'), 'info' => t('logy a cache')],
+            ['nazev' => t('Zápis do kořenové složky'), 'ok' => $write(''), 'info' => t('kvůli vytvoření config.php')],
+            ['nazev' => t('Zápis do složky storage/'), 'ok' => $write('/storage/log') && $write('/storage/cache'), 'info' => t('logy a cache')],
         ];
     }
 
     /**
      * @param array<string, string> $d
-     * @param list<string> $rozsireni zapnutá rozšíření
+     * @param list<string> $extensions zapnutá rozšíření
      * @return array<string, string> chyby; prázdné pole = nainstalováno
      */
-    private function instaluj(array $d, string $heslo, string $heslo2, array $rozsireni): array
+    private function install(array $d, string $password, string $password2, array $extensions): array
     {
-        $chyby = [];
+        $errors = [];
         if (!preg_match('/^[a-z][a-z0-9_]{0,15}$/', $d['db_prefix'])) {
-            $chyby['db_prefix'] = t('Předpona: malá písmena, číslice a podtržítko, nejvýše 16 znaků (např. ka_).');
+            $errors['db_prefix'] = t('Předpona: malá písmena, číslice a podtržítko, nejvýše 16 znaků (např. ka_).');
         }
         if ($d['db_name'] === '' || $d['db_user'] === '') {
-            $chyby['db_name'] = t('Vyplňte název databáze a uživatele.');
+            $errors['db_name'] = t('Vyplňte název databáze a uživatele.');
         }
         if (!preg_match('/^[a-zA-Z0-9._-]{2,40}$/', $d['user'])) {
-            $chyby['user'] = t('Přihlašovací jméno: 2-40 znaků, písmena bez diakritiky, číslice, tečka, pomlčka, podtržítko.');
+            $errors['user'] = t('Přihlašovací jméno: 2-40 znaků, písmena bez diakritiky, číslice, tečka, pomlčka, podtržítko.');
         }
-        if (mb_strlen($heslo) < 10) {
-            $chyby['password'] = t('Heslo musí mít alespoň 10 znaků.');
-        } elseif ($heslo !== $heslo2) {
-            $chyby['password'] = t('Hesla se neshodují.');
+        if (mb_strlen($password) < 10) {
+            $errors['password'] = t('Heslo musí mít alespoň 10 znaků.');
+        } elseif ($password !== $password2) {
+            $errors['password'] = t('Hesla se neshodují.');
         }
         if ($d['email'] !== '' && filter_var($d['email'], FILTER_VALIDATE_EMAIL) === false) {
-            $chyby['email'] = t('E-mail nemá platný tvar.');
+            $errors['email'] = t('E-mail nemá platný tvar.');
         }
-        if ($chyby !== []) {
-            return $chyby;
+        if ($errors !== []) {
+            return $errors;
         }
 
         $config = [
@@ -159,27 +159,27 @@ final class Installer
             $db = Db::fromConfig($config['db']);
             $db->pdo();
         } catch (\PDOException $e) {
-            return self::chybaPripojeni($e);
+            return self::connectionError($e);
         }
-        $existuje = $db->value(
+        $exists = $db->value(
             'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?',
             [$d['db_prefix'] . 'user'],
         );
-        if ((int) $existuje > 0) {
+        if ((int) $exists > 0) {
             return ['db_prefix' => t('V databázi už tabulky s touto předponou existují. Zvolte jinou předponu, nebo je nejprve odstraňte.')];
         }
 
         try {
-            foreach (Migrace::prikazy((string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql'), $d['db_prefix']) as $sql) {
+            foreach (Migration::statements((string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql'), $d['db_prefix']) as $sql) {
                 $db->pdo()->exec($sql);
             }
-            $this->vychoziData($db, $d, $heslo, $rozsireni);
+            $this->createDefaultData($db, $d, $password, $extensions);
         } catch (\PDOException $e) {
             return ['db_name' => t('Vytvoření tabulek selhalo:') . ' ' . $e->getMessage()];
         }
 
-        $obsah = "<?php\n/**\n * Kaleta - konfigurace vytvořená instalátorem " . date('j. n. Y') . ".\n */\n\nreturn " . var_export($config, true) . ";\n";
-        if (file_put_contents(KALETA_ROOT . '/config.php', $obsah, LOCK_EX) === false) {
+        $content = "<?php\n/**\n * Kaleta - konfigurace vytvořená instalátorem " . date('j. n. Y') . ".\n */\n\nreturn " . var_export($config, true) . ";\n";
+        if (file_put_contents(KALETA_ROOT . '/config.php', $content, LOCK_EX) === false) {
             return ['db_name' => t('Tabulky jsou vytvořeny, ale nepodařilo se zapsat config.php. Zkontrolujte práva k zápisu.')];
         }
 
@@ -191,7 +191,7 @@ final class Installer
      *
      * @return array<string, string>
      */
-    private static function chybaPripojeni(\PDOException $e): array
+    private static function connectionError(\PDOException $e): array
     {
         return match ((int) ($e->errorInfo[1] ?? $e->getCode())) {
             1045 => ['db_user' => t('Uživatelské jméno nebo heslo k databázi nesedí. Zkontrolujte je v administraci hostingu.')],
@@ -204,75 +204,75 @@ final class Installer
 
     /**
      * @param array<string, string> $d
-     * @param list<string> $rozsireni
+     * @param list<string> $extensions
      */
-    private function vychoziData(Db $db, array $d, string $heslo, array $rozsireni): void
+    private function createDefaultData(Db $db, array $d, string $password, array $extensions): void
     {
         // zvolené časové pásmo platí už pro úvodní obsah: jinak by uvítací novinka mohla mít datum „v budoucnosti“ a web by ji neukázal
-        $pasmo = in_array($d['casove_pasmo'], \DateTimeZone::listIdentifiers(), true) ? $d['casove_pasmo'] : self::PASMA[$this->jazyk];
-        date_default_timezone_set($pasmo);
+        $timeZone = in_array($d['casove_pasmo'], \DateTimeZone::listIdentifiers(), true) ? $d['casove_pasmo'] : self::TIME_ZONES[$this->language];
+        date_default_timezone_set($timeZone);
         $db->pdo()->exec("SET time_zone = '" . date('P') . "'");
-        $d['casove_pasmo'] = $pasmo;
-        $db->transaction(function (Db $db) use ($d, $heslo, $rozsireni): void {
+        $d['casove_pasmo'] = $timeZone;
+        $db->transaction(function (Db $db) use ($d, $password, $extensions): void {
             $admin = $db->insert('uzivatele', [
                 'user' => $d['user'],
-                'password' => password_hash($heslo, PASSWORD_DEFAULT),
+                'password' => password_hash($password, PASSWORD_DEFAULT),
                 'jmeno' => $d['jmeno'],
                 'email' => $d['email'],
                 'admin' => Auth::ADMIN,
-                'jazyk' => $this->jazyk === 'cs' ? '' : $this->jazyk, // administrace prvního účtu v jazyce instalace
+                'jazyk' => $this->language === 'cs' ? '' : $this->language, // administrace prvního účtu v jazyce instalace
             ]);
 
             // obsah webu vzniká v jazyce webu (slovník webu), administrace prvního účtu zůstává v jazyce instalace
-            $jazykWebu = $d['jazyk_webu'];
-            $x = fn (string $text): string => \Kaleta\Core\Jazyk::docasne($jazykWebu, fn (): string => t($text));
+            $siteLanguage = $d['jazyk_webu'];
+            $x = fn (string $text): string => \Kaleta\Core\Language::runWith($siteLanguage, fn (): string => t($text));
             // kostra běžného firemního webu: úvod, o nás, služby, kontakt – texty jsou jen vodítko, co na stránku patří
-            $stranky = [
+            $pages = [
                 [$x('Úvod'), 'uvod', 0, '<h1>' . e($d['nazev_webu']) . '</h1><p>' . e($x('Jednou větou: co děláte a pro koho. Tuto stránku upravíte v administraci v sekci Stránky.')) . '</p>'],
                 [$x('O nás'), slugify($x('O nás')), 1, '<p>' . e($x('Kdo jste, jak dlouho to děláte a proč vám zákazníci věří.')) . '</p>'],
                 [$x('Služby'), slugify($x('Služby')), 1, '<p>' . e($x('Co nabízíte – každou službu krátce a srozumitelně.')) . '</p>'],
                 [$x('Kontakt'), slugify($x('Kontakt')), 1, '<p>' . e($x('Adresa, telefon, e-mail a otevírací doba.')) . '</p>'],
             ];
             // stránky rovnou ze sekcí builderu podle zvoleného ukázkového webu – nový web vypadá jako web, ne jako prázdná šablona
-            $web = Knihovna::WEBY[$d['web']] ?? Knihovna::WEBY['firemni'];
-            $uvod = 0;
-            foreach ($stranky as $i => [$titulek, $adresa, $vMenu, $text]) {
-                $radek = ['titulek' => $titulek, 'seo_link' => $adresa, 'text' => $text, 'v_menu' => $vMenu, 'poradi' => ($i + 1) * 10];
-                if (($web['stranky'][$i] ?? []) !== []) {
+            $siteSettings = Library::SITES[$d['web']] ?? Library::SITES['firemni'];
+            $home = 0;
+            foreach ($pages as $i => [$title, $url, $inMenu, $text]) {
+                $row = ['titulek' => $title, 'seo_link' => $url, 'text' => $text, 'v_menu' => $inMenu, 'poradi' => ($i + 1) * 10];
+                if (($siteSettings['stranky'][$i] ?? []) !== []) {
                     // sekce s prvky vypnutých rozšíření (výpis novinek, formulář) se na úvodní stránky nedávají, prázdné obrázky také
-                    $stavba = Knihovna::stranka($db, $web['stranky'][$i], $titulek, $jazykWebu, Stavba::vypnuteTypy($rozsireni), true);
-                    $radek['stavba'] = Stavba::naJson($stavba);
-                    $radek['text'] = Stavba::jakoText($stavba);
+                    $build = Library::page($db, $siteSettings['stranky'][$i], $title, $siteLanguage, Build::disabledTypes($extensions), true);
+                    $row['stavba'] = Build::toJson($build);
+                    $row['text'] = Build::asText($build);
                 }
-                $id = $db->insert('stranky', $radek);
-                $uvod = $uvod ?: $id;
+                $id = $db->insert('stranky', $row);
+                $home = $home ?: $id;
             }
 
             // zásady ochrany osobních údajů: kostra k doplnění v jazyce webu (slovník webu, ne instalátoru), skrytá, dokud ji správce
             // nedoplní a nezveřejní (připomene to První kroky); mimo hlavní menu, odkaz z patičky, cookie lišty a souhlasu ve formuláři
-            [$zasady, $textZasad] = \Kaleta\Core\Jazyk::docasne($jazykWebu, fn (): array => [t('Zásady ochrany osobních údajů'), Knihovna::textZasad()]);
-            $idZasad = $db->insert('stranky', ['titulek' => $zasady, 'seo_link' => slugify($zasady), 'text' => $textZasad, 'zobrazit' => 0, 'v_menu' => 0, 'poradi' => 90]);
-            \Kaleta\Core\Menu::uloz($db, 'paticka', '', [['typ' => 'stranka', 'ids' => $idZasad, 'text' => '']]);
+            [$privacyPolicy, $privacyPolicyText] = \Kaleta\Core\Language::runWith($siteLanguage, fn (): array => [t('Zásady ochrany osobních údajů'), Library::privacyPolicyText()]);
+            $privacyPolicyId = $db->insert('stranky', ['titulek' => $privacyPolicy, 'seo_link' => slugify($privacyPolicy), 'text' => $privacyPolicyText, 'zobrazit' => 0, 'v_menu' => 0, 'poradi' => 90]);
+            \Kaleta\Core\Menu::save($db, 'paticka', '', [['typ' => 'stranka', 'ids' => $privacyPolicyId, 'text' => '']]);
 
-            \Kaleta\Core\Hledani::dopln($db);
-            $nastaveni = ['nazev_webu' => $d['nazev_webu'], 'adresa_webu' => $this->request->origin(), 'email_webu' => $d['email'], 'jazyk_webu' => $jazykWebu,
-                'design_system' => (string) json_encode(\Kaleta\Stavitel\DesignSystem::predvolba($web['predvolba']), JSON_UNESCAPED_SLASHES),
-                'casove_pasmo' => $d['casove_pasmo'], 'layout' => Layouty::VYCHOZI, 'titulni_stranka' => (string) $uvod, 'verze_db' => (string) Migrace::posledni(),
-                'rozsireni' => $rozsireni === [] ? '-' : implode(',', $rozsireni), 'cookies_zasady_url' => $this->request->basePath() . '/' . slugify($zasady)];
-            foreach ($nastaveni as $klic => $hodnota) {
-                $db->insert('nastaveni', ['promenna' => $klic, 'hodnota' => $hodnota]);
+            \Kaleta\Core\Search::complete($db);
+            $settings = ['nazev_webu' => $d['nazev_webu'], 'adresa_webu' => $this->request->origin(), 'email_webu' => $d['email'], 'jazyk_webu' => $siteLanguage,
+                'design_system' => (string) json_encode(\Kaleta\Builder\DesignSystem::preset($siteSettings['predvolba']), JSON_UNESCAPED_SLASHES),
+                'casove_pasmo' => $d['casove_pasmo'], 'layout' => Layouts::DEFAULTS, 'titulni_stranka' => (string) $home, 'verze_db' => (string) Migration::latest(),
+                'rozsireni' => $extensions === [] ? '-' : implode(',', $extensions), 'cookies_zasady_url' => $this->request->basePath() . '/' . slugify($privacyPolicy)];
+            foreach ($settings as $key => $value) {
+                $db->insert('nastaveni', ['promenna' => $key, 'hodnota' => $value]);
             }
 
-            if (!in_array('novinky', $rozsireni, true)) {
+            if (!in_array('novinky', $extensions, true)) {
                 return; // bez novinek i bez uvítací novinky
             }
-            $kategorie = $db->insert('kategorie', ['nazev' => $x('Aktuality'), 'seo_link' => slugify($x('Aktuality')), 'popis' => '']);
+            $category = $db->insert('kategorie', ['nazev' => $x('Aktuality'), 'seo_link' => slugify($x('Aktuality')), 'popis' => '']);
             $db->insert('novinky', [
                 'seo_link' => slugify($x('Vítejte v Kaletě')),
                 'titulek' => $x('Vítejte v Kaletě'),
                 'uvod' => '<p>' . e($x('Web je nainstalovaný a připravený. Tuto novinku můžete v administraci upravit nebo smazat.')) . '</p>',
                 'text' => '<p>' . e($x('Do administrace se dostanete na adrese admin.php. Na přehledu vás provedou První kroky: dejte webu tvář, vyplňte údaje o firmě a připravte stránky.')) . '</p>',
-                'tema' => $kategorie,
+                'tema' => $category,
                 'autor' => $admin,
                 'datum' => date('Y-m-d H:i:s'),
                 'visible' => 1,
@@ -281,11 +281,11 @@ final class Installer
     }
 
     /** @param array<string, mixed> $data */
-    private function stranka(string $sablona, array $data): Response
+    private function page(string $template, array $data): Response
     {
-        return Response::html($this->view->render('install/' . $sablona, $data + [
-            'base' => $this->request->basePath(), 'jazyk' => \Kaleta\Core\Jazyk::kod(),
-            'jazyky' => array_intersect_key(\Kaleta\Core\Jazyk::ADMINISTRACE, self::PASMA),
+        return Response::html($this->view->render('install/' . $template, $data + [
+            'base' => $this->request->basePath(), 'jazyk' => \Kaleta\Core\Language::code(),
+            'jazyky' => array_intersect_key(\Kaleta\Core\Language::ADMIN_LANGUAGES, self::TIME_ZONES),
         ]));
     }
 }

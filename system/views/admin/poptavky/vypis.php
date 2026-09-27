@@ -3,7 +3,7 @@
  * Poptávky z formulářů webu.
  *
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\Poptavky $modul
+ * @var Kaleta\Admin\Modules\Enquiries $modul
  * @var string $csrf
  * @var list<array<string, mixed>> $poptavky
  * @var int $celkem
@@ -14,7 +14,7 @@
  * @var string $hledat
  * @var array<int, string> $uzivatele
  */
-use Kaleta\Admin\Moduly\Poptavky;
+use Kaleta\Admin\Modules\Enquiries;
 
 $stran = (int) ceil($celkem / $naStranu);
 $nahled = function (string $data): string {
@@ -48,10 +48,10 @@ $nahled = function (string $data): string {
 <tbody>
 <?php foreach ($poptavky as $p): ?>
 <tr<?= (int) $p['stav'] === 2 ? ' class="nevydany"' : '' ?>>
-	<td><a href="<?= e($modul->url('detail', ['id' => $p['idp']])) ?>"><?= (int) $p['stav'] === 0 ? '<strong>' . e(datum($p['datum'], true)) . '</strong>' : e(datum($p['datum'], true)) ?></a></td>
+	<td><a href="<?= e($modul->url('detail', ['id' => $p['idp']])) ?>"><?= (int) $p['stav'] === 0 ? '<strong>' . e(format_date($p['datum'], true)) . '</strong>' : e(format_date($p['datum'], true)) ?></a></td>
 	<td><?= e($p['formular']) ?><?= $p['email'] !== '' ? '<br><small>' . e($p['email']) . '</small>' : '' ?></td>
 	<td><a href="<?= e($modul->url('detail', ['id' => $p['idp']])) ?>"><?= e($nahled((string) $p['data'])) ?></a></td>
-	<td><span class="stitek<?= (int) $p['stav'] === 0 ? ' stitek-koncept' : ((int) $p['stav'] === 2 ? ' stitek-vydano' : '') ?>"><?= e(t(Poptavky::STAVY[(int) $p['stav']])) ?></span><?= $p['prirazeno'] && isset($uzivatele[(int) $p['prirazeno']]) ? '<br><small>' . e($uzivatele[(int) $p['prirazeno']]) . '</small>' : '' ?></td>
+	<td><span class="stitek<?= (int) $p['stav'] === 0 ? ' stitek-koncept' : ((int) $p['stav'] === 2 ? ' stitek-vydano' : '') ?>"><?= e(t(Enquiries::STATUSES[(int) $p['stav']])) ?></span><?= $p['prirazeno'] && isset($uzivatele[(int) $p['prirazeno']]) ? '<br><small>' . e($uzivatele[(int) $p['prirazeno']]) . '</small>' : '' ?></td>
 	<td class="stred"><input type="checkbox" name="oznacene[]" value="<?= (int) $p['idp'] ?>" aria-label="<?= e(t('Označit')) ?>: #<?= (int) $p['idp'] ?>"></td>
 </tr>
 <?php endforeach ?>

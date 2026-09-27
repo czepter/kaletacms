@@ -1,0 +1,186 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kaleta\Admin\Modules;
+
+use Kaleta\Admin\Module;
+use Kaleta\Admin\BuilderActions;
+use Kaleta\Core\Language;
+use Kaleta\Core\Response;
+use Kaleta\Builder\Popups as Okna;
+use Kaleta\Builder\Publisher;
+use Kaleta\Builder\Build;
+
+/**
+ * Pop-up okna: obsah se staví v builderu jako část webu, v nastavení se určí typ, spouštěč, pravidla a četnost.
+ * Na webu se okno objeví, až je publikované a zapnuté. Počitadla zobrazení, zavření a konverzí jsou bez cookies.
+ */
+final class Popups extends Module
+{
+    use BuilderActions;
+
+    public const string IDENT = 'popupy';
+    public const string NAME = 'Pop-up okna';
+    public const string GROUP = 'Vzhled';
+    public const string ICON = 'popupy';
+    public const bool ADMIN_ONLY = true;
+
+    protected function akceVypis(): Response
+    {
+        return $this->view('vypis', 'Pop-up okna', ['okna' => Okna::all($this->db)]);
+    }
+
+    protected function akceNovy(): Response
+    {
+        return $this->view('novy', 'Nové pop-up okno', []);
+    }
+
+    /** Nové okno z hotového vzoru: koncept stavby v jazyce webu, typ a spouštěč ze vzoru, vypnuté – rovnou do builderu. */
+    protected function akceZaloz(): Response
+    {
+        $r = $this->request;
+        $pattern = Okna::LIBRARY[$r->post('vzor')] ?? null;
+        if (!$r->isPost() || $pattern === null) {
+            return $this->back('', 'novy');
+        }
+        $name = mb_substr(trim($r->post('nazev')), 0, 100) ?: t($pattern[0]);
+        $id = $this->db->insert('popupy', [
+            'nazev' => $name, 'adresa' => Okna::address($this->db, $name), 'typ' => $pattern[2], 'spoustec' => $pattern[3], 'hodnota' => $pattern[4],
+            'pravidla' => (string) json_encode(Okna::defaultRules()), 'cetnost' => 'relace', 'dni' => 7, 'aktivni' => 0,
+            'stavba_koncept' => Build::toJson(Okna::libraryBuild((string) $r->post('vzor'), Language::defaults($this->app->settings()))), 'zmeneno' => date('Y-m-d H:i:s'),
+        ]);
+
+        return Response::redirect($this->url('stavitel', ['id' => $id]));
+    }
+
+    protected function akceEdit(): Response
+    {
+        $p = Okna::byId($this->db, $this->request->getInt('id'));
+
+        return $p === null ? $this->error('Pop-up okno neexistuje.', 404) : $this->view('formular', $p['nazev'], ['p' => $p] + $this->options());
+    }
+
+    protected function akceUloz(): Response
+    {
+        $r = $this->request;
+        $p = $r->isPost() ? Okna::byId($this->db, $r->postInt('idpp')) : null;
+        if ($p === null) {
+            return $this->back();
+        }
+        $name = mb_substr(trim($r->post('nazev')), 0, 100);
+        if ($name === '') {
+            return $this->back('Okno musí mít název.', 'edit', ['id' => $p['idpp']], 'chyba');
+        }
+        $url = $r->post('adresa') !== '' ? slugify($r->post('adresa'), 60) : $p['adresa'];
+        if (!preg_match(Okna::ADDRESS_PATTERN, $url) || $this->db->value('SELECT idpp FROM {popupy} WHERE adresa = ? AND idpp <> ?', [$url, $p['idpp']]) !== null) {
+            return $this->back(t('Adresu „%s“ už používá jiné okno.', $url), 'edit', ['id' => $p['idpp']], 'chyba');
+        }
+        // „na celém webu“: výběr míst je ve formuláři neaktivní a neodešle se – zůstane uložený pro případ, že se k němu vrátíte
+        $selected = $r->post('kde') === 'vybrane';
+        $rules = Okna::sanitizeRules([
+            'kde' => $r->post('kde'),
+            'stranky' => $selected ? (is_array($_POST['stranky'] ?? null) ? $_POST['stranky'] : []) : $p['pravidla']['stranky'],
+            'kolekce' => $selected ? (is_array($_POST['kolekce'] ?? null) ? $_POST['kolekce'] : []) : $p['pravidla']['kolekce'],
+            'novinky' => $selected ? $r->postBool('novinky') : $p['pravidla']['novinky'], 'jazyk' => $r->post('jazyk'), 'od' => $r->post('od'), 'do' => $r->post('do'),
+            'zarizeni' => $r->post('zarizeni'), 'utm' => $r->post('utm'), 'odkud' => $r->post('odkud'),
+        ]);
+        $this->db->update('popupy', [
+            'nazev' => $name, 'adresa' => $url,
+            'typ' => isset(Okna::TYPES[$r->post('typ')]) ? $r->post('typ') : $p['typ'],
+            'spoustec' => isset(Okna::TRIGGERS[$r->post('spoustec')]) ? $r->post('spoustec') : $p['spoustec'],
+            'hodnota' => max(0, min(3600, $r->postInt('hodnota'))),
+            'cetnost' => isset(Okna::FREQUENCIES[$r->post('cetnost')]) ? $r->post('cetnost') : $p['cetnost'],
+            'dni' => $r->post('dni') !== '' ? max(1, min(365, $r->postInt('dni', 7))) : (int) $p['dni'], // pole je aktivní jen u četnosti „dni“
+            'poradi' => max(-9999, min(9999, $r->postInt('poradi', 100))),
+            'pravidla' => (string) json_encode($rules, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s'),
+        ], ['idpp' => $p['idpp']]);
+        \Kaleta\Front\Cache::clear();
+
+        return $this->back('Nastavení okna bylo uloženo.');
+    }
+
+    /** Zapnout nebo vypnout okno na webu; zapnout jde jen publikované. */
+    protected function akcePrepni(): Response
+    {
+        $p = $this->request->isPost() ? Okna::byId($this->db, $this->request->postInt('idpp')) : null;
+        if ($p === null) {
+            return $this->back();
+        }
+        // z nastavení okna se zůstane v nastavení, ze seznamu v seznamu
+        [$action, $args] = $this->request->post('z') === 'edit' ? ['edit', ['id' => $p['idpp']]] : ['', []];
+        if (!$p['aktivni'] && $p['stavba'] === null) {
+            return $this->back('Okno nejdřív publikujte v builderu – teprve pak ho jde zapnout.', $action, $args, 'chyba');
+        }
+        $this->db->update('popupy', ['aktivni' => $p['aktivni'] ? 0 : 1], ['idpp' => $p['idpp']]);
+        \Kaleta\Front\Cache::clear();
+
+        return $this->back($p['aktivni'] ? 'Okno je vypnuté – na webu se už neukáže.' : 'Okno je zapnuté a ukáže se na webu podle pravidel.', $action, $args);
+    }
+
+    protected function akceVynuluj(): Response
+    {
+        if ($this->request->isPost()) {
+            $this->db->update('popupy', ['zobrazeni' => 0, 'zavreni' => 0, 'konverze' => 0], ['idpp' => $this->request->postInt('idpp')]);
+        }
+
+        return $this->back('Počitadla okna jsou vynulovaná.');
+    }
+
+    protected function akceSmaz(): Response
+    {
+        if ($this->request->isPost()) {
+            $this->db->delete('popupy', ['idpp' => $this->request->postInt('idpp')]);
+            \Kaleta\Front\Cache::clear();
+        }
+
+        return $this->back('Pop-up okno bylo smazáno.');
+    }
+
+    /** Stránky a kolekce pro výběr „kde se okno ukáže“, jazyky webu. @return array<string, mixed> */
+    private function options(): array
+    {
+        $siteSettings = $this->app->settings();
+        $languages = array_merge([Language::defaults($siteSettings)], Language::additional($siteSettings));
+
+        return [
+            'stranky' => $this->db->all('SELECT ids, titulek, jazyk FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, titulek LIMIT 500'),
+            'kolekce' => $this->db->all('SELECT seo_link, nazev FROM {kolekce} WHERE detail = 1 ORDER BY nazev'),
+            'jazyky' => count($languages) > 1 ? array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[$j][0] ?? $j, $languages)) : [],
+        ];
+    }
+
+    /* ---------- builder ---------- */
+
+    protected function loadBuildTarget(): ?array
+    {
+        $p = Okna::byId($this->db, $this->request->getInt('id'));
+
+        return $p === null ? null : [
+            'radek' => $p, 'stavba' => $p['stavba'], 'koncept' => $p['stavba_koncept'], 'jazyk' => Language::defaults($this->app->settings()),
+            'titulek' => t('Pop-up: %s', $p['nazev']), 'revize' => ['cast' => 'popup:' . $p['idpp']], 'parametry' => ['id' => $p['idpp']],
+        ];
+    }
+
+    protected function saveDraft(array $target, ?string $draft): void
+    {
+        $this->db->update('popupy', ['stavba_koncept' => $draft], ['idpp' => $target['radek']['idpp']]);
+    }
+
+    protected function publishTarget(array $target): void
+    {
+        Publisher::popup($this->app, $target['radek']);
+    }
+
+    protected function describeTarget(array $target): array
+    {
+        $p = $target['radek'];
+        $url = $this->app->url('_popup/' . $p['idpp']);
+
+        return [
+            'adresa' => $url . '?stavba=koncept', 'nahled' => $url . '?stavba=koncept&editor=1', 'zobrazena' => (bool) $p['aktivni'], 'casti' => false,
+            'zpet' => ['adresa' => $this->url(), 'text' => t('Pop-up okna')], 'nastaveni' => $this->url('edit', ['id' => $p['idpp']]),
+            'textNastaveni' => t('Nastavení okna (kdy a kde se ukáže)'), 'podpis' => 'popup:' . $p['idpp'],
+        ];
+    }
+}

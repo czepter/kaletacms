@@ -38,9 +38,9 @@ $akce = e($app->url('admin.php?akce=ucet'));
 <div class="radek"><label for="jazyk"><?= e(t('Jazyk administrace')) ?></label><div><select id="jazyk" name="jazyk">
 <?php
 // vybraný je jazyk, ve kterém administrace opravdu běží (bez vlastní volby jazyk webu, když ho administrace umí)
-$jazykAdministrace = $user['jazyk'] ?: Kaleta\Core\Jazyk::vychozi($app->settings());
-$jazykAdministrace = isset(Kaleta\Core\Jazyk::ADMINISTRACE[$jazykAdministrace]) ? $jazykAdministrace : 'cs';
-foreach (Kaleta\Core\Jazyk::ADMINISTRACE as $kodJazyka => $nazevJazyka): ?>
+$jazykAdministrace = $user['jazyk'] ?: Kaleta\Core\Language::defaults($app->settings());
+$jazykAdministrace = isset(Kaleta\Core\Language::ADMIN_LANGUAGES[$jazykAdministrace]) ? $jazykAdministrace : 'cs';
+foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $kodJazyka => $nazevJazyka): ?>
 	<option value="<?= e($kodJazyka) ?>"<?= $jazykAdministrace === $kodJazyka ? ' selected' : '' ?>><?= e($nazevJazyka) ?></option>
 <?php endforeach ?>
 </select><span class="napoveda">Language · Jazyk</span></div></div>
@@ -101,8 +101,8 @@ foreach (Kaleta\Core\Jazyk::ADMINISTRACE as $kodJazyka => $nazevJazyka): ?>
 <?php foreach ($klice as $k): ?>
 <tr>
 	<td><?= e($k['nazev']) ?></td>
-	<td class="cislo"><?= e(datum((string) $k['vytvoreno'])) ?></td>
-	<td class="cislo"><?= $k['pouzito'] !== null ? e(datum((string) $k['pouzito'])) : '–' ?></td>
+	<td class="cislo"><?= e(format_date((string) $k['vytvoreno'])) ?></td>
+	<td class="cislo"><?= $k['pouzito'] !== null ? e(format_date((string) $k['pouzito'])) : '–' ?></td>
 	<td class="akce"><button class="navigace nebezpecne" type="submit" name="idk" value="<?= (int) $k['idk'] ?>" data-potvrdit="<?= e(t('Odebrat přihlašovací klíč? Přihlásit se půjde dál kódem z aplikace.')) ?>"><?= e(t('Smazat')) ?></button></td>
 </tr>
 <?php endforeach ?>
@@ -137,13 +137,13 @@ foreach (Kaleta\Core\Jazyk::ADMINISTRACE as $kodJazyka => $nazevJazyka): ?>
 <?php if ($aplikace !== []): ?>
 <h2><?= e(t('Připojené aplikace')) ?></h2>
 <?php foreach ($aplikace as $a): ?>
-<p><span class="stitek"><?= e($a['nazev']) ?></span> <?= e(t('připojena %s', datum($a['vytvoren']))) ?>, <?= e($a['pouzit'] ? t('naposledy použita %s', datum($a['pouzit'], true)) : t('zatím nepoužita')) ?>
+<p><span class="stitek"><?= e($a['nazev']) ?></span> <?= e(t('připojena %s', format_date($a['vytvoren']))) ?>, <?= e($a['pouzit'] ? t('naposledy použita %s', format_date($a['pouzit'], true)) : t('zatím nepoužita')) ?>
 	<button class="navigace nebezpecne" type="submit" name="odpojit_klient" value="<?= e($a['klient']) ?>" data-potvrdit="<?= e(t('Odpojit aplikaci? Do webu se už nedostane, dokud ji znovu nepovolíte.')) ?>"><?= e(t('Odpojit')) ?></button></p>
 <?php endforeach ?>
 <?php endif ?>
 <p><?= e(t('Claude bude s webem pracovat')) ?> <strong><?= e(t('vaším jménem a s vašimi právy')) ?></strong>: <?= e(t((int) $user['admin'] === 2 ? 'psát a upravovat stránky a novinky, spravovat kategorie, kolekce a vzhled webu.' : 'psát a upravovat novinky.')) ?> <?= e(t('Nové novinky zakládá jako koncepty a nové stránky jako skryté. Všechny jeho zásahy najdete v Protokolu změn. Token chraňte jako heslo.')) ?></p>
 <?php foreach ($tokeny as $t): ?>
-<p><span class="stitek"><?= e($t['nazev']) ?></span> <?= e(t('vytvořen %s', datum($t['vytvoren']))) ?>, <?= e($t['pouzit'] ? t('naposledy použit %s', datum($t['pouzit'], true)) : t('zatím nepoužit')) ?>
+<p><span class="stitek"><?= e($t['nazev']) ?></span> <?= e(t('vytvořen %s', format_date($t['vytvoren']))) ?>, <?= e($t['pouzit'] ? t('naposledy použit %s', format_date($t['pouzit'], true)) : t('zatím nepoužit')) ?>
 	<button class="navigace nebezpecne" type="submit" name="smaz_token" value="<?= (int) $t['idt'] ?>" data-potvrdit="<?= e(t('Zrušit token? Claude se jím už nepřihlásí.')) ?>"><?= e(t('Zrušit token')) ?></button></p>
 <?php endforeach ?>
 <div class="radek"><label for="token-nazev"><?= e(t('Název nového tokenu')) ?></label><div><input class="textpole" type="text" id="token-nazev" name="nazev" maxlength="100" size="30" placeholder="<?= e(t('např. Claude na notebooku')) ?>"></div></div>

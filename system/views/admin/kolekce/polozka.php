@@ -3,14 +3,14 @@
  * Formulář položky kolekce – pole podle definice kolekce.
  *
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\Kolekce $modul
+ * @var Kaleta\Admin\Modules\Collections $modul
  * @var string $csrf
  * @var array<string, mixed> $k
  * @var array<string, mixed> $p
  */
-use Kaleta\Core\Jazyk;
+use Kaleta\Core\Language;
 
-$jazyky = Jazyk::dalsi($app->settings());
+$jazyky = Language::additional($app->settings());
 ?>
 <form class="formular" method="post" action="<?= e($modul->url('uloz_polozku')) ?>">
 <?= $csrf ?>
@@ -42,9 +42,9 @@ $jazyky = Jazyk::dalsi($app->settings());
 <div class="radek"><span class="popisek"><?= e(t('Zobrazení')) ?></span><div class="volby"><label><input type="checkbox" name="zobrazit" value="1"<?= $p['zobrazit'] ? ' checked' : '' ?>> <?= e(t('zveřejněná na webu')) ?></label></div></div>
 <?php if ($jazyky !== []): ?>
 <div class="radek"><label for="jazyk"><?= e(t('Jazyk')) ?></label><div><select id="jazyk" name="jazyk">
-	<option value=""><?= e(Jazyk::DOSTUPNE[Jazyk::vychozi($app->settings())][0]) ?></option>
+	<option value=""><?= e(Language::AVAILABLE[Language::defaults($app->settings())][0]) ?></option>
 <?php foreach ($jazyky as $j): ?>
-	<option value="<?= e($j) ?>"<?= $p['jazyk'] === $j ? ' selected' : '' ?>><?= e(Jazyk::DOSTUPNE[$j][0]) ?></option>
+	<option value="<?= e($j) ?>"<?= $p['jazyk'] === $j ? ' selected' : '' ?>><?= e(Language::AVAILABLE[$j][0]) ?></option>
 <?php endforeach ?>
 </select></div></div>
 <?php endif ?>

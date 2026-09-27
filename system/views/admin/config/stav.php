@@ -1,7 +1,7 @@
 <?php
 /** Záložka Stav systému. */
 $ikony = ['ok' => '✓', 'varovani' => '!', 'chyba' => '✕'];
-$souhrn = Kaleta\Core\Stav::souhrn($kontroly);
+$souhrn = Kaleta\Core\Health::summary($kontroly);
 $skupina = '';
 ?>
 <p class="hlaska hlaska-<?= ['ok' => 'ok', 'varovani' => 'varovani', 'chyba' => 'chyba'][$souhrn] ?>"><?= e(t(['ok' => 'Vše v pořádku.', 'varovani' => 'Systém běží, některé položky si zaslouží pozornost.', 'chyba' => 'Nalezeny chyby, které brání správnému provozu.'][$souhrn])) ?></p>
@@ -15,7 +15,7 @@ $skupina = '';
 <tr>
 	<td class="stred"><span class="stitek stitek-<?= ['ok' => 'vydano', 'varovani' => 'koncept', 'chyba' => 'chyba'][$k['stav']] ?>" title="<?= e(t(['ok' => 'v pořádku', 'varovani' => 'varování', 'chyba' => 'chyba'][$k['stav']])) ?>"><?= $ikony[$k['stav']] ?></span></td>
 	<td><strong><?= e($k['nazev']) ?></strong></td>
-	<td><?= Kaleta\Admin\Cesty::odkazy($app->url('admin.php'), (string) $k['info'], ['config', 'vzhled', 'bloky']) ?></td>
+	<td><?= Kaleta\Admin\MenuPaths::links($app->url('admin.php'), (string) $k['info'], ['config', 'vzhled', 'bloky']) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

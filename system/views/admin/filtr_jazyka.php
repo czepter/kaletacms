@@ -15,7 +15,7 @@ if ($jazykyWebu === []) {
 		<select name="jazyk"<?= !empty($odeslat) ? ' data-odeslat-pri-zmene' : '' ?>>
 			<option value=""><?= e(t('všechny')) ?></option>
 <?php foreach ($jazykyWebu as $kod): ?>
-			<option value="<?= e($kod) ?>"<?= $jazyk === $kod ? ' selected' : '' ?>><?= e(Kaleta\Core\Jazyk::DOSTUPNE[$kod][0]) ?></option>
+			<option value="<?= e($kod) ?>"<?= $jazyk === $kod ? ' selected' : '' ?>><?= e(Kaleta\Core\Language::AVAILABLE[$kod][0]) ?></option>
 <?php endforeach ?>
 		</select>
 	</label>

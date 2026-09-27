@@ -8,9 +8,9 @@
  * @var array<int, string> $originaly  položky ve výchozím jazyce, ze kterých jde vybrat originál překladu
  * @var int $prekladZ
  */
-use Kaleta\Core\Jazyk;
+use Kaleta\Core\Language;
 
-$dalsi = Jazyk::dalsi($app->settings());
+$dalsi = Language::additional($app->settings());
 if ($dalsi === []) {
     return;
 }
@@ -18,9 +18,9 @@ if ($dalsi === []) {
 <div class="radek">
 	<label for="jazyk"><?= e(t('Jazyková verze')) ?></label>
 	<div><select id="jazyk" name="jazyk">
-		<option value=""><?= e(Jazyk::DOSTUPNE[Jazyk::vychozi($app->settings())][0]) ?> (<?= e(t('výchozí')) ?>)</option>
+		<option value=""><?= e(Language::AVAILABLE[Language::defaults($app->settings())][0]) ?> (<?= e(t('výchozí')) ?>)</option>
 <?php foreach ($dalsi as $kod): ?>
-		<option value="<?= e($kod) ?>"<?= $hodnota === $kod ? ' selected' : '' ?>><?= e(Jazyk::DOSTUPNE[$kod][0]) ?> – /<?= e($kod) ?>/</option>
+		<option value="<?= e($kod) ?>"<?= $hodnota === $kod ? ' selected' : '' ?>><?= e(Language::AVAILABLE[$kod][0]) ?> – /<?= e($kod) ?>/</option>
 <?php endforeach ?>
 	</select>
 <?php if (($napoveda ?? '') !== ''): ?>

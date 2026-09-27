@@ -1,7 +1,7 @@
 <?php
 /**
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\Stranky $modul
+ * @var Kaleta\Admin\Modules\Pages $modul
  * @var string $csrf
  * @var list<array<string, mixed>> $stranky
  * @var bool $kos     zobrazen koš
@@ -45,7 +45,7 @@ $adresa = fn (array $s): string => ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '')
 <tr class="nevydany">
 	<td><?= e($s['titulek']) ?></td>
 	<td>/<?= e($s['seo_link']) ?></td>
-	<td class="cislo"><?= e(datum($s['smazano'], true)) ?></td>
+	<td class="cislo"><?= e(format_date($s['smazano'], true)) ?></td>
 	<td class="akce">
 		<form class="vradku" method="post" action="<?= e($modul->url('obnov')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><input type="hidden" name="titulek" value="<?= e($s['titulek']) ?>"><button class="navigace" type="submit"><?= e(t('Obnovit')) ?></button></form> ·
 		<form class="vradku" method="post" action="<?= e($modul->url('smaz_natrvalo')) ?>" data-potvrdit="<?= e(t('Smazat stránku natrvalo? Nejde to vrátit.')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><input type="hidden" name="titulek" value="<?= e($s['titulek']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat natrvalo')) ?></button></form>
@@ -62,7 +62,7 @@ $adresa = fn (array $s): string => ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '')
 <tbody>
 <?php foreach ($stranky as $s): ?>
 <tr<?= $s['zobrazit'] ? '' : ' class="nevydany"' ?>>
-	<td><?= !empty($s['uroven']) ? '<span class="odsazeni-stromu" style="padding-inline-start:' . ((int) $s['uroven'] - 1) * 1.2 . 'em">↳ </span>' : '' ?><a href="<?= e($modul->url('edit', ['id' => $s['ids']])) ?>"><?= e($s['titulek']) ?></a><?= (int) $s['ids'] === $uvod ? ' <span class="stitek">' . e(t('úvodní')) . '</span>' : '' ?><?= $s['stavba'] !== null || $s['stavba_koncept'] !== null ? ' <span class="stitek stitek-vydano">' . e(t('stavba')) . '</span>' : '' ?><?= $s['stavba_koncept'] !== null ? ' <span class="stitek stitek-koncept" title="' . e(t('V builderu jsou změny, které ještě nejsou na webu.')) . '">' . e(t('nepublikované změny')) . '</span>' : '' ?><?= $s['noindex'] ? ' <span class="stitek">noindex</span>' : '' ?><?= $s['zverejnit_od'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Zveřejní se sama')) . '">' . e(t('od %s', datum($s['zverejnit_od'], true))) . '</span>' : '' ?></td>
+	<td><?= !empty($s['uroven']) ? '<span class="odsazeni-stromu" style="padding-inline-start:' . ((int) $s['uroven'] - 1) * 1.2 . 'em">↳ </span>' : '' ?><a href="<?= e($modul->url('edit', ['id' => $s['ids']])) ?>"><?= e($s['titulek']) ?></a><?= (int) $s['ids'] === $uvod ? ' <span class="stitek">' . e(t('úvodní')) . '</span>' : '' ?><?= $s['stavba'] !== null || $s['stavba_koncept'] !== null ? ' <span class="stitek stitek-vydano">' . e(t('stavba')) . '</span>' : '' ?><?= $s['stavba_koncept'] !== null ? ' <span class="stitek stitek-koncept" title="' . e(t('V builderu jsou změny, které ještě nejsou na webu.')) . '">' . e(t('nepublikované změny')) . '</span>' : '' ?><?= $s['noindex'] ? ' <span class="stitek">noindex</span>' : '' ?><?= $s['zverejnit_od'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Zveřejní se sama')) . '">' . e(t('od %s', format_date($s['zverejnit_od'], true))) . '</span>' : '' ?></td>
 	<td><a href="<?= e($app->url($adresa($s)) . ($s['zobrazit'] ? '' : '?stavba=koncept')) ?>" target="_blank" rel="noopener"<?= $s['zobrazit'] ? '' : ' title="' . e(t('Náhled skryté stránky')) . '"' ?>>/<?= e($adresa($s)) ?></a></td>
 	<td><span class="stitek stitek-<?= $s['zobrazit'] ? 'vydano' : 'koncept' ?>"><?= e(t($s['zobrazit'] ? 'zveřejněná' : 'skrytá')) ?></span></td>
 	<td><?= e(t($s['v_menu'] ? 'Ano' : 'Ne')) ?></td>

@@ -126,7 +126,7 @@ final class Settings
     ];
 
     /** Nastavení, která jdou vyplnit zvlášť pro každou další jazykovou verzi webu (klíč_en, klíč_de…). */
-    public const array PODLE_JAZYKA = ['nazev_webu', 'popis_webu'];
+    public const array PER_LANGUAGE = ['nazev_webu', 'popis_webu'];
 
     /** @var array<string, string>|null */
     private ?array $values = null;
@@ -142,14 +142,14 @@ final class Settings
     }
 
     /** Výchozí hodnoty, které jsou text pro návštěvníky – překládají se do jazyka webu, dokud je správce nezmění. */
-    private const array PREKLADANE_VYCHOZI = ['udrzba_text', 'cookies_text'];
+    private const array TRANSLATED_DEFAULTS = ['udrzba_text', 'cookies_text'];
 
     public function get(string $key): string
     {
         $this->values ??= $this->db->pairs('SELECT promenna, hodnota FROM {nastaveni}');
         // název a popis webu může mít jazyková verze (/en/, /de/…) vlastní; prázdné = jako ve výchozím jazyce
-        if (in_array($key, self::PODLE_JAZYKA, true) && ($jazyk = Jazyk::sloupecWebu()) !== '' && ($this->values[$key . '_' . $jazyk] ?? '') !== '') {
-            return $this->values[$key . '_' . $jazyk];
+        if (in_array($key, self::PER_LANGUAGE, true) && ($language = Language::siteColumn()) !== '' && ($this->values[$key . '_' . $language] ?? '') !== '') {
+            return $this->values[$key . '_' . $language];
         }
 
         if (isset($this->values[$key])) {
@@ -157,7 +157,7 @@ final class Settings
         }
 
         // výchozí texty, které vidí návštěvník, v jazyce webu (anglický web nesmí ukázat českou údržbu ani cookie lištu)
-        return in_array($key, self::PREKLADANE_VYCHOZI, true) ? t(self::DEFAULTS[$key]) : (self::DEFAULTS[$key] ?? '');
+        return in_array($key, self::TRANSLATED_DEFAULTS, true) ? t(self::DEFAULTS[$key]) : (self::DEFAULTS[$key] ?? '');
     }
 
     public function int(string $key): int

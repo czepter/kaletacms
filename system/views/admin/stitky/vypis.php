@@ -1,6 +1,6 @@
 <?php
 /**
- * @var Kaleta\Admin\Moduly\Stitky $modul
+ * @var Kaleta\Admin\Modules\Tags $modul
  * @var Kaleta\Core\App $app
  * @var string $csrf
  * @var list<array<string, mixed>> $stitky

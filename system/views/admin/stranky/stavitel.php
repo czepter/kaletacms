@@ -8,7 +8,7 @@
  * @var string $titulek
  */
 $verze = rawurlencode(KALETA_VERSION);
-$jazyk = Kaleta\Core\Jazyk::kod();
+$jazyk = Kaleta\Core\Language::code();
 ?>
 <!doctype html>
 <html lang="<?= e($jazyk) ?>">
@@ -34,7 +34,7 @@ $jazyk = Kaleta\Core\Jazyk::kod();
 <script src="<?= e($app->url('image/jazyky/admin-' . $jazyk . '.js')) ?>?v=<?= $verze ?>"></script>
 <?php endif ?>
 <script src="<?= e($app->url('image/admin.js')) ?>?v=<?= $verze ?>" defer></script>
-<script src="<?= e($app->url('image/editor.js')) ?>?v=<?= $verze ?>" data-admin-url="<?= e($app->url('admin.php')) ?>" data-max-soubor="<?= Kaleta\Core\Soubory::limit() ?>" data-max-soubor-text="<?= e(Kaleta\Core\Soubory::limitText()) ?>" data-max-strana="<?= Kaleta\Core\Obrazky::MAX_STRANA ?>" defer></script>
+<script src="<?= e($app->url('image/editor.js')) ?>?v=<?= $verze ?>" data-admin-url="<?= e($app->url('admin.php')) ?>" data-max-soubor="<?= Kaleta\Core\Files::limit() ?>" data-max-soubor-text="<?= e(Kaleta\Core\Files::limitText()) ?>" data-max-strana="<?= Kaleta\Core\Images::MAX_SIDE ?>" defer></script>
 <script src="<?= e($app->url('image/stavitel.js')) ?>?v=<?= $verze ?>" defer></script>
 </body>
 </html>

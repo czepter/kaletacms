@@ -2,7 +2,7 @@
 /**
  * Editor novinky: vlevo text, vpravo nastavení (na úzké obrazovce pod sebou).
  *
- * @var Kaleta\Admin\Moduly\Novinky $modul
+ * @var Kaleta\Admin\Modules\News $modul
  * @var string $csrf
  * @var array<string, mixed> $novinka
  * @var array<string, string> $chyby
@@ -143,7 +143,7 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 <div class="radek pres-celou">
 	<span class="popisek"><?= e(t('Jazykové verze')) ?></span>
 	<div class="volby">
-<?php foreach ($jazykyPrekladu as $kodJazyka): $nazevJazyka = Kaleta\Core\Jazyk::DOSTUPNE[$kodJazyka][0]; ?>
+<?php foreach ($jazykyPrekladu as $kodJazyka): $nazevJazyka = Kaleta\Core\Language::AVAILABLE[$kodJazyka][0]; ?>
 <?php if (isset($preklady[$kodJazyka])): ?>
 		<a class="navigace" href="<?= e($modul->url('edit', ['id' => $preklady[$kodJazyka]])) ?>"><?= e($nazevJazyka) ?>: <?= e(t('otevřít překlad')) ?></a>
 <?php elseif ($asistent): ?>
@@ -203,7 +203,7 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 <summary><?= e(t('Historie verzí (%s)', count($revize))) ?></summary>
 <ul class="revize">
 <?php foreach ($revize as $rv): ?>
-	<li><a href="<?= e($modul->url('revize', ['id' => $novinka['idc'], 'idr' => $rv['idr']])) ?>" title="<?= e($rv['titulek']) ?>"><?= e(datum($rv['datum'], true)) ?></a> <span class="napoveda vradku"><?= e($rv['kdo_jm'] ?? '') ?></span> · <a href="<?= e($modul->url('porovnej', ['id' => $novinka['idc'], 'idr' => $rv['idr']])) ?>"><?= e(t('co se změnilo')) ?></a></li>
+	<li><a href="<?= e($modul->url('revize', ['id' => $novinka['idc'], 'idr' => $rv['idr']])) ?>" title="<?= e($rv['titulek']) ?>"><?= e(format_date($rv['datum'], true)) ?></a> <span class="napoveda vradku"><?= e($rv['kdo_jm'] ?? '') ?></span> · <a href="<?= e($modul->url('porovnej', ['id' => $novinka['idc'], 'idr' => $rv['idr']])) ?>"><?= e(t('co se změnilo')) ?></a></li>
 <?php endforeach ?>
 </ul>
 <p class="napoveda"><?= e(t('Kliknutím načtete starší verzi do editoru. Uchovává se posledních 20 verzí.')) ?></p>

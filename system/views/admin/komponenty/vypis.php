@@ -3,7 +3,7 @@
  * Komponenty webu.
  *
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\Komponenty $modul
+ * @var Kaleta\Admin\Modules\Components $modul
  * @var string $csrf
  * @var list<array<string, mixed>> $komponenty  i s počtem použití (pouziti) a jejich místy (mista)
  */

@@ -3,11 +3,11 @@
  * Definice kolekce: název, adresa, stránky položek a pole.
  *
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Moduly\Kolekce $modul
+ * @var Kaleta\Admin\Modules\Collections $modul
  * @var string $csrf
  * @var array<string, mixed> $k
  */
-use Kaleta\Stavitel\Kolekce;
+use Kaleta\Builder\Collections;
 
 $pole = array_merge($k['pole'], array_fill(0, 3, ['klic' => '', 'popisek' => '', 'typ' => 'text']));
 ?>
@@ -29,7 +29,7 @@ $pole = array_merge($k['pole'], array_fill(0, 3, ['klic' => '', 'popisek' => '',
 <tr>
 	<td><input class="textpole" name="pole[<?= $i ?>][popisek]" value="<?= e($p['popisek']) ?>" maxlength="80" aria-label="<?= e(t('Popisek')) ?>"><input type="hidden" name="pole[<?= $i ?>][klic]" value="<?= e($p['klic']) ?>"></td>
 	<td><select name="pole[<?= $i ?>][typ]" aria-label="<?= e(t('Typ')) ?>">
-<?php foreach (Kolekce::TYPY_POLI as $typ => $nazev): ?>
+<?php foreach (Collections::FIELD_TYPES as $typ => $nazev): ?>
 		<option value="<?= e($typ) ?>"<?= $p['typ'] === $typ ? ' selected' : '' ?>><?= e(t($nazev)) ?></option>
 <?php endforeach ?>
 	</select></td>

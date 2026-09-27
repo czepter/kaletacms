@@ -14,75 +14,75 @@ use Kaleta\Core\Response;
  */
 final class Cache
 {
-    private const string SLOZKA = KALETA_ROOT . '/storage/cache/stranky';
-    private const int PLATNOST = 300;
+    private const string FOLDER = KALETA_ROOT . '/storage/cache/stranky';
+    private const int LINK_LIFETIME = 300;
 
     /** Parametry reklam a sledování kampaní: stránku nemění, cache se kvůli nim obcházet nemá. */
-    private const string SLEDOVACI = '/^(utm_[a-z]+|fbclid|gclid|gbraid|wbraid|msclkid|dclid|ka_[a-z]+|_ga|_gl|yclid|igshid|ref)$/';
+    private const string TRACKING_PARAMS = '/^(utm_[a-z]+|fbclid|gclid|gbraid|wbraid|msclkid|dclid|ka_[a-z]+|_ga|_gl|yclid|igshid|ref)$/';
 
     /** @var resource|null zámek stránky, kterou tenhle požadavek právě přegenerovává */
-    private static $zamek = null;
+    private static $lock = null;
 
-    public static function nacti(App $app): ?Response
+    public static function load(App $app): ?Response
     {
-        $soubor = self::soubor($app);
-        if ($soubor === null || !is_file($soubor)) {
+        $file = self::file($app);
+        if ($file === null || !is_file($file)) {
             return null;
         }
-        if (filemtime($soubor) < time() - self::PLATNOST) {
+        if (filemtime($file) < time() - self::LINK_LIFETIME) {
             // Prošlou stránku přegeneruje první, kdo přijde; ostatní, kteří dorazí ve stejné vteřině, dostanou ještě tu starou
             // (nejdéle o minutu déle). Bez toho by po vypršení skládalo tutéž stránku z databáze najednou všech sto návštěvníků.
-            $zamek = @fopen($soubor . '.zamek', 'c');
-            if ($zamek === false || flock($zamek, LOCK_EX | LOCK_NB)) {
-                self::$zamek = $zamek ?: null; // drží se do uloz() nebo do konce požadavku
+            $lock = @fopen($file . '.zamek', 'c');
+            if ($lock === false || flock($lock, LOCK_EX | LOCK_NB)) {
+                self::$lock = $lock ?: null; // drží se do uloz() nebo do konce požadavku
 
                 return null;
             }
-            fclose($zamek);
-            if (filemtime($soubor) < time() - self::PLATNOST - 60) {
+            fclose($lock);
+            if (filemtime($file) < time() - self::LINK_LIFETIME - 60) {
                 return null;
             }
         }
-        [$hlavicka, $html] = explode("\n", (string) file_get_contents($soubor), 2) + [1 => ''];
-        $meta = json_decode($hlavicka, true);
+        [$header, $html] = explode("\n", (string) file_get_contents($file), 2) + [1 => ''];
+        $meta = json_decode($header, true);
         if (!is_array($meta) || $html === '') {
             return null;
         }
-        Statistika::zaznamenej($app, $meta['idc'] ?? null);
+        Stats::record($app, $meta['idc'] ?? null);
         if (!empty($meta['idc'])) {
             $app->db()->run('UPDATE {novinky} SET visit = visit + 1 WHERE idc = ?', [(int) $meta['idc']]);
         }
         // prohlížeč si stránku může nechat a jen se zeptat, jestli se změnila (304 bez těla)
-        $etag = '"' . substr(md5($soubor . filemtime($soubor)), 0, 16) . '"';
-        $hlavicky = ['Content-Type' => 'text/html; charset=utf-8', 'X-Cache' => 'kaleta', 'ETag' => $etag, 'Cache-Control' => 'no-cache'];
+        $etag = '"' . substr(md5($file . filemtime($file)), 0, 16) . '"';
+        $headers = ['Content-Type' => 'text/html; charset=utf-8', 'X-Cache' => 'kaleta', 'ETag' => $etag, 'Cache-Control' => 'no-cache'];
         if (trim((string) ($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')) === $etag) {
-            return new Response('', 304, $hlavicky);
+            return new Response('', 304, $headers);
         }
 
-        return new Response($html, 200, $hlavicky);
+        return new Response($html, 200, $headers);
     }
 
-    public static function uloz(App $app, string $html, ?int $idc): void
+    public static function save(App $app, string $html, ?int $idc): void
     {
-        $soubor = self::soubor($app);
-        if ($soubor === null) {
+        $file = self::file($app);
+        if ($file === null) {
             return;
         }
-        if (!is_dir(self::SLOZKA)) {
-            @mkdir(self::SLOZKA, 0775, true);
+        if (!is_dir(self::FOLDER)) {
+            @mkdir(self::FOLDER, 0775, true);
         }
-        @file_put_contents($soubor, json_encode(['idc' => $idc]) . "\n" . $html, LOCK_EX);
-        if (self::$zamek !== null) {
-            flock(self::$zamek, LOCK_UN);
-            fclose(self::$zamek);
-            self::$zamek = null;
-            @unlink($soubor . '.zamek');
+        @file_put_contents($file, json_encode(['idc' => $idc]) . "\n" . $html, LOCK_EX);
+        if (self::$lock !== null) {
+            flock(self::$lock, LOCK_UN);
+            fclose(self::$lock);
+            self::$lock = null;
+            @unlink($file . '.zamek');
         }
         if (random_int(1, 100) === 1) {
             // občasný úklid: prošlé soubory by jinak mizely jen při změně v administraci
-            foreach (glob(self::SLOZKA . '/*.html') ?: [] as $stary) {
-                if (filemtime($stary) < time() - self::PLATNOST) {
-                    @unlink($stary);
+            foreach (glob(self::FOLDER . '/*.html') ?: [] as $old) {
+                if (filemtime($old) < time() - self::LINK_LIFETIME) {
+                    @unlink($old);
                 }
             }
         }
@@ -92,44 +92,44 @@ final class Cache
      * Krátká cache textových výstupů, které jsou pro všechny stejné (RSS, mapa webu, feed.json, llms.txt): čtečky a roboti
      * si je stahují pořád dokola a bez cache se pokaždé skládají z databáze. Klíč musí zahrnout vše, na čem výstup závisí.
      *
-     * @param callable(): string $vyrob
+     * @param callable(): string $produce
      */
-    public static function text(App $app, string $klic, callable $vyrob): string
+    public static function text(App $app, string $key, callable $produce): string
     {
         if (!$app->settings()->bool('cache_stranek')) {
-            return $vyrob();
+            return $produce();
         }
         // přípona .html jen kvůli vymaz() - jakákoli změna v administraci smaže i tyhle soubory
-        $soubor = self::SLOZKA . '/zdroj-' . sha1($app->request->basePath() . '|' . $klic) . '.html';
-        if (is_file($soubor) && filemtime($soubor) >= time() - self::PLATNOST && ($obsah = file_get_contents($soubor)) !== false && $obsah !== '') {
-            return $obsah;
+        $file = self::FOLDER . '/zdroj-' . sha1($app->request->basePath() . '|' . $key) . '.html';
+        if (is_file($file) && filemtime($file) >= time() - self::LINK_LIFETIME && ($content = file_get_contents($file)) !== false && $content !== '') {
+            return $content;
         }
-        $obsah = $vyrob();
-        if (!is_dir(self::SLOZKA)) {
-            @mkdir(self::SLOZKA, 0775, true);
+        $content = $produce();
+        if (!is_dir(self::FOLDER)) {
+            @mkdir(self::FOLDER, 0775, true);
         }
-        @file_put_contents($soubor, $obsah, LOCK_EX);
+        @file_put_contents($file, $content, LOCK_EX);
 
-        return $obsah;
+        return $content;
     }
 
-    public static function vymaz(): void
+    public static function clear(): void
     {
-        foreach (array_merge(glob(self::SLOZKA . '/*.html') ?: [], glob(self::SLOZKA . '/*.zamek') ?: []) as $soubor) {
-            @unlink($soubor);
+        foreach (array_merge(glob(self::FOLDER . '/*.html') ?: [], glob(self::FOLDER . '/*.zamek') ?: []) as $file) {
+            @unlink($file);
         }
     }
 
     /** Soubor cache pro tento požadavek, nebo null, když se cachovat nemá. */
-    private static function soubor(App $app): ?string
+    private static function file(App $app): ?string
     {
         $r = $app->request;
         $s = $app->settings();
         if (!$s->bool('cache_stranek') || $r->isPost()) {
             return null;
         }
-        $parametry = array_filter(array_keys($_GET), fn (int|string $k): bool => !preg_match(self::SLEDOVACI, (string) $k));
-        if (array_diff($parametry, ['strana']) !== []) {
+        $params = array_filter(array_keys($_GET), fn (int|string $k): bool => !preg_match(self::TRACKING_PARAMS, (string) $k));
+        if (array_diff($params, ['strana']) !== []) {
             return null;
         }
         foreach (array_keys($_COOKIE) as $cookie) {
@@ -138,6 +138,6 @@ final class Cache
             }
         }
 
-        return self::SLOZKA . '/' . md5($r->origin() . '|' . \Kaleta\Core\Jazyk::kod() . '|' . $r->path() . '|' . $r->getInt('strana', 1) . '|' . $s->get('layout')) . '.html';
+        return self::FOLDER . '/' . md5($r->origin() . '|' . \Kaleta\Core\Language::code() . '|' . $r->path() . '|' . $r->getInt('strana', 1) . '|' . $s->get('layout')) . '.html';
     }
 }
