@@ -21,6 +21,7 @@ What is planned next. Dates are not promised; releases ship when they are tested
 - 1.3.4: a language is offered to visitors (switcher, hreflang, sitemap) only once its home page is published; MCP reads "true"/"false" sent as text correctly and reports collection item keys the collection does not have.
 - 1.3.5: reading a site part over MCP creates nothing, the page list shows language addresses, and the template header loads the logo on language versions.
 - 1.3.6 (security release): {{field}} values in Custom HTML are escaped, MCP tools check the user's sections, fixes from an admin review (admin language, news addresses, pop-up settings, spacing).
+- 1.3.7: Language switcher element (for example in the footer), first visit in the browser's language, language filters in admin lists.
 
 ## 1.3 – pop-ups, newsletter services and a clearer Site appearance (released 26 September 2026)
 
