@@ -46,14 +46,14 @@ check('Hledani::dotaz: operátory fulltextu se neprosadí', Hledani::dotaz('+taj
 check('Hledani::dotaz: nejvýš 8 slov', substr_count(Hledani::dotaz('aaa bbb ccc ddd eee fff ggg hhh iii jjj'), '+'), 8);
 
 /* ---------- TOTP (RFC 6238, tajemství "12345678901234567890") ---------- */
-$secret = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
-check('TOTP: vektor T=59', Totp::kod($secret, intdiv(59, 30)), '287082');
-check('TOTP: vektor T=1111111109', Totp::kod($secret, intdiv(1111111109, 30)), '081804');
-check('TOTP: vektor T=2000000000', Totp::kod($secret, intdiv(2000000000, 30)), '279037');
-check('TOTP: platný kód projde', Totp::over($secret, '287082', 59), true);
-check('TOTP: sousední okno projde', Totp::over($secret, '287082', 59 + 30), true);
-check('TOTP: starý kód neprojde', Totp::over($secret, '287082', 59 + 300), false);
-check('TOTP: nesmysl neprojde', Totp::over($secret, 'abcdef', 59), false);
+$totpSeed = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
+check('TOTP: vektor T=59', Totp::kod($totpSeed, intdiv(59, 30)), '287082');
+check('TOTP: vektor T=1111111109', Totp::kod($totpSeed, intdiv(1111111109, 30)), '081804');
+check('TOTP: vektor T=2000000000', Totp::kod($totpSeed, intdiv(2000000000, 30)), '279037');
+check('TOTP: platný kód projde', Totp::over($totpSeed, '287082', 59), true);
+check('TOTP: sousední okno projde', Totp::over($totpSeed, '287082', 59 + 30), true);
+check('TOTP: starý kód neprojde', Totp::over($totpSeed, '287082', 59 + 300), false);
+check('TOTP: nesmysl neprojde', Totp::over($totpSeed, 'abcdef', 59), false);
 check('TOTP: nové tajemství má 160 bitů', strlen(Totp::noveTajemstvi()), 32);
 
 /* ---------- migrace: dělení SQL na příkazy ---------- */

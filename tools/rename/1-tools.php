@@ -28,7 +28,7 @@ return [
     'vars' => [
         // tools/unit-tests.php
         'chyb' => 'errors', 'celkem' => 'total', 'popis' => 'label', 'skutecne' => 'actual', 'ocekavane' => 'expected',
-        'tajemstvi' => 'secret', 'prikazy' => 'statements', 'typy' => 'types', 'chybiPreklad' => 'missingTranslation',
+        'tajemstvi' => 'totpSeed', 'prikazy' => 'statements', 'typy' => 'types', 'chybiPreklad' => 'missingTranslation',
         'slovnik' => 'dictionary', 'vzory' => 'patterns', 'preklady' => 'translations', 'chybi' => 'missing', 'vzor' => 'pattern',
         'soubor' => 'file', 'nativniDialogy' => 'nativeDialogs', 'kod' => 'code', 'qrRadky' => 'qrRows', 'qrOtisk' => 'qrHash',
         'obrSlozka' => 'imageFolder', 'obrTmp' => 'imageTmp', 'obrPng' => 'imagePng', 'obrUlozeno' => 'imageSaved', 'obrSrcset' => 'imageSrcset',

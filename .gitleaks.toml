@@ -6,5 +6,5 @@ title = "Kaleta"
 useDefault = true
 
 [allowlist]
-description = "smyšlený klíč Stripe pro testy bez sítě"
-regexes = ['''sk_test_NahrazkaKlice0+''']
+description = "made-up test values: a Stripe key for the offline tests, the public TOTP test vector of RFC 6238"
+regexes = ['''sk_test_NahrazkaKlice0+''', '''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''']
