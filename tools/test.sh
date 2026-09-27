@@ -209,6 +209,8 @@ curl -s -o "$PRACE/odpoved" "$B/o-nas"; grep -q "<h1>Druhá verze</h1>" "$PRACE/
 echo "== Claude (MCP): builder"
 TOK="kaleta_$(printf 'a%.0s' $(seq 1 48))"
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$TOK")', NOW() FROM ka_uzivatele WHERE user = 'admin'"
+# grep, který dočte celý vstup: „curl | grep -q“ s pipefail selže, když grep skončí dřív, než curl dopíše (SIGPIPE)
+obsahuje() { grep "$@" > /dev/null; }
 mcp() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2}}"; }
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$PRACE/odpoved"
 grep -q '"name":"create_page"' "$PRACE/odpoved" && ! grep -q '"name":"vytvor_stranku"' "$PRACE/odpoved" && grep -q '"title":{' "$PRACE/odpoved" && echo "  ok     MCP: nástroje s anglickými názvy a parametry" || { echo "  CHYBA  MCP tools/list anglicky"; CHYB=$((CHYB+1)); }
@@ -269,7 +271,7 @@ mcp nahraj_soubor '{"nazev":"skript.php","data":"PD9waHAgZWNobyAxOw=="}' > "$PRA
 mcp uprav_nastaveni '{"nastaveni":{"text_paticky":"Paticka od Clauda","email_webu":"utocnik@example.com","firma_ico":"abc"}}' > "$PRACE/odpoved"
 ocekavej "MCP: nastavení webu – povolené se uloží, e-mail a neplatné IČO ne" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'text_paticky'), '|', COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'email_webu'), '') <> 'utocnik@example.com', '|', COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'firma_ico'), '') <> 'abc')")" "Paticka od Clauda|1|1"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = 'spravce@example.cz' WHERE promenna = 'email_webu'"; rm -f "$PRACE"/web/storage/cache/stranky/*.html
-curl -s "$B/" | grep -q 'spravce@example.cz' && { echo "  CHYBA  e-mail webu je vidět na webu"; CHYB=$((CHYB+1)); } || echo "  ok     e-mail webu (poptávky, upozornění) se na webu neukazuje"
+curl -s "$B/" | obsahuje 'spravce@example.cz' && { echo "  CHYBA  e-mail webu je vidět na webu"; CHYB=$((CHYB+1)); } || echo "  ok     e-mail webu (poptávky, upozornění) se na webu neukazuje"
 mcp uprav_nastaveni '{"nastaveni":{"firma_email":"info@example.cz"}}' > /dev/null; rm -f "$PRACE"/web/storage/cache/stranky/*.html
 over "veřejný e-mail firmy v patičce" 200 / "info@example.cz"
 mcp uprav_nastaveni '{"nastaveni":{"logo_webu":"image/kaleta-logo.svg","favicon":"../config.php"}}' > "$PRACE/odpoved"
@@ -383,7 +385,7 @@ grep -q 'tym\\/zdenek' "$PRACE/odpoved" && echo "  ok     MCP: vlastní adresa p
 mcp stavba_uloz '{"kolekce":"tym","stavba":{"v":1,"deti":[{"typ":"sekce","deti":[{"typ":"nadpis","znacka":"h1","obsah":{"text":"Profil: {{nazev}}"}}]}]}}' > "$PRACE/odpoved"
 NAHLED=$(php -r '$o = json_decode(file_get_contents($argv[1]), true); echo json_decode($o["result"]["content"][0]["text"] ?? "{}", true)["nahled"] ?? "";' "$PRACE/odpoved")
 [ -n "$NAHLED" ] && curl -s "$NAHLED" | grep -q 'Profil: ' && echo "  ok     MCP: šablona detailu kolekce jako koncept s podepsaným náhledem" || { echo "  CHYBA  MCP šablona detailu kolekce"; head -c 400 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
-curl -s "$B/tym/zdenek" | grep -q 'Profil: ' && { echo "  CHYBA  koncept šablony kolekce je vidět bez publikování"; CHYB=$((CHYB+1)); } || echo "  ok     koncept šablony kolekce návštěvník nevidí"
+curl -s "$B/tym/zdenek" | obsahuje 'Profil: ' && { echo "  CHYBA  koncept šablony kolekce je vidět bez publikování"; CHYB=$((CHYB+1)); } || echo "  ok     koncept šablony kolekce návštěvník nevidí"
 mcp publikuj_stavbu '{"kolekce":"tym"}' > /dev/null; rm -f "$PRACE"/web/storage/cache/stranky/*.html
 over "MCP: publikovaná šablona detailu kolekce" 200 /tym/zdenek "Profil: Zdenek Zeman"
 over "llms.txt vyjmenuje položky kolekcí s detailem" 200 /llms.txt "/tym/zdenek"
@@ -391,7 +393,7 @@ mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Zuzana Zelena","data":{"funk
 mcp stavba_uloz '{"kolekce":"tym","publikovat":true,"stavba":{"v":1,"deti":[{"typ":"sekce","deti":[{"typ":"nadpis","znacka":"h1","obsah":{"text":"Profil: {{nazev}}"}},{"typ":"kolekce","obsah":{"kolekce":"tym","filtr_pole":"funkce","filtr_hodnota":"{{funkce}}","bez_aktualni":true},"deti":[{"typ":"nadpis","znacka":"h3","obsah":{"text":"Kolega: {{nazev}}"}}]}]}]}}' > /dev/null
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" "$B/tym/jana-novakova"
-grep -q 'Kolega: Zuzana Zelena' "$PRACE/odpoved" && ! grep -q 'Kolega: Jana' "$PRACE/odpoved" && ! grep -q 'Kolega: Petr' "$PRACE/odpoved" && ! curl -s "$B/tym/petr-svoboda" | grep -q 'Kolega: Zuzana' \
+grep -q 'Kolega: Zuzana Zelena' "$PRACE/odpoved" && ! grep -q 'Kolega: Jana' "$PRACE/odpoved" && ! grep -q 'Kolega: Petr' "$PRACE/odpoved" && ! curl -s "$B/tym/petr-svoboda" | obsahuje 'Kolega: Zuzana' \
     && echo "  ok     související položky: filtr podle pole zobrazené položky, bez ní samotné" || { echo "  CHYBA  související položky kolekce"; CHYB=$((CHYB+1)); }
 # kolekce ve více jazycích: překlad položky má stejnou adresu, další jazyk vlastní šablonu detailu, drobečky vedou na překlad rozcestníku
 mcp vytvor_stranku '{"titulek":"Náš tým","adresa":"tym","text":"<p>Tým</p>","zobrazit":true}' > /dev/null; IDTYM=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'tym'")
@@ -401,12 +403,12 @@ grep -q 'en\\/tym\\/zdenek\\"' "$PRACE/odpoved" && mcp uloz_polozku_kolekce '{"k
   && echo "  ok     adresa položky je jedinečná v jazyce (překlad smí mít stejnou)" || { echo "  CHYBA  adresa položky v jiném jazyce"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
 mcp stavba_uloz '{"kolekce":"tym","jazyk":"en","stavba":{"v":1,"deti":[{"typ":"sekce","deti":[{"typ":"drobecky"},{"typ":"nadpis","znacka":"h1","obsah":{"text":"Profile: {{nazev}}"}}]}]}}' > /dev/null
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
-curl -s "$B/en/tym/zdenek" | grep -q 'Profil: Zdenek Zeman EN' && echo "  ok     jazyk bez vlastní šablony použije šablonu výchozího jazyka, koncept je skrytý" || { echo "  CHYBA  šablona detailu jazyka bez publikování"; CHYB=$((CHYB+1)); }
+curl -s "$B/en/tym/zdenek" | obsahuje 'Profil: Zdenek Zeman EN' && echo "  ok     jazyk bez vlastní šablony použije šablonu výchozího jazyka, koncept je skrytý" || { echo "  CHYBA  šablona detailu jazyka bez publikování"; CHYB=$((CHYB+1)); }
 mcp publikuj_stavbu '{"kolekce":"tym","jazyk":"en"}' > /dev/null; mcp stavba_uloz '{"kolekce":"tym","jazyk":"en","publikovat":true,"stavba":{"v":1,"deti":[{"typ":"sekce","deti":[{"typ":"drobecky"},{"typ":"nadpis","znacka":"h1","obsah":{"text":"Profile: {{nazev}}"}}]}]}}' > /dev/null
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" "$B/en/tym/zdenek"
 grep -q '<h1>Profile: Zdenek Zeman EN</h1>' "$PRACE/odpoved" && grep -q 'href="/en/team">Our team</a>' "$PRACE/odpoved" && grep -q 'hreflang="cs" href="[^"]*/tym/zdenek"' "$PRACE/odpoved" \
-  && curl -s "$B/tym/zdenek" | grep -q 'Profil: Zdenek Zeman<' && curl -s "$B/tym/zdenek" | grep -q 'hreflang="en" href="[^"]*/en/tym/zdenek"' \
+  && curl -s "$B/tym/zdenek" | obsahuje 'Profil: Zdenek Zeman<' && curl -s "$B/tym/zdenek" | obsahuje 'hreflang="en" href="[^"]*/en/tym/zdenek"' \
   && echo "  ok     šablona detailu v jazyce, drobečky přes překlad rozcestníku, hreflang mezi překlady položky" || { echo "  CHYBA  kolekce ve více jazycích"; grep -o '<nav class="ka-drobecky.\{0,300\}' "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
 grep -q 'class="logo"[^>]*><img src="/image/kaleta-logo.svg"' "$PRACE/odpoved" && ! grep -q 'src="/en/image/' "$PRACE/odpoved" && echo "  ok     logo a obrázky šablony na jazykové verzi bez předpony jazyka" || { echo "  CHYBA  adresa loga s předponou jazyka"; CHYB=$((CHYB+1)); }
 ocekavej "verze šablony jazyka zvlášť" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stavba_revize WHERE cast = 'kolekce:$IDK:en'")" 1
@@ -507,7 +509,7 @@ mcp stavba_uloz "{\"cast\":\"paticka\",\"varianta\":\"$VAR\",\"stavba\":{\"v\":1
 NAHLEDV=$(mcpv nahled); curl -s -o "$PRACE/odpoved" "$NAHLEDV"
 [[ "$NAHLEDV" == *"varianta=$VAR"* ]] && grep -q 'Paticka kampane' "$PRACE/odpoved" && echo "  ok     MCP: podepsaný náhled konceptu varianty" || { echo "  CHYBA  náhled varianty: $NAHLEDV"; CHYB=$((CHYB+1)); }
 mcp publikuj_stavbu "{\"cast\":\"paticka\",\"varianta\":\"$VAR\"}" > /dev/null; rm -f "$PRACE"/web/storage/cache/stranky/*.html
-curl -s -o "$PRACE/odpoved" "$B/z-html"; grep -q 'Paticka kampane' "$PRACE/odpoved" && ! curl -s "$B/kontakt" | grep -q 'Paticka kampane' && echo "  ok     MCP: publikovaná varianta patičky jen na vybrané stránce" || { echo "  CHYBA  varianta patičky z MCP"; CHYB=$((CHYB+1)); }
+curl -s -o "$PRACE/odpoved" "$B/z-html"; grep -q 'Paticka kampane' "$PRACE/odpoved" && ! curl -s "$B/kontakt" | obsahuje 'Paticka kampane' && echo "  ok     MCP: publikovaná varianta patičky jen na vybrané stránce" || { echo "  CHYBA  varianta patičky z MCP"; CHYB=$((CHYB+1)); }
 mcp uloz_variantu "{\"cast\":\"paticka\",\"varianta\":\"$VAR\",\"smazat\":true}" > /dev/null
 ocekavej "MCP: varianta smazána" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_casti WHERE varianta = '$VAR'")" 0
 mcp stavba_z_html '{"titulek":"Verze test","html":"<section><h1>Verze A</h1></section>","publikovat":true}' > /dev/null
@@ -538,9 +540,9 @@ grep -q "data-popup=\"$IDPP\"" "$PRACE/odpoved" && grep -q 'class="ka-popup ka-p
   && grep -q 'data-zarizeni="telefon"' "$PRACE/odpoved" && grep -q 'Okno akce' "$PRACE/odpoved" && grep -q 'image/web\.js' "$PRACE/odpoved" \
   && echo "  ok     zapnuté okno na webu se spouštěčem, pravidly prohlížeče a skriptem" || { echo "  CHYBA  pop-up okno na webu"; CHYB=$((CHYB+1)); }
 mcp uloz_popup "{\"id\":$IDPP,\"pravidla\":{\"kde\":\"vybrane\",\"stranky\":[$IDS]}}" > /dev/null; rm -f "$PRACE"/web/storage/cache/stranky/*.html
-! curl -s "$B/" | grep -q "data-popup=\"$IDPP\"" && curl -s "$B/o-nas" | grep -q "data-popup=\"$IDPP\"" && echo "  ok     okno jen na vybrané stránce" || { echo "  CHYBA  pravidlo vybraných stránek"; CHYB=$((CHYB+1)); }
+! curl -s "$B/" | obsahuje "data-popup=\"$IDPP\"" && curl -s "$B/o-nas" | obsahuje "data-popup=\"$IDPP\"" && echo "  ok     okno jen na vybrané stránce" || { echo "  CHYBA  pravidlo vybraných stránek"; CHYB=$((CHYB+1)); }
 mcp uloz_popup "{\"id\":$IDPP,\"pravidla\":{\"od\":\"2099-01-01\"}}" > /dev/null; rm -f "$PRACE"/web/storage/cache/stranky/*.html
-! curl -s "$B/o-nas" | grep -q "data-popup=\"$IDPP\"" && echo "  ok     okno mimo období se do stránky nevloží" || { echo "  CHYBA  období okna"; CHYB=$((CHYB+1)); }
+! curl -s "$B/o-nas" | obsahuje "data-popup=\"$IDPP\"" && echo "  ok     okno mimo období se do stránky nevloží" || { echo "  CHYBA  období okna"; CHYB=$((CHYB+1)); }
 mcp uloz_popup "{\"id\":$IDPP,\"pravidla\":{\"od\":\"\",\"kde\":\"vse\"}}" > "$PRACE/odpoved"; NAHLEDP=$(mcpv nahled); rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o /dev/null -X POST "$B/popup" -d "id=$IDPP" -d udalost=zobrazeni; curl -s -o /dev/null -X POST "$B/popup" -d "id=$IDPP" -d udalost=konverze; curl -s -o /dev/null -X POST "$B/popup" -d "id=$IDPP" -d udalost=nic
 ocekavej "počitadla okna bez cookies" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazeni, '/', zavreni, '/', konverze) FROM ka_popupy WHERE idpp = $IDPP")" "1/0/1"
@@ -652,10 +654,13 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akc
 ocekavej "úvodní stránku nejde smazat" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT smazano IS NULL FROM ka_stranky WHERE ids = $IDU")" "1"
 # rozpracovaná jazyková verze (bez zveřejněného překladu úvodu) se v přepínači, hreflang ani mapě webu nenabízí
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zobrazit = 1, smazano = NULL WHERE ids = $IDU"; rm -f "$PRACE"/web/storage/cache/stranky/*.html
-! curl -s "$B/" | grep -q 'hreflang="en"' && ! curl -s "$B/sitemap.xml" | grep -q '/en/</loc>' \
+# stránky se nejdřív uloží: „curl | grep -q“ s pipefail selže, když grep skončí dřív, než curl dopíše (SIGPIPE)
+curl -s -o "$PRACE/odpoved" "$B/"; curl -s -o "$PRACE/mapa.xml" "$B/sitemap.xml"
+! grep -q 'hreflang="en"' "$PRACE/odpoved" && ! grep -q '/en/</loc>' "$PRACE/mapa.xml" \
   && echo "  ok     jazyk bez zveřejněného překladu úvodu se návštěvníkům nenabízí" || { echo "  CHYBA  rozpracovaný jazyk v přepínači nebo mapě webu"; CHYB=$((CHYB+1)); }
 mcp vytvor_stranku "{\"titulek\":\"About home\",\"adresa\":\"about-home\",\"jazyk\":\"en\",\"preklad_z\":$IDU,\"text\":\"<p>Home</p>\",\"zobrazit\":1}" > /dev/null; rm -f "$PRACE"/web/storage/cache/stranky/*.html
-curl -s "$B/" | grep -q 'hreflang="en"' && curl -s "$B/sitemap.xml" | grep -q '/en/</loc>' \
+curl -s -o "$PRACE/odpoved" "$B/"; curl -s -o "$PRACE/mapa.xml" "$B/sitemap.xml"
+grep -q 'hreflang="en"' "$PRACE/odpoved" && grep -q '/en/</loc>' "$PRACE/mapa.xml" \
   && echo "  ok     se zveřejněným překladem úvodu se jazyk nabízí" || { echo "  CHYBA  hotový jazyk chybí v přepínači nebo mapě webu"; CHYB=$((CHYB+1)); }
 mcp stavba_uloz '{"cast":"paticka","publikovat":true,"stavba":{"v":1,"deti":[{"typ":"sekce","znacka":"footer","deti":[{"typ":"udaje","obsah":{"udaj":"copyright"}},{"typ":"jazyky"}]}]}}' > /dev/null; rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" "$B/"
