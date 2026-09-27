@@ -51,9 +51,15 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: shivammathur/setup-php@v2
-        with: { php-version: '8.4', extensions: 'pdo_mysql, mbstring, intl, sodium', coverage: none }
+        with: { php-version: '8.4', extensions: 'pdo_mysql, mbstring, gd, intl, zip, sodium', coverage: none }
       - name: Aktualizace databáze z 1.0.0 na současnou verzi
         run: tools/test-migrace.sh
+        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root, FROM: v1.0.0 }
+      - name: Update from the previous release through the admin
+        run: tools/test-update.sh
+        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
+      - name: Update from 1.0.0 through the admin
+        run: tools/test-update.sh
         env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root, FROM: v1.0.0 }
   bezpecnost:
     runs-on: ubuntu-latest
