@@ -15,7 +15,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 - **Standardy webu 2026/2027 bez ohledu na staré prohlížeče:** CSS vrstvy, `clamp()`, container queries, `color-mix()`/OKLCH, `:has()`,
   Popover API, `<dialog>`, `<details>`, View Transitions. Interaktivita přednostně bez JavaScriptu. Žádné polyfilly, CDN ani cizí písma.
 - **Co se nevypisuje, nemá styl ani skript.** Do `image/web.css` ani `style.css` šablony nepatří selektor, který nikde nevzniká; skript nesmí
-  hledat `[data-…]` prvek, který nikde nevzniká (hlídá `tools/testy.php`).
+  hledat `[data-…]` prvek, který nikde nevzniká (hlídá `tools/unit-tests.php`).
 - **Tabulky** mají významové názvy (`ka_novinky`, `ka_kategorie`, `ka_uzivatele`, `ka_media`, `ka_nastaveni`…); v kódu vždy přes `{novinky}`.
   Starší názvy sloupců zůstaly: `idc` = novinka, `tema`/`idt` = kategorie, `ido` = médium, `idu` = uživatel.
 - Identifikátory v kódu česky bez diakritiky; komentáře a texty česky s diakritikou.
@@ -53,8 +53,8 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 - **Společné prvky** (galerie, prohlížečka fotek, video, osnova, sdílení, FAQ, úprava na webu) mají styl a skript v `image/web.css` a `image/web.js`
   (vkládá `Seo::hlava()`); pravidla v `:where()` s nulovou vahou, aby je šablona přebila. Doplňky textu novinky vkládá `Front\TextNovinky`.
 - **Texty webu přes `t('Česky')`** (`Core\Jazyk`, slovníky `system/jazyky/<kód>.php`; administrace `admin-<kód>.php`, instalátor
-  `install-<kód>.php` – úplnost hlídá `tools/testy.php`). Jazyky: čeština a angličtina (`Jazyk::DOSTUPNE`, `Jazyk::KODY`).
-  Doplňuj nástrojem `tools/slovnik.py`. Hodnoty formulářů se nepřekládají.
+  `install-<kód>.php` – úplnost hlídá `tools/unit-tests.php`). Jazyky: čeština a angličtina (`Jazyk::DOSTUPNE`, `Jazyk::KODY`).
+  Doplňuj nástrojem `tools/add-translations.py`. Hodnoty formulářů se nepřekládají.
 - **Jazykové verze:** sloupec `jazyk` ('' = výchozí) mají stránky, kategorie a novinky (novinka ho přebírá z kategorie). Každý dotaz webu
   vypisující obsah filtruje `Jazyk::sloupecWebu()`. `App::url()` přidává `/en/` jen adresám bez přípony (soubory, `api/`, `mcp` jsou společné).
 - **Cache stránek** (`Front\Cache`): jen pro nepřihlášené; každý POST v administraci volá `Cache::vymaz()`. `Auth::user()` nesmí na webu
@@ -131,7 +131,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   **Rozhraní je anglické** (od 1.1, `Mcp\Anglicky`): tools/list, parametry, klíče výsledků, stavy, hlášení a pokyny serveru anglicky (`create_page`,
   `build_from_html`, `save_build`…); `Nastroje` dál implementuje nástroje česky a `Anglicky` překládá vstup i výstup. České názvy jsou skryté aliasy
   a chovají se jako dřív – existující napojení se nerozbijí. Datový model builderu (JSON stavby, `stavba_schema`, klíče design systému) se nepřekládá.
-  Nový nástroj nebo parametr = záznam v `Anglicky::NASTROJE`, nové hlášení = `ZPRAVY`/`VZORY`; hlídá to `tools/testy.php`.
+  Nový nástroj nebo parametr = záznam v `Anglicky::NASTROJE`, nové hlášení = `ZPRAVY`/`VZORY`; hlídá to `tools/unit-tests.php`.
   Zápis stavby vrací podepsaný náhled (`Core\Nahled`, `?stavba=koncept&nahled_klic=`, HMAC `tajny_klic`, jen jeden cíl, omezená platnost). Nová novinka
   je koncept, nová stránka skrytá; vydat/zveřejnit jen na výslovný pokyn a s právem. **Hranice (bezpečí na prvním místě):** žádný nástroj nesmí zapisovat mimo obsah
   spouštět kód ani dotaz (statickou kontrolu PHP nejde udělat neprůstřelnou, proto MCP šablony vůbec nemění). Pravidla pro Claude v souborech: `layout/CLAUDE.md`.
@@ -144,30 +144,30 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 - Příspěvky → novinky, stránky → stránky (skryté v navigaci), kategorie → kategorie (strom se zplošťuje), štítky → štítky, **přesměrování všech starých adres**
   (hezké i `/?p=123`). Komentáře se nepřenášejí. Účty se nezakládají – novinky patří tomu, kdo importuje.
 - Dávky (`WpImport::DAVKA`, `SEKUND`) se stavem v `storage/import/`, idempotence přes `ka_import_mapa` (převedené se nepřepisuje).
-- **Bezpečnost, která se nesmí rozvolnit** (hlídá `tools/testy.php`): XML s DOCTYPE/entitou se odmítá, `LIBXML_NONET`; obsah projde jen povolovacím seznamem
+- **Bezpečnost, která se nesmí rozvolnit** (hlídá `tools/unit-tests.php`): XML s DOCTYPE/entitou se odmítá, `LIBXML_NONET`; obsah projde jen povolovacím seznamem
   značek; `StahovaniObrazku` jen z domény starého webu, jen veřejné IP, připnuté spojení, limity velikosti a času, SVG nikdy.
 - Export vybírá nastavení z povolovacího seznamu `ExportWebu::NASTAVENI`; účty, hesla ani klíče do něj nikdy nepatří.
 
 ## Vydání a aktualizace
 
-Verze `KALETA_VERSION` v `system/bootstrap.php`; `php tools/vydani.php <verze> --url=…` sestaví a lokálně podepíše balíček (`docs/VYDAVANI.md`).
+Verze `KALETA_VERSION` v `system/bootstrap.php`; `php tools/release.php <verze> --url=…` sestaví a lokálně podepíše balíček (`docs/RELEASING.md`).
 **Klíče vydavatele Kalety zatím nejsou vygenerované** – `system/aktualizace.pub` je prázdný; vzniknou před prvním vydáním. Soukromé klíče nikdy do gitu.
 Web projektu: `kaletacms.com` (kanál aktualizací `https://kaletacms.com/aktualizace.json`), veřejný repozitář `github.com/phprs-cms/kaletacms`. Dokud web neběží, jsou kontroly webu v CI vypnuté (`if: false`).
 
 ## Spuštění a testy
 
 `php -S 127.0.0.1:8095 system/dev-router.php` (preview `kaleta`), vývojová databáze `kaleta_dev`, `config.php` není v gitu.
-Po změně: `tools/test.sh` (lint, jednotkové testy `tools/testy.php`, čistá instalace a průchod webem i administrací; potřebuje MySQL,
-databázi `kaleta_test` smaže a vytvoří), případně jen `php tools/testy.php`, a projít dotčené stránky v prohlížeči.
+Po změně: `tools/test.sh` (lint, jednotkové testy `tools/unit-tests.php`, čistá instalace a průchod webem i administrací; potřebuje MySQL,
+databázi `kaleta_test` smaže a vytvoří), případně jen `php tools/unit-tests.php`, a projít dotčené stránky v prohlížeči.
 
 ## Screenshoty a angličtina
 
 - `tools/screenshots.sh` (+ `tools/screenshots.mjs`, Playwright a Chrome): čistá anglická instalace každého startovacího webu
   s ukázkovými daty a snímky do `docs/screenshots/` (web projektu, README, dokumentace). Po změně vzhledu administrace pusť znovu.
 - `tools/test-english.sh` (i v CI): anglický instalátor, web všech tří startovacích webů i administrace nesmí ukázat češtinu
-- `tools/test-migrace.sh` (i v CI na MySQL 8.4, MariaDB 10.6 a 11.4 a před každým vydáním): databáze z vydání `FROM` (výchozí v1.0.0) + současné migrace = stejná struktura jako čistá instalace, migrace jdou pustit znovu, datové migrace převezmou údaje. **Každá nová migrace musí projít tímhle testem** – čistá instalace migrace nespouští (1.0.8 kvůli tomu vyšla s rozbitou migrací). Migrace piš přenositelně (MySQL i MariaDB), bez odkazu na cílovou tabulku v ON DUPLICATE KEY UPDATE.
-  (`tools/cestina.php`: diakritika, český klíč slovníku s překladem, častá česká slova; `--js` = české texty skriptů administrace bez
-  položky v `image/jazyky/admin-en.js`). Nový text vždy přes `t()` a překlad přes `tools/slovnik.py`; výchozí texty pro návštěvníky
-  v `Settings::PREKLADANE_VYCHOZI`. Stránky startovacích webů musí projít kontrolou před publikováním (hlídá `tools/testy.php`).
+- `tools/test-migrations.sh` (i v CI na MySQL 8.4, MariaDB 10.6 a 11.4 a před každým vydáním): databáze z vydání `FROM` (výchozí v1.0.0) + současné migrace = stejná struktura jako čistá instalace, migrace jdou pustit znovu, datové migrace převezmou údaje. **Každá nová migrace musí projít tímhle testem** – čistá instalace migrace nespouští (1.0.8 kvůli tomu vyšla s rozbitou migrací). Migrace piš přenositelně (MySQL i MariaDB), bez odkazu na cílovou tabulku v ON DUPLICATE KEY UPDATE.
+  (`tools/find-czech.php`: diakritika, český klíč slovníku s překladem, častá česká slova; `--js` = české texty skriptů administrace bez
+  položky v `image/jazyky/admin-en.js`). Nový text vždy přes `t()` a překlad přes `tools/add-translations.py`; výchozí texty pro návštěvníky
+  v `Settings::PREKLADANE_VYCHOZI`. Stránky startovacích webů musí projít kontrolou před publikováním (hlídá `tools/unit-tests.php`).
 - Zvýraznění `<mark>` v textu nadpisu = doplňková barva bez podbarvení (tečka za titulkem v barvě Signal).
 

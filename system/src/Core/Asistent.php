@@ -379,7 +379,7 @@ class Asistent
      */
     /**
      * Volání modelu. Požadavek i odpověď jsou ve tvaru Claude API ({model, max_tokens, system, messages} → {content, stop_reason});
-     * pro ostatní poskytovatele se převedou. Chráněná kvůli testům, které ji nahrazují (tools/testy.php).
+     * pro ostatní poskytovatele se převedou. Chráněná kvůli testům, které ji nahrazují (tools/unit-tests.php).
      */
     protected function zavolej(array $telo): array
     {

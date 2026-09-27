@@ -10,7 +10,7 @@ namespace Kaleta\Core;
  * Zdroj je soubor aktualizace.json: {"verze","vydano","url","sha256","podpis","min_php","bezpecnostni","zmeny":[...]}.
  * Vydání označené "bezpecnostni": true se umí nainstalovat samo (Nastavení -> Zálohy a aktualizace).
  * Balíček (ZIP) se přijme jen tehdy, když sedí SHA-256 a podpis Ed25519 (Core\Podpis::zpravaBalicku) ověřený některým
- * z veřejných klíčů v system/aktualizace.pub (provozní + záložní, viz docs/VYDAVANI.md). Soukromý klíč má jen vydavatel (tools/vydani.php).
+ * z veřejných klíčů v system/aktualizace.pub (provozní + záložní, viz docs/RELEASING.md). Soukromý klíč má jen vydavatel (tools/release.php).
  * Nikdy se nepřepisuje config.php, media/, storage/, install.php ani layouty, které nejsou součástí balíčku.
  */
 final class Aktualizace

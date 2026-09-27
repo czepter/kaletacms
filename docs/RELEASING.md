@@ -37,7 +37,7 @@ a do `tools/klice/` dejte jen symbolický odkaz, nebo klíč předávejte promě
 ## Založení záložního klíče (jednou, před prvním veřejným vydáním)
 
 ```bash
-php tools/vydani.php --novy-klic=zalozni
+php tools/release.php --novy-klic=zalozni
 ```
 
 1. Soubor `tools/klice/zalozni.key` uložte do správce hesel a druhou kopii mimo počítač. Pak ho z disku smažte.
@@ -50,10 +50,10 @@ Všechno, co jde na GitHub a s vydáním do instalací, je **anglicky**: commit,
 i popis změn `--zmena` (správci ho vidí v administraci u nabídky aktualizace).
 
 
-0. Pusťte `tools/test.sh`, `tools/test-english.sh` a `tools/test-migrace.sh` (aktualizace databáze z v1.0.0; workflow Vydání ji pouští taky).
+0. Pusťte `tools/test.sh`, `tools/test-english.sh` a `tools/test-migrations.sh` (aktualizace databáze z v1.0.0; workflow Vydání ji pouští taky).
 1. V `system/bootstrap.php` zvyšte `KALETA_VERSION`, změnu commitněte, označte tagem `vX.Y.Z` a pushněte (workflow Vydání
    spustí testy a založí koncept vydání).
-2. `php tools/vydani.php X.Y.Z --url=https://github.com/phprs-cms/kaletacms/releases/download/vX.Y.Z/kaleta-X.Y.Z.zip --zmena="…" [--bezpecnostni]`
+2. `php tools/release.php X.Y.Z --url=https://github.com/phprs-cms/kaletacms/releases/download/vX.Y.Z/kaleta-X.Y.Z.zip --zmena="…" [--bezpecnostni]`
 3. `gh release upload vX.Y.Z dist/kaleta-X.Y.Z.zip dist/aktualizace.json` a koncept zveřejněte jako **latest**
    (`gh release edit vX.Y.Z --draft=false --latest`).
 4. Víc nic: `https://kaletacms.com/aktualizace.json` je na webu projektu přesměrování (Kaleta → Přesměrování, 302) na
@@ -73,15 +73,15 @@ všech instalací by stála na zabezpečení jednoho účtu. CI sestavuje a test
 ## Plánovaná výměna provozního klíče
 
 1. Starý `tools/klice/vydavatel.key` přesuňte do archivu (nemažte ho, dokud výměna neproběhne).
-2. `php tools/vydani.php --novy-klic=provozni` – do `system/aktualizace.pub` přibude nový řádek. Starý řádek zatím ponechte.
+2. `php tools/release.php --novy-klic=provozni` – do `system/aktualizace.pub` přibude nový řádek. Starý řádek zatím ponechte.
 3. Vydejte verzi podepsanou **starým** klíčem (dočasně ho vraťte na místo, nebo použijte `KALETA_KLIC`). Přinese instalacím nový klíč.
 4. V dalším vydání, už podepsaném novým klíčem, starý řádek z `system/aktualizace.pub` odstraňte.
 
 ## Ztráta provozního klíče
 
 1. Vyzvedněte záložní klíč a uložte ho jako `tools/klice/zalozni.key`.
-2. `php tools/vydani.php --novy-klic=provozni`, ztracený klíč z `system/aktualizace.pub` odstraňte.
-3. `php tools/vydani.php X.Y.Z --klic=zalozni --url=…` – vydání podepsané záložním klíčem přinese nový provozní.
+2. `php tools/release.php --novy-klic=provozni`, ztracený klíč z `system/aktualizace.pub` odstraňte.
+3. `php tools/release.php X.Y.Z --klic=zalozni --url=…` – vydání podepsané záložním klíčem přinese nový provozní.
 4. Záložní klíč vraťte offline. Další vydání už podepisuje nový provozní klíč.
 
 ## Únik provozního klíče (nebo jen podezření)
@@ -105,7 +105,7 @@ jen včas řekne, že je potřeba jednat:
 
 | kontrola | co odhalí |
 | --- | --- |
-| **Kanál aktualizací** (`tools/over-kanal.php`) | `aktualizace.json` na kaletacms.com není podepsaný naším klíčem, balíček neodpovídá otisku nebo nese cizí veřejný klíč – tedy podvržení nebo poškození toho, co si instalace stahují |
+| **Kanál aktualizací** (`tools/check-channel.php`) | `aktualizace.json` na kaletacms.com není podepsaný naším klíčem, balíček neodpovídá otisku nebo nese cizí veřejný klíč – tedy podvržení nebo poškození toho, co si instalace stahují |
 | **Testy** na podporovaných verzích PHP a na připravované (`nightly`, smí selhat) | změnu v PHP, která systém rozbije, dřív než dorazí na hostingy |
 | **Statická analýza** (Semgrep s denně čerstvými pravidly, Gitleaks) | nově popsané zranitelné vzory v našem kódu; nálezy jdou do *Security → Code scanning*, kam vidí jen správci – záznam běhu je záměrně tichý, protože je u veřejného repozitáře veřejný |
 | **Web a demo zvenku** | chybějící bezpečnostní hlavičky, otevřený `config.php`, `system/`, `storage/`, `.git/` |
@@ -121,7 +121,7 @@ Spustit ji jde i ručně: *Actions → Denní kontrola → Run workflow*.
    Hlášení od lidí chodí stejnou cestou (*Report a vulnerability*).
 3. **Opravit a otestovat** – `tools/test.sh`, k chybě přidat test, který by ji příště chytil.
 4. **Vydat záplatu** z udržované řady: číslo `1.0.x`, a pokud jde o bezpečnost, s příznakem, který ji instalacím nainstaluje samu:
-   `php tools/vydani.php 1.0.x --url=… --zmena="Bezpečnostní oprava: …" --bezpecnostni`
+   `php tools/release.php 1.0.x --url=… --zmena="Bezpečnostní oprava: …" --bezpecnostni`
    Podpis je lokální; potom ZIP do GitHub Releases a `aktualizace.json` na web (viz Běžné vydání).
 5. **Ověřit** na demu, že se záplata nainstalovala sama, a ručně pustit Denní kontrolu – musí projít kanál aktualizací.
 6. **Zveřejnit oznámení** (advisory) s popisem, zasaženými verzemi a poděkováním nálezci.

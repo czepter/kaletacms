@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Kaleta – English must not show Czech. Clean English installs of every starter site; the installer screens, the public site
 # (every starter page, news, search, 404, privacy policy) and the admin screens (including messages after saving) are rendered
-# and their visible text, titles, placeholders and labels checked by tools/cestina.php: Czech letters, Czech dictionary keys that
+# and their visible text, titles, placeholders and labels checked by tools/find-czech.php: Czech letters, Czech dictionary keys that
 # have an English translation (= a missing t() or lookup) and frequent Czech words without diacritics. Admin scripts: every Czech
-# text in image/*.js needs an entry in image/jazyky/admin-en.js. A hit means a string without a translation (tools/slovnik.py)
+# text in image/*.js needs an entry in image/jazyky/admin-en.js. A hit means a string without a translation (tools/add-translations.py)
 # or a text printed without t(). Same env as tools/test.sh: DB_HOST DB_PORT DB_NAME (kaleta_test_en) DB_USER DB_PASS PORT (8096).
 set -uo pipefail
 
@@ -18,7 +18,7 @@ fail() { echo "  CHYBA  $1"; FOUND=$((FOUND+1)); }
 sql() { "${MYSQL[@]}" "$DB_NAME" -N -e "$1"; }
 token() { grep -o 'name="_csrf" value="[a-f0-9]*"' "$1" | head -1 | sed 's/.*value="//;s/"//'; }
 # check <label> <file>: the visible text of a saved page has no Czech
-check() { SCREENS=$((SCREENS+1)); local hits; hits=$(php "$ROOT/tools/cestina.php" "$2") || { fail "$1"; echo "$hits"; }; }
+check() { SCREENS=$((SCREENS+1)); local hits; hits=$(php "$ROOT/tools/find-czech.php" "$2") || { fail "$1"; echo "$hits"; }; }
 # page <label> <path> [expected HTTP code] [cookie jar]: fetch a page and check it
 page() {
   local code; code=$(curl -s ${4:+-b "$4"} -o "$WORK/page.html" -w '%{http_code}' "$B$2")
@@ -29,7 +29,7 @@ page() {
 headings() {
   local msg; msg=$(php -r '$d = Dom\HTMLDocument::createFromString(file_get_contents($argv[1]), LIBXML_NOERROR);
     $h = array_map(fn ($e) => (int) $e->tagName[1], iterator_to_array($d->querySelectorAll("main h1, main h2, main h3, main h4, main h5, main h6")));
-    $jedna = count(array_keys($h, 1)); if ($jedna !== 1) { echo "$jedna h1"; exit; }
+    $single = count(array_keys($h, 1)); if ($single !== 1) { echo "$single h1"; exit; }
     foreach ($h as $i => $u) { if ($i > 0 && $u > $h[$i - 1] + 1) { echo "h", $h[$i - 1], " → h", $u; exit; } }' "$WORK/page.html")
   [ -z "$msg" ] || fail "$1: headings ($msg)"
 }
@@ -72,7 +72,7 @@ public_site() { # public_site <starter>: every visible page, news, search, 404 a
 }
 
 echo "== Admin scripts: every Czech text has an English entry"
-if hits=$(php "$ROOT/tools/cestina.php" --js); then echo "  ok     image/*.js ↔ image/jazyky/admin-en.js"; else fail "texts in image/*.js without an entry in image/jazyky/admin-en.js"; echo "$hits" | sed 's/^/         /'; fi
+if hits=$(php "$ROOT/tools/find-czech.php" --js); then echo "  ok     image/*.js ↔ image/jazyky/admin-en.js"; else fail "texts in image/*.js without an entry in image/jazyky/admin-en.js"; echo "$hits" | sed 's/^/         /'; fi
 
 mkdir "$WORK/web"
 (cd "$ROOT" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' f; do [ -e "$f" ] && printf '%s\0' "$f"; done | tar --null -T - -cf - | tar -xf - -C "$WORK/web")
@@ -106,8 +106,8 @@ public_site poradenstvi
 
 echo "== Business starter and the admin"
 install firemni "${ALL[@]}"
-ZASADY=$(sql "SELECT CONCAT(titulek, '|', zobrazit, '|', text LIKE '%This policy explains%') FROM ka_stranky WHERE seo_link = 'privacy-policy'")
-[ "$ZASADY" = "Privacy policy|0|1" ] && echo "  ok     English install: privacy policy in English, hidden until completed" || fail "privacy policy page after English install: $ZASADY"
+PRIVACY=$(sql "SELECT CONCAT(titulek, '|', zobrazit, '|', text LIKE '%This policy explains%') FROM ka_stranky WHERE seo_link = 'privacy-policy'")
+[ "$PRIVACY" = "Privacy policy|0|1" ] && echo "  ok     English install: privacy policy in English, hidden until completed" || fail "privacy policy page after English install: $PRIVACY"
 login "$JAR" admin "$PASSWORD"
 public_site firemni
 NEWS=$(sql "SELECT idc FROM ka_novinky LIMIT 1")

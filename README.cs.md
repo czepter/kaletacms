@@ -64,7 +64,7 @@ Nginx nečte `.htaccess` – použijte ukázku `system/nginx.priklad.conf`. Náv
 php -S localhost:8080 system/dev-router.php
 ```
 
-Testy: `php tools/testy.php` (jednotkové, bez databáze) a `tools/test.sh` (čistá instalace a průchod webem, administrací,
+Testy: `php tools/unit-tests.php` (jednotkové, bez databáze) a `tools/test.sh` (čistá instalace a průchod webem, administrací,
 builderem i MCP; potřebuje MySQL; `WEB=remeslo tools/test.sh` otestuje jiný ukázkový web). Pravidla pro přispěvatele
 a architektura jsou v [`CLAUDE.md`](CLAUDE.md).
 

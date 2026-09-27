@@ -1,6 +1,6 @@
 # Vydání: tag vX.Y.Z spustí testy a založí KONCEPT vydání na GitHubu.
-# Balíček se tady nepodepisuje – soukromý klíč nepatří do CI (docs/VYDAVANI.md). Vydavatel pak lokálně spustí
-#   php tools/vydani.php X.Y.Z --url=https://github.com/phprs-cms/kaletacms/releases/download/vX.Y.Z/kaleta-X.Y.Z.zip --zmena="…"
+# Balíček se tady nepodepisuje – soukromý klíč nepatří do CI (docs/RELEASING.md). Vydavatel pak lokálně spustí
+#   php tools/release.php X.Y.Z --url=https://github.com/phprs-cms/kaletacms/releases/download/vX.Y.Z/kaleta-X.Y.Z.zip --zmena="…"
 # nahraje dist/kaleta-X.Y.Z.zip ke konceptu (gh release upload vX.Y.Z dist/kaleta-X.Y.Z.zip), koncept zveřejní
 # a dist/aktualizace.json vystaví na https://kaletacms.com/aktualizace.json.
 name: Vydání
@@ -33,7 +33,7 @@ jobs:
         run: tools/test.sh
       - name: Aktualizace databáze z předchozích vydání
         env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root, FROM: v1.0.0 }
-        run: tools/test-migrace.sh
+        run: tools/test-migrations.sh
       - name: Update from the previous release through the admin
         env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
         run: tools/test-update.sh

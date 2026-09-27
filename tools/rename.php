@@ -12,6 +12,11 @@
  *   'classes'    => ['Kaleta\Stavitel\Prvky\Nadpis' => 'Heading', ...]           new short name (namespace from 'namespaces')
  *   'names'      => ['nainstaluj' => 'install', 'JEN_CASTI' => 'PARTS_ONLY', ...] methods, functions, constants, properties
  *                                                                                and variables – one translation everywhere
+ *   'vars'       => ['chyb' => 'errors', ...]          local variables only (never members: a property that is in 'vars'
+ *                                                    but not in 'names' is refused)
+ *   'paths'      => ['tools/', 'system/src/Core/']   optional: rewrite only files under these paths
+ *   'files'      => ['tools/testy.php' => 'tools/unit-tests.php']   optional: other files to move (git mv), with their
+ *                                                                   paths in string literals of PHP files
  *
  * Works on tokens, not text: string literals are never changed (database columns, build JSON keys, settings keys, URLs and
  * MCP tool names are contracts), comments only in docblock tags (@param, @var, @return …). Variables are renamed in classes
@@ -34,6 +39,8 @@ final class Rename
     private array $classes = [];
     /** @var array<string, string> */
     private array $names;
+    /** @var array<string, string> names + local variables: what a variable token may become */
+    private array $vars;
     /** @var list<string> */
     public array $problems = [];
     /** @var array<string, list<string>> old name => places in string literals, JS and CSS */
@@ -44,7 +51,7 @@ final class Rename
     private array $paths = [];
 
     /**
-     * @param array{namespaces?: array<string, string>, classes?: array<string, string>, names?: array<string, string>} $map
+     * @param array{namespaces?: array<string, string>, classes?: array<string, string>, names?: array<string, string>, files?: array<string, string>, paths?: list<string>} $map
      * @param list<string> $knownClasses FQCNs declared in the project
      */
     public function __construct(array $map, array $knownClasses)
@@ -52,6 +59,7 @@ final class Rename
         $this->namespaces = $map['namespaces'] ?? [];
         uksort($this->namespaces, fn (string $a, string $b): int => strlen($b) <=> strlen($a));
         $this->names = $map['names'] ?? [];
+        $this->vars = $this->names + ($map['vars'] ?? []);
         foreach ($knownClasses as $fqcn) {
             $pos = strrpos($fqcn, '\\');
             $ns = $pos === false ? '' : substr($fqcn, 0, $pos);
@@ -72,13 +80,14 @@ final class Rename
                 $this->paths[$path($old)] = $path($new);
             }
         }
+        $this->paths += $map['files'] ?? [];
         uksort($this->paths, fn (string $a, string $b): int => strlen($b) <=> strlen($a));
         foreach (array_keys($map['classes'] ?? []) as $fqcn) {
             if (!in_array($fqcn, $knownClasses, true)) {
                 $this->problems[] = "map: unknown class $fqcn";
             }
         }
-        foreach ($this->names as $old => $new) {
+        foreach ($this->vars as $old => $new) {
             if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $new)) {
                 $this->problems[] = "map: invalid name „{$new}“ for $old";
             }
@@ -110,14 +119,30 @@ final class Rename
         $ns = '';
         $imports = []; // alias => FQCN
         $depth = 0;
+        $paren = 0;
+        $classBodies = []; // brace depths of class bodies (properties are declared right inside)
+        $classPending = false;
         $out = [];
         for ($i = 0; $i < $n; $i++) {
             $x = $t[$i];
             $text = $x->text;
             if ($x->text === '{' || $x->is([T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES])) {
                 $depth++;
+                if ($classPending && $x->text === '{') {
+                    $classBodies[] = $depth;
+                    $classPending = false;
+                }
             } elseif ($x->text === '}') {
+                if ($classBodies !== [] && end($classBodies) === $depth) {
+                    array_pop($classBodies);
+                }
                 $depth--;
+            } elseif ($x->text === '(') {
+                $paren++;
+            } elseif ($x->text === ')') {
+                $paren--;
+            } elseif ($x->is([T_CLASS, T_TRAIT, T_ENUM, T_INTERFACE]) && ($p = $this->prev($t, $i)) !== null && !$t[$p]->is(T_DOUBLE_COLON)) {
+                $classPending = true;
             }
             if ($x->is(T_NAMESPACE) && ($next = $this->next($t, $i)) !== null && $t[$next]->is([T_STRING, T_NAME_QUALIFIED])) {
                 $ns = $t[$next]->text;
@@ -153,11 +178,16 @@ final class Rename
                 $this->count($text, true);
                 continue;
             }
-            if ($x->is(T_VARIABLE) && $text !== '$this' && isset($this->names[substr($text, 1)])) {
+            if ($x->is(T_VARIABLE) && $text !== '$this' && isset($this->vars[substr($text, 1)])) {
+                $name = substr($text, 1);
                 $prev = $this->prev($t, $i);
-                if (!$view || ($prev !== null && $t[$prev]->is(T_DOUBLE_COLON))) {
-                    $out[] = '$' . $this->names[substr($text, 1)];
-                    $this->count(substr($text, 1), true);
+                $static = $prev !== null && $t[$prev]->is(T_DOUBLE_COLON);
+                $property = $static || ($classBodies !== [] && end($classBodies) === $depth && ($paren === 0 || $this->promoted($t, $i)));
+                if ($property && !isset($this->names[$name])) {
+                    $this->problems[] = "$file:{$x->line}: \${$name} is a property – put it in 'names', not 'vars'";
+                } elseif ($property || !$view) {
+                    $out[] = '$' . $this->vars[$name];
+                    $this->count($name, true);
                     continue;
                 }
             }
@@ -167,7 +197,7 @@ final class Rename
             }
             if ($x->is([T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE])) {
                 // the one change inside strings: paths of moved class files and folders (tests, tools)
-                $moved = str_contains($text, 'system/src/') ? $this->movePaths($text) : $text;
+                $moved = $this->paths !== [] ? $this->movePaths($text) : $text;
                 $this->count('path', $moved !== $text);
                 if ($moved !== $text) {
                     $out[] = $moved;
@@ -281,6 +311,18 @@ final class Rename
         return '\\' . $new;
     }
 
+    /** A constructor parameter with a visibility or readonly modifier is also a property. @param list<PhpToken> $t */
+    private function promoted(array $t, int $i): bool
+    {
+        for ($j = $i - 1; $j >= 0 && $t[$j]->text !== ',' && $t[$j]->text !== '('; $j--) {
+            if ($t[$j]->is([T_PUBLIC, T_PROTECTED, T_PRIVATE, T_READONLY])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** @param list<PhpToken> $t */
     private function isMember(array $t, int $i): bool
     {
@@ -309,7 +351,7 @@ final class Rename
                     return $resolved !== null && isset($this->classes[$resolved]) ? $this->refer($this->classes[$resolved], $w[1], $id, $ns, $imports, $resolved) : $w[1];
                 }
                 if (($w[2] ?? '') !== '') {
-                    return !$view && isset($this->names[$w[2]]) ? '$' . $this->names[$w[2]] : $w[0];
+                    return !$view && isset($this->vars[$w[2]]) ? '$' . $this->vars[$w[2]] : $w[0];
                 }
 
                 return $this->names[$w[3]] ?? $w[3];
@@ -392,6 +434,16 @@ final class Rename
     {
         $t = PhpToken::tokenize($code);
         $n = count($t);
+        if (!preg_match('/^namespace\s/m', $code)) {
+            // a script: its top level is one scope with its closures – checked as a whole (errs on the safe side)
+            $all = [];
+            foreach ($t as $x) {
+                if ($x->is(T_VARIABLE) && $x->text !== '$this') {
+                    $all[substr($x->text, 1)] = true;
+                }
+            }
+            $this->collide(array_keys($all), $file, 'variables', $this->vars);
+        }
         for ($i = 0; $i < $n; $i++) {
             if (!$t[$i]->is(T_FUNCTION)) {
                 continue;
@@ -431,17 +483,17 @@ final class Rename
                     }
                 }
             }
-            $this->collide(array_keys($vars), $file . ':' . $t[$i]->line, 'variables');
+            $this->collide(array_keys($vars), $file . ':' . $t[$i]->line, 'variables', $this->vars);
             $i = $k; // nested functions were part of this scope
         }
     }
 
-    /** @param list<string> $olds */
-    private function collide(array $olds, string $place, string $what): void
+    /** @param list<string> $olds @param array<string, string>|null $map */
+    private function collide(array $olds, string $place, string $what, ?array $map = null): void
     {
         $seen = [];
         foreach ($olds as $old) {
-            $new = $this->names[$old] ?? $old;
+            $new = ($map ?? $this->names)[$old] ?? $old;
             if (isset($seen[$new]) && $seen[$new] !== $old) {
                 $this->problems[] = "$place: $what „{$seen[$new]}“ and „{$old}“ would both become „{$new}“";
             }
@@ -659,9 +711,15 @@ function selfTest(): int
             echo "  FAIL case $no\n--- expected\n$expected\n--- got\n$got\n";
         }
     }
+    $r = new Rename(['vars' => ['odpoved' => 'answer', 'pocet' => 'count']], []);
+    $got = $r->rewrite("<?php\nfunction f(\$odpoved) { return \$odpoved . \$x->odpoved . g(odpoved: 1); }\nnew class { public \$pocet; };\n", 'v', false);
+    if ($got !== "<?php\nfunction f(\$answer) { return \$answer . \$x->odpoved . g(odpoved: 1); }\nnew class { public \$pocet; };\n" || count($r->problems) !== 1) {
+        $fail++;
+        echo "  FAIL vars: $got " . json_encode($r->problems) . "\n";
+    }
     // collisions: two variables of one function, a member and an inherited one
     $r = new Rename(['names' => ['nazev' => 'name']], []);
-    $r->variableCollisions("<?php function f(\$nazev) { \$name = 1; return fn () => \$name . \$nazev; }", 'v');
+    $r->variableCollisions("<?php\nnamespace T;\nfunction f(\$nazev) { \$name = 1; return fn () => \$name . \$nazev; }", 'v');
     $r->memberCollisions([
         'A' => ['parent' => null, 'interfaces' => [], 'methods' => ['name'], 'consts' => [], 'props' => [], 'file' => 'a'],
         'B' => ['parent' => 'A', 'interfaces' => [], 'methods' => ['nazev'], 'consts' => [], 'props' => [], 'file' => 'b'],
@@ -717,10 +775,22 @@ if ($mapFile === '' || !is_file($mapFile)) {
     exit("Usage: php tools/rename.php <map.php> [--apply] | --inventory | --self-test\n");
 }
 $apply = in_array('--apply', $args, true);
-$r = new Rename(require $mapFile, array_keys($declared));
+$map = require $mapFile;
+$r = new Rename($map, array_keys($declared));
+$only = $map['paths'] ?? [];
 
 $changed = [];
 foreach ($files as $f) {
+    if ($only !== [] && array_filter($only, fn (string $p): bool => str_starts_with($f, $p)) === []) {
+        // outside the renamed paths the same member or function name must not occur – it would be a different thing
+        // that keeps its name while the calls to it inside the paths get renamed (Totp::over vs. a test helper over())
+        foreach (PhpToken::tokenize((string) file_get_contents($root . '/' . $f)) as $x) {
+            if ($x->is(T_STRING) && isset($map['names'][$x->text])) {
+                $r->problems[] = "„{$x->text}“ is also used outside the renamed paths ($f:{$x->line}) – rename it with a new name there too, or only as a variable";
+            }
+        }
+        continue;
+    }
     $code = (string) file_get_contents($root . '/' . $f);
     if (!isView($f)) {
         $r->variableCollisions($code, $f);
@@ -739,6 +809,12 @@ foreach (['image', 'layout'] as $dir) {
     }
 }
 $moves = [];
+foreach ($map['files'] ?? [] as $from => $to) {
+    if (!is_file($root . '/' . $from)) {
+        $r->problems[] = "file $from does not exist";
+    }
+    $moves[$from] = $to;
+}
 foreach ($r->classMap() as $old => $new) {
     $from = 'system/src/' . str_replace('\\', '/', substr($old, 7)) . '.php';
     $to = 'system/src/' . str_replace('\\', '/', substr($new, 7)) . '.php';
@@ -750,12 +826,12 @@ foreach ($r->classMap() as $old => $new) {
     }
 }
 
-echo count($changed) . " files change, " . count($moves) . " class files move, " . array_sum($r->counts) . " references\n";
+echo count($changed) . " files change, " . count($moves) . " files move, " . array_sum($r->counts) . " references\n";
 foreach ($r->stringHits as $name => $places) {
     $places = array_values(array_unique($places));
     echo "  review (string/JS/CSS) $name: " . implode(', ', array_slice($places, 0, 6)) . (count($places) > 6 ? ' … +' . (count($places) - 6) : '') . "\n";
 }
-$unused = array_diff(array_keys((require $mapFile)['names'] ?? []), array_keys($r->counts));
+$unused = array_diff(array_keys(($map['names'] ?? []) + ($map['vars'] ?? [])), array_keys($r->counts));
 if ($unused !== []) {
     echo "  not found in code: " . implode(', ', $unused) . "\n";
 }

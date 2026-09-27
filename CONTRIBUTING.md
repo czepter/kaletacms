@@ -25,14 +25,14 @@ Open `http://localhost:8080/install.php` and install into an empty database.
 Every pull request must pass:
 
 ```bash
-php tools/testy.php          # unit tests, no database
+php tools/unit-tests.php          # unit tests, no database
 tools/test.sh                # clean install and a walk through site, admin, builder and MCP (needs MySQL;
                              # the database kaleta_test is dropped and created again)
 tools/test-english.sh        # the English installer, site and admin must contain no Czech
-tools/test-migrace.sh        # database upgrade from 1.0.0
+tools/test-migrations.sh        # database upgrade from 1.0.0
 ```
 
-Add a test for what you change – a unit test in `tools/testy.php`, or a check in `tools/test.sh` for anything that needs
+Add a test for what you change – a unit test in `tools/unit-tests.php`, or a check in `tools/test.sh` for anything that needs
 a running site.
 
 ## Code
@@ -41,14 +41,14 @@ a running site.
   currently in Czech (moving to English is on the [roadmap](docs/ROADMAP.md)).
 - No new runtime dependencies and no build step. CSS goes into the existing layers, JavaScript only where it is really
   needed.
-- Anything shown to visitors or administrators goes through `t()` and needs an English translation; `tools/cestina.php`
+- Anything shown to visitors or administrators goes through `t()` and needs an English translation; `tools/find-czech.php`
   checks that no Czech leaks into the English interface.
 - Architecture notes for contributors (in Czech) are in [CLAUDE.md](CLAUDE.md).
 
 ## Translations
 
 Visitor texts live in `system/jazyky/<code>.php` (for example `de.php`), the English admin in `system/jazyky/admin-en.php`.
-A new language is one dictionary file keyed by the Czech source text; `tools/slovnik.py` adds entries. Languages without
+A new language is one dictionary file keyed by the Czech source text; `tools/add-translations.py` adds entries. Languages without
 a dictionary fall back to English with dates in their own format.
 
 ## Commits and pull requests

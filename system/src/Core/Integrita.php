@@ -62,7 +62,7 @@ final class Integrita
     }
 
     /**
-     * Text, který vydavatel podepisuje (tools/vydani.php) a instalace ověřuje.
+     * Text, který vydavatel podepisuje (tools/release.php) a instalace ověřuje.
      *
      * @param array<string, string> $soubory cesta => sha256
      */

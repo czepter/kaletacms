@@ -10,7 +10,7 @@ namespace Kaleta\Core;
  *
  * Proč víc klíčů: vedle provozního klíče existuje záložní, který leží offline a nepoužívá se. Při ztrátě provozního klíče
  * se jím podepíše vydání s novým provozním klíčem; při úniku vydání, které kompromitovaný klíč ze souboru odstraní.
- * Postup je v docs/VYDAVANI.md.
+ * Postup je v docs/RELEASING.md.
  */
 final class Podpis
 {

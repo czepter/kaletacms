@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Doplní překlady do slovníku Kalety a správně je escapuje (apostrof v překladu jinak rozbije PHP soubor).
 
-Použití: tools/slovnik.py system/jazyky/admin-en.php < radky    (řádek = "česky|překlad")
-         tools/slovnik.py image/jazyky/admin-en.js < radky       (slovník skriptů administrace, funkce T())
+Použití: tools/add-translations.py system/jazyky/admin-en.php < radky    (řádek = "česky|překlad")
+         tools/add-translations.py image/jazyky/admin-en.js < radky       (slovník skriptů administrace, funkce T())
 Existující klíče přeskočí; položky shodné s češtinou nezapisuje.
 """
 import json

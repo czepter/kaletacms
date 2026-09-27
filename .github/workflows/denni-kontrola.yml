@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with: { php-version: '8.4', extensions: 'sodium, zip', coverage: none }
-      - run: php tools/over-kanal.php
+      - run: php tools/check-channel.php
 
   testy:
     name: Testy na PHP ${{ matrix.php }}
@@ -85,7 +85,7 @@ jobs:
           for h in strict-transport-security content-security-policy x-content-type-options referrer-policy; do hlavicka https://kaletacms.com/cs/ "$h"; done
           kod https://kaletacms.com/aktualizace.json "200"
           kod https://kaletacms.com/.htaccess "403 404"
-          for cesta in config.php system/bootstrap.php system/soubory.json storage/log/chyby.log .git/config tools/vydani.php; do kod "https://demo.kaletacms.com/$cesta" "403 404"; done
+          for cesta in config.php system/bootstrap.php system/soubory.json storage/log/chyby.log .git/config tools/release.php; do kod "https://demo.kaletacms.com/$cesta" "403 404"; done
           hlavicka https://demo.kaletacms.com/admin.php content-security-policy
           exit "$chyb"
 
@@ -103,5 +103,5 @@ jobs:
         run: |
           cislo=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search 'in:title "Denní kontrola selhala"' --json number -q '.[0].number')
           text="Denní kontrola dnes neprošla: $BEH
-          Podrobnosti statické analýzy jsou v Security → Code scanning (vidí je jen správci). Pokud jde o zranitelnost, neřešte ji tady veřejně - založte soukromé bezpečnostní oznámení a postupujte podle docs/VYDAVANI.md (vydání 3.0.x s příznakem --bezpecnostni)."
+          Podrobnosti statické analýzy jsou v Security → Code scanning (vidí je jen správci). Pokud jde o zranitelnost, neřešte ji tady veřejně - založte soukromé bezpečnostní oznámení a postupujte podle docs/RELEASING.md (vydání 3.0.x s příznakem --bezpecnostni)."
           if [ -n "$cislo" ]; then gh issue comment "$cislo" --repo "$GITHUB_REPOSITORY" --body "$text"; else gh issue create --repo "$GITHUB_REPOSITORY" --title "Denní kontrola selhala" --body "$text"; fi

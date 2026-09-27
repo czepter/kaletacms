@@ -151,7 +151,7 @@ final class WpImport
         }
     }
 
-    /* ---------- čisté převody (hlídá je tools/testy.php) ---------- */
+    /* ---------- čisté převody (hlídá je tools/unit-tests.php) ---------- */
 
     /**
      * Stav příspěvku ve WordPressu → naše novinka; null = neimportuje se (soukromé, koš, automatické koncepty, revize).
