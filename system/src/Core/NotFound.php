@@ -14,7 +14,9 @@ namespace Kaleta\Core;
 final class NotFound
 {
     /** Paths bots probe on every site: other systems' files, APIs and admin screens. */
-    public const string BOTS = '#\.(php|asp|aspx|env|git|sql|bak|ini|xml|txt|js|css|map|png|jpe?g|gif|ico|webp)$|^(wp-|wp/|wordpress|oembed/|xmlrpc|\.|cgi-bin|vendor/|admin/|_next(/|$)|_nuxt|app$|api$|actuator|phpmyadmin|owa/|autodiscover|remote/|boaform|hnap1|solr|telescope|debug)#i';
+    public const string BOTS = '#\.(php|asp|aspx|env|git|sql|bak|ini|xml|txt|js|css|map|png|jpe?g|gif|ico|webp)$|^(wp-|wp/|wordpress|oembed/|xmlrpc|\.|cgi-bin|vendor/|admin/|_next(/|$)|_nuxt|app$|api$|actuator|phpmyadmin|owa/|autodiscover|remote/|boaform|hnap1|solr|telescope|debug)'
+        // ad-network crawlers (sellers.json next to ads.txt) and app APIs probed on every site; Kaleta's own API is /api/novinky, /api/kategorie, /api/stranky
+        . '|^sellers\.json$|^api/(?!novinky|kategorie|stranky)#i';
 
     /** At least this many visits in the period make an address worth a warning. */
     public const int HITS = 3;
