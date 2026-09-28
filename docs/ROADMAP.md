@@ -100,7 +100,7 @@ Decided by the owner on 28 September 2026:
 Order: first make the MCP path complete, then make look changes safe, then make the site portable, then make it
 findable, then remove what is left of the old ways. Each step uses the previous one.
 
-## 1.5 – newsletter mailing (in main, not released yet)
+## 1.5 – newsletter mailing (released 28 September 2026)
 
 - **One newsletter template, styled by the design system** – colours, fonts, logo and corner radius come from the site's
   tokens; no e-mail builder. The newsletter has a subject, an intro text, the latest (or chosen) news items, a button and
