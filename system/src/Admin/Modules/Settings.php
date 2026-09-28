@@ -10,7 +10,6 @@ use Kaleta\Core\Response;
 use Kaleta\Core\Extensions;
 use Kaleta\Core\Health;
 use Kaleta\Core\Backup;
-use Kaleta\Front\Layouts;
 
 /**
  * Site settings (table ka_nastaveni) split into tabs.
@@ -121,8 +120,7 @@ class Settings extends Module
         return $this->view('list', 'Nastavení', [
             'tab' => $tab,
             'invalidFields' => $invalid['pole'],
-            'values' => $invalid['hodnoty'] + $values + ['layout' => $settings->get('layout')],
-            'layouts' => Layouts::listAll(),
+            'values' => $invalid['hodnoty'] + $values,
             'checks' => $tab === 'health' ? Health::checks($this->app) : [],
             'remoteStatus' => $settings->get('remote_backup_status'),
             'tasksToken' => $settings->get('tasks_token'),

@@ -308,18 +308,15 @@ final class Updater
 
     /**
      * One-time cleanup after moving to a new version: deletes known removed files, but only when they are exactly as we
-     * released them. A file the administrator edited (or a template the site currently uses) is left alone.
+     * released them. A file the administrator edited is left alone.
      *
      * @return int number of deleted files
      */
-    public static function cleanUpRemoved(string $root, string $activeLayout = ''): int
+    public static function cleanUpRemoved(string $root): int
     {
         $deleted = 0;
         foreach (self::REMOVED_FILES as $relativePath => $hashes) {
             $file = $root . '/' . $relativePath;
-            if (str_starts_with($relativePath, 'layout/' . $activeLayout . '/') && $activeLayout !== '') {
-                continue;
-            }
             if (is_file($file) && in_array(hash_file('sha256', $file), $hashes, true) && @unlink($file)) {
                 $deleted++;
                 @rmdir(dirname($file)); // the folder disappears only if it was left empty

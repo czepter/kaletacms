@@ -57,9 +57,10 @@ sharing). A deleted page goes to the **trash** and can be restored for 30 days; 
 
 ## 3. Site appearance
 
-**Appearance → Site appearance** changes the whole site at once. Three words, used the same way everywhere:
-a **starter site** is sample content plus a style (you choose it at installation), a **style** is a ready set of colours,
-fonts, sizes and corner radius, and a **theme** is only the old custom PHP theme some sites still have.
+**Appearance → Site appearance** changes the whole site at once. Two words, used the same way everywhere: a **starter
+site** is sample content plus a style (you choose it at installation), and a **style** is a ready set of colours, fonts,
+sizes and corner radius. Kaleta has no PHP themes since 1.6 – the look comes only from Site appearance, shared classes and
+the builder.
 
 The page has tabs:
 

@@ -11,7 +11,6 @@ use Kaleta\Core\Request;
 use Kaleta\Core\Response;
 use Kaleta\Core\Extensions;
 use Kaleta\Core\View;
-use Kaleta\Front\Layouts;
 use Kaleta\Builder\Library;
 use Kaleta\Builder\Build;
 
@@ -259,7 +258,7 @@ final class Installer
             \Kaleta\Core\Search::complete($db);
             $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->request->origin(), 'site_email' => $d['email'], 'site_language' => $siteLanguage,
                 'design_system' => (string) json_encode(\Kaleta\Builder\DesignSystem::preset($siteSettings['predvolba']), JSON_UNESCAPED_SLASHES),
-                'time_zone' => $d['casove_pasmo'], 'layout' => Layouts::DEFAULTS, 'home_page' => (string) $home, 'db_version' => (string) Migration::latest(),
+                'time_zone' => $d['casove_pasmo'], 'home_page' => (string) $home, 'db_version' => (string) Migration::latest(),
                 'extensions' => $extensions === [] ? '-' : implode(',', $extensions), 'cookies_policy_url' => $this->request->basePath() . '/' . slugify($privacyPolicy)];
             foreach ($settings as $key => $value) {
                 $db->insert('nastaveni', ['promenna' => $key, 'hodnota' => $value]);

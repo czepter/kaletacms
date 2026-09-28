@@ -85,7 +85,7 @@ final class Kernel
 
         // after moving to a new version, clean up the known removed files once (see Updater::REMOVED_FILES)
         if ($app->auth()->isAdmin() && $app->settings()->get('cleaned_version') !== KALETA_VERSION) {
-            \Kaleta\Core\Updater::cleanUpRemoved(KALETA_ROOT, $app->settings()->get('layout'));
+            \Kaleta\Core\Updater::cleanUpRemoved(KALETA_ROOT);
             $app->settings()->set('cleaned_version', KALETA_VERSION);
         }
 

@@ -83,9 +83,8 @@ $types = (new ReflectionClass(NewsText::class))->newInstanceWithoutConstructor()
 $html = $types->embedVideoUrls('<p>Úvod</p><p>https://youtu.be/dQw4w9WgXcQ</p><p>Viz https://youtu.be/dQw4w9WgXcQ v textu.</p>');
 check('vlozeneAdresy: jen samostatný řádek', [substr_count($html, 'data-vlozit'), substr_count($html, 'Viz https://youtu.be')], [1, 1]);
 
-/* ---------- site layouts ---------- */
-check('Šablony: výchozí šablona existuje a je i výchozí hodnotou nastavení', [is_file(dirname(__DIR__) . '/layout/' . \Kaleta\Front\Layouts::DEFAULTS . '/base.php'), \Kaleta\Core\Settings::DEFAULTS['layout']], [true, \Kaleta\Front\Layouts::DEFAULTS]);
-check('Šablony: zrušená šablona „default“ se nevrátila', is_dir(dirname(__DIR__) . '/layout/default'), false);
+/* ---------- themeless (1.6) ---------- */
+check('Themeless: the page frame is the system’s own, no layout folder and no layout setting', [is_file(KALETA_ROOT . '/system/views/front/base.php'), is_dir(KALETA_ROOT . '/layout'), isset(\Kaleta\Core\Settings::DEFAULTS['layout'])], [true, false, false]);
 
 /* ---------- the English dictionary covers site and admin texts ---------- */
 $missingTranslation = static function (string $dictionary, array $patterns): array {
@@ -106,7 +105,7 @@ $missingTranslation = static function (string $dictionary, array $patterns): arr
 
     return array_values(array_unique($missing));
 };
-check('Slovník en.php: texty webu mají anglický překlad', $missingTranslation('en.php', ['system/views/front/*.php', 'layout/*/*.php', 'system/src/Front/*.php', 'system/src/Builder/*.php', 'system/src/Builder/Elements/*.php']), []);
+check('Slovník en.php: texty webu mají anglický překlad', $missingTranslation('en.php', ['system/views/front/*.php', 'system/src/Front/*.php', 'system/src/Builder/*.php', 'system/src/Builder/Elements/*.php']), []);
 check('Slovník admin-en.php: E-mail webu', isset((require dirname(__DIR__) . '/system/jazyky/admin-en.php')['E-mail webu']), true);
 
 check('Stavba::kod: vnořený skript se nesloží znovu', [str_contains(Kaleta\Builder\Build::code('<scr<script>x</script>ipt>alert(1)</scr<script>y</script>ipt>'), '<script'), Kaleta\Builder\Build::code('<iframe src="https://mapy.cz/x"></iframe>')], [false, '<iframe src="https://mapy.cz/x"></iframe>']);
@@ -393,7 +392,7 @@ if (function_exists('imagecreatetruecolor')) {
 /* ---------- scripts: must not look for an element (data attribute) that is never created – that is how the Media dialog broke ---------- */
 $whereCreated = [
     'image/editor.js' => ['system/views/admin'], 'image/admin.js' => ['system/views/admin', 'system/src/Admin'], 'image/pomocnik.js' => ['system/views/admin'],
-    'image/web.js' => ['system/views/front', 'system/src/Front', 'system/src/Builder/Elements', 'layout'],
+    'image/web.js' => ['system/views/front', 'system/src/Front', 'system/src/Builder/Elements'],
 ];
 foreach ($whereCreated as $script => $folders) {
     $source = (string) file_get_contents(KALETA_ROOT . '/' . $script);

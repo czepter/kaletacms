@@ -7,7 +7,7 @@ namespace Kaleta\Core;
 /**
  * Core integrity: the release package carries a signed list of files with hashes (system/soubory.json).
  * By it the system health check recognizes core files that someone changed, deleted or added. Edits of the core are
- * not supported - only layout/<custom layout>/, media/, storage/ and config.php are custom; an update
+ * not supported - only media/, storage/ and config.php are the site's own; an update
  * returns the core to its original form.
  */
 final class Integrity

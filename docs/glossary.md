@@ -16,7 +16,6 @@ clients. They keep their Czech names; the rename tool never touches string liter
 | Build JSON: keys, element types, style keys | `{"typ":"nadpis","obsah":{…},"styl":{"mobil":{"mezera":"s"}},"deti":[…]}` | stored builds, MCP clients |
 | Design system keys and CSS custom properties | `barvy.primarni`, `--ka-barva-text`, `--ka-mezera-l` | stored design, shared classes |
 | Public HTML hooks | classes `ka-*`, `data-ka-*`, `#popup-<slug>`, localStorage `ka-jazyk` | custom CSS and scripts of sites |
-| Public templates | file names and variables of `system/views/front/*` and `layout/` | custom layouts override them |
 | Release channel | manifest keys `verze`, `sha256`, `podpis`…, `system/soubory.json` | older installs parse them |
 | MCP and REST | tool and parameter names (English names exist, Czech aliases stay) | connected clients |
 | `config.php` | `db_host`, `db_name`… | written by the installer |
@@ -120,7 +119,7 @@ renamed the stored rows, and `Settings` still accepts an old key (custom layouts
 | předvolba | preset | design system preset |
 | startovací web | starter site | |
 | vzhled | appearance | |
-| šablona (layout) | layout | `layout/` folder |
+| šablona (layout) | layout | the `layout/` folder, removed in 1.6 (themeless) |
 | téma, tmavý režim | color scheme, dark mode | the light/dark switcher |
 | přepínač | switcher | |
 | mobil, tablet, počítač | mobile, tablet, desktop | build keys `mobil`/`tablet` stay |

@@ -7,11 +7,10 @@ namespace Kaleta\Admin\Modules;
 use Kaleta\Admin\Module;
 use Kaleta\Core\Images;
 use Kaleta\Core\Response;
-use Kaleta\Front\Layouts;
 use Kaleta\Builder\DesignSystem;
 
 /**
- * Site appearance: layout, logo and design system (colors, fonts, sizes, width, rounding) with a live preview of the home page.
+ * Site appearance: logo and design system (colors, fonts, sizes, width, rounding) with a live preview of the home page.
  * Both the layout and the builder take tokens from the design system, so a change here recolors the whole site.
  */
 final class Appearance extends Module
@@ -28,11 +27,10 @@ final class Appearance extends Module
         $ds = DesignSystem::load($siteSettings);
 
         return $this->view('list', 'Site appearance', [
-            'layouts' => Layouts::listAll(),
             'ds' => $ds,
             'contrasts' => DesignSystem::contrasts($ds),
             'presets' => array_map(fn (string $k): array => ['nazev' => DesignSystem::PRESETS[$k][0], 'popis' => DesignSystem::PRESETS[$k][1], 'ds' => DesignSystem::preset($k)], array_combine(array_keys(DesignSystem::PRESETS), array_keys(DesignSystem::PRESETS))),
-            'values' => ['layout' => $siteSettings->get('layout'), 'logo' => $siteSettings->get('logo'), 'favicon' => $siteSettings->get('favicon'), 'dark_mode' => $siteSettings->get('dark_mode'), 'theme_switcher' => $siteSettings->get('theme_switcher'), 'site_name' => $siteSettings->get('site_name')],
+            'values' => ['logo' => $siteSettings->get('logo'), 'favicon' => $siteSettings->get('favicon'), 'dark_mode' => $siteSettings->get('dark_mode'), 'theme_switcher' => $siteSettings->get('theme_switcher'), 'site_name' => $siteSettings->get('site_name')],
         ]);
     }
 
@@ -43,9 +41,6 @@ final class Appearance extends Module
         }
         $r = $this->request;
         $siteSettings = $this->app->settings();
-        if (isset(Layouts::listAll()[$r->post('layout')])) {
-            $siteSettings->set('layout', $r->post('layout'));
-        }
         $siteSettings->set('logo', mb_substr($r->post('logo'), 0, 255));
         $icon = mb_substr($r->post('favicon'), 0, 255);
         if ($icon !== $siteSettings->get('favicon') || ($icon !== '' && !is_file(KALETA_ROOT . '/media/ikona-180.png'))) {

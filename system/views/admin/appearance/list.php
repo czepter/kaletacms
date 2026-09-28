@@ -8,7 +8,6 @@
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Appearance $module
  * @var string $csrf
- * @var array<string, array{nazev:string, popis:string}> $layouts
  * @var array<string, mixed> $ds
  * @var list<array{popis:string, pomer:float, ok:bool}> $contrasts
  * @var array<string, array{nazev:string, popis:string, ds:array<string, mixed>}> $presets
@@ -208,23 +207,6 @@ $tabs = ['styl' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo'
 <div class="radek"><label for="favicon"><?= e(t('Site icon')) ?></label><div><input class="textpole siroke" type="text" id="favicon" name="favicon" value="<?= e($values['favicon']) ?>" maxlength="255" data-obrazek><span class="napoveda"><?= e(t('A small square image shown on the browser tab and in bookmarks. 256×256 px is enough.')) ?></span></div></div>
 </fieldset>
 
-<?php if (count($layouts) > 1): ?>
-<fieldset>
-<legend><?= e(t('Template')) ?></legend>
-<p class="napoveda"><?= e(t('Custom PHP themes are no longer developed – set the look of the site here in Site appearance and in the builder. An existing custom theme keeps working, but we recommend switching to the default one.')) ?></p>
-<div class="karty-volby karty-volby-text">
-<?php foreach ($layouts as $folder => $l): ?>
-	<label class="karta-volba">
-		<input type="radio" name="layout" value="<?= e($folder) ?>"<?= $values['layout'] === $folder ? ' checked' : '' ?>>
-		<strong><?= e($l['nazev']) ?></strong>
-		<span><?= e($l['popis']) ?></span>
-	</label>
-<?php endforeach ?>
-</div>
-</fieldset>
-<?php else: ?>
-<input type="hidden" name="layout" value="<?= e((string) array_key_first($layouts)) ?>">
-<?php endif ?>
 </div>
 
 <p class="tlacitka vzhled-ulozit"><input class="tl" type="submit" value="<?= e(t('Save appearance')) ?>"> <span class="napoveda" data-neulozeno hidden><?= e(t('The preview shows unsaved changes.')) ?></span></p>

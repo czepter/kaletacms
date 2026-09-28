@@ -6,7 +6,6 @@
  * @var string $csrf
  * @var string $tab
  * @var array<string, string> $values
- * @var array<string, array{nazev:string, popis:string, rozvrzeni:string}> $layouts
  * @var list<array{skupina:string, nazev:string, stav:string, info:string}> $checks
  * @var string $siteUrl
  * @var list<string> $enabledExtensions

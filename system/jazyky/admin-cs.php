@@ -2841,4 +2841,6 @@ return [
     'The item was restored as hidden.' => 'Položka je obnovená jako skrytá.',
     'The item was deleted permanently.' => 'Položka je smazaná natrvalo.',
     '%d enquiries read' => 'přečteno poptávek: %d',
+    'Custom layout' => 'Vlastní šablona',
+    '%s in the layout/ folder is no longer used – since 1.6 the look comes only from Site appearance and the builder. Move what you need into shared classes and site parts, then delete the folder.' => '%s ve složce layout/ se už nepoužívá – od verze 1.6 určuje vzhled jen Vzhled webu a builder. Co potřebujete, přeneste do sdílených tříd a částí webu a složku smažte.',
 ];

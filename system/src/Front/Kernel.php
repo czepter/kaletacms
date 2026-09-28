@@ -40,9 +40,6 @@ final class Kernel
     /** Shared builder state for the whole page (page build, header, footer, wrapper) – one CSS without repetition. */
     private ?\Kaleta\Builder\Context $context = null;
 
-    /** Folder of the layout the site currently uses. */
-    private string $layout = Layouts::DEFAULTS;
-
     /** System URL in a foreign form (/novinky on the English site) – redirect to the valid one (Core\Routes). */
     private ?Response $redirect = null;
 
@@ -86,19 +83,8 @@ final class Kernel
             $this->redirect = Response::redirect($app->url(ltrim($internal, '/')) . ($query !== '' ? '?' . $query : ''), 301);
         }
         $app->request->setPath($internal);
-        $layout = $app->settings()->get('layout');
-        // preview of another layout (?sablona=folder) - only for a signed-in administrator, e.g. when creating a layout via Claude
-        $preview = $app->request->get('sablona');
-        if ($preview !== '' && preg_match('/^[a-z0-9_-]+$/i', $preview) && is_file(KALETA_ROOT . '/layout/' . $preview . '/base.php') && $app->auth()->isAdmin()) {
-            $layout = $preview;
-        }
-        // the configured layout is missing (deleted folder) - the site renders with the default one
-        if (!preg_match('/^[a-z0-9_-]+$/i', $layout) || !is_file(KALETA_ROOT . '/layout/' . $layout . '/base.php')) {
-            $layout = Layouts::DEFAULTS;
-        }
-        $this->layout = $layout;
-        // a template is looked up first in the site's layout, then among the system ones - so a layout can override anything
-        $this->view = new View([KALETA_ROOT . '/layout/' . $layout, KALETA_SYSTEM . '/views/front']);
+        // themeless: the front templates are the system's own, the look comes from the design system and the builder
+        $this->view = new View([KALETA_SYSTEM . '/views/front']);
         $this->news = new NewsRepository($app->db(), $app->settings(), $app->request->basePath());
     }
 
@@ -322,7 +308,7 @@ final class Kernel
         $k->classes = []; // class styles above come from the library, not from the site database (the class may not exist on the site yet)
         $siteSettings = $this->app->settings();
         $css = \Kaleta\Builder\DesignSystem::css(\Kaleta\Builder\DesignSystem::load($siteSettings), $this->app->request->basePath()) . \Kaleta\Builder\Build::css($this->app->db(), $k) . '@layer tridy {' . $classes . '}';
-        $layout = $this->app->url('layout/' . $this->layout . '/style.css');
+        $layout = $this->app->url('image/sablona.css');
 
         return new Response('<!doctype html><html lang="' . e(Language::code()) . '"><head><meta charset="utf-8"><meta name="robots" content="noindex">'
             . '<link rel="stylesheet" href="' . e($layout) . '"><link rel="stylesheet" href="' . e($this->app->url('image/web.css')) . '"><style>' . $css . 'body{margin:0}</style></head>'

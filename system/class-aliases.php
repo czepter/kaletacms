@@ -64,7 +64,6 @@ return [
     'Kaleta\\Front\\Firma' => 'Kaleta\\Front\\Company',
     'Kaleta\\Front\\Formulare' => 'Kaleta\\Front\\Forms',
     'Kaleta\\Front\\Identita' => 'Kaleta\\Front\\SiteIdentity',
-    'Kaleta\\Front\\Layouty' => 'Kaleta\\Front\\Layouts',
     'Kaleta\\Front\\ObrazkyHtml' => 'Kaleta\\Front\\ImageHtml',
     'Kaleta\\Front\\Odber' => 'Kaleta\\Front\\Subscription',
     'Kaleta\\Front\\Statistika' => 'Kaleta\\Front\\Stats',

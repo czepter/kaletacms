@@ -57,8 +57,8 @@ a sdílení). Smazaná stránka jde do **koše** a 30 dní ji jde obnovit; **Dup
 ## 3. Vzhled webu
 
 **Vzhled → Vzhled webu** mění celý web najednou. Tři pojmy, všude ve stejném smyslu: **startovací web** je ukázkový
-obsah se stylem (vybíráte ho při instalaci), **styl** je hotová sada barev, písem, velikostí a zaoblení a **šablona** je
-jen stará vlastní PHP šablona, kterou mají některé weby z dřívějška.
+obsah se stylem (vybíráte ho při instalaci) a **styl** je hotová sada barev, písem, velikostí a zaoblení. Vlastní PHP
+šablony Kaleta od verze 1.6 nepoužívá – vzhled určuje jen Vzhled webu, sdílené třídy a builder.
 
 Stránka má záložky:
 
@@ -79,7 +79,7 @@ Vpravo je živý náhled úvodní stránky (počítač / telefon). Nic se neukl�
 
 ## 4. Části webu: záhlaví, patička, obálky, pop-up okna
 
-**Vzhled → Části webu.** Dokud část nepublikujete z builderu, kreslí ji šablona.
+**Vzhled → Části webu.** Dokud část nepublikujete z builderu, kreslí ji vestavěná výchozí podoba.
 
 - **Záhlaví a patička** jsou na každé stránce. Prvky **Logo**, **Navigace** (na telefonu se schová za tlačítko) a
   **Údaje firmy** se plní samy.

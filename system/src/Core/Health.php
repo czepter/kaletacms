@@ -95,6 +95,11 @@ final class Health
             ? t('have not run yet – the first visit to the site will start them')
             : ($before <= 30 ? t('last run %d min ago', $before) : ($before < 120 ? t('last run %d min ago', $before) : t('last run %d h ago', (int) round($before / 60)))
                 . ' – ' . t('on a low-traffic site set up cron; you will find the address further down this page')));
+        // themeless since 1.6: a custom PHP layout left in layout/ is no longer used
+        $leftover = array_map('basename', array_map('dirname', glob(KALETA_ROOT . '/layout/*/base.php') ?: []));
+        if ($leftover !== []) {
+            $add(t('Operation'), t('Custom layout'), 'varovani', t('%s in the layout/ folder is no longer used – since 1.6 the look comes only from Site appearance and the builder. Move what you need into shared classes and site parts, then delete the folder.', implode(', ', $leftover)));
+        }
         $cron = $siteSettings->int('tasks_last_run');
         $cronMinutes = $cron > 0 ? (int) floor((time() - $cron) / 60) : null;
         $add(t('Operation'), t('Cron'), $cronMinutes !== null && $cronMinutes <= Mailing::CRON_MINUTES ? 'ok' : 'varovani', match (true) {

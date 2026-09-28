@@ -7,10 +7,10 @@ namespace Kaleta\Front;
 use Kaleta\Core\Settings;
 
 /**
- * Site identity ("Vzhled → Identita webu", Appearance → Site identity): the main color and fonts that flow into layouts.
+ * Site identity ("Vzhled → Identita webu", Appearance → Site identity): the main color and fonts that flow into the page frame.
  *
- * Layouts use the identity through the CSS custom properties --ka-akcent, --ka-pismo-titulky and --ka-pismo-text:
- * in their style.css they use them with their own default value, e.g. --akcent: var(--ka-akcent, #326891).
+ * The frame (image/sablona.css) uses the identity through the CSS custom properties --ka-akcent, --ka-pismo-titulky and
+ * --ka-pismo-text, each with its own default value, e.g. --akcent: var(--ka-akcent, #326891).
  * Fonts are system fonts only (no downloads from third-party servers - speed and GDPR).
  */
 final class SiteIdentity

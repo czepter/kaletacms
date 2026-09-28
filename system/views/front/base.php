@@ -1,7 +1,8 @@
 <?php
 /**
- * Layout "zakladni" - a company website template: header with logo and navigation, content, footer with contacts.
- * On a phone the navigation opens via the Popover API (no JavaScript). A custom layout = a copy of this folder under another name.
+ * The frame of every page (Kaleta is themeless since 1.6): head, the header and footer site parts from the builder (or the
+ * built-in ones), the content. The look comes from the design system and image/sablona.css. On a phone the navigation
+ * opens via the Popover API (no JavaScript).
  *
  * @var Kaleta\Core\Settings $web
  * @var string $titulek  empty on the home page
@@ -53,7 +54,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 <?php if ($sNovinkami ?? true): ?>
 <link rel="alternate" type="application/rss+xml" title="<?= e($nazevWebu) ?> – <?= e(t('Novinky')) ?>" href="<?= e($url('rss.xml')) ?>">
 <?php endif ?>
-<link rel="stylesheet" href="<?= e($url('layout/zakladni/style.css')) ?>?v=<?= e(KALETA_VERSION) ?>">
+<link rel="stylesheet" href="<?= e($url('image/sablona.css')) ?>?v=<?= e(KALETA_VERSION) ?>">
 <?= $hlava ?>
 </head>
 <body>

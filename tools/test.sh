@@ -69,9 +69,11 @@ check "patička odkazuje na zásady" 200 /o-nas 'zasady-ochrany-osobnich-udaju'
 check "neexistující stránka" 404 /tohle-neexistuje
 check "system/ není přístupný" 403 /system/sql/schema.sql
 check "config.php není přístupný" 403 /config.php
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='neexistuje' WHERE promenna='layout'"
+mkdir -p "$WORK/web/layout/vlastni" && echo '<?php echo "VLASTNI SABLONA";' > "$WORK/web/layout/vlastni/base.php"
+"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni VALUES ('layout','vlastni')"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
-check "chybějící šablona – web běží na výchozí" 200 / "layout/zakladni/style.css"
+check "themeless: the site uses the built-in frame, never a custom layout" 200 / "image/sablona.css"
+grep -q "VLASTNI SABLONA" "$WORK/response" && { echo "  CHYBA  a custom layout was used"; ERRORS=$((ERRORS+1)); } || echo "  ok     a custom layout in layout/ is ignored"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='0' WHERE promenna='home_page'"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 check "bez úvodní stránky je úvodem výpis novinek" 200 / "Vítejte v Kaletě"
@@ -1020,6 +1022,7 @@ expect "MCP: delete_newsletter" "$(db "SELECT COUNT(*) FROM ka_newsletters WHERE
 db "UPDATE ka_newsletters SET finished_at = NOW() - INTERVAL 2 DAY WHERE id = $NL"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "recipients are kept only a day after sending" "$(db "SELECT COUNT(*) FROM ka_newsletter_queue WHERE newsletter_id = $NL")|$(db "SELECT sent_count FROM ka_newsletters WHERE id = $NL")" "0|2"
 check "health: cron check" 200 "/admin.php?module=settings&tab=health" "Cron"
+grep -q "vlastni ve složce layout/" "$WORK/response" && echo "  ok     health: a leftover custom layout is reported" || { echo "  CHYBA  health: leftover custom layout not reported"; ERRORS=$((ERRORS+1)); }
 kill "$SMTP_PID" 2>/dev/null || true
 db "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', ''); DELETE FROM ka_odberatele; DELETE FROM ka_newsletters; DELETE FROM ka_newsletter_queue"
 
@@ -1166,7 +1169,7 @@ file_put_contents($site . '/system/soubory.json', json_encode(['verze' => '1.0.0
 @mkdir(dirname($site) . '/kanal');
 $zip = new ZipArchive();
 $zip->open(dirname($site) . '/kanal/k.zip', ZipArchive::CREATE | ZipArchive::OVERWRITE);
-$zip->addFromString('layout/zakladni/test-aktualizace.txt', "nova verze\n");
+$zip->addFromString('image/test-aktualizace.txt', "nova verze\n");
 $zip->addFromString('.htaccess', "# htaccess nove verze\n");
 $zip->addFromString('system/bootstrap.php', (string) file_get_contents($site . '/system/bootstrap.php')); // balíček musí nést jádro
 $zip->addFromString('index.php', (string) file_get_contents($site . '/index.php'));
@@ -1187,9 +1190,9 @@ curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&ta
 update_from() { "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/$1') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'"
   curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN"; }
 update_from zly.json
-[ ! -f "$WORK/web/layout/zakladni/test-aktualizace.txt" ] && echo "  ok     balíček s cizím podpisem se nenainstaluje" || { echo "  CHYBA  nainstalován balíček s neplatným podpisem"; ERRORS=$((ERRORS+1)); }
+[ ! -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     balíček s cizím podpisem se nenainstaluje" || { echo "  CHYBA  nainstalován balíček s neplatným podpisem"; ERRORS=$((ERRORS+1)); }
 update_from ok.json
-[ -f "$WORK/web/layout/zakladni/test-aktualizace.txt" ] && echo "  ok     podepsaná aktualizace se nainstaluje" || { echo "  CHYBA  aktualizace se nenainstalovala"; ERRORS=$((ERRORS+1)); }
+[ -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     podepsaná aktualizace se nainstaluje" || { echo "  CHYBA  aktualizace se nenainstalovala"; ERRORS=$((ERRORS+1)); }
 grep -q "vlastni uprava spravce" "$WORK/web/.htaccess" && [ -f "$WORK/web/.htaccess.kaleta-nova" ] && echo "  ok     vlastní .htaccess zůstal, nová verze leží vedle" || { echo "  CHYBA  aktualizace přepsala vlastní .htaccess"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_url', 'update_cache')"
 kill "$CHANNEL_PID" 2>/dev/null || true
