@@ -160,8 +160,15 @@ address (for `/compare`, e.g. `/de/vergleich`).
 The **Form** element (or the *Enquiry form* section) adds an enquiry form. In the Content panel you set the fields (text,
 email, phone, list, radio buttons, date, number, consent), button text, thank-you message or thank-you page, a confirmation
 to the sender and the notification email. Hidden fields and a submission limit fight spam without CAPTCHA or cookies.
-The site can also send each new enquiry to a CRM or Make/Zapier (Settings → General → New enquiry webhook); conversion
+The site can also send each new enquiry to a CRM or Make/Zapier (Settings → Webhooks → New enquiry webhook); conversion
 tracking gets a `kaleta:odeslano` event (and a `dataLayer` entry).
+
+**Settings → Webhooks** holds both webhook addresses (a new enquiry, a published news item). The call goes out right after
+the page is sent, so a slow receiver never delays a visitor, and every call is signed: the headers `X-Kaleta-Timestamp`
+and `X-Kaleta-Signature` (`sha256=` HMAC-SHA256 of `timestamp.body` with the signing secret shown on the tab) let the
+receiver check that the call came from your site. The **delivery log** shows every call; a failed one is retried after 1,
+5 and 30 minutes and 2 and 12 hours, and a given-up call can be sent again with one click. **Send a test call** checks the
+connection. Webhook addresses and the secret are never available over the Claude connection.
 
 Submitted messages are in **Content → Enquiries**: status (new, read, resolved), reply by email, CSV export. When the form is on the
 page an ad or a newsletter links to, the enquiry also shows the **campaign** from the address (`utm_source`, `utm_medium`, `utm_campaign`…) –
@@ -259,14 +266,42 @@ and page text take effect straight away – the previous page text goes to the v
 the trash (restorable for 30 days in the admin); the site e-mail, webhooks, mail, backups and security settings cannot
 be changed over the connection.
 
-## 11. Moving from WordPress
+## 11. Moving from WordPress or another Kaleta site
 
 **Administration → Import and export → WordPress:** upload a WordPress export (Tools → Export, an XML file). The import
 turns posts into news, pages optionally **straight into the builder**, downloads images into Media and creates redirects
 from old addresses. You can run the import again – whatever it already converted is skipped.
 
+**Moving a Kaleta site** to another host or starting a new site from an agency's starter kit: on the old site create
+**Import and export → Export of the whole site**, then install Kaleta on the new host and choose **Start from an export**
+in the installer. Sign in, open **Import and export → Import from Kaleta** and upload the `.zip` (a larger one over FTP
+into `storage/import/`). The preview shows what the export holds; after you confirm, a database backup is made and the
+import runs in batches on its own – pages, news, collections, components, shared classes, site parts, menus, pop-ups,
+redirects, the media library and its files, the site name, company details, languages and the look. Every row keeps its
+number, so all links between pages, menus and components stay valid, and every build goes through the same checks as
+a save in the builder. User accounts, passwords, keys, tokens and the mail and backup settings are never in an export,
+so the new site keeps its own; imported news belong to you. The import works only on an empty site – a fresh install,
+optionally with a starter site.
+
+**One page** travels too: **Pages → Export** downloads a JSON file with the page's build, the shared classes it uses and
+its components (including components inside components). **Pages → Import** on another site creates the page hidden,
+adds the missing classes (a class the site already has keeps its own look) and the components, and reuses a component
+imported before.
+
 ## 12. Backups, updates, export
 
-**Settings → Backups and updates:** automatic backups (also off-server via FTPS or S3) and signed updates. **Import and
-export → Site export** creates a package with the content (pages, news, collections, site parts, classes) and media for
-moving elsewhere. Enquiries and accounts are not exported.
+**Settings → Backups and updates:** signed updates and automatic database backups – every day something changed on the
+site, otherwise once a week; the last 10 are kept. **Off-site copies** upload each backup to an FTPS server or S3 storage
+(Amazon S3, Backblaze B2, Wasabi, Cloudflare R2) and copy the `media/` folder to the same place – only new and changed
+files, in the background, so even a large media library gets there bit by bit. The tab shows whether the copy is complete.
+
+To **restore a site after losing the hosting**: install Kaleta on the new hosting with the same table prefix, upload the
+latest database backup over FTP into `storage/zalohy/`, copy the `media/` folder back from the FTPS or S3 copy, then click
+**Restore** at that backup in Settings → Backups and updates and sign in with the accounts from the backup.
+
+**Import and export → Export of the whole site** creates an open package with the content and media – for moving (see
+above) or keeping your content outside Kaleta. Enquiries, subscribers and accounts are not exported.
+
+The **public read-only API** (`/api/novinky`, the *Public API* extension) is deprecated since 1.8 and will be removed in
+Kaleta 2.0: its responses carry a `Deprecation` header. Use the JSON Feed (`/feed.json`) or RSS for news, the Claude
+connection (MCP) for working with the site, webhooks for events and the site export to take your content out.

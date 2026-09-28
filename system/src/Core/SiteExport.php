@@ -20,10 +20,14 @@ final class SiteExport
     public const int MAX_MEDIA = 1024 * 1024 * 1024;
     private const int KEEP = 3;
 
-    /** The only settings that are exported: the site's name, description, identity and languages. */
-    private const array SETTINGS = ['site_name', 'site_description', 'keywords', 'site_url', 'logo', 'favicon', 'design_system', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_hours', 'company_map', 'company_gps', 'brand_accent', 'dark_mode',
+    /** Version of obsah.json: 2 (1.8) adds the drafts of builds, whole media rows, media folders and redirect types. */
+    public const int FORMAT_VERSION = 2;
+
+    /** The only settings that are exported: the site's name, description, identity, languages and public texts (SiteImport reads the same list). */
+    public const array SETTINGS = ['site_name', 'site_description', 'keywords', 'site_url', 'logo', 'favicon', 'design_system', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_hours', 'company_map', 'company_gps', 'brand_accent', 'dark_mode',
         'brand_heading_font', 'brand_text_font', 'footer_text', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin',
-        'time_zone', 'site_language', 'additional_languages', 'home_page'];
+        'time_zone', 'site_language', 'additional_languages', 'home_page', 'company_email', 'theme_switcher', 'news_per_page', 'extensions', 'share_image',
+        'cookies_policy_url', 'cookies_text', 'schema_org', 'robots_extra', 'llms_txt', 'maintenance_text', 'share_buttons', 'article_outline', 'related_news_auto'];
 
     /** News item columns that are only operational (search index, link check…) and do not belong in the export. */
     private const array EXCLUDED_ARTICLE_COLUMNS = ['hledani', 'odkazy_cas', 'oznameno', 'autor', 'autor_jmeno'];
@@ -47,7 +51,7 @@ final class SiteExport
             return ['soubor' => basename($json), 'media' => false, 'duvod' => 'The PHP zip extension is missing on the server, so the export contains data only (JSON). Download the media/ folder over FTP.'];
         }
 
-        $files = self::media();
+        $files = self::mediaFiles();
         $size = array_sum($files);
         $freeSpace = @disk_free_space(Backup::FOLDER);
         $reason = match (true) {
@@ -107,27 +111,29 @@ final class SiteExport
         if ($f === false) {
             throw new \RuntimeException('Cannot write to storage/zalohy – check write permissions.');
         }
-        fwrite($f, '{"format":"kaleta-export","verze_formatu":1,"kaleta":' . self::json(KALETA_VERSION) . ',"vytvoreno":' . self::json(date('c')) . ',"nastaveni":' . self::json(self::settings($db)));
+        fwrite($f, '{"format":"kaleta-export","verze_formatu":' . self::FORMAT_VERSION . ',"kaleta":' . self::json(KALETA_VERSION) . ',"vytvoreno":' . self::json(date('c')) . ',"nastaveni":' . self::json(self::settings($db)));
 
         $authors = "(SELECT NULLIF(u.jmeno, '') FROM {uzivatele} u WHERE u.idu = c.autor) AS autor_jmeno";
         self::fields($f, 'stranky', self::streamRows($db, 'SELECT * FROM {stranky} WHERE ids > ? AND smazano IS NULL ORDER BY ids LIMIT 200', 'ids')); // the trash is not exported
         self::fields($f, 'kategorie', self::streamRows($db, 'SELECT idt, nazev, seo_link, popis, hodnost, jazyk, preklad_z FROM {kategorie} WHERE idt > ? ORDER BY idt LIMIT 500', 'idt'));
         self::fields($f, 'stitky', self::streamRows($db, 'SELECT ids, nazev, seo_link, popis, obrazek FROM {stitky} WHERE ids > ? ORDER BY ids LIMIT 500', 'ids'));
         self::fields($f, 'novinky', self::articles($db, $authors));
-        self::fields($f, 'presmerovani', self::streamRows($db, 'SELECT idp, z_adresy, na_adresu FROM {presmerovani} WHERE idp > ? ORDER BY idp LIMIT 1000', 'idp'));
+        self::fields($f, 'presmerovani', self::streamRows($db, 'SELECT idp, z_adresy, na_adresu, typ FROM {presmerovani} WHERE idp > ? ORDER BY idp LIMIT 1000', 'idp'));
         // builder: shared classes, site parts (header, footer, wrappers) and collections; not enquiries – they are visitors' personal data
         self::fields($f, 'tridy', $db->all('SELECT nazev, styl, css FROM {tridy} ORDER BY nazev'));
-        self::fields($f, 'casti', $db->all('SELECT typ, jazyk, varianta, nazev, stranky, stavba FROM {casti} WHERE stavba IS NOT NULL ORDER BY typ, jazyk, varianta'));
+        // the drafts go along (stavba_koncept): a site moved in the middle of a redesign keeps its unfinished work
+        self::fields($f, 'casti', $db->all('SELECT typ, jazyk, varianta, nazev, stranky, stavba, stavba_koncept FROM {casti} WHERE stavba IS NOT NULL OR stavba_koncept IS NOT NULL ORDER BY typ, jazyk, varianta'));
         // components ("komponenta" elements refer to them by number) and the library's own sections
-        self::fields($f, 'komponenty', $db->all('SELECT idm, nazev, vlastnosti, stavba FROM {komponenty} ORDER BY idm'));
+        self::fields($f, 'komponenty', $db->all('SELECT idm, nazev, vlastnosti, stavba, stavba_koncept FROM {komponenty} ORDER BY idm'));
         self::fields($f, 'sekce', $db->all('SELECT idx, nazev, prvek FROM {sekce} ORDER BY idx'));
         self::fields($f, 'menu', $db->all('SELECT umisteni, jazyk, polozky FROM {menu} ORDER BY umisteni, jazyk'));
-        self::fields($f, 'kolekce', $db->all('SELECT idk, nazev, seo_link, pole, detail, stavba FROM {kolekce} ORDER BY idk'));
-        self::fields($f, 'kolekce_sablony', $db->all('SELECT idk, jazyk, stavba FROM {kolekce_sablony} WHERE stavba IS NOT NULL ORDER BY idk, jazyk'));
+        self::fields($f, 'kolekce', $db->all('SELECT idk, nazev, seo_link, pole, detail, stavba, stavba_koncept FROM {kolekce} ORDER BY idk'));
+        self::fields($f, 'kolekce_sablony', $db->all('SELECT idk, jazyk, stavba, stavba_koncept FROM {kolekce_sablony} WHERE stavba IS NOT NULL OR stavba_koncept IS NOT NULL ORDER BY idk, jazyk'));
         // popups with rules and the published build; not the counters (they are only this site's statistics)
-        self::fields($f, 'popupy', $db->all('SELECT idpp, nazev, adresa, typ, spoustec, hodnota, pravidla, cetnost, dni, aktivni, poradi, stavba FROM {popupy} ORDER BY idpp'));
-        self::fields($f, 'kolekce_polozky', self::streamRows($db, 'SELECT idp, idk, nazev, seo_link, data, poradi, zobrazit, jazyk, datum FROM {kolekce_polozky} WHERE idp > ? ORDER BY idp LIMIT 500', 'idp'));
-        self::fields($f, 'media', self::streamRows($db, 'SELECT ido, nazev, popis, obr_poloha AS soubor, obr_width AS sirka, obr_height AS vyska, nahl_poloha AS nahled, datum FROM {media} WHERE ido > ? ORDER BY ido LIMIT 500', 'ido'));
+        self::fields($f, 'popupy', $db->all('SELECT idpp, nazev, adresa, typ, spoustec, hodnota, pravidla, cetnost, dni, aktivni, poradi, stavba, stavba_koncept FROM {popupy} ORDER BY idpp'));
+        self::fields($f, 'kolekce_polozky', self::streamRows($db, 'SELECT idp, idk, nazev, seo_link, data, poradi, zobrazit, jazyk, datum FROM {kolekce_polozky} WHERE idp > ? AND smazano IS NULL ORDER BY idp LIMIT 500', 'idp'));
+        self::fields($f, 'media_slozky', $db->all('SELECT ids, nazev FROM {media_slozky} ORDER BY ids'));
+        self::fields($f, 'media', self::streamRows($db, 'SELECT ido, sekce, nazev, popis, autor, obr_poloha, obr_width, obr_height, obr_vel, nahl_poloha, nahl_width, nahl_height, barva, ohnisko, datum FROM {media} WHERE ido > ? ORDER BY ido LIMIT 500', 'ido'));
         fwrite($f, "}\n");
         fclose($f);
     }
@@ -204,8 +210,8 @@ final class SiteExport
 
     /* ---------- media and cleanup ---------- */
 
-    /** @return array<string, int> path from the site root => size; without hidden files and without PHP */
-    private static function media(): array
+    /** @return array<string, int> path from the site root => size; without hidden files and without PHP (also for RemoteBackup::syncMedia) */
+    public static function mediaFiles(): array
     {
         $files = [];
         if (!is_dir(KALETA_ROOT . '/media')) {
@@ -233,23 +239,31 @@ final class SiteExport
 
     private static function readme(bool $withMedia): string
     {
-        return "Export webu z Kalety " . KALETA_VERSION . " (" . date('j. n. Y H:i') . ")\n"
+        return "Site export from Kaleta " . KALETA_VERSION . " (" . date('Y-m-d H:i') . ")\n"
             . "==========================================\n\n"
-            . "obsah.json  všechen obsah webu v kódování UTF-8\n"
-            . ($withMedia ? "media/      nahrané obrázky a přílohy; cesty odpovídají sloupcům \"obrazek\" a poli \"media\"\n" : "media/      v archivu NENÍ (příliš velká nebo málo místa) – stáhněte si složku media/ z webu přes FTP\n")
-            . "\nStruktura obsah.json\n--------------------\n"
-            . "format, verze_formatu, kaleta, vytvoreno – hlavička\n"
-            . "nastaveni     název a popis webu, identita (logo, barva, písma, sítě), časové pásmo, jazyky, šablona, úvodní stránka\n"
-            . "stranky       ids, seo_link, titulek, popis, text (HTML), jazyk ('' = výchozí jazyk webu), preklad_z\n"
-            . "kategorie     idt, nazev, seo_link, popis, jazyk, preklad_z\n"
-            . "stitky        ids, nazev, seo_link, popis\n"
-            . "novinky       titulek, uvod a text (HTML), datum, visible (1 = vydaná), tema (= kategorie.idt), jazyk,\n"
-            . "              preklad_z (= idc novinky ve výchozím jazyce, jejíž je tato překladem), autor (jméno), stitky (seznam stitky.ids) a další\n"
-            . "presmerovani  z_adresy → na_adresu\n"
-            . "media         knihovna médií: soubor (cesta ve složce media/), nazev (alternativní text), popis, rozměry\n"
-            . "\nAdresy na webu: stránka /<seo_link>, novinka /novinky/<seo_link>, kategorie /novinky/kategorie/<seo_link>,\n"
-            . "štítek /novinky/stitek/<seo_link>; další jazykové verze mají předponu /<jazyk>/.\n"
-            . "\nCo v exportu záměrně není: hesla a účty uživatelů, klíče a tokeny, údaje k poště a zálohám, statistiky návštěvnosti.\n"
-            . "Pro obnovu téhož webu použijte zálohu databáze (Nastavení → Zálohy).\n";
+            . "obsah.json  all content of the site, UTF-8\n"
+            . ($withMedia ? "media/      uploaded images and files; the paths match the \"obrazek\" columns and the media rows\n" : "media/      NOT in the archive (too large or too little disk space) – download the media/ folder from the site over FTP\n")
+            . "\nobsah.json (format version " . self::FORMAT_VERSION . ")\n------------------------------\n"
+            . "format, verze_formatu, kaleta, vytvoreno   header (format \"kaleta-export\", format version, Kaleta version, created)\n"
+            . "nastaveni        site name and description, identity (logo, colours, fonts, networks), time zone, languages, home page\n"
+            . "stranky          pages: ids, seo_link, titulek, popis, text (HTML), stavba and stavba_koncept (builder JSON), jazyk, preklad_z, nadrazena\n"
+            . "kategorie        news categories: idt, nazev, seo_link, popis, jazyk, preklad_z\n"
+            . "stitky           tags: ids, nazev, seo_link, popis, obrazek\n"
+            . "novinky          news: titulek, uvod and text (HTML), datum, visible (1 = published), tema (= kategorie.idt), jazyk,\n"
+            . "                 preklad_z (= idc of the news item it translates), autor (a name), stitky (list of stitky.ids) and more\n"
+            . "presmerovani     redirects: z_adresy -> na_adresu, typ (301 or 302)\n"
+            . "tridy            shared classes of the builder: nazev, styl (JSON), css\n"
+            . "casti            site parts (header, footer, wrappers): typ, jazyk, varianta, stranky, stavba, stavba_koncept\n"
+            . "komponenty       components: idm, nazev, vlastnosti, stavba, stavba_koncept (the \"komponenta\" element refers to idm)\n"
+            . "sekce            saved sections: idx, nazev, prvek\n"
+            . "menu             menus: umisteni, jazyk, polozky (JSON; a page item refers to stranky.ids)\n"
+            . "kolekce, kolekce_sablony, kolekce_polozky   collections, their templates and items\n"
+            . "popupy           pop-ups with rules and builds\n"
+            . "media_slozky     media folders: ids, nazev\n"
+            . "media            media library: obr_poloha (path in media/), nazev (alternative text), popis, autor, sizes, sekce (= folder)\n"
+            . "\nAddresses on the site: page /<seo_link>; other language versions have the prefix /<language>/.\n"
+            . "\nNot in the export on purpose: user accounts and passwords, keys and tokens, mail and backup settings, enquiries,\n"
+            . "subscribers and visit statistics. Another Kaleta site imports this file in Import and export -> Import from Kaleta.\n"
+            . "To restore this same site, use the database backup (Settings -> Backups and updates).\n";
     }
 }

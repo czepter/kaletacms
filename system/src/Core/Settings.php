@@ -56,6 +56,7 @@ final class Settings
         'maintenance_text' => 'Na webu právě pracujeme. Zkuste to prosím za chvíli.',
         'webhook_url' => '',          // where to send the data of a just-published news item (Make, Zapier...)
         'webhook_enquiries' => '',    // where to send a new enquiry from a form (CRM, Make, Zapier, n8n…)
+        'webhook_secret' => '',       // created by itself; signs webhook calls (X-Kaleta-Signature), shown only to administrators
         'require_2fa' => '',          // '' | spravci (administrators) | vsichni (everyone) – mandatory two-factor login
         'page_cache' => '1',       // full-page cache for visitors who are not logged in (5 minutes)
         'link_check' => '1',     // look for broken links in news in the background
@@ -100,7 +101,10 @@ final class Settings
         'backup_folder' => '',        // folder on FTP / bucket name
         'backup_region' => '',        // region S3 (eu-central-1…)
         'remote_backup_status' => '', // "YYYY-MM-DD HH:MM|ok" or the error text
-        'auto_backups' => '1',         // weekly automatic database backup
+        'auto_backups' => '1',         // automatic database backup: daily when something changed, otherwise weekly
+        'backup_media' => '1',         // copy media/ to the off-site target too, incrementally (1.8)
+        'remote_media_status' => '',   // "YYYY-MM-DD HH:MM|ok or error|files waiting"
+        'media_sync_check' => '0',     // when the background media copy last ran
         'update_url' => '',      // URL of the aktualizace.json file; empty = the project's default source
         'update_cache' => '',
         'auto_updates' => '1',    // install security releases automatically

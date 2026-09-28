@@ -2762,4 +2762,5 @@ return [
     'You receive this e-mail because you subscribed to news from %s.' => 'Tento e-mail dostáváte, protože jste se přihlásili k odběru novinek z webu %s.',
     'Preview of drafts – visitors still see the published site.' => 'Náhled konceptů – návštěvníci dál vidí publikovaný web.',
     'End the preview' => 'Ukončit náhled',
+    'Deprecated – removed in Kaleta 2.0. Read-only JSON API: /api/novinky, /api/kategorie, /api/stranky. For news use /feed.json, for working with the site the Claude connection.' => 'Zastaralé – v Kaletě 2.0 skončí. Čtecí JSON API: /api/novinky, /api/kategorie, /api/stranky. Pro novinky použijte /feed.json, pro práci s webem napojení na Clauda.',
 ];

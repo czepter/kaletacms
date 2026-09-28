@@ -31,7 +31,7 @@
 <legend><?= e(t('Database backups')) ?></legend>
 <details class="pokrocile"<?= $values['remote_backup'] !== 'vypnuto' ? ' open' : '' ?>>
 <summary><?= e(t('Off-site backup copies')) ?><?= $values['remote_backup'] !== 'vypnuto' ? ' – ' . e(t('zapnuté')) : '' ?></summary>
-<p class="napoveda"><?= e(t('A backup on the same server as the site does not help if you lose the hosting. Each new database backup can therefore upload itself elsewhere. Media are not copied this way – download them as a ZIP from time to time.')) ?></p>
+<p class="napoveda"><?= e(t('A backup on the same server as the site does not help if you lose the hosting. Each new database backup therefore uploads itself elsewhere, and the media/ folder is copied to the same place – only new and changed files, in the background.')) ?></p>
 <div class="radek"><label for="remote_backup"><?= e(t('Copy to')) ?></label><select id="remote_backup" name="remote_backup">
 	<option value="vypnuto"><?= e(t('nowhere')) ?></option>
 	<option value="ftp"<?= $values['remote_backup'] === 'ftp' ? ' selected' : '' ?>><?= e(t('to an FTP server with FTPS encryption (another host, home NAS)')) ?></option>
@@ -50,12 +50,16 @@ $field('backup_user', 'User name / access key', 'text', '', 'maxlength="190" aut
 $field('backup_folder', 'Folder / bucket', 'text', 'FTP: folder for backups (created if missing). S3: bucket name, optionally bucket/folder.', 'maxlength="150"');
 $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. For Cloudflare R2 enter auto.', 'maxlength="40" style="width:180px"');
 ?>
+<?php $field('backup_media', 'Copy the media too', 'ano', 'Uploaded images and files go to the folder media/ of the same target. A file deleted on the site stays in the copy.'); ?>
 <?php if ($remoteStatus !== ''): [$when, $how] = explode('|', $remoteStatus, 2) + [1 => '']; ?>
-<p class="hlaska<?= $how === 'ok' ? ' hlaska-ok' : ' hlaska-chyba' ?>"><?= e($how === 'ok' ? t('The last copy was uploaded %s.', $when) : t('The last attempt %s failed: %s', $when, $how)) ?></p>
+<p class="hlaska<?= $how === 'ok' ? ' hlaska-ok' : ' hlaska-chyba' ?>"><?= e($how === 'ok' ? t('The last copy was uploaded %s.', $when) : t('The last attempt %s failed: %s', $when, t($how))) ?></p>
+<?php endif ?>
+<?php if ($mediaStatus !== '' && $values['backup_media'] === '1'): [$when, $how, $waiting] = explode('|', $mediaStatus, 3) + [1 => '', 2 => '0']; ?>
+<p class="hlaska<?= $how === 'ok' ? ((int) $waiting === 0 ? ' hlaska-ok' : '') : ' hlaska-chyba' ?>"><?= e($how !== 'ok' ? t('Media: the last attempt %s failed: %s', $when, t($how)) : ((int) $waiting === 0 ? t('Media: the copy is complete (checked %s).', $when) : t('Media: %d files are still waiting – the copy continues in the background.', (int) $waiting))) ?></p>
 <?php endif ?>
 <p class="napoveda"><?= e(t('Save the settings, then click “Create backup now” – the copy uploads right away and you will see whether the connection works.')) ?></p>
 </details>
-<?php $field('auto_backups', 'Automatic backup once a week', 'ano', 'Created when an administrator signs in and the last backup is older than a week. The last 10 backups are kept.'); ?>
+<?php $field('auto_backups', 'Automatic backups', 'ano', 'Every day something changed on the site, otherwise once a week – while an administrator works in the administration or cron runs. The last 10 backups are kept.'); ?>
 <p><button class="tl" type="submit" formaction="<?= e($module->url('backup')) ?>"><?= e(t('Create backup now')) ?></button></p>
 <?php if ($backups !== []): ?>
 <div class="tab-obal">
@@ -76,4 +80,14 @@ $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. F
 <?php endif ?>
 <p><button class="navigace" type="submit" formaction="<?= e($module->url('media_backup')) ?>"><?= e(t('Download media backup (ZIP)')) ?></button></p>
 <p class="napoveda"><?= e(t('The database backup contains pages, news, settings and users; uploaded images are in the media backup. Backups are stored in storage/zalohy/, which is not accessible from the web – download copies off the server too.')) ?></p>
+<details class="pokrocile">
+<summary><?= e(t('How to restore the site after losing the hosting')) ?></summary>
+<ol>
+	<li><?= e(t('Install Kaleta on the new hosting with the same table prefix (ka_ unless you changed it) and any starter site.')) ?></li>
+	<li><?= e(t('Upload the latest database backup (kaleta-….sql.gz from your FTP or S3 copy, or a downloaded one) over FTP into storage/zalohy/.')) ?></li>
+	<li><?= e(t('Copy the media/ folder from the same place into the root of the site.')) ?></li>
+	<li><?= e(t('Here in Backups, click Restore at that backup. Then sign in with the accounts from the backup.')) ?></li>
+</ol>
+<p class="napoveda"><?= e(t('Moving a site to another Kaleta installation without accounts and secrets is simpler with Export of the whole site and Import from Kaleta (Import and export).')) ?></p>
+</details>
 </fieldset>

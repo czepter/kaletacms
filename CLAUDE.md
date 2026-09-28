@@ -124,6 +124,11 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   kontrola nefunkčních odkazů, AI asistent a překlad. Změna adresy vydané novinky, stránky nebo kategorie zapíše přesměrování (`Redirects::add`).
 - **Hledání** přes `ka_novinky.hledani` (`Core\Search`): kdo ukládá novinku jinudy než administrací nebo MCP, volá `Search::index()`.
 - **Oznámení o vydání** (webhook, IndexNow) jen přes `Core\Notifications::process()` a sloupec `oznameno`.
+- **Webhooky** (1.8, `Core\Webhook`): volání se uloží do `ka_webhook_deliveries` a odejde po odeslání odpovědi (`Webhook::afterResponse` v index.php
+  a admin.php), opakování `Webhook::RETRY_DELAYS` z úloh na pozadí a cronu. Podpis `X-Kaleta-Signature: sha256=HMAC(timestamp.body, webhook_secret)`;
+  adresy a klíč nikdy přes MCP. Testy přesměrují volání na falešný server přes `webhook_test_url`.
+- **Zálohy mimo server** (`Core\RemoteBackup`): záloha databáze i přírůstková kopie `media/` (`syncMedia`, manifest `storage/zalohy/media-kopie.json`)
+  na FTPS nebo S3; automatická záloha denně při změně (`ka_protokol`, nové poptávky), jinak týdně. Testy: falešné S3 přes `backup_test_url`.
 - **Pošta** vždy přes `Core\Mail::send()` (fronta `ka_posta`). **Nahrávání:** obrázky `Core\Images`, přílohy `Core\Files` (whitelist přípon).
 - **Čas:** pásmo `time_zone` (`App::applyTimezone()`); zapisuj přes `date()`, porovnávej s `NOW()`.
 - **AI asistent** (`Core\Assistant`): poskytovatel `ai_provider` (anthropic | openai | google | mistral, pevné adresy v `PROVIDERS`),
@@ -162,7 +167,15 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 - Dávky (`WpImport::BATCH`, `SECONDS`) se stavem v `storage/import/`, idempotence přes `ka_import_mapa` (převedené se nepřepisuje).
 - **Bezpečnost, která se nesmí rozvolnit** (hlídá `tools/unit-tests.php`): XML s DOCTYPE/entitou se odmítá, `LIBXML_NONET`; obsah projde jen povolovacím seznamem
   značek; `ImageDownloader` jen z domény starého webu, jen veřejné IP, připnuté spojení, limity velikosti a času, SVG nikdy.
-- Export vybírá nastavení z povolovacího seznamu `SiteExport::SETTINGS`; účty, hesla ani klíče do něj nikdy nepatří.
+- Export vybírá nastavení z povolovacího seznamu `SiteExport::SETTINGS`; účty, hesla ani klíče do něj nikdy nepatří. Formát `obsah.json` má verzi
+  `SiteExport::FORMAT_VERSION` (2 od 1.8: koncepty staveb, celé řádky médií, `media_slozky`, typ přesměrování); jeden řádek = jeden záznam.
+- **Import exportu Kalety** (1.8, `Core\SiteImport`, Import a export → Import z Kalety, v instalátoru „Začít z exportu“ = prázdný web): jen do prázdného
+  webu (`SiteImport::siteContent`), záznamy si nechají svá čísla (žádné přemapování), každý řádek prochází sanitizéry (`Build::sanitize`, `Style`,
+  `Menu::sanitize`, `Collections`, `Popups`, `DesignSystem`), nastavení jen ze `SiteExport::SETTINGS` (bez `site_url`). Kroky: příprava (rozdělení
+  `obsah.json` po tabulkách do `storage/import/kaleta-<hash>/`), náhled, data (první dávka = záloha `predimportem` + vyprázdnění obsahu), média
+  (`SiteImport::mediaTarget` – jen do `media/`, jen povolené typy, SVG přes `Svg::sanitize`). Dávky posílá formulář s `data-auto-odeslat` (image/admin.js).
+- **Export stránky** (`kaleta-stranka` verze 2) nese sdílené třídy a komponenty (`Builder\PagePackage`); import doplní chybějící třídy (existující
+  nepřepíše) a komponenty, stejnou komponentu (název, vlastnosti, stavba bez id) použije znovu.
 
 ## Vydání a aktualizace
 

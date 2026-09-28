@@ -100,6 +100,13 @@ final class Health
         if ($leftover !== []) {
             $add(t('Operation'), t('Custom layout'), 'varovani', t('%s in the layout/ folder is no longer used – since 1.6 the look comes only from Site appearance and the builder. Move what you need into shared classes and site parts, then delete the folder.', implode(', ', $leftover)));
         }
+        if (Extensions::isEnabled($siteSettings, 'api')) {
+            $add(t('Operation'), t('Public API'), 'varovani', t('deprecated since 1.8 and removed in Kaleta 2.0 – for news use the feed /feed.json or /rss.xml, for building and editing the site the Claude connection (MCP)'));
+        }
+        $given = (int) $db->value('SELECT COUNT(*) FROM {webhook_deliveries} WHERE delivered IS NULL AND next_attempt IS NULL AND created > NOW() - INTERVAL 7 DAY');
+        if ($given > 0 || $siteSettings->get('webhook_url') !== '' || $siteSettings->get('webhook_enquiries') !== '') {
+            $add(t('Operation'), t('Webhooks'), $given === 0 ? 'ok' : 'varovani', $given === 0 ? t('all calls of the last 7 days delivered') : t('%d call(s) of the last 7 days not delivered – see Settings → Webhooks', $given));
+        }
         $cron = $siteSettings->int('tasks_last_run');
         $cronMinutes = $cron > 0 ? (int) floor((time() - $cron) / 60) : null;
         $add(t('Operation'), t('Cron'), $cronMinutes !== null && $cronMinutes <= Mailing::CRON_MINUTES ? 'ok' : 'varovani', match (true) {

@@ -26,6 +26,8 @@ final class Notifications
         try {
             self::process($app);
             Mail::processQueue($s);
+            Webhook::processQueue($s);
+            RemoteBackup::syncMediaInBackground($s, 10);
             Newsletter::processQueue($app);
             Links::runInBackground($app);
             self::purgePersonalData($app);

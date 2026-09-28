@@ -242,8 +242,10 @@ final class Kernel
                 \Kaleta\Core\Notifications::purgePersonalData($this->app, true);
                 $done[] = 'uklid';
                 \Kaleta\Core\Backup::createAutomatic($this->app->db(), $this->app->settings());
+                \Kaleta\Core\RemoteBackup::syncMediaInBackground($this->app->settings(), 25);
                 $done[] = 'zalohy';
                 $done[] = 'posta:' . \Kaleta\Core\Mail::processQueue($this->app->settings(), 30);
+                $done[] = 'webhooky:' . \Kaleta\Core\Webhook::processQueue($this->app->settings(), 30);
                 \Kaleta\Core\Newsletter::processQueue($this->app);
                 $done[] = 'newsletter:' . \Kaleta\Core\Mailing::processQueue($this->app);
             } catch (\Throwable $e) {

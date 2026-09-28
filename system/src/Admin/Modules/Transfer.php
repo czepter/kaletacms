@@ -6,6 +6,7 @@ namespace Kaleta\Admin\Modules;
 
 use Kaleta\Admin\Module;
 use Kaleta\Core\SiteExport;
+use Kaleta\Core\SiteImport;
 use Kaleta\Core\Language;
 use Kaleta\Core\Response;
 use Kaleta\Core\ImageDownloader;
@@ -13,7 +14,8 @@ use Kaleta\Core\WpImport;
 use Kaleta\Core\WpFile;
 
 /**
- * Import and export: moving from WordPress (a WXR file) and export of the whole site to an open format.
+ * Import and export: moving from WordPress (a WXR file), moving a whole Kaleta site into a new installation (1.8,
+ * Core\SiteImport) and export of the whole site to an open format.
  *
  * The import has three steps on one screen: 1. file (uploaded with the form, or via FTP to storage/import/),
  * 2. preview – what is in the file and what will not be converted, 3. import in batches (the form submits itself,
@@ -41,6 +43,8 @@ final class Transfer extends Module
             'uploadLimit' => min(self::bytes((string) ini_get('upload_max_filesize')), self::bytes((string) ini_get('post_max_size'))),
             'missingXml' => !class_exists(\XMLReader::class) || !class_exists(\Dom\HTMLDocument::class),
             'exports' => SiteExport::listAll(),
+            'kaletaFiles' => array_map(fn (array $s): array => $s + ['stav' => SiteImport::loadState($s['soubor'])], SiteImport::listAll()),
+            'siteContent' => SiteImport::siteContent($this->db),
             'hasZip' => class_exists(\ZipArchive::class),
         ]);
     }
@@ -53,6 +57,19 @@ final class Transfer extends Module
         $file = $this->request->file('soubor');
         if (!$this->request->isPost() || $file === null || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) {
             return $this->back('The file could not be uploaded. If it is larger than the server allows, upload it over FTP into the storage/import/ folder.', type: 'chyba');
+        }
+        if (in_array(strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION)), ['zip', 'json'], true)) {
+            // an export of another Kaleta site
+            $name = SiteImport::uploadName((string) $file['name']);
+            try {
+                if (!move_uploaded_file((string) $file['tmp_name'], WpFile::folder() . '/' . $name)) {
+                    throw new \RuntimeException('The file could not be saved – check write permissions for storage/import.');
+                }
+            } catch (\RuntimeException $e) {
+                return $this->back(self::message($e), type: 'chyba');
+            }
+
+            return $this->startKaleta($name);
         }
         if (strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION)) !== 'xml') {
             return $this->back('The file must have the .xml extension – it is an export from WordPress (Tools → Export).', type: 'chyba');
@@ -215,6 +232,102 @@ final class Transfer extends Module
         $file = $this->request->isPost() && $this->request->post('soubor') !== '' ? $this->request->post('soubor') : $this->request->get('soubor');
 
         return WpFile::path($file) === null ? null : WpImport::loadState($file);
+    }
+
+    /* ---------- import of a Kaleta export (1.8) ---------- */
+
+    /** Reads the export (header, rows per table) and shows the preview; a file that is not a Kaleta export is deleted. */
+    private function startKaleta(string $file): Response
+    {
+        SiteImport::deleteState($file);
+        $state = SiteImport::newState($file);
+        try {
+            @set_time_limit(120);
+            SiteImport::prepare($state);
+        } catch (\RuntimeException $e) {
+            SiteImport::deleteState($file);
+            @unlink(WpFile::FOLDER . '/' . $file);
+
+            return $this->back(self::message($e), type: 'chyba');
+        }
+        SiteImport::saveState($state);
+
+        return $this->back('', 'kaleta', ['soubor' => $file]);
+    }
+
+    /** An export already in storage/import (uploaded over FTP): read it again from the start. */
+    protected function actionKaletaSelect(): Response
+    {
+        $file = $this->request->post('soubor');
+        if (!$this->request->isPost() || SiteImport::path($file) === null) {
+            return $this->back('The file does not exist.', type: 'chyba');
+        }
+
+        return $this->startKaleta($file);
+    }
+
+    protected function actionKaletaDelete(): Response
+    {
+        $file = $this->request->post('soubor');
+        if ($this->request->isPost() && ($path = SiteImport::path($file)) !== null) {
+            unlink($path);
+            SiteImport::deleteState($file);
+        }
+
+        return $this->back('The file has been deleted. The imported content stays on the site.');
+    }
+
+    /**
+     * Preview, progress and result of the import. GET only shows; POST (the form submits itself) does one batch under
+     * a lock, so two browser windows never import at the same time.
+     */
+    protected function actionKaleta(): Response
+    {
+        $file = $this->request->isPost() ? $this->request->post('soubor') : $this->request->get('soubor');
+        $state = SiteImport::path($file) === null ? null : SiteImport::loadState($file);
+        if ($state === null) {
+            return $this->back('The file does not exist.', type: 'chyba');
+        }
+        $error = '';
+        if ($this->request->isPost() && in_array($state['faze'], ['data', 'media'], true)) {
+            $lock = fopen(WpFile::folder() . '/import.zamek', 'c');
+            if ($lock !== false && flock($lock, LOCK_EX | LOCK_NB)) {
+                try {
+                    @set_time_limit(60);
+                    $state = SiteImport::loadState($file) ?? $state;
+                    $import = new SiteImport($this->db, $this->app->settings(), (int) $this->app->auth()->id());
+                    $state['faze'] === 'data' ? $import->importData($state) : $import->importMedia($state);
+                    if ($state['faze'] === 'hotovo') {
+                        SiteImport::cleanUp($file);
+                        \Kaleta\Admin\ChangeLog::write($this->app, 'transfer', 'import of a Kaleta export', $file);
+                    }
+                } catch (\RuntimeException $e) {
+                    $error = self::message($e);
+                } finally {
+                    SiteImport::saveState($state);
+                    flock($lock, LOCK_UN);
+                }
+            }
+        }
+
+        return $this->view('kaleta', 'Import from Kaleta', ['state' => $state, 'error' => $error, 'siteContent' => SiteImport::siteContent($this->db)]);
+    }
+
+    /** Confirmation in the preview: the import starts (the first batch backs up the database and empties the content). */
+    protected function actionKaletaRun(): Response
+    {
+        $file = $this->request->post('soubor');
+        $state = SiteImport::path($file) === null ? null : SiteImport::loadState($file);
+        if (!$this->request->isPost() || $state === null || $state['faze'] !== 'nahled' || !$this->request->postBool('potvrzeni')) {
+            return $this->back('Confirm that the content of this site will be replaced.', $state === null ? '' : 'kaleta', $state === null ? [] : ['soubor' => $file], 'chyba');
+        }
+        if (!SiteImport::siteContent($this->db)['prazdny']) {
+            return $this->back('The site already has its own content. A Kaleta export can be imported only into a new, empty site.', 'kaleta', ['soubor' => $file], 'chyba');
+        }
+        $state['faze'] = 'data';
+        SiteImport::saveState($state);
+
+        return $this->back('', 'kaleta', ['soubor' => $file]);
     }
 
     /* ---------- export ---------- */

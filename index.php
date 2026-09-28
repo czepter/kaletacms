@@ -11,5 +11,6 @@ $app = Kaleta\Core\App::boot();
 (new Kaleta\Front\Kernel($app))->handle()->send();
 
 // after the page is sent: notifications about just-published (including scheduled) articles and a check for security updates (at most once per 12 hours)
+Kaleta\Core\Webhook::afterResponse($app); // a new enquiry goes to the webhook only now – the visitor does not wait
 Kaleta\Core\Notifications::runInBackground($app);
 Kaleta\Core\Updater::runInBackground($app);

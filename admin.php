@@ -29,3 +29,4 @@ unset($headers['X-Kaleta-Form-Action']);
     'Content-Security-Policy' => "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' https:; "
         . "frame-src 'self' https:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action {$formTargets}; frame-ancestors 'self'",
 ] + ($app->request->isHttps() ? ['Strict-Transport-Security' => 'max-age=15552000'] : [])))->send();
+Kaleta\Core\Webhook::afterResponse($app); // e.g. a just-published news item

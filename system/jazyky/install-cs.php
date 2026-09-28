@@ -2758,4 +2758,9 @@ return [
     'Share preview' => 'Sdílet náhled',
     'Anyone with the link can see the draft without signing in – including changes you make later. Search engines do not index it.' => 'Kdo dostane odkaz, uvidí koncept bez přihlášení – i změny, které uděláte později. Vyhledávače ho neindexují.',
     'The Newsletter sign-up element in the builder: visitors enter an e-mail and confirm it by a link (double opt-in). Send them your latest news in an e-mail styled by the design system (through an SMTP server, while cron runs), pass confirmed subscribers to your mailing service (Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing, webhook), or export them to CSV.' => 'Prvek Odběr novinek v builderu: návštěvník zadá e-mail a potvrdí ho odkazem (double opt-in). Novinky jim pošlete e-mailem ve vzhledu design systému (přes SMTP server, když běží cron), potvrzené odběratele předáte do mailingové služby (Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing, webhook), nebo je vyexportujete do CSV.',
+    'Deprecated – removed in Kaleta 2.0. Read-only JSON API: /api/novinky, /api/kategorie, /api/stranky. For news use /feed.json, for working with the site the Claude connection.' => 'Zastaralé – v Kaletě 2.0 skončí. Čtecí JSON API: /api/novinky, /api/kategorie, /api/stranky. Pro novinky použijte /feed.json, pro práci s webem napojení na Clauda.',
+    'Start from an export' => 'Začít z exportu',
+    'An empty site for moving another Kaleta site here – right after installation you import its export in Import and export.' => 'Prázdný web pro přesun jiného webu na Kaletě – hned po instalaci naimportujete jeho export v Importu a exportu.',
+    'The site is empty. Sign in and import the export of your Kaleta site in Import and export → Import from Kaleta.' => 'Web je prázdný. Přihlaste se a naimportujte export svého webu na Kaletě v Import a export → Import z Kalety.',
+    'Continue with the import' => 'Pokračovat importem',
 ];

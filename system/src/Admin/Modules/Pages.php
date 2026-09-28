@@ -366,15 +366,19 @@ final class Pages extends Module
         return $this->back(t('Version from %s restored.', format_date($version['datum'], true)), 'edit', ['id' => (int) $page['ids']]);
     }
 
-    /** The page as a JSON file (name, description and build) – for transfer to another site running Kaleta. */
+    /**
+     * The page as a JSON file – for transfer to another site running Kaleta. Version 2 (1.8) also carries the shared
+     * classes and the components the build uses (Builder\PagePackage), so the page looks the same there.
+     */
     protected function actionExport(): Response
     {
         $s = $this->loadPage($this->request->getInt('id'));
         if ($s === null) {
             return $this->error('Page does not exist.', 404);
         }
-        $json = (string) json_encode(['format' => 'kaleta-stranka', 'verze' => 1, 'titulek' => $s['titulek'], 'popis' => $s['popis'], 'text' => $s['text'],
-            'stavba' => Build::fromJson($s['stavba_koncept'] ?? $s['stavba'])], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+        $build = Build::fromJson($s['stavba_koncept'] ?? $s['stavba']);
+        $json = (string) json_encode(['format' => 'kaleta-stranka', 'verze' => 2, 'titulek' => $s['titulek'], 'popis' => $s['popis'], 'text' => $s['text'],
+            'stavba' => $build] + \Kaleta\Builder\PagePackage::collect($this->db, $build ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
 
         return new Response($json, 200, ['Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="stranka-' . basename(str_replace('/', '-', $s['seo_link'])) . '.json"']);
     }
@@ -390,13 +394,21 @@ final class Pages extends Module
         $title = mb_substr(trim((string) $data['titulek']), 0, 200);
         $record = ['titulek' => $title, 'seo_link' => $this->availableSlug(slugify($title, 110), 0), 'popis' => mb_substr((string) ($data['popis'] ?? ''), 0, 300),
             'text' => \Kaleta\Core\WpContent::safeHtml((string) ($data['text'] ?? '')), 'zobrazit' => 0, 'v_menu' => 0, 'zmeneno' => date('Y-m-d H:i:s')];
+        $created = ['tridy' => 0, 'komponenty' => 0];
         if (is_array($data['stavba'] ?? null)) {
-            [$build, $errors] = Build::sanitize($data['stavba'], $this->app->auth()->isAdmin());
+            // the classes and components that came with it first: the build then points at this site's components
+            [$pageBuild, $created] = \Kaleta\Builder\PagePackage::import($this->app->settings(), $data, $data['stavba'], $this->app->auth()->isAdmin());
+            [$build, $errors] = Build::sanitize($pageBuild, $this->app->auth()->isAdmin());
             $record['stavba_koncept'] = Build::toJson($build);
         }
         $id = $this->db->insert('stranky', $record);
+        $extra = ($data['tridy'] ?? []) !== [] || ($data['komponenty'] ?? []) !== [];
 
-        return $this->back('The page has been imported as hidden – check it and publish it.', 'edit', ['id' => $id]);
+        return $this->back(match (true) {
+            $extra && !$this->app->auth()->isAdmin() => t('The page has been imported as hidden – check it and publish it.') . ' ' . t('Its classes and components were not imported – only an administrator can add them.'),
+            $extra => t('The page has been imported as hidden – check it and publish it.') . ' ' . t('New classes: %d, new components: %d (those the site already had were kept).', $created['tridy'], $created['komponenty']),
+            default => 'The page has been imported as hidden – check it and publish it.',
+        }, 'edit', ['id' => $id]);
     }
 
     /** A free slug derived from $base: o-nas, o-nas-2, o-nas-3… */

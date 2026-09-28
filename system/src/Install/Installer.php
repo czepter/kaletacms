@@ -55,7 +55,7 @@ final class Installer
         if (is_file(KALETA_ROOT . '/config.php')) {
             \Kaleta\Core\Language::set($this->chooseLanguage(), 'install-');
 
-            return $this->page('done', ['alreadyInstalled' => true, 'deleted' => $this->deleteSelf()]);
+            return $this->page('done', ['alreadyInstalled' => true, 'deleted' => $this->deleteSelf(), 'fromExport' => false]);
         }
 
         $this->language = $this->chooseLanguage();
@@ -79,7 +79,7 @@ final class Installer
             $extensions = array_values(array_intersect($this->request->postList('rozsireni'), array_keys(Extensions::CATALOG)));
             $errors = $this->install($data, (string) ($_POST['password'] ?? ''), (string) ($_POST['password2'] ?? ''), $extensions);
             if ($errors === []) {
-                return $this->page('done', ['alreadyInstalled' => false, 'deleted' => $this->deleteSelf()]);
+                return $this->page('done', ['alreadyInstalled' => false, 'deleted' => $this->deleteSelf(), 'fromExport' => $data['web'] === 'export']);
             }
         }
 
@@ -163,7 +163,7 @@ final class Installer
         }
         $exists = $db->value(
             'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?',
-            [$d['db_prefix'] . 'user'],
+            [$d['db_prefix'] . 'uzivatele'],
         );
         if ((int) $exists > 0) {
             return ['db_prefix' => t('Tables with this prefix already exist in the database. Choose another prefix or remove them first.')];
@@ -225,6 +225,16 @@ final class Installer
 
             // the site content is created in the site language (the site dictionary), the admin of the first account stays in the installation language
             $siteLanguage = $d['jazyk_webu'];
+            if ($d['web'] === 'export') {
+                // "Start from an export" (1.8): an empty site – the content, look and settings come with the import (Import and export)
+                $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->request->origin(), 'site_email' => $d['email'], 'site_language' => $siteLanguage,
+                    'time_zone' => $d['casove_pasmo'], 'db_version' => (string) Migration::latest(), 'extensions' => $extensions === [] ? '-' : implode(',', $extensions)];
+                foreach ($settings as $key => $value) {
+                    $db->insert('nastaveni', ['promenna' => $key, 'hodnota' => $value]);
+                }
+
+                return;
+            }
             $x = fn (string $text): string => \Kaleta\Core\Language::runWith($siteLanguage, fn (): string => t($text));
             // skeleton of a typical company site: home, about us, services, contact – the texts are only a guide to what belongs on the page
             $pages = [

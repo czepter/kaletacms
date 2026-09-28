@@ -25,7 +25,7 @@ class Settings extends Module
 
     public const array TABS = [
         'general' => 'General', 'company' => 'Company', 'seo' => 'SEO and GEO',
-        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'backups' => 'Backups and updates', 'health' => 'System status',
+        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'webhooks' => 'Webhooks', 'backups' => 'Backups and updates', 'health' => 'System status',
     ];
 
     /** Company types for the field company_type (vyber:…). */
@@ -41,7 +41,7 @@ class Settings extends Module
         'general' => [
             'site_name' => 'text', 'site_url' => 'vzor:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'site_description' => 'radky', 'site_email' => 'email', 'footer_text' => 'text',
             'social_facebook' => 'url', 'social_instagram' => 'url', 'social_x' => 'url', 'social_youtube' => 'url', 'social_linkedin' => 'url',
-            'home_page' => 'cislo:0:4294967295', 'news_per_page' => 'cislo:1:100', 'share_buttons' => 'ano', 'link_check' => 'ano', 'article_outline' => 'ano', 'related_news_auto' => 'ano', 'page_cache' => 'ano', 'maintenance' => 'ano', 'maintenance_text' => 'text', 'webhook_url' => 'url', 'webhook_enquiries' => 'url', 'require_2fa' => 'vyber:|spravci|vsichni',
+            'home_page' => 'cislo:0:4294967295', 'news_per_page' => 'cislo:1:100', 'share_buttons' => 'ano', 'link_check' => 'ano', 'article_outline' => 'ano', 'related_news_auto' => 'ano', 'page_cache' => 'ano', 'maintenance' => 'ano', 'maintenance_text' => 'text', 'require_2fa' => 'vyber:|spravci|vsichni',
             'time_zone' => 'pasmo', 'site_language' => 'vyber:' . \Kaleta\Core\Language::CODES, 'additional_languages' => 'seznam:' . \Kaleta\Core\Language::CODES,
         ],
         // the site appearance is saved by the Appearance module; here only types for checking values from the Claude connection (it is not a Settings tab)
@@ -65,8 +65,9 @@ class Settings extends Module
         'extensions' => ['ai_provider' => 'vyber:' . \Kaleta\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'tajne', 'ai_model' => 'vzor:#^[A-Za-z0-9._:/-]{0,80}$#',
             'newsletter_service' => 'vyber:|brevo|mailerlite|mailchimp|ecomail|smartemailing|webhook', 'newsletter_key' => 'tajne',
             'newsletter_list' => 'vzor:#^[A-Za-z0-9_-]{0,64}$#', 'newsletter_webhook' => 'url'],
+        'webhooks' => ['webhook_enquiries' => 'url', 'webhook_url' => 'url'],
         'backups' => ['remote_backup' => 'vyber:vypnuto|ftp|s3', 'backup_host' => 'vzor:#^[A-Za-z0-9.:/-]{0,150}$#', 'backup_user' => 'text', 'backup_password' => 'tajne',
-            'backup_folder' => 'vzor:#^[A-Za-z0-9._/-]{0,150}$#', 'backup_region' => 'vzor:/^[a-z0-9-]{0,40}$/', 'auto_backups' => 'ano', 'auto_updates' => 'ano', 'update_url' => 'url'],
+            'backup_folder' => 'vzor:#^[A-Za-z0-9._/-]{0,150}$#', 'backup_region' => 'vzor:/^[a-z0-9-]{0,40}$/', 'auto_backups' => 'ano', 'backup_media' => 'ano', 'auto_updates' => 'ano', 'update_url' => 'url'],
         'health' => ['health_token' => 'vzor:/^[A-Za-z0-9]{0,64}$/'],
     ];
 
@@ -123,9 +124,12 @@ class Settings extends Module
             'values' => $invalid['hodnoty'] + $values,
             'checks' => $tab === 'health' ? Health::checks($this->app) : [],
             'remoteStatus' => $settings->get('remote_backup_status'),
+            'mediaStatus' => $settings->get('remote_media_status'),
             'tasksToken' => $settings->get('tasks_token'),
             'errorLog' => $tab === 'health' ? self::readFileTail(KALETA_ROOT . '/storage/log/chyby.log', 40) : [],
             'mail' => $tab === 'mail' ? $this->db->all('SELECT komu, predmet, vytvoreno, odeslano, pokusu, dalsi_pokus, chyba FROM {posta} ORDER BY idp DESC LIMIT 30') : [],
+            'webhookSecret' => $tab === 'webhooks' ? \Kaleta\Core\Webhook::secret($settings) : '',
+            'deliveries' => $tab === 'webhooks' ? $this->db->all('SELECT id, event, url, attempts, status, error, created, next_attempt, delivered, body IS NOT NULL AS resendable FROM {webhook_deliveries} ORDER BY id DESC LIMIT 30') : [],
             'enabledExtensions' => Extensions::enabled($settings),
             'pages' => $tab === 'general' ? $this->db->pairs("SELECT ids, titulek FROM {stranky} WHERE zobrazit = 1 AND jazyk = '' ORDER BY poradi, titulek") : [],
             'backups' => $tab === 'backups' ? Backup::listAll() : [],
@@ -206,6 +210,11 @@ class Settings extends Module
         $remote = \Kaleta\Core\RemoteBackup::upload($this->app->settings(), (string) Backup::path($file));
         if ($remote !== null) {
             return $this->back(t('Backup %s is ready, but the off-site copy could not be uploaded: %s', $file, t($remote)), '', ['tab' => 'backups'], 'chyba');
+        }
+        // the media go along (only new and changed files); what does not fit in this request continues in the background
+        $media = \Kaleta\Core\RemoteBackup::syncMedia($this->app->settings(), 20);
+        if ($media !== null) {
+            return $this->back(t('Backup %s is ready, but the media could not be copied: %s', $file, t($media)), '', ['tab' => 'backups'], 'chyba');
         }
 
         return $this->back(t('Backup %s is ready.', $file), '', ['tab' => 'backups']);
@@ -372,6 +381,43 @@ class Settings extends Module
             ['tab' => $back],
             $ok ? 'ok' : 'chyba',
         );
+    }
+
+    /** A test call to the webhook addresses, sent right away – the result is in the delivery log below. */
+    protected function actionTestWebhook(): Response
+    {
+        $ids = $this->request->isPost() ? \Kaleta\Core\Webhook::test($this->app) : [];
+        if ($ids === []) {
+            return $this->back('First fill in and save at least one webhook address (https://).', '', ['tab' => 'webhooks'], 'chyba');
+        }
+        \Kaleta\Core\Webhook::processQueue($this->app->settings());
+        $failed = (int) $this->db->value('SELECT COUNT(*) FROM {webhook_deliveries} WHERE id IN (' . implode(',', $ids) . ') AND delivered IS NULL');
+
+        return $failed === 0
+            ? $this->back('The test call has been delivered.', '', ['tab' => 'webhooks'])
+            : $this->back('The test call was not delivered – the reason is in the delivery log. It will be retried automatically.', '', ['tab' => 'webhooks'], 'chyba');
+    }
+
+    /** Sends a failed webhook call once more. */
+    protected function actionRetryWebhook(): Response
+    {
+        if ($this->request->isPost() && \Kaleta\Core\Webhook::retry($this->db, $this->request->postInt('id'))) {
+            \Kaleta\Core\Webhook::processQueue($this->app->settings(), 1);
+        }
+
+        return $this->back('', '', ['tab' => 'webhooks']);
+    }
+
+    /** A new signing secret – the receivers must get it too, calls signed with the old one stop being accepted. */
+    protected function actionNewWebhookSecret(): Response
+    {
+        if ($this->request->isPost()) {
+            $this->app->settings()->set('webhook_secret', '');
+            \Kaleta\Core\Webhook::secret($this->app->settings());
+            \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'new webhook secret');
+        }
+
+        return $this->back('A new secret has been created. Paste it into every receiver that checks the signature.', '', ['tab' => 'webhooks']);
     }
 
     protected function tab(string $tab): string

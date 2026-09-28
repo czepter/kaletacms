@@ -95,11 +95,12 @@ grep -q '<li class=""><a href="/admin.php?module=appearance">' "$WORK/response" 
 check "administrace: nadpis h1 a hlavní menu v <nav>" 200 "/admin.php?module=pages" '<nav class="menu-obal" aria-label="Hlavní menu">'
 for m in pages "pages&action=new" enquiries parts components "components&action=new" collections "collections&action=new" news "news&action=new" "news&action=links" categories "categories&action=new" tags media stats appearance users "users&action=new" redirects changelog transfer extensions; do check "modul $m" 200 "/admin.php?module=$m"; done
 check "uživatelé se shrnutím oprávnění" 200 "/admin.php?module=users" "Smí všechno"
-for z in general seo analytics cookies mail backups health; do check "nastavení/$z" 200 "/admin.php?module=settings&tab=$z"; done
+for z in general seo analytics cookies mail webhooks backups health; do check "nastavení/$z" 200 "/admin.php?module=settings&tab=$z"; done
 check "nastavení: volba úvodní stránky" 200 "/admin.php?module=settings&tab=general" 'name="home_page"'
 check "neznámý modul" 403 "/admin.php?module=neexistuje"
 check "API: novinky" 200 /api/novinky '"novinky"'
 check "API: stránky" 200 /api/stranky '/kontakt"'
+curl -s -D - -o /dev/null "$B/api/stranky" | grep -qi '^Deprecation: @1790812800' && echo "  ok     API: marked deprecated (Deprecation header, 1.8)" || { echo "  CHYBA  API Deprecation header"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('additional_languages','en') ON DUPLICATE KEY UPDATE hodnota='en'"
 check "anglická verze webu" 200 /en/ 'lang="en"'
 code=$(curl -s -o /dev/null -w '%{http_code}' "$B/en/novinky/vitejte-v-kalete"); expect "novinka jiné jazykové verze přesměruje" "$code" 301
@@ -327,6 +328,22 @@ curl -s -o "$WORK/response" "$B/o-nas"; grep -q "<p class=\"ka-udaj\">&copy; $(d
 expect "autor novinek k částem webu nesmí" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?module=parts")" 403
 
 echo "== formuláře a poptávky"
+# webhook receiver (1.8): logs every call with its signature headers; an address containing "chyba" answers 500
+HOOK_PORT=$((PORT + 4)); mkdir -p "$WORK/hook"
+cat > "$WORK/hook/router.php" <<'PHP'
+<?php
+$log = __DIR__ . '/calls.log';
+$h = array_change_key_case(getallheaders());
+file_put_contents($log, json_encode(['uri' => $_SERVER['REQUEST_URI'], 'event' => $h['x-kaleta-event'] ?? '', 'delivery' => $h['x-kaleta-delivery'] ?? '', 'ts' => $h['x-kaleta-timestamp'] ?? '',
+    'sig' => $h['x-kaleta-signature'] ?? '', 'body' => file_get_contents('php://input')], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND);
+http_response_code(str_contains($_SERVER['REQUEST_URI'], 'chyba') ? 500 : 204); return true;
+PHP
+(cd "$WORK/hook" && exec php -S "127.0.0.1:$HOOK_PORT" router.php > /dev/null 2>&1) & HOOK_PID=$!
+for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$HOOK_PORT/ping" && break; sleep 0.2; done; : > "$WORK/hook/calls.log"
+"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('webhook_enquiries', 'https://hooks.example.com/crm'), ('webhook_test_url', 'http://127.0.0.1:$HOOK_PORT')"
+# hook_check <n>: is the n-th logged call signed with the site's secret? prints event|signature ok|uri
+hook_check() { php -r '$c = json_decode(explode("\n", trim(file_get_contents($argv[1])))[$argv[2] - 1] ?? "null", true); if (!$c) { echo "none"; exit; }
+  echo $c["event"], "|", hash_equals("sha256=" . hash_hmac("sha256", $c["ts"] . "." . $c["body"], $argv[3]), $c["sig"]) ? "signed" : "BAD", "|", $c["uri"];' "$WORK/hook/calls.log" "$1" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'webhook_secret'")"; }
 curl -s -o "$WORK/formular.html" "$B/kontakt"
 grep -q 'class="ka-formular"' "$WORK/formular.html" && grep -q 'name="as_podpis"' "$WORK/formular.html" && echo "  ok     kontakt má poptávkový formulář" || { echo "  CHYBA  formulář na kontaktu"; ERRORS=$((ERRORS+1)); }
 field_value() { grep -o "name=\"$1\" value=\"[^\"]*\"" "$WORK/formular.html" | head -1 | sed 's/.*value="//;s/"$//'; }
@@ -342,6 +359,8 @@ sleep 4
 location=$(submit_form -H "Referer: $B/kontakt?utm_source=newsletter&utm_medium=email&utm_campaign=jaro" -d p0=Jana --data-urlencode p1=jana@example.cz -d p2= --data-urlencode "p3=Chci kuchyň na míru." -d p4=1)
 case "$location" in *"/kontakt?formular=$FORM_ELEMENT&vysledek=ok#"*"$FORM_ELEMENT") echo "  ok     odeslání formuláře";; *) echo "  CHYBA  odeslání formuláře: $location"; ERRORS=$((ERRORS+1));; esac
 expect "poptávka uložena" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(COUNT(*), '/', MAX(email), '/', MAX(stav)) FROM ka_poptavky")" "1/jana@example.cz/0"
+expect "webhook: new enquiry delivered after the response, signed" "$(hook_check 1)|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(event, '/', status, '/', delivered IS NOT NULL, '/', body IS NULL) FROM ka_webhook_deliveries")" "nova_poptavka|signed|/crm|nova_poptavka/204/1/1"
+grep -q 'email.":."jana@example.cz' "$WORK/hook/calls.log" && echo "  ok     webhook: the enquiry data are in the body" || { echo "  CHYBA  webhook body: $(cat "$WORK/hook/calls.log")"; ERRORS=$((ERRORS+1)); }
 expect "poptávka nese kampaň z utm_* stránky s formulářem" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT kampan FROM ka_poptavky")" "utm_source=newsletter&utm_medium=email&utm_campaign=jaro"
 case "$(submit_form -d p0=Jana -d p1=neni-email -d p3=x -d p4=1)" in *vysledek=pole\&pole=1*) echo "  ok     neplatný e-mail odmítnut s číslem pole";; *) echo "  CHYBA  validace e-mailu"; ERRORS=$((ERRORS+1));; esac
 curl -s -o "$WORK/response" "$B/kontakt?formular=$FORM_ELEMENT&vysledek=pole&pole=1"
@@ -846,6 +865,23 @@ curl -s -b "$JAR" -o "$WORK/stranka.json" "$B/admin.php?module=pages&action=expo
 grep -q '"format": "kaleta-stranka"' "$WORK/stranka.json" && echo "  ok     export stránky do JSON" || { echo "  CHYBA  export stránky"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=import" -F "_csrf=$TOKEN" -F "soubor=@$WORK/stranka.json;type=application/json"
 expect "import stránky vytvoří skrytou kopii se stavbou" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', stavba_koncept IS NOT NULL) FROM ka_stranky WHERE seo_link = 'nabidka-2'")" "0/1"
+# 1.8: the export carries the classes and components of the build (a component inside a component too)
+php -r '$d = json_decode(file_get_contents($argv[1]), true); $d["titulek"] = "Balíček";
+  $d["stavba"]["deti"][] = ["typ" => "sekce", "tridy" => ["balicek-karta", "balicek-vlastni"], "deti" => [["typ" => "komponenta", "obsah" => ["komponenta" => "901", "hodnoty" => []]]]];
+  $d["tridy"] = [["nazev" => "balicek-karta", "styl" => ["zaklad" => ["odsazeni" => "l"]], "css" => "color: red; behavior: url(x)"], ["nazev" => "balicek-vlastni", "styl" => ["zaklad" => ["pozadi" => "primarni"]], "css" => ""]];
+  $d["komponenty"] = [["id" => 901, "nazev" => "Balíček vnější", "vlastnosti" => [], "stavba" => ["v" => 1, "deti" => [["typ" => "sekce", "deti" => [["typ" => "komponenta", "obsah" => ["komponenta" => "902"]]]]]]],
+    ["id" => 902, "nazev" => "Balíček vnitřní", "vlastnosti" => [["klic" => "nadpis", "popisek" => "Nadpis", "typ" => "text", "vychozi" => "Ahoj"]], "stavba" => ["v" => 1, "deti" => [["typ" => "nadpis", "obsah" => ["text" => "{{nadpis}}"]]]]]];
+  file_put_contents($argv[2], json_encode($d, JSON_UNESCAPED_UNICODE));' "$WORK/stranka.json" "$WORK/balicek.json"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_tridy (nazev, styl, css, zmeneno) VALUES ('balicek-vlastni', '{}', 'color: blue', NOW())"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=import" -F "_csrf=$TOKEN" -F "soubor=@$WORK/balicek.json;type=application/json"
+OUTER=$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "SELECT idm FROM ka_komponenty WHERE nazev = 'Balíček vnější'"); INNER=$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "SELECT idm FROM ka_komponenty WHERE nazev = 'Balíček vnitřní'")
+expect "page import creates the missing class (cleaned) and keeps the site's own" "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "SELECT CONCAT(css LIKE '%color: red%', '/', css LIKE '%behavior%') FROM ka_tridy WHERE nazev = 'balicek-karta'")|$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "SELECT CONCAT(COUNT(*), ':', styl, ':', css) FROM ka_tridy WHERE nazev = 'balicek-vlastni'")" "1/0|1:{}:color: blue"
+expect "page import creates both components and points the uses at them" "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "SELECT CONCAT((SELECT stavba LIKE '%\"komponenta\":\"$INNER\"%' FROM ka_komponenty WHERE idm = '$OUTER'), '/', stavba_koncept LIKE '%\"komponenta\":\"$OUTER\"%') FROM ka_stranky WHERE titulek = 'Balíček'")" "1/1"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=import" -F "_csrf=$TOKEN" -F "soubor=@$WORK/balicek.json;type=application/json"
+expect "a second import of the same page reuses the components" "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_komponenty WHERE nazev LIKE 'Balíček%'")" "2"
+IDB=$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "SELECT MIN(ids) FROM ka_stranky WHERE titulek = 'Balíček'")
+curl -s -b "$JAR" -o "$WORK/balicek-export.json" "$B/admin.php?module=pages&action=export&id=$IDB"
+expect "the export lists the used classes and both components" "$(php -r '$d = json_decode(file_get_contents($argv[1]), true); echo $d["verze"], "|", implode(",", preg_grep("/^(balicek|karta$)/", array_column($d["tridy"], "nazev"))), "|", implode(",", array_column($d["komponenty"], "nazev"));' "$WORK/balicek-export.json")" "2|balicek-karta,balicek-vlastni,karta|Balíček vnější,Balíček vnitřní"
 
 echo "== builder: vlastní CSS, atributy, animace, moje sekce, přejmenování třídy"
 IDV=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'nase-sluzby'")
@@ -1037,6 +1073,29 @@ mcp uprav_nastaveni '{}' | grep -q 'newsletter_klic\|eco-klic' && { echo "  CHYB
 kill "$SERVICE_PID" 2>/dev/null || true
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna LIKE 'newsletter\_%'; DELETE FROM ka_odber_fronta; DELETE FROM ka_odberatele"
 
+echo "== webhooks: signature, delivery log and retries (1.8)"
+check "Settings → Webhooks shows the secret and the log" 200 "/admin.php?module=settings&tab=webhooks" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'webhook_secret'")"
+grep -q "<code>nova_poptavka</code>" "$WORK/response" && echo "  ok     the log lists the enquiry call" || { echo "  CHYBA  the delivery log"; ERRORS=$((ERRORS+1)); }
+webhook_action() { curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=webhooks"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=$1" -d "_csrf=$(csrf)" -d tab=webhooks "${@:2}"; }
+: > "$WORK/hook/calls.log"; webhook_action test_webhook
+expect "test call signed and logged" "$(hook_check 1)" "test|signed|/crm"
+db_q() { "${MYSQL[@]}" "$DB_NAME" -N -e "$1"; }
+db_q "UPDATE ka_nastaveni SET hodnota = 'https://hooks.example.com/chyba' WHERE promenna = 'webhook_enquiries'"
+: > "$WORK/hook/calls.log"; webhook_action test_webhook
+FAILED=$(db_q "SELECT MAX(id) FROM ka_webhook_deliveries")
+expect "a failed call waits for the next attempt with the reason" "$(db_q "SELECT CONCAT(attempts, '|', status, '|', error, '|', next_attempt > NOW(), '|', body IS NOT NULL) FROM ka_webhook_deliveries WHERE id = $FAILED")" "1|500|HTTP 500|1|1"
+for i in 2 3 4 5 6; do db_q "UPDATE ka_webhook_deliveries SET next_attempt = NOW() WHERE id = $FAILED"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"; done
+expect "after six attempts the call is given up but kept for sending again" "$(db_q "SELECT CONCAT(attempts, '|', next_attempt IS NULL, '|', delivered IS NULL, '|', body IS NOT NULL) FROM ka_webhook_deliveries WHERE id = $FAILED")|$(wc -l < "$WORK/hook/calls.log" | tr -d ' ')" "6|1|1|1|6"
+check "the given-up call has Send again" 200 "/admin.php?module=settings&tab=webhooks" "name=\"id\" value=\"$FAILED\""
+db_q "UPDATE ka_webhook_deliveries SET url = 'https://hooks.example.com/crm' WHERE id = $FAILED"
+webhook_action retry_webhook -d "id=$FAILED"
+expect "Send again delivers it" "$(db_q "SELECT CONCAT(attempts, '|', status, '|', delivered IS NOT NULL, '|', body IS NULL) FROM ka_webhook_deliveries WHERE id = $FAILED")" "7|204|1|1"
+OLD_SECRET=$(db_q "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'webhook_secret'"); webhook_action new_webhook_secret
+expect "a new secret replaces the old one" "$(db_q "SELECT hodnota != '$OLD_SECRET' AND hodnota LIKE 'whsec\_%' FROM ka_nastaveni WHERE promenna = 'webhook_secret'")" "1"
+mcp site_info '{}' | grep -q "whsec_" && { echo "  CHYBA  MCP shows the webhook secret"; ERRORS=$((ERRORS+1)); } || echo "  ok     the webhook secret stays out of MCP"
+db_q "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('webhook_enquiries', 'webhook_test_url')"
+kill "$HOOK_PID" 2>/dev/null || true
+
 echo "== newsletters (fake SMTP server)"
 SMTP_PORT=$((PORT + 3)); mkdir -p "$WORK/smtp"
 php "$ROOT/tools/fake-smtp.php" "$SMTP_PORT" "$WORK/smtp" > /dev/null 2>&1 & SMTP_PID=$!
@@ -1127,6 +1186,57 @@ IDPS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idp FROM ka_kolekce_polozky WHERE 
 mcp uloz_polozku_kolekce "{\"kolekce\":\"tym\",\"id\":$IDPS,\"data\":{\"funkce\":\"Vedouci dilny\"}}" > /dev/null
 expect "kolekce přes MCP: úprava položky bez názvu název zachová" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(nazev, '|', data LIKE '%Vedouci dilny%') FROM ka_kolekce_polozky WHERE idp = $IDPS")" "Petr Svoboda|1"
 
+echo "== moving a site: import of a Kaleta export into a new installation (1.8)"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=export" -d "_csrf=$TOKEN"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; MOVE_EXPORT=$(grep -o 'export-[0-9]*-[0-9]*\.zip' "$WORK/response" | head -1)
+curl -s -b "$JAR" -o "$WORK/presun.zip" "$B/admin.php?module=transfer&action=download&soubor=$MOVE_EXPORT"
+MEDIA_IN_ZIP=$(unzip -Z1 "$WORK/presun.zip" | grep -c '^media/.')
+[ "$MEDIA_IN_ZIP" -gt 0 ] && echo "  ok     the export carries the media ($MEDIA_IN_ZIP files)" || { echo "  CHYBA  no media in the export"; ERRORS=$((ERRORS+1)); }
+PORT2=$((PORT + 5)); B2="http://127.0.0.1:$PORT2"; DB2="${DB_NAME}_presun"; JAR_MOVE="$WORK/cookies-presun.txt"
+"${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB2\`; CREATE DATABASE \`$DB2\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
+mkdir "$WORK/web2" && (cd "$ROOT" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' s; do if [ -e "$s" ]; then printf '%s\0' "$s"; fi; done | tar --null -T - -cf - | tar -xf - -C "$WORK/web2")
+mkdir -p "$WORK/web2/media" "$WORK/web2/storage/log" "$WORK/web2/storage/cache"
+(cd "$WORK/web2" && exec php -S "127.0.0.1:$PORT2" system/dev-router.php > "$WORK/server2.log" 2>&1) & SERVER2_PID=$!
+for i in $(seq 1 30); do curl -s -o /dev/null "$B2/install.php" && break; sleep 0.2; done
+curl -s -o "$WORK/response" -X POST "$B2/install.php" --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB2" -d "db_user=$DB_USER" --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ \
+  --data-urlencode "nazev_webu=Nový web" -d web=export -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=novinky'
+grep -q "Pokračovat importem" "$WORK/response" && echo "  ok     installer: Start from an export leads to the import" || { echo "  CHYBA  installer with web=export"; sed 's/<[^>]*>//g' "$WORK/response" | grep -v '^\s*$' | head -10; ERRORS=$((ERRORS+1)); }
+expect "installer: Start from an export leaves the site empty" "$("${MYSQL[@]}" "$DB2" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM ka_stranky), '/', (SELECT COUNT(*) FROM ka_novinky), '/', (SELECT COUNT(*) FROM ka_uzivatele))")" "0/0/1"
+curl -s -c "$JAR_MOVE" -b "$JAR_MOVE" -o "$WORK/response" "$B2/admin.php"; curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -X POST "$B2/admin.php" -d "_csrf=$(csrf)" -d user=admin --data-urlencode "password=$PASSWORD"
+curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" "$B2/admin.php?module=transfer"
+grep -q 'id="soubor-kaleta"' "$WORK/response" && echo "  ok     an empty site offers Import from Kaleta" || { echo "  CHYBA  Import from Kaleta form"; ERRORS=$((ERRORS+1)); }
+location=$(curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -w '%{redirect_url}' -X POST "$B2/admin.php?module=transfer&action=upload" -F "_csrf=$(csrf)" -F "soubor=@$WORK/presun.zip;type=application/zip")
+curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" "$location"
+grep -q "Export webu „Testovací firma“" "$WORK/response" && grep -q 'name="potvrzeni"' "$WORK/response" && echo "  ok     preview of the export with counts and a confirmation" || { echo "  CHYBA  preview of the export: $location"; ERRORS=$((ERRORS+1)); }
+MOVE_FILE=$(printf '%s' "$location" | sed 's/.*soubor=//')
+curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -X POST "$B2/admin.php?module=transfer&action=kaleta_run" -d "_csrf=$(csrf)" -d "soubor=$MOVE_FILE"
+expect "without the confirmation nothing starts" "$("${MYSQL[@]}" "$DB2" -N -e "SELECT COUNT(*) FROM ka_stranky")" "0"
+curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -X POST "$B2/admin.php?module=transfer&action=kaleta_run" -d "_csrf=$(csrf)" -d "soubor=$MOVE_FILE" -d potvrzeni=1
+for i in $(seq 1 80); do
+  curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" -X POST "$B2/admin.php?module=transfer&action=kaleta" -d "_csrf=$(csrf)" -d "soubor=$MOVE_FILE"
+  grep -q "Web je naimportovaný\|Import se zastavil" "$WORK/response" && break
+done
+grep -q "Web je naimportovaný" "$WORK/response" && grep -q 'data-auto-odeslat' "$WORK/response" && { echo "  CHYBA  the result still submits itself"; ERRORS=$((ERRORS+1)); } || true
+grep -q "Web je naimportovaný" "$WORK/response" && echo "  ok     the import went through in batches" || { echo "  CHYBA  import: $(sed 's/<[^>]*>//g' "$WORK/response" | grep -i 'import\|chyb' | head -5)"; ERRORS=$((ERRORS+1)); }
+move_counts() { "${MYSQL[@]}" "$1" -N -e "SELECT CONCAT_WS('/', (SELECT COUNT(*) FROM ka_stranky WHERE smazano IS NULL), (SELECT COUNT(*) FROM ka_novinky WHERE smazano IS NULL), (SELECT COUNT(*) FROM ka_kategorie),
+  (SELECT COUNT(*) FROM ka_kolekce), (SELECT COUNT(*) FROM ka_kolekce_polozky WHERE smazano IS NULL), (SELECT COUNT(*) FROM ka_komponenty), (SELECT COUNT(*) FROM ka_tridy), (SELECT COUNT(*) FROM ka_menu),
+  (SELECT COUNT(*) FROM ka_popupy), (SELECT COUNT(*) FROM ka_presmerovani), (SELECT COUNT(*) FROM ka_media), (SELECT COUNT(*) FROM ka_novinky_stitky ns JOIN ka_novinky n ON n.idc = ns.idc WHERE n.smazano IS NULL))"; }
+expect "the new site has the same content (pages/news/categories/collections/items/components/classes/menus/pop-ups/redirects/media/tags)" "$(move_counts "$DB2")" "$(move_counts "$DB_NAME")"
+expect "same numbers: home page, site name and the design system came along" "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB2" -N -e "SELECT CONCAT_WS('|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page'), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'), (SELECT JSON_EXTRACT(hodnota, '$.barvy.primarni') FROM ka_nastaveni WHERE promenna = 'design_system'))")" "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "SELECT CONCAT_WS('|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page'), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'), (SELECT JSON_EXTRACT(hodnota, '$.barvy.primarni') FROM ka_nastaveni WHERE promenna = 'design_system'))")"
+expect "accounts and secrets stay on the new site (users, site address, tokens)" "$("${MYSQL[@]}" "$DB2" -N -e "SELECT CONCAT_WS('/', (SELECT COUNT(*) FROM ka_uzivatele), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_url'), (SELECT COUNT(*) FROM ka_nastaveni WHERE promenna IN ('tasks_token', 'webhook_secret', 'smtp_password') AND hodnota <> ''), (SELECT COUNT(DISTINCT autor) FROM ka_novinky))")" "1/$B2/0/1"
+MOVED_MEDIA=$("${MYSQL[@]}" "$DB2" -N -e "SELECT obr_poloha FROM ka_media ORDER BY ido LIMIT 1")
+[ -n "$MOVED_MEDIA" ] && [ -f "$WORK/web2/$MOVED_MEDIA" ] && echo "  ok     the media files are on the new site" || { echo "  CHYBA  media file $MOVED_MEDIA"; ERRORS=$((ERRORS+1)); }
+[ -z "$(find "$WORK/web2/media" -name '*.php')" ] && echo "  ok     no PHP came into media/" || { echo "  CHYBA  PHP in media/"; ERRORS=$((ERRORS+1)); }
+code=$(curl -s -o "$WORK/response" -w '%{http_code}' "$B2/"); [ "$code" = 200 ] && grep -q "Testovací firma" "$WORK/response" && echo "  ok     the moved site runs" || { echo "  CHYBA  moved site: $code"; ERRORS=$((ERRORS+1)); }
+SLUG_ITEM=$("${MYSQL[@]}" "$DB2" -N -e "SELECT seo_link FROM ka_stranky WHERE zobrazit = 1 AND smazano IS NULL AND ids <> (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page') ORDER BY ids LIMIT 1")
+expect "a moved page looks the same" "$(curl -s "$B2/$SLUG_ITEM" | grep -o '<h1[^>]*>[^<]*' | head -1)" "$(curl -s "$B/$SLUG_ITEM" | grep -o '<h1[^>]*>[^<]*' | head -1)"
+curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" "$B2/admin.php?module=transfer"
+grep -q 'id="soubor-kaleta"' "$WORK/response" && { echo "  CHYBA  a site with content still offers the import form"; ERRORS=$((ERRORS+1)); }
+expect "a site with content refuses another import" "$(curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -w '%{redirect_url}' -X POST "$B2/admin.php?module=transfer&action=kaleta_select" -d "_csrf=$(csrf)" -d "soubor=$MOVE_FILE" | grep -c 'kaleta')|$(curl -s -b "$JAR_MOVE" -o - "$B2/admin.php?module=transfer&action=kaleta&soubor=$MOVE_FILE" | grep -c 'name="potvrzeni"')" "1|0"
+[ -s "$WORK/web2/storage/log/chyby.log" ] && { echo "  CHYBA  errors on the new site:"; cat "$WORK/web2/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); }
+kill "$SERVER2_PID" 2>/dev/null || true; "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB2\`"
+
 echo "== záloha a obnova databáze"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=backup" -d "_csrf=$TOKEN"
@@ -1140,6 +1250,42 @@ if [[ "$BACKUP" == *.gz ]]; then { gzip -dc "$WORK/web/storage/zalohy/$BACKUP" |
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = 'Pred poskozenou' WHERE promenna = 'site_name'"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=restore_backup" -d "_csrf=$TOKEN" -d "soubor=$BROKEN_BACKUP"
 expect "poškozená záloha databázi nezmění" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'")" "Pred poskozenou"
+
+echo "== off-site copies: the database and the media, incrementally (fake S3, 1.8)"
+S3_PORT=$((PORT + 6)); mkdir -p "$WORK/s3"
+cat > "$WORK/s3/router.php" <<'PHP'
+<?php
+$h = array_change_key_case(getallheaders());
+file_put_contents(__DIR__ . '/puts.log', $_SERVER['REQUEST_METHOD'] . ' ' . $_SERVER['REQUEST_URI'] . ' ' . strlen(file_get_contents('php://input')) . ' ' . (str_starts_with($h['authorization'] ?? '', 'AWS4-HMAC-SHA256 ') ? 'signed' : 'unsigned') . "\n", FILE_APPEND);
+http_response_code(200); return true;
+PHP
+(cd "$WORK/s3" && exec php -S "127.0.0.1:$S3_PORT" router.php > /dev/null 2>&1) & S3_PID=$!
+for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$S3_PORT/ping" && break; sleep 0.2; done; : > "$WORK/s3/puts.log"
+"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('remote_backup', 's3'), ('backup_host', 's3.example.com'), ('backup_user', 'AKIDTEST'), ('backup_password', 'tajne-s3'),
+  ('backup_folder', 'kaleta-zalohy'), ('backup_region', 'eu-central-1'), ('backup_test_url', 'http://127.0.0.1:$S3_PORT'), ('backup_media', '1'), ('remote_media_status', '')"
+rm -f "$WORK/web/storage/zalohy/media-kopie.json"
+MEDIA_FILES=$(cd "$WORK/web" && find media -type f ! -name '.*' ! -name '*.php' | wc -l | tr -d ' ')
+backup_now() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=backup" -d "_csrf=$(csrf)"; }
+backup_now
+expect "the backup and every media file uploaded, signed (sql/media/unsigned)" "$(grep -c '^PUT /kaleta-zalohy/kaleta-.*\.sql' "$WORK/s3/puts.log")/$(grep -c '^PUT /kaleta-zalohy/media/' "$WORK/s3/puts.log")/$(grep -c 'unsigned' "$WORK/s3/puts.log")" "1/$MEDIA_FILES/0"
+expect "media status: complete" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT SUBSTRING_INDEX(hodnota, '|', -2) FROM ka_nastaveni WHERE promenna = 'remote_media_status'")" "ok|0"
+check "Backups show the media copy" 200 "/admin.php?module=settings&tab=backups" "Média: kopie je kompletní"
+: > "$WORK/s3/puts.log"; backup_now
+expect "the next backup uploads no unchanged media" "$(grep -c '^PUT /kaleta-zalohy/media/' "$WORK/s3/puts.log")" "0"
+mkdir -p "$WORK/web/media/2026/09" && echo "novy" > "$WORK/web/media/2026/09/novy-soubor.txt"; : > "$WORK/s3/puts.log"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'media_sync_check'"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "cron copies only the new file" "$(cat "$WORK/s3/puts.log")" "PUT /kaleta-zalohy/media/2026/09/novy-soubor.txt 5 signed"
+# a daily backup when something changed, otherwise it waits for the week
+"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('auto_backups', '1'), ('remote_backup', 'vypnuto'); INSERT INTO ka_protokol (cas, modul, akce) VALUES (NOW(), 'test', 'change')"
+touch -t "$(date -v-2d +%Y%m%d%H%M 2>/dev/null || date -d '-2 days' +%Y%m%d%H%M)" "$WORK"/web/storage/zalohy/kaleta-*
+BEFORE=$(ls "$WORK"/web/storage/zalohy/ | grep -c -- '-auto-'); curl -s -b "$JAR" -o /dev/null "$B/admin.php"
+expect "a change since the last backup (older than a day) makes a new automatic one" "$(ls "$WORK"/web/storage/zalohy/ | grep -c -- '-auto-')" "$((BEFORE + 1))"
+touch -t "$(date -v-2d +%Y%m%d%H%M 2>/dev/null || date -d '-2 days' +%Y%m%d%H%M)" "$WORK"/web/storage/zalohy/kaleta-*
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_protokol SET cas = NOW() - INTERVAL 3 DAY WHERE cas > NOW() - INTERVAL 3 DAY; UPDATE ka_poptavky SET datum = NOW() - INTERVAL 3 DAY WHERE datum > NOW() - INTERVAL 3 DAY"
+curl -s -b "$JAR" -o /dev/null "$B/admin.php"
+expect "without a change no new backup before the week is over" "$(ls "$WORK"/web/storage/zalohy/ | grep -c -- '-auto-')" "$((BEFORE + 1))"
+kill "$S3_PID" 2>/dev/null || true
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('backup_host', 'backup_test_url', 'backup_password', 'remote_media_status'); UPDATE ka_nastaveni SET hodnota = 'vypnuto' WHERE promenna = 'remote_backup'"
 
 echo "== role přes MCP, obnova hesla, zámek účtu"
 SUB_TOKEN2="kaleta_$(printf 'b%.0s' $(seq 1 48))"

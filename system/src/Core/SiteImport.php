@@ -1,0 +1,730 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kaleta\Core;
+
+use Kaleta\Builder\Build;
+use Kaleta\Builder\Collections;
+use Kaleta\Builder\Components;
+use Kaleta\Builder\DesignSystem;
+use Kaleta\Builder\Popups;
+use Kaleta\Builder\SiteParts;
+use Kaleta\Builder\Style;
+
+/**
+ * Import of a Kaleta export (1.8): moves a whole site into a new, empty installation – the counterpart of SiteExport.
+ *
+ * The site is empty, so every row keeps its number from the export and all references between pages, news, collections,
+ * components, menus and media stay valid without remapping. What comes in goes through the same validators as when saving
+ * in the administration: builds (Build::sanitize), classes (Style), menus, collection data, pop-up rules, design system.
+ * Users, passwords, keys and tokens are never in an export, so they are never imported; the imported news belong to the
+ * administrator who runs the import.
+ *
+ * Steps (Admin\Modules\Transfer, one step per request): prepare – obsah.json is split into one file per table (one row per
+ * line, so even a large export does not need to fit in memory); preview; data – a database backup, emptying the content
+ * and the rows in batches; media – files from the archive in batches; done. The state is a file in storage/import.
+ */
+final class SiteImport
+{
+    /** Tables in the order of import (a folder before media, a collection before its items). */
+    public const array TABLES = ['kategorie', 'stitky', 'stranky', 'novinky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce', 'menu',
+        'kolekce', 'kolekce_sablony', 'kolekce_polozky', 'popupy', 'media_slozky', 'media'];
+
+    /** Content emptied before the import (including what depends on it: versions, drafts, usage and link checks). */
+    private const array EMPTIED = ['novinky_stitky', 'novinky_revize', 'novinky_koncepty', 'stranky_revize', 'stavba_revize', 'media_pouziti', 'odkazy_vadne',
+        'kolekce_polozky', 'kolekce_sablony', 'kolekce', 'novinky', 'kategorie', 'stitky', 'stranky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce',
+        'menu', 'popupy', 'media', 'media_slozky', 'import_mapa'];
+
+    /** Files that may come from the archive into media/ (images and the attachments Media accepts). */
+    private const array MEDIA_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg', 'ico'];
+
+    private const int BATCH = 300;
+    private const int MEDIA_BATCH = 100;
+    private const int SECONDS = 8;
+
+    /** @var array<string, list<string>> columns of the tables on this site */
+    private array $columns = [];
+
+    public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly int $admin)
+    {
+    }
+
+    /* ---------- files in storage/import ---------- */
+
+    /** @return list<array{soubor:string, velikost:int, cas:int}> Kaleta exports in storage/import, newest on top */
+    public static function listAll(): array
+    {
+        $files = [];
+        foreach (glob(WpFile::FOLDER . '/*.{zip,json}', GLOB_BRACE) ?: [] as $path) {
+            if (self::isValidName(basename($path))) {
+                $files[] = ['soubor' => basename($path), 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
+            }
+        }
+        usort($files, fn (array $a, array $b): int => $b['cas'] <=> $a['cas']);
+
+        return $files;
+    }
+
+    public static function isValidName(string $file): bool
+    {
+        return $file !== '' && strlen($file) <= 150 && basename($file) === $file && !str_starts_with($file, '.')
+            && !preg_match('#[/\\\\\x00-\x1f]#', $file) && in_array(strtolower(pathinfo($file, PATHINFO_EXTENSION)), ['zip', 'json'], true)
+            && !preg_match('/^(kaleta-)?stav-[0-9a-f]{16}\.json$/', $file); // state files of the imports live in the same folder
+    }
+
+    public static function path(string $file): ?string
+    {
+        return self::isValidName($file) && is_file(WpFile::FOLDER . '/' . $file) ? WpFile::FOLDER . '/' . $file : null;
+    }
+
+    public static function uploadName(string $original): string
+    {
+        $extension = strtolower(pathinfo($original, PATHINFO_EXTENSION)) === 'json' ? 'json' : 'zip';
+
+        return slugify(pathinfo($original, PATHINFO_FILENAME), 80) . '.' . $extension;
+    }
+
+    /* ---------- state ---------- */
+
+    /** @return array<string, mixed> */
+    public static function newState(string $file): array
+    {
+        return ['soubor' => $file, 'faze' => 'priprava', 'hlavicka' => [], 'pocty' => [], 'media_celkem' => 0, 'tabulka' => 0, 'pozice' => 0,
+            'vyprazdneno' => false, 'zaloha' => '', 'media_pozice' => 0, 'vysledek' => [], 'media' => ['ulozeno' => 0, 'preskoceno' => 0], 'chyby' => []];
+    }
+
+    private static function stateFile(string $file): string
+    {
+        return WpFile::FOLDER . '/kaleta-stav-' . substr(sha1($file), 0, 16) . '.json';
+    }
+
+    /** Working folder of the import: obsah.json and one file per table. */
+    private static function workFolder(string $file): string
+    {
+        return WpFile::FOLDER . '/kaleta-' . substr(sha1($file), 0, 16);
+    }
+
+    /** @return array<string, mixed>|null */
+    public static function loadState(string $file): ?array
+    {
+        $data = is_file(self::stateFile($file)) ? json_decode((string) file_get_contents(self::stateFile($file)), true) : null;
+
+        return is_array($data) ? array_replace(self::newState($file), $data) : null;
+    }
+
+    /** @param array<string, mixed> $state */
+    public static function saveState(array $state): void
+    {
+        $path = self::stateFile((string) $state['soubor']);
+        file_put_contents($path . '.tmp', (string) json_encode($state, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+        rename($path . '.tmp', $path);
+    }
+
+    /** Deletes the state and the working folder (the file itself stays until the administrator deletes it). */
+    public static function deleteState(string $file): void
+    {
+        @unlink(self::stateFile($file));
+        foreach (glob(self::workFolder($file) . '/*') ?: [] as $part) {
+            @unlink($part);
+        }
+        @rmdir(self::workFolder($file));
+    }
+
+    /**
+     * What the site already contains; the import is allowed only on an empty site (a fresh installation, possibly with
+     * a starter site: at most its five pages and the welcome news item).
+     *
+     * @return array{prazdny: bool, stranky: int, novinky: int, polozky: int, media: int}
+     */
+    public static function siteContent(Db $db): array
+    {
+        $c = ['stranky' => (int) $db->value('SELECT COUNT(*) FROM {stranky}'), 'novinky' => (int) $db->value('SELECT COUNT(*) FROM {novinky}'),
+            'polozky' => (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky}'), 'media' => (int) $db->value('SELECT COUNT(*) FROM {media}')];
+
+        return ['prazdny' => $c['stranky'] <= 5 && $c['novinky'] <= 1 && $c['polozky'] === 0 && $c['media'] === 0] + $c;
+    }
+
+    /* ---------- 1. preparation ---------- */
+
+    /**
+     * Reads the header and splits obsah.json into files per table (one JSON row per line); counts rows and media files.
+     *
+     * @param array<string, mixed> $state
+     * @throws \RuntimeException the file is not a Kaleta export or comes from a newer Kaleta
+     */
+    public static function prepare(array &$state): void
+    {
+        $path = self::path((string) $state['soubor']) ?? throw new \RuntimeException('The file does not exist.');
+        $work = self::workFolder((string) $state['soubor']);
+        if (!is_dir($work) && !@mkdir($work, 0775, true)) {
+            throw new \RuntimeException('Cannot create the storage/import folder – check write permissions.');
+        }
+        $json = $work . '/obsah.json';
+        $mediaCount = 0;
+        if (str_ends_with(strtolower($path), '.zip')) {
+            if (!class_exists(\ZipArchive::class)) {
+                throw new \RuntimeException('The PHP zip extension is missing on the server – upload obsah.json from the archive instead.');
+            }
+            $zip = new \ZipArchive();
+            if ($zip->open($path, \ZipArchive::RDONLY) !== true || ($in = $zip->getStream('obsah.json')) === false) {
+                throw new \RuntimeException('The file is not a Kaleta export (obsah.json is missing in the archive).');
+            }
+            $out = fopen($json, 'wb');
+            stream_copy_to_stream($in, $out);
+            fclose($in);
+            fclose($out);
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $name = (string) $zip->getNameIndex($i);
+                if (self::mediaTarget($name) !== null) {
+                    $mediaCount++;
+                }
+            }
+            $zip->close();
+        } else {
+            copy($path, $json);
+        }
+        [$header, $counts] = self::split($json, $work);
+        @unlink($json);
+        if (($header['format'] ?? '') !== 'kaleta-export') {
+            throw new \RuntimeException('The file is not a Kaleta export.');
+        }
+        if ((int) ($header['verze_formatu'] ?? 0) > SiteExport::FORMAT_VERSION || version_compare((string) ($header['kaleta'] ?? '0'), KALETA_VERSION, '>')) {
+            throw new \RuntimeException('The export comes from a newer version of Kaleta – update this site first (Settings → Backups and updates).');
+        }
+        $state['hlavicka'] = ['kaleta' => (string) ($header['kaleta'] ?? ''), 'vytvoreno' => (string) ($header['vytvoreno'] ?? ''),
+            'nazev' => (string) ($header['nastaveni']['site_name'] ?? ''), 'verze_formatu' => (int) ($header['verze_formatu'] ?? 1)];
+        $state['pocty'] = $counts;
+        $state['media_celkem'] = $mediaCount;
+        $state['faze'] = 'nahled';
+    }
+
+    /**
+     * obsah.json as written by SiteExport has one row per line – read as a stream. Any other layout (e.g. formatted by hand)
+     * is read whole, when it is not too large.
+     *
+     * @return array{0: array<string, mixed>, 1: array<string, int>} header with settings, rows per table
+     */
+    private static function split(string $json, string $work): array
+    {
+        $parts = [];
+        $counts = [];
+        $write = function (string $table, array $row) use (&$parts, &$counts, $work): void {
+            if (!in_array($table, self::TABLES, true)) {
+                return;
+            }
+            $parts[$table] ??= fopen($work . '/' . $table . '.ndjson', 'wb');
+            fwrite($parts[$table], json_encode($row, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE) . "\n");
+            $counts[$table] = ($counts[$table] ?? 0) + 1;
+        };
+        $f = fopen($json, 'rb');
+        $first = (string) fgets($f);
+        $header = json_decode(rtrim(rtrim($first), ',') . '}', true);
+        $table = null;
+        $streamed = is_array($header);
+        while ($streamed && ($line = fgets($f)) !== false) {
+            $line = rtrim($line);
+            if (preg_match('/^"([a-z_]+)":\[$/', $line, $m)) {
+                $table = $m[1];
+            } elseif (str_starts_with($line, '{') && $table !== null) {
+                $row = json_decode(rtrim($line, ','), true);
+                if (!is_array($row)) {
+                    $streamed = false;
+                    break;
+                }
+                $write($table, $row);
+            } elseif (in_array($line, [']', '],', ']}', ''], true)) {
+                $table = null;
+            } else {
+                $streamed = false;
+            }
+        }
+        fclose($f);
+        if (!$streamed) {
+            foreach ($parts as $h) {
+                fclose($h);
+            }
+            [$parts, $counts] = [[], []];
+            if (filesize($json) > 64 * 1024 * 1024) {
+                throw new \RuntimeException('The file is not a Kaleta export.');
+            }
+            $data = json_decode((string) file_get_contents($json), true);
+            if (!is_array($data)) {
+                throw new \RuntimeException('The file is not a Kaleta export.');
+            }
+            $header = array_diff_key($data, array_flip(self::TABLES));
+            foreach (self::TABLES as $t) {
+                foreach (is_array($data[$t] ?? null) ? $data[$t] : [] as $row) {
+                    if (is_array($row)) {
+                        $write($t, $row);
+                    }
+                }
+            }
+        }
+        foreach ($parts as $h) {
+            fclose($h);
+        }
+        if (is_array($header['nastaveni'] ?? null)) {
+            file_put_contents($work . '/nastaveni.json', (string) json_encode($header['nastaveni'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        }
+
+        return [is_array($header) ? $header : [], $counts];
+    }
+
+    /* ---------- 2. data ---------- */
+
+    /**
+     * One batch: the first one backs up the database and empties the content, then rows table by table. After the last
+     * table the settings are applied and the media step follows.
+     *
+     * @param array<string, mixed> $state
+     */
+    public function importData(array &$state): void
+    {
+        if (!$state['vyprazdneno']) {
+            if (!self::siteContent($this->db)['prazdny']) {
+                throw new \RuntimeException('The site already has its own content. A Kaleta export can be imported only into a new, empty site.');
+            }
+            $state['zaloha'] = Backup::create($this->db, 'predimportem');
+            $this->db->run('SET FOREIGN_KEY_CHECKS = 0');
+            foreach (self::EMPTIED as $table) {
+                $this->db->run('DELETE FROM {' . $table . '}');
+            }
+            $this->db->run('SET FOREIGN_KEY_CHECKS = 1');
+            $state['vyprazdneno'] = true;
+
+            return;
+        }
+        $start = microtime(true);
+        $done = 0;
+        while ($state['tabulka'] < count(self::TABLES) && $done < self::BATCH && microtime(true) - $start < self::SECONDS) {
+            $table = self::TABLES[$state['tabulka']];
+            $file = self::workFolder((string) $state['soubor']) . '/' . $table . '.ndjson';
+            if (!is_file($file) || $state['pozice'] >= (int) ($state['pocty'][$table] ?? 0)) {
+                $state['tabulka']++;
+                $state['pozice'] = 0;
+                continue;
+            }
+            $f = new \SplFileObject($file, 'rb');
+            $f->seek((int) $state['pozice']);
+            $this->db->transaction(function () use ($f, $table, &$state, &$done, $start): void {
+                while (!$f->eof() && $done < self::BATCH && microtime(true) - $start < self::SECONDS) {
+                    $line = trim((string) $f->current());
+                    $f->next();
+                    $state['pozice']++;
+                    $done++;
+                    $row = $line === '' ? null : json_decode($line, true);
+                    $ok = is_array($row) && $this->insert($table, $row);
+                    $state['vysledek'][$table][$ok ? 'ok' : 'preskoceno'] = ($state['vysledek'][$table][$ok ? 'ok' : 'preskoceno'] ?? 0) + 1;
+                }
+            });
+        }
+        if ($state['tabulka'] >= count(self::TABLES)) {
+            $this->applySettings((string) $state['soubor']);
+            $state['faze'] = $state['media_celkem'] > 0 ? 'media' : 'hotovo';
+            if ($state['faze'] === 'hotovo') {
+                $this->finish();
+            }
+        }
+    }
+
+    /** One row: cleaned by the table's rules, only columns this site has; false = skipped. */
+    private function insert(string $table, array $r): bool
+    {
+        $clean = match ($table) {
+            'kategorie' => $this->category($r),
+            'stitky' => $this->tag($r),
+            'stranky' => $this->page($r),
+            'novinky' => $this->newsItem($r),
+            'presmerovani' => $this->redirect($r),
+            'tridy' => $this->sharedClass($r),
+            'casti' => $this->sitePart($r),
+            'komponenty' => $this->component($r),
+            'sekce' => $this->section($r),
+            'menu' => $this->menu($r),
+            'kolekce' => $this->collection($r),
+            'kolekce_sablony' => $this->collectionTemplate($r),
+            'kolekce_polozky' => $this->collectionItem($r),
+            'popupy' => $this->popup($r),
+            'media_slozky' => (int) ($r['ids'] ?? 0) > 0 ? ['ids' => (int) $r['ids'], 'nazev' => mb_substr(trim(strip_tags((string) ($r['nazev'] ?? ''))), 0, 100)] : null,
+            'media' => $this->mediaRow($r),
+        };
+        if ($clean === null) {
+            return false;
+        }
+        $tags = $clean['_stitky'] ?? [];
+        unset($clean['_stitky']);
+        $clean = array_intersect_key($clean, array_flip($this->columns($table)));
+        try {
+            $this->db->insert($table, $clean);
+        } catch (\PDOException) {
+            return false; // a duplicate number or address in the export
+        }
+        foreach ($tags as $ids) {
+            $this->db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) VALUES (?, ?)', [$clean['idc'], $ids]);
+        }
+
+        return true;
+    }
+
+    /** @return list<string> */
+    private function columns(string $table): array
+    {
+        return $this->columns[$table] ??= array_column($this->db->all('SHOW COLUMNS FROM {' . $table . '}'), 'Field');
+    }
+
+    /* ---------- rows ---------- */
+
+    /** An address from the export when it is valid, otherwise one made from the name. */
+    private static function slug(mixed $slug, string $fallback, int $max): string
+    {
+        $slug = is_string($slug) ? $slug : '';
+
+        return preg_match('/^[a-z0-9][a-z0-9-]*$/', $slug) && strlen($slug) <= $max ? $slug : slugify($fallback, $max);
+    }
+
+    /** A value from a fixed list (types of pop-ups and the like), otherwise the first one. */
+    private static function pick(array $list, mixed $value): string
+    {
+        return is_string($value) && isset($list[$value]) ? $value : (string) array_key_first($list);
+    }
+
+    private static function text(mixed $v, int $max): string
+    {
+        return mb_substr(is_scalar($v) ? (string) $v : '', 0, $max);
+    }
+
+    private static function date(mixed $v): ?string
+    {
+        return is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/', $v) ? $v : null;
+    }
+
+    private static function language(mixed $v): string
+    {
+        return is_string($v) && preg_match('/^[a-z]{2}$/', $v) ? $v : '';
+    }
+
+    /** A path of an image or file: from media/, or an https:// address; anything else (javascript:…) is dropped. */
+    private static function file(mixed $v): string
+    {
+        $v = is_string($v) ? trim($v) : '';
+
+        return preg_match('#^(/?media/[^\s"\'<>]+|https://[^\s"\'<>]+)$#', $v) && !str_contains($v, '..') ? $v : '';
+    }
+
+    /** A builder build from the export: through the validator like any save; null for an empty or broken one. */
+    private static function build(mixed $v): ?string
+    {
+        $build = is_array($v) ? $v : (is_string($v) && $v !== '' ? json_decode($v, true) : null);
+        if (!is_array($build)) {
+            return null;
+        }
+        [$clean] = Build::sanitize($build, true);
+
+        return Build::toJson($clean);
+    }
+
+    private function category(array $r): ?array
+    {
+        $name = self::text(strip_tags((string) ($r['nazev'] ?? '')), 100);
+
+        return (int) ($r['idt'] ?? 0) > 0 && $name !== '' ? ['idt' => (int) $r['idt'], 'nazev' => $name, 'seo_link' => self::slug($r['seo_link'] ?? '', $name, 120),
+            'popis' => self::text($r['popis'] ?? '', 5000), 'hodnost' => (int) ($r['hodnost'] ?? 0), 'jazyk' => self::language($r['jazyk'] ?? ''),
+            'preklad_z' => (int) ($r['preklad_z'] ?? 0) ?: null] : null;
+    }
+
+    private function tag(array $r): ?array
+    {
+        $name = self::text(strip_tags((string) ($r['nazev'] ?? '')), 100);
+
+        return (int) ($r['ids'] ?? 0) > 0 && $name !== '' ? ['ids' => (int) $r['ids'], 'nazev' => $name, 'seo_link' => self::slug($r['seo_link'] ?? '', $name, 120),
+            'popis' => self::text($r['popis'] ?? '', 5000), 'obrazek' => self::file($r['obrazek'] ?? '')] : null;
+    }
+
+    private function page(array $r): ?array
+    {
+        $title = self::text(trim(strip_tags((string) ($r['titulek'] ?? ''))), 200);
+        if ((int) ($r['ids'] ?? 0) <= 0 || $title === '') {
+            return null;
+        }
+
+        return ['ids' => (int) $r['ids'], 'titulek' => $title, 'seo_link' => self::slug($r['seo_link'] ?? '', $title, 120), 'popis' => self::text($r['popis'] ?? '', 300),
+            'seo_titulek' => self::text($r['seo_titulek'] ?? '', 200), 'obrazek' => self::file($r['obrazek'] ?? ''), 'noindex' => (int) !empty($r['noindex']),
+            'text' => self::text($r['text'] ?? '', 4_000_000), 'zobrazit' => (int) !empty($r['zobrazit']), 'zverejnit_od' => self::date($r['zverejnit_od'] ?? null),
+            'v_menu' => (int) !empty($r['v_menu']), 'poradi' => (int) ($r['poradi'] ?? 0), 'zmeneno' => self::date($r['zmeneno'] ?? null) ?? date('Y-m-d H:i:s'),
+            'jazyk' => self::language($r['jazyk'] ?? ''), 'preklad_z' => (int) ($r['preklad_z'] ?? 0) ?: null, 'nadrazena' => (int) ($r['nadrazena'] ?? 0) ?: null,
+            'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null)];
+    }
+
+    private function newsItem(array $r): ?array
+    {
+        $title = self::text(trim(strip_tags((string) ($r['titulek'] ?? ''))), 255);
+        if ((int) ($r['idc'] ?? 0) <= 0 || $title === '') {
+            return null;
+        }
+        $row = ['idc' => (int) $r['idc'], 'titulek' => $title, 'seo_link' => self::slug($r['seo_link'] ?? '', $title, 160), 'uvod' => self::text($r['uvod'] ?? '', 100_000),
+            'text' => self::text($r['text'] ?? '', 4_000_000), 'obrazek' => self::file($r['obrazek'] ?? ''), 'obrazek_popis' => self::text($r['obrazek_popis'] ?? '', 300),
+            'obrazek_autor' => self::text($r['obrazek_autor'] ?? '', 120), 'tema' => (int) ($r['tema'] ?? 0), 'autor' => $this->admin,
+            'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s'), 'visible' => (int) !empty($r['visible']), 't_slova' => self::text($r['t_slova'] ?? '', 500),
+            'seo_titulek' => self::text($r['seo_titulek'] ?? '', 255), 'seo_popis' => self::text($r['seo_popis'] ?? '', 320), 'noindex' => (int) !empty($r['noindex']),
+            'visit' => (int) ($r['visit'] ?? 0), 'zmeneno' => self::date($r['zmeneno'] ?? null), 'aktualizovano' => self::date($r['aktualizovano'] ?? null),
+            // already announced on the old site: the import sends no webhook and no IndexNow for the whole archive
+            'oznameno' => date('Y-m-d H:i:s'), 'jazyk' => self::language($r['jazyk'] ?? ''), 'preklad_z' => (int) ($r['preklad_z'] ?? 0) ?: null, 'hledani' => null,
+            '_stitky' => array_values(array_filter(array_map('intval', is_array($r['stitky'] ?? null) ? $r['stitky'] : []), fn (int $i): bool => $i > 0))];
+        if (is_string($r['faq'] ?? null)) {
+            $row['faq'] = self::text($r['faq'], 60_000);
+        }
+
+        return $row;
+    }
+
+    private function redirect(array $r): ?array
+    {
+        // addresses as the Redirects module stores them: the old one without the slashes around, the target a path or a URL
+        $from = is_string($r['z_adresy'] ?? null) ? trim($r['z_adresy'], '/ ') : '';
+        $to = is_string($r['na_adresu'] ?? null) ? trim($r['na_adresu']) : '';
+
+        return (int) ($r['idp'] ?? 0) > 0 && preg_match('#^[^\s/][^\s]{0,254}$#', $from) && preg_match('#^(?!//)(?!javascript:)(?!data:)[^\s]{1,255}$#i', $to)
+            ? ['idp' => (int) $r['idp'], 'z_adresy' => $from, 'na_adresu' => $to, 'typ' => (int) ($r['typ'] ?? 301) === 302 ? 302 : 301, 'pocet' => 0, 'vytvoreno' => date('Y-m-d H:i:s')]
+            : null;
+    }
+
+    private function sharedClass(array $r): ?array
+    {
+        $name = (string) ($r['nazev'] ?? '');
+        if (!preg_match(Build::CLASS_PATTERN, $name)) {
+            return null;
+        }
+        $errors = [];
+        $discarded = [];
+        $style = Style::sanitize(is_array($r['styl'] ?? null) ? $r['styl'] : json_decode((string) ($r['styl'] ?? ''), true), $name, $errors);
+
+        return ['nazev' => $name, 'styl' => (string) json_encode($style ?: new \stdClass(), JSON_UNESCAPED_UNICODE), 'css' => Style::customCss((string) ($r['css'] ?? ''), $discarded), 'zmeneno' => date('Y-m-d H:i:s')];
+    }
+
+    private function sitePart(array $r): ?array
+    {
+        $type = (string) ($r['typ'] ?? '');
+        $variant = (string) ($r['varianta'] ?? '');
+        if (!isset(SiteParts::TYPES[$type]) || ($variant !== '' && !preg_match(SiteParts::VARIANT_PATTERN, $variant))) {
+            return null;
+        }
+        $pages = is_array($r['stranky'] ?? null) ? $r['stranky'] : json_decode((string) ($r['stranky'] ?? ''), true);
+
+        return ['typ' => $type, 'jazyk' => self::language($r['jazyk'] ?? ''), 'varianta' => $variant, 'nazev' => self::text(strip_tags((string) ($r['nazev'] ?? '')), 100),
+            'stranky' => is_array($pages) ? (string) json_encode(array_values(array_filter(array_map('intval', $pages), fn (int $i): bool => $i > 0))) : null,
+            'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')];
+    }
+
+    private function component(array $r): ?array
+    {
+        $name = self::text(trim(strip_tags((string) ($r['nazev'] ?? ''))), 100);
+        $properties = is_array($r['vlastnosti'] ?? null) ? $r['vlastnosti'] : json_decode((string) ($r['vlastnosti'] ?? ''), true);
+
+        return (int) ($r['idm'] ?? 0) > 0 && $name !== '' ? ['idm' => (int) $r['idm'], 'nazev' => $name,
+            'vlastnosti' => (string) json_encode(Components::sanitizeProperties($properties), JSON_UNESCAPED_UNICODE),
+            'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] : null;
+    }
+
+    private function section(array $r): ?array
+    {
+        $element = is_array($r['prvek'] ?? null) ? $r['prvek'] : json_decode((string) ($r['prvek'] ?? ''), true);
+        $build = is_array($element) ? json_decode((string) self::build(['v' => Build::VERSION, 'deti' => [$element]]), true) : null;
+        $name = self::text(trim(strip_tags((string) ($r['nazev'] ?? ''))), 100);
+
+        return (int) ($r['idx'] ?? 0) > 0 && $name !== '' && isset($build['deti'][0])
+            ? ['idx' => (int) $r['idx'], 'nazev' => $name, 'prvek' => (string) json_encode($build['deti'][0], JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')] : null;
+    }
+
+    private function menu(array $r): ?array
+    {
+        $location = (string) ($r['umisteni'] ?? '');
+        $items = is_array($r['polozky'] ?? null) ? $r['polozky'] : json_decode((string) ($r['polozky'] ?? ''), true);
+
+        return isset(Menu::LOCATIONS[$location]) ? ['umisteni' => $location, 'jazyk' => self::language($r['jazyk'] ?? ''),
+            'polozky' => (string) json_encode(Menu::sanitize($items), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'zmeneno' => date('Y-m-d H:i:s')] : null;
+    }
+
+    private function collection(array $r): ?array
+    {
+        $name = self::text(trim(strip_tags((string) ($r['nazev'] ?? ''))), 100);
+        $fields = is_array($r['pole'] ?? null) ? $r['pole'] : json_decode((string) ($r['pole'] ?? ''), true);
+
+        return (int) ($r['idk'] ?? 0) > 0 && $name !== '' ? ['idk' => (int) $r['idk'], 'nazev' => $name, 'seo_link' => self::slug($r['seo_link'] ?? '', $name, 110),
+            'pole' => (string) json_encode(Collections::sanitizeFields($fields), JSON_UNESCAPED_UNICODE), 'detail' => (int) !empty($r['detail']),
+            'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] : null;
+    }
+
+    private function collectionTemplate(array $r): ?array
+    {
+        return (int) ($r['idk'] ?? 0) > 0 ? ['idk' => (int) $r['idk'], 'jazyk' => self::language($r['jazyk'] ?? ''), 'stavba' => self::build($r['stavba'] ?? null),
+            'stavba_koncept' => self::build($r['stavba_koncept'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] : null;
+    }
+
+    private function collectionItem(array $r): ?array
+    {
+        $idk = (int) ($r['idk'] ?? 0);
+        $fields = $idk > 0 ? json_decode((string) $this->db->value('SELECT pole FROM {kolekce} WHERE idk = ?', [$idk]), true) : null;
+        $name = self::text(trim(strip_tags((string) ($r['nazev'] ?? ''))), 200);
+        if ((int) ($r['idp'] ?? 0) <= 0 || !is_array($fields) || $name === '') {
+            return null; // an item without its collection
+        }
+        $data = is_array($r['data'] ?? null) ? $r['data'] : json_decode((string) ($r['data'] ?? ''), true);
+
+        return ['idp' => (int) $r['idp'], 'idk' => $idk, 'nazev' => $name, 'seo_link' => self::slug($r['seo_link'] ?? '', $name, 160),
+            'data' => (string) json_encode(Collections::sanitizeData($fields, is_array($data) ? $data : []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'poradi' => (int) ($r['poradi'] ?? 0), 'zobrazit' => (int) !empty($r['zobrazit']), 'jazyk' => self::language($r['jazyk'] ?? ''),
+            'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s'), 'zmeneno' => date('Y-m-d H:i:s')];
+    }
+
+    private function popup(array $r): ?array
+    {
+        $name = self::text(trim(strip_tags((string) ($r['nazev'] ?? ''))), 100);
+        $address = (string) ($r['adresa'] ?? '');
+        if ((int) ($r['idpp'] ?? 0) <= 0 || $name === '' || !preg_match(Popups::ADDRESS_PATTERN, $address)) {
+            return null;
+        }
+        $rules = is_array($r['pravidla'] ?? null) ? $r['pravidla'] : json_decode((string) ($r['pravidla'] ?? ''), true);
+
+        return ['idpp' => (int) $r['idpp'], 'nazev' => $name, 'adresa' => $address,
+            'typ' => self::pick(Popups::TYPES, $r['typ'] ?? ''), 'spoustec' => self::pick(Popups::TRIGGERS, $r['spoustec'] ?? ''),
+            'hodnota' => max(0, min(100_000, (int) ($r['hodnota'] ?? 0))), 'pravidla' => (string) json_encode(Popups::sanitizeRules(is_array($rules) ? $rules : []), JSON_UNESCAPED_UNICODE),
+            'cetnost' => self::pick(Popups::FREQUENCIES, $r['cetnost'] ?? ''),
+            'dni' => max(0, min(3650, (int) ($r['dni'] ?? 0))), 'aktivni' => (int) !empty($r['aktivni']), 'poradi' => (int) ($r['poradi'] ?? 0),
+            'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')];
+    }
+
+    private function mediaRow(array $r): ?array
+    {
+        // format 1 named the columns differently (soubor, sirka, vyska, nahled)
+        $file = self::file($r['obr_poloha'] ?? ($r['soubor'] ?? ''));
+        if ((int) ($r['ido'] ?? 0) <= 0 || !str_starts_with(ltrim($file, '/'), 'media/')) {
+            return null;
+        }
+        $folder = (int) ($r['sekce'] ?? 0);
+
+        return ['ido' => (int) $r['ido'], 'vlastnik' => $this->admin,
+            'sekce' => $folder > 0 && $this->db->value('SELECT 1 FROM {media_slozky} WHERE ids = ?', [$folder]) !== null ? $folder : null,
+            'nazev' => self::text($r['nazev'] ?? '', 150), 'popis' => self::text($r['popis'] ?? '', 500), 'autor' => self::text($r['autor'] ?? '', 120),
+            'obr_poloha' => ltrim($file, '/'), 'obr_width' => max(0, min(65535, (int) ($r['obr_width'] ?? ($r['sirka'] ?? 0)))),
+            'obr_height' => max(0, min(65535, (int) ($r['obr_height'] ?? ($r['vyska'] ?? 0)))), 'obr_vel' => max(0, (int) ($r['obr_vel'] ?? 0)),
+            'nahl_poloha' => ltrim(self::file($r['nahl_poloha'] ?? ($r['nahled'] ?? '')), '/'), 'nahl_width' => max(0, min(65535, (int) ($r['nahl_width'] ?? 0))),
+            'nahl_height' => max(0, min(65535, (int) ($r['nahl_height'] ?? 0))), 'barva' => is_string($r['barva'] ?? null) && preg_match('/^(#[0-9a-f]{6}|-)?$/i', $r['barva']) ? $r['barva'] : '',
+            'ohnisko' => is_string($r['ohnisko'] ?? null) && preg_match('/^(\d{1,3}% \d{1,3}%)?$/', $r['ohnisko']) ? $r['ohnisko'] : '', 'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s')];
+    }
+
+    /** The public settings of the export (the same allowlist the export uses); the address of this site stays. */
+    private function applySettings(string $file): void
+    {
+        $values = json_decode((string) @file_get_contents(self::workFolder($file) . '/nastaveni.json'), true);
+        foreach (is_array($values) ? $values : [] as $key => $value) {
+            $key = (string) $key;
+            $base = (string) preg_replace('/_[a-z]{2}$/', '', $key);
+            if (!is_scalar($value) || $key === 'site_url' || (!in_array($key, SiteExport::SETTINGS, true) && !(in_array($base, Settings::PER_LANGUAGE, true) && $base !== $key))) {
+                continue;
+            }
+            $value = (string) $value;
+            $value = match ($key) {
+                'design_system' => (string) json_encode(DesignSystem::sanitize(json_decode($value, true) ?: []), JSON_UNESCAPED_SLASHES),
+                'logo', 'favicon', 'share_image' => self::file($value),
+                'home_page', 'news_per_page' => (string) max(0, (int) $value),
+                'time_zone' => in_array($value, \DateTimeZone::listIdentifiers(), true) ? $value : null,
+                'site_language' => isset(Language::AVAILABLE[$value]) ? $value : null,
+                'additional_languages' => implode(',', array_filter(explode(',', $value), fn (string $c): bool => isset(Language::AVAILABLE[$c]))),
+                'extensions' => $value === '-' ? '-' : implode(',', array_intersect(explode(',', $value), array_keys(Extensions::CATALOG))),
+                default => mb_substr($value, 0, 20_000),
+            };
+            if ($value !== null) {
+                $this->settings->set($key, $value);
+            }
+        }
+        $this->settings->set('look_draft', '');
+    }
+
+    /* ---------- 3. media ---------- */
+
+    /**
+     * Files from the archive into media/, in batches. Only images and the attachment types Media accepts, only inside
+     * media/, never PHP or hidden files; an SVG is cleaned like an uploaded one.
+     *
+     * @param array<string, mixed> $state
+     */
+    public function importMedia(array &$state): void
+    {
+        $zip = new \ZipArchive();
+        $path = self::path((string) $state['soubor']);
+        if ($path === null || $zip->open($path, \ZipArchive::RDONLY) !== true) {
+            throw new \RuntimeException('The file does not exist.');
+        }
+        $start = microtime(true);
+        $done = 0;
+        $total = $zip->numFiles;
+        while ($state['media_pozice'] < $total && $done < self::MEDIA_BATCH && microtime(true) - $start < self::SECONDS) {
+            $name = (string) $zip->getNameIndex((int) $state['media_pozice']);
+            $state['media_pozice']++;
+            $target = self::mediaTarget($name);
+            if ($target === null) {
+                continue;
+            }
+            $done++;
+            $full = KALETA_ROOT . '/' . $target;
+            $ok = is_dir(dirname($full)) || @mkdir(dirname($full), 0775, true);
+            if ($ok && str_ends_with(strtolower($target), '.svg')) {
+                $content = Svg::sanitize((string) $zip->getFromName($name)); // an SVG is cleaned like an uploaded one
+                $ok = $content !== null && file_put_contents($full, $content) !== false;
+            } elseif ($ok) {
+                // streamed: a video or a large PDF does not have to fit in memory
+                $in = $zip->getStream($name);
+                $out = $in === false ? false : @fopen($full, 'wb');
+                $ok = $in !== false && $out !== false && stream_copy_to_stream($in, $out) !== false;
+                foreach ([$in, $out] as $handle) {
+                    if (is_resource($handle)) {
+                        fclose($handle);
+                    }
+                }
+            }
+            if (!$ok) {
+                $state['media']['preskoceno']++;
+                if (count($state['chyby']) < 20) {
+                    $state['chyby'][] = $target;
+                }
+                continue;
+            }
+            $state['media']['ulozeno']++;
+        }
+        $zip->close();
+        if ($state['media_pozice'] >= $total) {
+            $state['faze'] = 'hotovo';
+            $this->finish();
+        }
+    }
+
+    /** Where a file from the archive goes; null = it does not belong in media/ or its type is not allowed. */
+    public static function mediaTarget(string $name): ?string
+    {
+        if (!preg_match('#^media/(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_][A-Za-z0-9_.-]*$#', $name) || str_contains($name, '..')) {
+            return null;
+        }
+        $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+
+        return in_array($extension, [...self::MEDIA_EXTENSIONS, ...Files::FILE_EXTENSIONS], true) ? $name : null;
+    }
+
+    /** After the import: the search index, the cache and the working files. */
+    private function finish(): void
+    {
+        for ($i = 0; $i < 500 && Search::complete($this->db, 200) > 0; $i++) {
+            // the search index of the imported news, 200 at a time
+        }
+        \Kaleta\Front\Cache::clear();
+    }
+
+    /** Removes the working folder of a finished import (the export file itself stays). */
+    public static function cleanUp(string $file): void
+    {
+        foreach (glob(self::workFolder($file) . '/*') ?: [] as $part) {
+            @unlink($part);
+        }
+        @rmdir(self::workFolder($file));
+    }
+}

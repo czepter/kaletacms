@@ -272,6 +272,9 @@
 	document.addEventListener('click', function (e) {
 		if (e.target.closest && e.target.closest('[data-neklikat]')) { e.preventDefault(); }
 	});
+	// imports in batches: the progress form submits itself (each submission is one batch) until the work is done
+	var autoSubmit = document.querySelector('form[data-auto-odeslat]');
+	if (autoSubmit) { setTimeout(function () { autoSubmit.requestSubmit ? autoSubmit.requestSubmit() : autoSubmit.submit(); }, parseInt(autoSubmit.getAttribute('data-auto-odeslat'), 10) || 1200); }
 	/* ---------- command palette: Ctrl/⌘+K – sections, quick actions and news item search ---------- */
 
 	var palette = document.getElementById('paleta');

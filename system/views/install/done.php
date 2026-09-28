@@ -3,6 +3,7 @@
  * @var string $base
  * @var bool $alreadyInstalled
  * @var bool $deleted the installer deleted itself
+ * @var bool $fromExport "Start from an export": the next step is the import
  */
 ?>
 <!doctype html>
@@ -34,8 +35,14 @@
 <?php else: ?>
 <p class="hlaska <?= $alreadyInstalled ? 'hlaska-chyba' : 'hlaska-ok' ?>"><?= e(t('For security reasons, now delete this file from the server:')) ?> <strong>install.php</strong>.</p>
 <?php endif ?>
+<?php if (!empty($fromExport)): ?>
+<p><?= e(t('The site is empty. Sign in and import the export of your Kaleta site in Import and export → Import from Kaleta.')) ?></p>
+<div class="akce">
+	<a class="tlacitko" href="<?= e($base) ?>/admin.php?module=transfer"><?= e(t('Continue with the import')) ?></a>
+<?php else: ?>
 <div class="akce">
 	<a class="tlacitko" href="<?= e($base) ?>/admin.php"><?= e(t('Go to the administration')) ?></a>
+<?php endif ?>
 	<a class="tlacitko druhe" href="<?= e($base) ?>/"><?= e(t('Zobrazit web')) ?></a>
 </div>
 </main>

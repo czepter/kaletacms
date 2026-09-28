@@ -180,7 +180,8 @@ $builderParity = [
 ];
 $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_backup' => $readOnly, 'backup' => 'admin: backups', 'restore_backup' => 'admin: backups',
     'delete_backup' => 'admin: backups', 'media_backup' => 'admin: backups', 'delete_log' => 'admin: error log', 'check' => 'admin: updates', 'update' => 'admin: updates',
-    'test_mail' => 'admin: mail server settings'];
+    'test_mail' => 'admin: mail server settings', 'test_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
+    'retry_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)', 'new_webhook_secret' => 'admin: webhooks (addresses and the signing secret stay out of MCP)'];
 $parity = [
     'pages' => $builderParity + ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'export' => $readOnly, 'save' => 'update_page', 'save_text' => 'update_page',
         'delete' => 'trash_page', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days',
@@ -215,7 +216,9 @@ $parity = [
     'stats' => ['list' => $readOnly], 'changelog' => ['list' => $readOnly],
     'redirects' => ['list' => $readOnly, 'save' => 'save_redirect', 'delete' => 'save_redirect', 'clear' => 'admin: clearing the list of 404 addresses'],
     'transfer' => ['list' => $readOnly, 'preview' => $readOnly, 'download' => $readOnly, 'export' => $readOnly, 'upload' => 'admin: WordPress import', 'select' => 'admin: WordPress import',
-        'run' => 'admin: WordPress import', 'progress' => 'admin: WordPress import', 'images' => 'admin: WordPress import', 'delete_file' => 'admin: WordPress import', 'delete_export' => 'admin: site export'],
+        'run' => 'admin: WordPress import', 'progress' => 'admin: WordPress import', 'images' => 'admin: WordPress import', 'delete_file' => 'admin: WordPress import', 'delete_export' => 'admin: site export',
+        'kaleta' => 'admin: moving a whole site into a new installation', 'kaleta_select' => 'admin: moving a whole site into a new installation',
+        'kaleta_run' => 'admin: moving a whole site into a new installation', 'kaleta_delete' => 'admin: moving a whole site into a new installation'],
     'settings' => $settingsParity, 'extensions' => $settingsParity,
 ];
 $missingParity = [];
@@ -397,6 +400,16 @@ check('Seo::faq', Seo::faq("Kdy to začne?\nV pondělí.\n\nKolik to stojí?\nNi
 check('Seo::faq: prázdný vstup', Seo::faq(null), []);
 
 /* ---------- backups to S3: AWS Signature V4 signing (the value verified by an independent computation) ---------- */
+// import of a Kaleta export (1.8): which files from the archive may go into media/, which names are exports
+check('Import Kalety: soubory do media/', array_map(Kaleta\Core\SiteImport::mediaTarget(...), ['media/2026/09/foto.jpg', 'media/2026/09/foto.jpg.webp', 'media/x.php', 'media/../config.php',
+    'media/.htaccess', 'obsah.json', 'media/2026/09/dokument.pdf', 'media/a/b.phtml', 'media/2026/09/logo.svg']),
+    ['media/2026/09/foto.jpg', 'media/2026/09/foto.jpg.webp', null, null, null, null, 'media/2026/09/dokument.pdf', null, 'media/2026/09/logo.svg']);
+check('Import Kalety: názvy souborů', array_map(Kaleta\Core\SiteImport::isValidName(...), ['export-20260928-101010.zip', 'web.json', 'stav-0123456789abcdef.json',
+    'kaleta-stav-0123456789abcdef.json', '../web.zip', 'web.xml', '.web.zip']), [true, true, false, false, false, false, false]);
+// webhook signature (1.8): HMAC-SHA256 of "timestamp.body" – the receiver recomputes it with the shared secret
+check('Webhook: podpis HMAC časové značky a těla', Kaleta\Core\Webhook::signature('whsec_test', '{"udalost":"test"}', 1789900000),
+    ['1789900000', 'sha256=' . hash_hmac('sha256', '1789900000.{"udalost":"test"}', 'whsec_test')]);
+check('Webhook: jiné tělo = jiný podpis', Kaleta\Core\Webhook::signature('whsec_test', '{"udalost":"test2"}', 1789900000)[1] !== Kaleta\Core\Webhook::signature('whsec_test', '{"udalost":"test"}', 1789900000)[1], true);
 $h = Kaleta\Core\RemoteBackup::signS3('PUT', 's3.eu-central-1.amazonaws.com', '/muj-bucket/kaleta-zaloha.sql.gz', hash('sha256', 'obsah'), 'eu-central-1', 'AKIDEXAMPLE', 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY', 1789900000);
 check('S3: rozsah a podepsané hlavičky', str_contains($h['Authorization'], 'Credential=AKIDEXAMPLE/20260920/eu-central-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature='), true);
 check('S3: podpis má 64 šestnáctkových znaků', (bool) preg_match('/Signature=[0-9a-f]{64}$/', $h['Authorization']), true);

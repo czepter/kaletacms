@@ -690,3 +690,19 @@ CREATE TABLE ka_look_versions (
     created DATETIME     NOT NULL,
     PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Webhook deliveries (1.8): log and retry queue of webhook calls (Core\Webhook).
+CREATE TABLE ka_webhook_deliveries (
+    id           INT UNSIGNED      NOT NULL AUTO_INCREMENT,
+    event        VARCHAR(40)       NOT NULL,
+    url          VARCHAR(500)      NOT NULL,
+    body         MEDIUMTEXT        NULL,             -- JSON sent; NULL after a successful delivery
+    attempts     TINYINT UNSIGNED  NOT NULL DEFAULT 0,
+    status       SMALLINT UNSIGNED NOT NULL DEFAULT 0, -- HTTP status of the last attempt (0 = no response)
+    error        VARCHAR(255)      NOT NULL DEFAULT '',
+    created      DATETIME          NOT NULL,
+    next_attempt DATETIME          NULL,             -- NULL = nothing more to do (delivered or given up)
+    delivered    DATETIME          NULL,
+    PRIMARY KEY (id),
+    KEY next_attempt (next_attempt)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

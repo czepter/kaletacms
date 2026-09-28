@@ -10,6 +10,8 @@
  * @var bool $missingXml  the server lacks the extension for reading XML
  * @var list<array{soubor:string, velikost:int, cas:int}> $exports
  * @var bool $hasZip
+ * @var list<array{soubor:string, velikost:int, cas:int, stav:array<string,mixed>|null}> $kaletaFiles  Kaleta exports in storage/import/
+ * @var array{prazdny: bool, stranky: int, novinky: int, polozky: int, media: int} $siteContent
  */
 $phase = [
     'analyza' => 'being read', 'nahled' => 'ready to import', 'import' => 'import in progress', 'hotovo' => 'content imported',
@@ -56,6 +58,45 @@ $phase = [
 </table>
 </div>
 <p class="smltxt"><?= e(t('You can import the same file repeatedly – whatever has already been imported is skipped. Delete the file when the import is finished; it contains e-mail addresses of authors and commenters from the old site.')) ?></p>
+<?php endif ?>
+
+<h2><?= e(t('Import from Kaleta')) ?></h2>
+<p><?= e(t('Moving a site from another Kaleta installation: upload its export (the .zip archive from Export of the whole site). Everything is imported – pages, news, collections, components, menus, the look and the media – into a new, empty site; user accounts and secrets are never part of an export.')) ?></p>
+<?php if (!$siteContent['prazdny']): ?>
+<p class="hlaska"><?= e(t('This site already has its own content, so an export cannot be imported here. Install Kaleta again and choose “Start from an export”.')) ?></p>
+<?php else: ?>
+<form class="formular" method="post" enctype="multipart/form-data" action="<?= e($module->url('upload')) ?>">
+<?= $csrf ?>
+<div class="radek"><label for="soubor-kaleta"><?= e(t('Kaleta export')) ?></label><div><input type="file" id="soubor-kaleta" name="soubor" accept=".zip,.json,application/zip,application/json" required>
+	<span class="napoveda"><?= e(t('The server allows uploads of at most %s. Copy a larger file over FTP into the storage/import/ folder – it will appear in the list below.', Kaleta\Core\Files::size($uploadLimit))) ?></span></div></div>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Upload and show preview')) ?>"></p>
+</form>
+<?php endif ?>
+<?php if ($kaletaFiles !== []): ?>
+<div class="tab-obal">
+<table class="vypis">
+<thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Velikost')) ?></th><th scope="col"><?= e(t('Uploaded')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<tbody>
+<?php foreach ($kaletaFiles as $s): $state = $s['stav']; ?>
+<tr>
+	<td><?= e($s['soubor']) ?></td>
+	<td class="cislo"><?= e(Kaleta\Core\Files::size($s['velikost'])) ?></td>
+	<td class="cislo"><?= e(format_date(date('Y-m-d H:i:s', $s['cas']), true)) ?></td>
+	<td><?= $state === null ? '–' : e(t(['priprava' => 'being read', 'nahled' => 'ready to import', 'data' => 'import in progress', 'media' => 'import in progress', 'hotovo' => 'imported'][$state['faze']] ?? '–')) ?></td>
+	<td class="akce">
+<?php if ($state !== null && $state['faze'] !== 'priprava'): ?>
+		<a href="<?= e($module->url('kaleta', ['soubor' => $s['soubor']])) ?>"><?= e(t($state['faze'] === 'hotovo' ? 'Result' : 'Continue')) ?></a>
+<?php endif ?>
+<?php if ($state === null || $state['faze'] === 'nahled'): ?>
+		<form class="vradku" method="post" action="<?= e($module->url('kaleta_select')) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($s['soubor']) ?>"><button class="navigace" type="submit"><?= e(t($state === null ? 'Show preview' : 'Read again')) ?></button></form>
+<?php endif ?>
+		<form class="vradku" method="post" action="<?= e($module->url('kaleta_delete')) ?>" data-potvrdit="<?= e(t('Delete the file %s? Content that has already been imported stays on the site.', $s['soubor'])) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($s['soubor']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
+	</td>
+</tr>
+<?php endforeach ?>
+</tbody>
+</table>
+</div>
 <?php endif ?>
 
 <h2><?= e(t('Export of the whole site')) ?></h2>

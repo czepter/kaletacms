@@ -15,9 +15,15 @@ use Kaleta\Core\Response;
  *   GET /api/novinky/<slug>                        full news item
  *   GET /api/kategorie                             news categories
  *   GET /api/stranky                               site pages (without content)
+ *
+ * Deprecated since 1.8 (the Deprecation header, RFC 9745) and removed in 2.0: the JSON Feed (/feed.json) covers the news
+ * and the MCP connection covers building and editing the site.
  */
 final class Api
 {
+    /** 1 October 2026 – Kaleta 1.8 (the Deprecation header carries it as @<Unix time>). */
+    public const int DEPRECATED_AT = 1790812800;
+
     public function __construct(private readonly App $app, private readonly NewsRepository $news)
     {
     }
@@ -73,6 +79,7 @@ final class Api
     {
         return new Response((string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $status, [
             'Content-Type' => 'application/json; charset=utf-8', 'Access-Control-Allow-Origin' => '*', 'Cache-Control' => 'public, max-age=60',
+            'Deprecation' => '@' . self::DEPRECATED_AT, 'Link' => '<' . $this->app->request->origin() . $this->app->url('feed.json') . '>; rel="alternate"; type="application/feed+json"',
         ]);
     }
 }

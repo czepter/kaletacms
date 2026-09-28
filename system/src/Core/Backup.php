@@ -141,14 +141,20 @@ final class Backup
         return preg_match('/^kaleta-[0-9a-z-]+\.sql(\.gz)?$/', $file) && is_file(self::FOLDER . '/' . $file) ? self::FOLDER . '/' . $file : null;
     }
 
-    /** Automatic weekly backup - called when an administrator enters the administration. */
+    /**
+     * Automatic backup – called when an administrator works in the administration and from cron. Since 1.8 every day
+     * something changed on the site (the change log, a new enquiry), otherwise once a week.
+     */
     public static function createAutomatic(Db $db, Settings $settings): void
     {
         if (!$settings->bool('auto_backups')) {
             return;
         }
         $last = self::listAll()[0]['cas'] ?? 0;
-        if (time() - $last > 7 * 86400) {
+        $age = time() - $last;
+        $changed = fn (): bool => (int) $db->value('SELECT COUNT(*) FROM {protokol} WHERE cas > ?', [date('Y-m-d H:i:s', $last)]) > 0
+            || (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE datum > ?', [date('Y-m-d H:i:s', $last)]) > 0;
+        if ($age > 7 * 86400 || ($age > 86400 && $changed())) {
             try {
                 $file = self::create($db, 'auto');
                 RemoteBackup::upload($settings, (string) self::path($file)); // the result is shown by the system health page and the Backups tab

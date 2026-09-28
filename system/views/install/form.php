@@ -80,6 +80,9 @@ $fulfilled = !in_array(false, array_column($requirements, 'ok'), true);
 				<span class="vzorky"><i style="background:<?= e($colors['primarni']) ?>"></i><i style="background:<?= e($colors['sekundarni']) ?>"></i><i style="background:<?= e($colors['plocha']) ?>"></i></span>
 				<strong><?= e(t($w['nazev'])) ?></strong><small><?= e(t($w['popis'])) ?></small></label>
 <?php endforeach ?>
+			<label class="web"><input type="radio" name="web" value="export"<?= $data['web'] === 'export' ? ' checked' : '' ?>>
+				<span class="vzorky"><i></i><i></i><i></i></span>
+				<strong><?= e(t('Start from an export')) ?></strong><small><?= e(t('An empty site for moving another Kaleta site here – right after installation you import its export in Import and export.')) ?></small></label>
 			<span class="napoveda"><?= e(t('A starter site brings Home, About us, Services and Contact pages with sample texts and its own style – edit the content in the builder and the style in Site appearance.')) ?></span>
 		</fieldset>
 		<div><label for="user"><?= e(t('Přihlašovací jméno')) ?></label><input type="text" id="user" name="user" value="<?= e($data['user']) ?>" required><?= $error('user') ?></div>

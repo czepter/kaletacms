@@ -156,8 +156,15 @@ překlad stránky s adresou kolekce (u `/compare` třeba `/de/vergleich`).
 Prvek **Formulář** (nebo hotová sekce *Poptávkový formulář*) vloží poptávkový formulář. V panelu Obsah nastavíte pole
 (text, e-mail, telefon, výběr, přepínače, datum, číslo, souhlas), text tlačítka, poděkování nebo děkovnou stránku,
 potvrzení odesílateli a e-mail pro upozornění. Proti spamu chrání skrytá pole a limit odeslání bez CAPTCHA a cookies.
-Novou poptávku umí web poslat i do CRM nebo Make/Zapier (Nastavení → Základní → Webhook nové poptávky); měření
+Novou poptávku umí web poslat i do CRM nebo Make/Zapier (Nastavení → Webhooky → Webhook nové poptávky); měření
 konverzí dostane událost `kaleta:odeslano` (a záznam do `dataLayer`).
+
+**Nastavení → Webhooky** drží obě adresy webhooků (nová poptávka, vydaná novinka). Volání odchází až po odeslání stránky,
+takže pomalý příjemce návštěvníka nikdy nezdrží, a každé je podepsané: hlavičky `X-Kaleta-Timestamp` a
+`X-Kaleta-Signature` (`sha256=` HMAC-SHA256 z `časová značka.tělo` s tajným klíčem z této záložky) příjemci ověří, že
+volání přišlo z vašeho webu. **Protokol doručení** ukazuje každé volání; nepovedené se zkusí znovu po 1, 5 a 30 minutách
+a po 2 a 12 hodinách a vzdané jde jedním kliknutím poslat znovu. **Poslat zkušební volání** ověří spojení. Adresy webhooků
+ani tajný klíč nejsou přes napojení na Clauda dostupné.
 
 Odeslané zprávy jsou v **Obsah → Poptávky**: stav (nová, přečtená, vyřízená), odpověď e-mailem, export do CSV. Je-li formulář na
 stránce, na kterou vede reklama nebo newsletter, poptávka ukáže i **kampaň** z adresy (`utm_source`, `utm_medium`, `utm_campaign`…) –
@@ -256,14 +263,40 @@ na webu se projeví: menu, vzhled (design systém), sdílené třídy, nastaven�
 kolekce a text stránky – předchozí text stránky přitom jde do historie verzí. Stránku umí Claude přesunout do koše
 (obnovíte ji 30 dní v administraci); e-mail webu, webhooky, poštu, zálohy ani zabezpečení přes napojení nezmění.
 
-## 11. Přechod z WordPressu
+## 11. Přechod z WordPressu nebo z jiného webu na Kaletě
 
 **Správa → Import a export → WordPress:** nahrajte export z WordPressu (Nástroje → Export, soubor XML). Import převede
 příspěvky na novinky, stránky volitelně **rovnou do builderu**, stáhne obrázky do Médií a založí přesměrování ze starých
 adres. Import jde spustit znovu – co už převedl, přeskočí.
 
+**Přesun webu na Kaletě** k jinému hostingu nebo nový web ze startovací sady agentury: na starém webu vytvořte **Import
+a export → Export celého webu**, na novém hostingu nainstalujte Kaletu a v instalátoru zvolte **Začít z exportu**.
+Přihlaste se, otevřete **Import a export → Import z Kalety** a nahrajte `.zip` (větší přes FTP do `storage/import/`).
+Náhled ukáže, co export obsahuje; po potvrzení se vytvoří záloha databáze a import proběhne sám po dávkách – stránky,
+novinky, kolekce, komponenty, sdílené třídy, části webu, menu, pop-upy, přesměrování, knihovna médií i její soubory, název
+webu, údaje o firmě, jazyky a vzhled. Každý záznam si nechá své číslo, takže odkazy mezi stránkami, menu a komponentami
+platí dál, a každá stavba projde stejnou kontrolou jako uložení v builderu. Uživatelské účty, hesla, klíče, tokeny ani
+nastavení pošty a záloh v exportu nikdy nejsou, nový web si nechá své; naimportované novinky budou vaše. Import jde jen do
+prázdného webu – čerstvé instalace, případně se startovacím webem.
+
+Přenést jde i **jedna stránka**: **Stránky → Exportovat** stáhne JSON se stavbou stránky, sdílenými třídami, které používá,
+a jejími komponentami (i komponentami v komponentách). **Stránky → Importovat** na jiném webu založí stránku skrytou,
+doplní chybějící třídy (třída, kterou web už má, si nechá svůj vzhled) a komponenty a dřív naimportovanou komponentu použije znovu.
+
 ## 12. Zálohy, aktualizace, export
 
-**Nastavení → Zálohy a aktualizace:** automatické zálohy (i mimo server přes FTPS nebo S3) a podepsané aktualizace.
-**Import a export → Export webu** vytvoří balík s obsahem (stránky, novinky, kolekce, části webu, třídy) a médii pro
-přenos jinam. Poptávky a účty se neexportují.
+**Nastavení → Zálohy a aktualizace:** podepsané aktualizace a automatické zálohy databáze – každý den, kdy se na webu něco
+změnilo, jinak jednou týdně; uchovává se posledních 10. **Kopie mimo server** nahrají každou zálohu na server FTPS nebo do
+úložiště S3 (Amazon S3, Backblaze B2, Wasabi, Cloudflare R2) a na stejné místo kopírují i složku `media/` – jen nové a
+změněné soubory, na pozadí, takže se tam postupně dostane i velká knihovna médií. Záložka ukazuje, jestli je kopie kompletní.
+
+**Obnova webu po ztrátě hostingu:** nainstalujte Kaletu na nový hosting se stejnou předponou tabulek, nahrajte poslední
+zálohu databáze přes FTP do `storage/zalohy/`, zkopírujte zpět složku `media/` z kopie na FTPS nebo S3 a pak v Nastavení →
+Zálohy a aktualizace u té zálohy klikněte na **Obnovit** a přihlaste se účty ze zálohy.
+
+**Import a export → Export celého webu** vytvoří otevřený balík s obsahem a médii – pro přesun (viz výše) nebo abyste
+měli obsah i mimo Kaletu. Poptávky, odběratelé a účty se neexportují.
+
+**Veřejné čtecí API** (`/api/novinky`, rozšíření *Veřejné API*) je od 1.8 zastaralé a v Kaletě 2.0 skončí; jeho odpovědi
+nesou hlavičku `Deprecation`. Pro novinky použijte JSON Feed (`/feed.json`) nebo RSS, pro práci s webem napojení na Clauda
+(MCP), pro události webhooky a pro odnesení obsahu export webu.

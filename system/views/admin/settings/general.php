@@ -98,8 +98,6 @@ $field('article_outline', 'News table of contents from subheadings', 'ano', 'New
 $field('related_news_auto', 'Related news', 'ano', 'Similar news by tags and category is offered below a news item.');
 ?>
 <?php
-$field('webhook_enquiries', 'New enquiry webhook', 'url', 'Where to send every new enquiry from a form (CRM, Make, Zapier, n8n, Slack). It receives the form name, the filled-in fields and the sender\'s e-mail.', 'placeholder="https://"');
-$field('webhook_url', 'Webhook after publishing news', 'url', 'An address from Make, Zapier, IFTTT or n8n. When a news item is published, the system sends it the title, lead, address and image – the service then shares it on Facebook, X, Mastodon, Slack and so on.', 'placeholder="https://"');
 $field('link_check', 'Look for broken links', 'ano', 'In the background, one news item every five minutes. The result is in News → Broken links.');
 $field('page_cache', 'Page cache', 'ano', 'Finished pages are served to visitors from memory – the site is faster and copes with traffic peaks. Leave it on.');
 ?>
