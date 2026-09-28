@@ -32,8 +32,8 @@ final class Logo extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $siteSettings = $k->app->settings();
-        $name = $siteSettings->get('nazev_webu');
-        $logo = $siteSettings->get('logo_webu');
+        $name = $siteSettings->get('site_name');
+        $logo = $siteSettings->get('logo');
         $home = $k->url('');
         $content = $logo !== ''
             ? '<img src="' . e($k->image($logo)) . '" alt="' . e($p['obsah']['nazev'] ? '' : $name) . '">' . ($p['obsah']['nazev'] ? '<span>' . e($name) . '</span>' : '')

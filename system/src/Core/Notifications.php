@@ -15,10 +15,10 @@ final class Notifications
     public static function runInBackground(App $app): void
     {
         $s = $app->settings();
-        if (time() - $s->int('oznameni_kontrola') < 60) {
+        if (time() - $s->int('notification_check') < 60) {
             return;
         }
-        $s->set('oznameni_kontrola', (string) time());
+        $s->set('notification_check', (string) time());
         if (function_exists('fastcgi_finish_request')) {
             fastcgi_finish_request();
         }
@@ -41,14 +41,14 @@ final class Notifications
     public static function purgePersonalData(App $app, bool $immediately = false): void
     {
         $s = $app->settings();
-        if (!$immediately && time() - $s->int('uklid_udaju') < 86400) {
+        if (!$immediately && time() - $s->int('data_cleanup') < 86400) {
             return;
         }
-        $s->set('uklid_udaju', (string) time());
+        $s->set('data_cleanup', (string) time());
         \Kaleta\Admin\Modules\Enquiries::deleteExpired($app->db(), $s);
-        if ($s->int('cookies_evidence_mesice') > 0) {
+        if ($s->int('cookies_log_months') > 0) {
             // záznamy o souhlasech s cookies nemají ležet věčně
-            $app->db()->run('DELETE FROM {souhlasy} WHERE cas < NOW() - INTERVAL ? MONTH', [$s->int('cookies_evidence_mesice')]);
+            $app->db()->run('DELETE FROM {souhlasy} WHERE cas < NOW() - INTERVAL ? MONTH', [$s->int('cookies_log_months')]);
         }
         $app->db()->run('DELETE FROM {odberatele} WHERE stav = 0 AND datum < NOW() - INTERVAL 30 DAY');
     }

@@ -77,16 +77,16 @@ final class Mail
     private static function deliver(Settings $siteSettings, string $recipient, string $subject, string $text, string $html = '', array $headers = []): bool
     {
         self::$error = '';
-        $from = $siteSettings->get('posta_od') !== '' ? $siteSettings->get('posta_od') : $siteSettings->get('email_webu');
+        $from = $siteSettings->get('mail_from') !== '' ? $siteSettings->get('mail_from') : $siteSettings->get('site_email');
         if ($from === '' || filter_var($recipient, FILTER_VALIDATE_EMAIL) === false || preg_match('/[\x00-\x20\x7F"<>]/', $recipient)) {
             self::$error = $from === '' ? 'Není vyplněný e-mail webu (Nastavení → Základní) ani adresa odesílatele.' : 'Adresa příjemce nemá platný tvar.';
 
             return false;
         }
-        $displayName = '=?UTF-8?B?' . base64_encode($siteSettings->get('nazev_webu')) . '?=';
+        $displayName = '=?UTF-8?B?' . base64_encode($siteSettings->get('site_name')) . '?=';
         $h = ['From' => "{$displayName} <{$from}>", 'MIME-Version' => '1.0'] + $headers;
-        if ($siteSettings->get('posta_odpoved') !== '') {
-            $h['Reply-To'] = $siteSettings->get('posta_odpoved');
+        if ($siteSettings->get('mail_reply_to') !== '') {
+            $h['Reply-To'] = $siteSettings->get('mail_reply_to');
         }
         if ($html === '') {
             $h['Content-Type'] = 'text/plain; charset=utf-8';
@@ -104,7 +104,7 @@ final class Mail
             $rows[] = $name . ': ' . str_replace(["\r", "\n"], '', $value); // hlavičky nesmí jít rozdělit vloženým koncem řádku
         }
 
-        if ($siteSettings->get('posta_rezim') === 'smtp' && $siteSettings->get('smtp_host') !== '') {
+        if ($siteSettings->get('mail_mode') === 'smtp' && $siteSettings->get('smtp_host') !== '') {
             try {
                 self::smtp($siteSettings, $from, $recipient, array_merge(['Date: ' . date('r'), 'To: ' . $recipient, 'Subject: ' . $encodedSubject,
                     'Message-ID: <' . bin2hex(random_bytes(12)) . '@' . (substr((string) strrchr($from, '@'), 1) ?: 'localhost') . '>'], $rows), $body);
@@ -149,7 +149,7 @@ final class Mail
     private static function connect(Settings $siteSettings): void
     {
         $host = $siteSettings->get('smtp_host');
-        $encryption = $siteSettings->get('smtp_sifrovani');
+        $encryption = $siteSettings->get('smtp_encryption');
         $port = $siteSettings->int('smtp_port') ?: ($encryption === 'ssl' ? 465 : 587);
         if (!preg_match('/^[a-z0-9.-]+$/i', $host)) {
             throw new \RuntimeException('Adresa SMTP serveru nemá platný tvar.');
@@ -170,14 +170,14 @@ final class Mail
             }
             $options = self::statement($me, [250]);
         }
-        if ($siteSettings->get('smtp_uzivatel') !== '') {
+        if ($siteSettings->get('smtp_user') !== '') {
             try {
                 if (preg_match('/AUTH[ =][^\r\n]*PLAIN/i', $options)) {
-                    self::statement('AUTH PLAIN ' . base64_encode("\0" . $siteSettings->get('smtp_uzivatel') . "\0" . $siteSettings->get('smtp_heslo')), [235], true);
+                    self::statement('AUTH PLAIN ' . base64_encode("\0" . $siteSettings->get('smtp_user') . "\0" . $siteSettings->get('smtp_password')), [235], true);
                 } else {
                     self::statement('AUTH LOGIN', [334]);
-                    self::statement(base64_encode($siteSettings->get('smtp_uzivatel')), [334], true);
-                    self::statement(base64_encode($siteSettings->get('smtp_heslo')), [235], true);
+                    self::statement(base64_encode($siteSettings->get('smtp_user')), [334], true);
+                    self::statement(base64_encode($siteSettings->get('smtp_password')), [235], true);
                 }
             } catch (\RuntimeException $e) {
                 throw new \RuntimeException('SMTP server odmítl přihlášení – zkontrolujte jméno a heslo (u Gmailu a Seznamu je potřeba „heslo pro aplikace“). ' . $e->getMessage());

@@ -290,7 +290,7 @@ final class Auth
     /** Web vyžaduje dvoufázové přihlášení a tento uživatel ho ještě nemá (smí jen do Můj účet si ho zapnout). */
     public function isMissingRequired2fa(Settings $siteSettings): bool
     {
-        $required = $siteSettings->get('vynutit_2fa');
+        $required = $siteSettings->get('require_2fa');
         $user = $this->user();
 
         return $user !== null && ($required === 'vsichni' || ($required === 'spravci' && $this->isAdmin())) && (string) ($user['totp_tajemstvi'] ?? '') === '';

@@ -144,7 +144,7 @@ final class Backup
     /** Automatická týdenní záloha - volá se při vstupu administrátora do administrace. */
     public static function createAutomatic(Db $db, Settings $settings): void
     {
-        if (!$settings->bool('zalohy_auto')) {
+        if (!$settings->bool('auto_backups')) {
             return;
         }
         $last = self::listAll()[0]['cas'] ?? 0;

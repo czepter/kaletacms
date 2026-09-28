@@ -32,7 +32,7 @@ class Settings extends Module
     /** Typy firmy pro pole firma_typ (vyber:…). */
     private const string COMPANY_TYPES = 'Organization|LocalBusiness|HomeAndConstructionBusiness|ProfessionalService|LegalService|AccountingService|MedicalBusiness|AutomotiveBusiness|Store|FoodEstablishment|LodgingBusiness|SportsActivityLocation|EducationalOrganization';
 
-    public const array SOCIAL_NETWORKS = ['soc_facebook' => 'Facebook', 'soc_instagram' => 'Instagram', 'soc_x' => 'X (Twitter)', 'soc_youtube' => 'YouTube', 'soc_linkedin' => 'LinkedIn'];
+    public const array SOCIAL_NETWORKS = ['social_facebook' => 'Facebook', 'social_instagram' => 'Instagram', 'social_x' => 'X (Twitter)', 'social_youtube' => 'YouTube', 'social_linkedin' => 'LinkedIn'];
 
     /**
      * Pole jednotlivých záložek: klíč v ka_nastaveni => typ.
@@ -40,35 +40,35 @@ class Settings extends Module
      */
     private const array FIELDS = [
         'general' => [
-            'nazev_webu' => 'text', 'adresa_webu' => 'vzor:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'popis_webu' => 'radky', 'email_webu' => 'email', 'text_paticky' => 'text',
-            'soc_facebook' => 'url', 'soc_instagram' => 'url', 'soc_x' => 'url', 'soc_youtube' => 'url', 'soc_linkedin' => 'url',
-            'titulni_stranka' => 'cislo:0:4294967295', 'pocet_clanku' => 'cislo:1:100', 'sdileni' => 'ano', 'kontrola_odkazu' => 'ano', 'osnova_clanku' => 'ano', 'souvisejici_auto' => 'ano', 'cache_stranek' => 'ano', 'udrzba' => 'ano', 'udrzba_text' => 'text', 'webhook_url' => 'url', 'webhook_poptavky' => 'url', 'vynutit_2fa' => 'vyber:|spravci|vsichni',
-            'casove_pasmo' => 'pasmo', 'jazyk_webu' => 'vyber:' . \Kaleta\Core\Language::CODES, 'jazyky_dalsi' => 'seznam:' . \Kaleta\Core\Language::CODES,
+            'site_name' => 'text', 'site_url' => 'vzor:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'site_description' => 'radky', 'site_email' => 'email', 'footer_text' => 'text',
+            'social_facebook' => 'url', 'social_instagram' => 'url', 'social_x' => 'url', 'social_youtube' => 'url', 'social_linkedin' => 'url',
+            'home_page' => 'cislo:0:4294967295', 'news_per_page' => 'cislo:1:100', 'share_buttons' => 'ano', 'link_check' => 'ano', 'article_outline' => 'ano', 'related_news_auto' => 'ano', 'page_cache' => 'ano', 'maintenance' => 'ano', 'maintenance_text' => 'text', 'webhook_url' => 'url', 'webhook_enquiries' => 'url', 'require_2fa' => 'vyber:|spravci|vsichni',
+            'time_zone' => 'pasmo', 'site_language' => 'vyber:' . \Kaleta\Core\Language::CODES, 'additional_languages' => 'seznam:' . \Kaleta\Core\Language::CODES,
         ],
         // Vzhled webu ukládá modul Vzhled; tady jen typy pro kontrolu hodnot z napojení na Claude (není to záložka Nastavení)
-        'vzhled' => ['tmavy_rezim' => 'vyber:vypnuto|auto|tmavy', 'tmavy_prepinac' => 'ano'],
+        'vzhled' => ['dark_mode' => 'vyber:vypnuto|auto|tmavy', 'theme_switcher' => 'ano'],
         'company' => [
-            'firma_nazev' => 'text', 'firma_typ' => 'vyber:' . self::COMPANY_TYPES, 'firma_ico' => 'vzor:/^((?=.*\d)[A-Za-z0-9 .\/-]{1,24})?$/', 'firma_rejstrik' => 'text', 'firma_zastupce' => 'text', 'firma_dic' => 'vzor:/^([A-Z]{2}[A-Z0-9]{6,12})?$/',
-            'firma_ulice' => 'text', 'firma_mesto' => 'text', 'firma_psc' => 'vzor:/^[A-Z0-9 -]{0,10}$/i', 'firma_zeme' => 'vzor:/^[A-Z]{2}$/',
-            'firma_telefon' => 'vzor:/^[+()\d\s\/.-]{0,30}$/', 'firma_email' => 'email', 'firma_hodiny' => 'hodiny', 'firma_mapa' => 'url', 'firma_gps' => 'vzor:/^(-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?)?$/',
+            'company_name' => 'text', 'company_type' => 'vyber:' . self::COMPANY_TYPES, 'company_id' => 'vzor:/^((?=.*\d)[A-Za-z0-9 .\/-]{1,24})?$/', 'company_register' => 'text', 'company_representative' => 'text', 'company_vat_id' => 'vzor:/^([A-Z]{2}[A-Z0-9]{6,12})?$/',
+            'company_street' => 'text', 'company_city' => 'text', 'company_postcode' => 'vzor:/^[A-Z0-9 -]{0,10}$/i', 'company_country' => 'vzor:/^[A-Z]{2}$/',
+            'company_phone' => 'vzor:/^[+()\d\s\/.-]{0,30}$/', 'company_email' => 'email', 'company_hours' => 'hodiny', 'company_map' => 'url', 'company_gps' => 'vzor:/^(-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?)?$/',
         ],
         'seo' => [
-            'indexovani' => 'ano', 'schema_org' => 'ano', 'og_obrazek' => 'text', 'overeni_google' => 'vzor:/^[A-Za-z0-9_-]{0,100}$/',
-            'overeni_bing' => 'vzor:/^[A-Za-z0-9]{0,64}$/', 'robots_extra' => 'radky', 'ai_crawlery' => 'vyber:povolit|zakazat', 'llms_txt' => 'ano', 'markdown_clanky' => 'ano', 'indexnow' => 'ano',
+            'indexing' => 'ano', 'schema_org' => 'ano', 'share_image' => 'text', 'verification_google' => 'vzor:/^[A-Za-z0-9_-]{0,100}$/',
+            'verification_bing' => 'vzor:/^[A-Za-z0-9]{0,64}$/', 'robots_extra' => 'radky', 'ai_crawlers' => 'vyber:povolit|zakazat', 'llms_txt' => 'ano', 'markdown_news' => 'ano', 'indexnow' => 'ano',
         ],
         'analytics' => [
             'ga4_id' => 'vzor:/^(G-[A-Z0-9]{4,20})?$/', 'matomo_url' => 'url', 'matomo_id' => 'cislo:0:99999',
-            'plausible_domena' => 'vzor:/^([a-z0-9.-]{3,100})?$/', 'kod_hlava' => 'kod', 'statistika' => 'ano',
+            'plausible_domain' => 'vzor:/^([a-z0-9.-]{3,100})?$/', 'head_code' => 'kod', 'stats' => 'ano',
         ],
-        'cookies' => ['cookies_rezim' => 'vyber:zadna|vestavena|externi', 'cookies_externi_kod' => 'kod', 'cookies_text' => 'radky', 'cookies_zasady_url' => 'text', 'kod_marketing' => 'kod', 'cookies_evidence' => 'ano', 'cookies_evidence_mesice' => 'cislo:0:120'],
-        'mail' => ['posta_rezim' => 'vyber:mail|smtp', 'posta_od' => 'email', 'posta_odpoved' => 'email', 'smtp_host' => 'vzor:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'cislo:1:65535',
-            'smtp_sifrovani' => 'vyber:tls|ssl|zadne', 'smtp_uzivatel' => 'text', 'smtp_heslo' => 'tajne'],
-        'extensions' => ['ai_poskytovatel' => 'vyber:' . \Kaleta\Core\Assistant::PROVIDER_KEYS, 'ai_klic' => 'tajne', 'ai_model' => 'vzor:#^[A-Za-z0-9._:/-]{0,80}$#',
-            'newsletter_sluzba' => 'vyber:|brevo|mailerlite|mailchimp|ecomail|smartemailing|webhook', 'newsletter_klic' => 'tajne',
-            'newsletter_seznam' => 'vzor:#^[A-Za-z0-9_-]{0,64}$#', 'newsletter_webhook' => 'url'],
-        'backups' => ['zaloha_vzdalena' => 'vyber:vypnuto|ftp|s3', 'zaloha_host' => 'vzor:#^[A-Za-z0-9.:/-]{0,150}$#', 'zaloha_uzivatel' => 'text', 'zaloha_heslo' => 'tajne',
-            'zaloha_slozka' => 'vzor:#^[A-Za-z0-9._/-]{0,150}$#', 'zaloha_region' => 'vzor:/^[a-z0-9-]{0,40}$/', 'zalohy_auto' => 'ano', 'aktualizace_auto' => 'ano', 'aktualizace_url' => 'url'],
-        'health' => ['stav_token' => 'vzor:/^[A-Za-z0-9]{0,64}$/'],
+        'cookies' => ['cookies_mode' => 'vyber:zadna|vestavena|externi', 'cookies_external_code' => 'kod', 'cookies_text' => 'radky', 'cookies_policy_url' => 'text', 'marketing_code' => 'kod', 'cookies_log' => 'ano', 'cookies_log_months' => 'cislo:0:120'],
+        'mail' => ['mail_mode' => 'vyber:mail|smtp', 'mail_from' => 'email', 'mail_reply_to' => 'email', 'smtp_host' => 'vzor:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'cislo:1:65535',
+            'smtp_encryption' => 'vyber:tls|ssl|zadne', 'smtp_user' => 'text', 'smtp_password' => 'tajne'],
+        'extensions' => ['ai_provider' => 'vyber:' . \Kaleta\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'tajne', 'ai_model' => 'vzor:#^[A-Za-z0-9._:/-]{0,80}$#',
+            'newsletter_service' => 'vyber:|brevo|mailerlite|mailchimp|ecomail|smartemailing|webhook', 'newsletter_key' => 'tajne',
+            'newsletter_list' => 'vzor:#^[A-Za-z0-9_-]{0,64}$#', 'newsletter_webhook' => 'url'],
+        'backups' => ['remote_backup' => 'vyber:vypnuto|ftp|s3', 'backup_host' => 'vzor:#^[A-Za-z0-9.:/-]{0,150}$#', 'backup_user' => 'text', 'backup_password' => 'tajne',
+            'backup_folder' => 'vzor:#^[A-Za-z0-9._/-]{0,150}$#', 'backup_region' => 'vzor:/^[a-z0-9-]{0,40}$/', 'auto_backups' => 'ano', 'auto_updates' => 'ano', 'update_url' => 'url'],
+        'health' => ['health_token' => 'vzor:/^[A-Za-z0-9]{0,64}$/'],
     ];
 
     /**
@@ -124,8 +124,8 @@ class Settings extends Module
             'values' => $invalid['hodnoty'] + $values + ['layout' => $settings->get('layout')],
             'layouts' => Layouts::listAll(),
             'checks' => $tab === 'health' ? Health::checks($this->app) : [],
-            'remoteStatus' => $settings->get('zaloha_vzdalena_stav'),
-            'tasksToken' => $settings->get('ulohy_token'),
+            'remoteStatus' => $settings->get('remote_backup_status'),
+            'tasksToken' => $settings->get('tasks_token'),
             'errorLog' => $tab === 'health' ? self::readFileTail(KALETA_ROOT . '/storage/log/chyby.log', 40) : [],
             'mail' => $tab === 'mail' ? $this->db->all('SELECT komu, predmet, vytvoreno, odeslano, pokusu, dalsi_pokus, chyba FROM {posta} ORDER BY idp DESC LIMIT 30') : [],
             'enabledExtensions' => Extensions::enabled($settings),
@@ -171,23 +171,23 @@ class Settings extends Module
             }
             $settings->set($key, $clean);
         }
-        if ($tab === 'seo' && $settings->bool('indexnow') && $settings->get('indexnow_klic') === '') {
-            $settings->set('indexnow_klic', bin2hex(random_bytes(16)));
+        if ($tab === 'seo' && $settings->bool('indexnow') && $settings->get('indexnow_key') === '') {
+            $settings->set('indexnow_key', bin2hex(random_bytes(16)));
         }
         if ($tab === 'extensions') {
             Extensions::save($settings, $this->request->postList('rozsireni'));
             if (Extensions::isEnabled($settings, 'novinky')) {
                 Categories::createDefault($this->db, $settings); // novinky zapnuté po instalaci: rovnou s kategorií, jako z instalace
             }
-            if (($this->request->post('ai_klic') !== '' || $this->request->post('ai_poskytovatel') !== $this->request->post('ai_poskytovatel_puvodni')) && $settings->get('ai_klic') !== '' && ($keyError = (new \Kaleta\Core\Assistant($settings))->verifyKey()) !== null) {
+            if (($this->request->post('ai_key') !== '' || $this->request->post('ai_provider') !== $this->request->post('ai_poskytovatel_puvodni')) && $settings->get('ai_key') !== '' && ($keyError = (new \Kaleta\Core\Assistant($settings))->verifyKey()) !== null) {
                 return $this->back(t('Nastavení je uložené, ale klíč asistenta nefunguje: %s', t($keyError)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'chyba');
             }
         }
         if ($this->request->postBool('novy_token_ulohy')) {
-            $settings->set('ulohy_token', bin2hex(random_bytes(16)));
+            $settings->set('tasks_token', bin2hex(random_bytes(16)));
         }
         if ($this->request->postBool('novy_token')) {
-            $settings->set('stav_token', bin2hex(random_bytes(16)));
+            $settings->set('health_token', bin2hex(random_bytes(16)));
         }
 
         return $errors === []
@@ -351,11 +351,11 @@ class Settings extends Module
     /** Zkušební e-mail na e-mail webu - ověří, že server umí odesílat poštu. */
     protected function actionTestMail(): Response
     {
-        $recipient = $this->app->settings()->get('email_webu');
+        $recipient = $this->app->settings()->get('site_email');
         if (!$this->request->isPost() || $recipient === '') {
             return $this->back('Nejprve vyplňte E-mail webu v záložce Základní.', '', ['tab' => $this->request->post('tab') === 'mail' ? 'mail' : 'health'], 'chyba');
         }
-        $siteSettings = $this->app->settings()->get('nazev_webu');
+        $siteSettings = $this->app->settings()->get('site_name');
         // e-mail webu nemá účet s jazykem: zpráva jde ve výchozím jazyce webu (stejně jako ostatní pošta webu)
         [$subject, $text] = \Kaleta\Core\Language::runWith(\Kaleta\Core\Language::defaults($this->app->settings()), fn (): array => [
             t('Zkušební zpráva z %s', $siteSettings),
@@ -367,7 +367,7 @@ class Settings extends Module
         return $this->back(
             match (true) {
                 !$ok => t('Odeslání selhalo: %s', t(\Kaleta\Core\Mail::$error)),
-                $this->app->settings()->get('posta_rezim') === 'smtp' => t('Zpráva byla předána k odeslání na %s. Pokud nedorazí, zkontrolujte spam.', $recipient),
+                $this->app->settings()->get('mail_mode') === 'smtp' => t('Zpráva byla předána k odeslání na %s. Pokud nedorazí, zkontrolujte spam.', $recipient),
                 default => t('Zpráva byla předána k odeslání na %s. Pokud nedorazí, zkontrolujte spam – nebo nastavte odesílání přes SMTP (Nastavení → Pošta).', $recipient),
             },
             '',

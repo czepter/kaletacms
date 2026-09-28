@@ -49,7 +49,7 @@ final class NewsText
      */
     public function withOutline(string $html): string
     {
-        if (!$this->app->settings()->bool('osnova_clanku') || substr_count($html, '<h2') < 3) {
+        if (!$this->app->settings()->bool('article_outline') || substr_count($html, '<h2') < 3) {
             return $html;
         }
         $items = [];
@@ -80,7 +80,7 @@ final class NewsText
      */
     public function shareHtml(array $newsItem): string
     {
-        if (!$this->app->settings()->bool('sdileni')) {
+        if (!$this->app->settings()->bool('share_buttons')) {
             return '';
         }
         $url = $this->app->request->origin() . $this->app->url('novinky/' . $newsItem['seo_link']);

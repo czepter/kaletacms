@@ -34,12 +34,12 @@ $extensionSettings = [
 <p class="napoveda"><?= e(t('Vždy zapnuté jádro: Stránky, Kolekce, Média, Vzhled webu, Části webu, Menu, Komponenty, Pop-up okna, Uživatelé a role, Import a export, Protokol změn a Nastavení.')) ?></p>
 <details class="pokrocile" id="asistent"<?= in_array('asistent', $enabledExtensions, true) ? ' open' : '' ?>>
 <summary><?= e(t('AI asistent – poskytovatel, klíč a model')) ?></summary>
-<input type="hidden" name="ai_poskytovatel_puvodni" value="<?= e($values['ai_poskytovatel']) ?>">
+<input type="hidden" name="ai_poskytovatel_puvodni" value="<?= e($values['ai_provider']) ?>">
 <div class="radek">
-	<label for="ai_poskytovatel"><?= e(t('Poskytovatel')) ?></label>
-	<div><select id="ai_poskytovatel" name="ai_poskytovatel">
+	<label for="ai_provider"><?= e(t('Poskytovatel')) ?></label>
+	<div><select id="ai_provider" name="ai_provider">
 <?php foreach (Kaleta\Core\Assistant::PROVIDERS as $key => [$name, , $console]): ?>
-		<option value="<?= e($key) ?>"<?= $values['ai_poskytovatel'] === $key ? ' selected' : '' ?>><?= e(t($name)) ?></option>
+		<option value="<?= e($key) ?>"<?= $values['ai_provider'] === $key ? ' selected' : '' ?>><?= e(t($name)) ?></option>
 <?php endforeach ?>
 	</select>
 	<span class="napoveda"><?= e(t('Klíč si vytvoříte u poskytovatele:')) ?>
@@ -49,9 +49,9 @@ $extensionSettings = [
 		· <?= e(t('Platíte jen za skutečné použití, jeden návrh stojí řádově haléře. Klíč se ukládá jen na vašem webu.')) ?></span></div>
 </div>
 <div class="radek">
-	<label for="ai_klic"><?= e(t('Klíč API')) ?></label>
-	<div><input class="textpole siroke" type="password" id="ai_klic" name="ai_klic" value="" autocomplete="off" placeholder="<?= $values['ai_klic'] !== '' ? e(t('uložen klíč končící %s – nový vložte jen při změně', $values['ai_klic'])) : '' ?>">
-<?php if ($values['ai_klic'] !== ''): ?>
+	<label for="ai_key"><?= e(t('Klíč API')) ?></label>
+	<div><input class="textpole siroke" type="password" id="ai_key" name="ai_key" value="" autocomplete="off" placeholder="<?= $values['ai_key'] !== '' ? e(t('uložen klíč končící %s – nový vložte jen při změně', $values['ai_key'])) : '' ?>">
+<?php if ($values['ai_key'] !== ''): ?>
 	<label><input type="checkbox" name="ai_klic_smazat" value="1"> <?= e(t('Odebrat uložený klíč')) ?></label>
 <?php endif ?>
 	</div>
@@ -68,29 +68,29 @@ $extensionSettings = [
 </div>
 <p class="napoveda"><?= e(t('Asistent jen navrhuje – o každé změně rozhoduje člověk. Při použití se text odešle zvolenému poskytovateli; bez kliknutí na tlačítko asistenta se nikam nic neposílá.')) ?></p>
 </details>
-<details class="pokrocile" id="newsletter"<?= in_array('newsletter', $enabledExtensions, true) && $values['newsletter_sluzba'] !== '' ? ' open' : '' ?>>
+<details class="pokrocile" id="newsletter"<?= in_array('newsletter', $enabledExtensions, true) && $values['newsletter_service'] !== '' ? ' open' : '' ?>>
 <summary><?= e(t('Newsletter – napojení na mailingovou službu')) ?></summary>
 <p class="napoveda"><?= e(t('Po potvrzení odběru (double opt-in) přidá web adresu do seznamu ve vaší službě, po odhlášení ji odebere. Rozesílání, doručitelnost a odhlašování z e-mailů zůstávají u služby. Přenos běží na pozadí – návštěvník nečeká.')) ?></p>
 <div class="radek">
-	<label for="newsletter_sluzba"><?= e(t('Služba')) ?></label>
-	<div><select id="newsletter_sluzba" name="newsletter_sluzba">
+	<label for="newsletter_service"><?= e(t('Služba')) ?></label>
+	<div><select id="newsletter_service" name="newsletter_service">
 		<option value=""><?= e(t('žádná – odběratele exportujete do CSV')) ?></option>
 <?php foreach (Kaleta\Core\Newsletter::SERVICES as $key => [$name]): ?>
-		<option value="<?= e($key) ?>"<?= $values['newsletter_sluzba'] === $key ? ' selected' : '' ?>><?= e(t($name)) ?></option>
+		<option value="<?= e($key) ?>"<?= $values['newsletter_service'] === $key ? ' selected' : '' ?>><?= e(t($name)) ?></option>
 <?php endforeach ?>
 	</select></div>
 </div>
 <div class="radek">
-	<label for="newsletter_klic"><?= e(t('Klíč API')) ?></label>
-	<div><input class="textpole siroke" type="password" id="newsletter_klic" name="newsletter_klic" value="" autocomplete="off" placeholder="<?= $values['newsletter_klic'] !== '' ? e(t('uložen klíč končící %s – nový vložte jen při změně', $values['newsletter_klic'])) : '' ?>">
-<?php if ($values['newsletter_klic'] !== ''): ?>
+	<label for="newsletter_key"><?= e(t('Klíč API')) ?></label>
+	<div><input class="textpole siroke" type="password" id="newsletter_key" name="newsletter_key" value="" autocomplete="off" placeholder="<?= $values['newsletter_key'] !== '' ? e(t('uložen klíč končící %s – nový vložte jen při změně', $values['newsletter_key'])) : '' ?>">
+<?php if ($values['newsletter_key'] !== ''): ?>
 	<label><input type="checkbox" name="newsletter_klic_smazat" value="1"> <?= e(t('Odebrat uložený klíč')) ?></label>
 <?php endif ?>
 	<span class="napoveda"><?= e(t('Klíč vytvoříte v účtu služby (API, integrace). U SmartEmailingu zadejte uživatelské jméno a klíč oddělené dvojtečkou. Klíč se ukládá jen na vašem webu a přes MCP se neukazuje.')) ?></span></div>
 </div>
 <div class="radek">
-	<label for="newsletter_seznam"><?= e(t('Seznam')) ?></label>
-	<div><input class="textpole" id="newsletter_seznam" name="newsletter_seznam" value="<?= e($values['newsletter_seznam']) ?>" maxlength="64" spellcheck="false">
+	<label for="newsletter_list"><?= e(t('Seznam')) ?></label>
+	<div><input class="textpole" id="newsletter_list" name="newsletter_list" value="<?= e($values['newsletter_list']) ?>" maxlength="64" spellcheck="false">
 	<span class="napoveda"><?= e(t('ID seznamu (Brevo, Ecomail, SmartEmailing), skupiny (MailerLite) nebo audience (Mailchimp) – najdete ho v nastavení seznamu ve službě.')) ?></span></div>
 </div>
 <div class="radek">

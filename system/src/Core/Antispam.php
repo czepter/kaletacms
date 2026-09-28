@@ -23,10 +23,10 @@ final class Antispam
     /** Tajný klíč instalace; vznikne při prvním použití. */
     public function key(): string
     {
-        $key = $this->settings->get('tajny_klic');
+        $key = $this->settings->get('secret_key');
         if ($key === '') {
             $key = bin2hex(random_bytes(32));
-            $this->settings->set('tajny_klic', $key);
+            $this->settings->set('secret_key', $key);
         }
 
         return $key;

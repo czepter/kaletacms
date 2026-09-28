@@ -31,12 +31,12 @@ final class Newsletter
 
     public static function isEnabled(Settings $s): bool
     {
-        $service = $s->get('newsletter_sluzba');
+        $service = $s->get('newsletter_service');
         if (!isset(self::SERVICES[$service])) {
             return false;
         }
 
-        return self::SERVICES[$service][1] ? $s->get('newsletter_klic') !== '' && $s->get('newsletter_seznam') !== '' : preg_match('#^https://#i', $s->get('newsletter_webhook')) === 1;
+        return self::SERVICES[$service][1] ? $s->get('newsletter_key') !== '' && $s->get('newsletter_list') !== '' : preg_match('#^https://#i', $s->get('newsletter_webhook')) === 1;
     }
 
     /** Zařadí přidání (po potvrzení) nebo odebrání (po odhlášení) adresy; bez nastavené služby nic. */
@@ -107,9 +107,9 @@ final class Newsletter
      */
     public static function apply(Settings $s, string $email, string $action, string $source = ''): void
     {
-        $service = $s->get('newsletter_sluzba');
-        $key = str_replace(["\r", "\n"], '', $s->get('newsletter_klic')); // klíč jde do hlavičky – bez zalomení řádku
-        $items = $s->get('newsletter_seznam');
+        $service = $s->get('newsletter_service');
+        $key = str_replace(["\r", "\n"], '', $s->get('newsletter_key')); // klíč jde do hlavičky – bez zalomení řádku
+        $items = $s->get('newsletter_list');
         $toAdd = $action === 'pridat';
         [$method, $url, $headers, $body, $missingOk] = match ($service) {
             'brevo' => $toAdd
@@ -124,7 +124,7 @@ final class Newsletter
                 : ['DELETE', 'https://api2.ecomailapp.cz/lists/' . rawurlencode($items) . '/unsubscribe', ['key: ' . $key], ['email' => $email], true],
             'smartemailing' => ['POST', 'https://app.smartemailing.cz/api/v3/import', ['Authorization: Basic ' . base64_encode($key)],
                 ['settings' => ['update' => true, 'skip_invalid_emails' => true], 'data' => [['emailaddress' => $email, 'contactlists' => [['id' => (int) $items, 'status' => $toAdd ? 'confirmed' : 'unsubscribed']]]]], false],
-            'webhook' => ['POST', $s->get('newsletter_webhook'), [], ['udalost' => $toAdd ? 'novy_odberatel' : 'odhlaseni_odberu', 'web' => $s->get('nazev_webu'), 'email' => $email,
+            'webhook' => ['POST', $s->get('newsletter_webhook'), [], ['udalost' => $toAdd ? 'novy_odberatel' : 'odhlaseni_odberu', 'web' => $s->get('site_name'), 'email' => $email,
                 'zdroj' => $source, 'cas' => date('c')], false],
             default => throw new \RuntimeException('Mailingová služba není nastavená.'),
         };

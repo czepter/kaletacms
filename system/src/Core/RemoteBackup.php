@@ -14,8 +14,8 @@ final class RemoteBackup
     /** @return string|null text chyby, null = nahráno (nebo je vzdálené zálohování vypnuté) */
     public static function upload(Settings $s, string $path): ?string
     {
-        $mode = $s->get('zaloha_vzdalena');
-        if (!in_array($mode, ['ftp', 's3'], true) || $s->get('zaloha_host') === '') {
+        $mode = $s->get('remote_backup');
+        if (!in_array($mode, ['ftp', 's3'], true) || $s->get('backup_host') === '') {
             return null;
         }
         try {
@@ -24,7 +24,7 @@ final class RemoteBackup
         } catch (\Throwable $e) {
             $error = $e->getMessage();
         }
-        $s->set('zaloha_vzdalena_stav', date('Y-m-d H:i') . '|' . ($error ?? 'ok'));
+        $s->set('remote_backup_status', date('Y-m-d H:i') . '|' . ($error ?? 'ok'));
 
         return $error;
     }
@@ -34,7 +34,7 @@ final class RemoteBackup
         if (!function_exists('ftp_connect')) {
             throw new \RuntimeException('Na serveru chybí rozšíření PHP pro FTP.');
         }
-        $host = $s->get('zaloha_host');
+        $host = $s->get('backup_host');
         // jen šifrované FTPS: záloha obsahuje hesla a tajné klíče, po nešifrovaném FTP by šly sítí čitelně (i heslo k FTP)
         if (!function_exists('ftp_ssl_connect')) {
             throw new \RuntimeException('Server neumí šifrované FTP (FTPS). Zálohu posílejte do úložiště S3, nebo si ji stahujte ručně.');
@@ -43,11 +43,11 @@ final class RemoteBackup
         if ($connection === false) {
             throw new \RuntimeException('FTP server ' . $host . ' nepodporuje šifrované spojení (FTPS). Nešifrované FTP Kaleta nepoužívá – zvolte úložiště S3.');
         }
-        if (!@ftp_login($connection, $s->get('zaloha_uzivatel'), $s->get('zaloha_heslo'))) {
+        if (!@ftp_login($connection, $s->get('backup_user'), $s->get('backup_password'))) {
             throw new \RuntimeException('K FTP serveru ' . $host . ' se nepodařilo přihlásit.');
         }
         ftp_pasv($connection, true);
-        $folder = trim($s->get('zaloha_slozka'), '/');
+        $folder = trim($s->get('backup_folder'), '/');
         if ($folder !== '' && !@ftp_chdir($connection, '/' . $folder)) {
             @ftp_mkdir($connection, '/' . $folder);
             if (!@ftp_chdir($connection, '/' . $folder)) {
@@ -66,13 +66,13 @@ final class RemoteBackup
         if (!function_exists('curl_init')) {
             throw new \RuntimeException('Na serveru chybí rozšíření cURL.');
         }
-        $host = preg_replace('#^https?://|/.*$#', '', $s->get('zaloha_host')) ?? '';
-        $bucket = trim($s->get('zaloha_slozka'), '/');
+        $host = preg_replace('#^https?://|/.*$#', '', $s->get('backup_host')) ?? '';
+        $bucket = trim($s->get('backup_folder'), '/');
         if ($bucket === '' || !preg_match('/^[a-z0-9.-]+$/i', $host)) {
             throw new \RuntimeException('Vyplňte adresu úložiště (např. s3.eu-central-1.amazonaws.com) a název bucketu.');
         }
         $uri = '/' . implode('/', array_map(rawurlencode(...), explode('/', $bucket . '/' . basename($path))));
-        $headers = self::signS3('PUT', $host, $uri, hash_file('sha256', $path), $s->get('zaloha_region') ?: 'us-east-1', $s->get('zaloha_uzivatel'), $s->get('zaloha_heslo'), time());
+        $headers = self::signS3('PUT', $host, $uri, hash_file('sha256', $path), $s->get('backup_region') ?: 'us-east-1', $s->get('backup_user'), $s->get('backup_password'), time());
         $f = fopen($path, 'rb');
         $ch = curl_init('https://' . $host . $uri);
         curl_setopt_array($ch, [

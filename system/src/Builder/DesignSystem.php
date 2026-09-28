@@ -131,10 +131,10 @@ final class DesignSystem
         $ds = is_array($stored) ? $stored + self::DEFAULTS : self::DEFAULTS;
         $ds['barvy'] = (is_array($stored['barvy'] ?? null) ? $stored['barvy'] : []) + self::DEFAULTS['barvy'];
         $ds['barvy_tmave'] = (is_array($stored['barvy_tmave'] ?? null) ? $stored['barvy_tmave'] : []) + self::DEFAULTS['barvy_tmave'];
-        if (!isset($stored['barvy']['primarni']) && preg_match('/^#[0-9a-f]{6}$/i', $siteSettings->get('brand_akcent'))) {
-            $ds['barvy']['primarni'] = strtolower($siteSettings->get('brand_akcent'));
+        if (!isset($stored['barvy']['primarni']) && preg_match('/^#[0-9a-f]{6}$/i', $siteSettings->get('brand_accent'))) {
+            $ds['barvy']['primarni'] = strtolower($siteSettings->get('brand_accent'));
         }
-        foreach (['pismo_titulky' => 'brand_pismo_titulky', 'pismo_text' => 'brand_pismo_text'] as $key => $old) {
+        foreach (['pismo_titulky' => 'brand_heading_font', 'pismo_text' => 'brand_text_font'] as $key => $old) {
             if (!isset($stored[$key]) && $siteSettings->get($old) !== '' && $siteSettings->get($old) !== 'vychozi') {
                 $ds[$key] = $siteSettings->get($old);
             }

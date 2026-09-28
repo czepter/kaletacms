@@ -49,7 +49,7 @@ final class Enquiries extends Module
             'total' => (int) $this->db->value('SELECT COUNT(*) FROM {poptavky} ' . $whereParts, $params),
             'filter' => $filter, 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
             'users' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY 2"),
-            'months' => $this->app->settings()->int('poptavky_mesice'),
+            'months' => $this->app->settings()->int('enquiries_months'),
         ]);
     }
 
@@ -165,7 +165,7 @@ final class Enquiries extends Module
     protected function actionSettings(): Response
     {
         if ($this->request->isPost() && $this->app->auth()->isAdmin()) {
-            $this->app->settings()->set('poptavky_mesice', (string) max(0, min(120, $this->request->postInt('mesice'))));
+            $this->app->settings()->set('enquiries_months', (string) max(0, min(120, $this->request->postInt('mesice'))));
         }
 
         return $this->back('Nastavení poptávek bylo uloženo.');
@@ -196,7 +196,7 @@ final class Enquiries extends Module
     /** Smaže poptávky starší než nastavený počet měsíců i s přílohami (volá i úklid na pozadí, Core\Oznameni). */
     public static function deleteExpired(\Kaleta\Core\Db $db, \Kaleta\Core\Settings $siteSettings): void
     {
-        $months = $siteSettings->int('poptavky_mesice');
+        $months = $siteSettings->int('enquiries_months');
         if ($months > 0) {
             self::deleteAttachments($db->all('SELECT data FROM {poptavky} WHERE datum < NOW() - INTERVAL ? MONTH', [$months]));
             $db->run('DELETE FROM {poptavky} WHERE datum < NOW() - INTERVAL ? MONTH', [$months]);

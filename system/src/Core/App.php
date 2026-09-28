@@ -70,7 +70,7 @@ final class App
      */
     public function applyTimezone(): void
     {
-        $timeZone = $this->settings()->get('casove_pasmo');
+        $timeZone = $this->settings()->get('time_zone');
         if ($timeZone !== date_default_timezone_get() && in_array($timeZone, \DateTimeZone::listIdentifiers(), true)) {
             date_default_timezone_set($timeZone);
             $this->db()->pdo()->exec("SET time_zone = '" . date('P') . "'");

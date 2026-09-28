@@ -67,7 +67,7 @@ final class NewsRepository
 
     public function perPage(): int
     {
-        return max(1, $this->settings->int('pocet_clanku'));
+        return max(1, $this->settings->int('news_per_page'));
     }
 
     /**

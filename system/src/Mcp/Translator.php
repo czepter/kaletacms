@@ -188,12 +188,12 @@ final class Translator
 
     /** Klíče nastavení v angličtině => česky; u názvu a popisu webu i s kódem jazyka (site_name_de => nazev_webu_de). */
     private const array SETTINGS = [
-        'site_name' => 'nazev_webu', 'site_description' => 'popis_webu', 'footer_text' => 'text_paticky', 'logo' => 'logo_webu', 'favicon' => 'favicon', 'share_image' => 'og_obrazek',
-        'home_page' => 'titulni_stranka', 'social_facebook' => 'soc_facebook', 'social_instagram' => 'soc_instagram', 'social_x' => 'soc_x', 'social_youtube' => 'soc_youtube',
-        'social_linkedin' => 'soc_linkedin', 'news_per_page' => 'pocet_clanku', 'share_buttons' => 'sdileni', 'article_outline' => 'osnova_clanku', 'related_news_auto' => 'souvisejici_auto', 'dark_mode' => 'tmavy_rezim', 'theme_switcher' => 'tmavy_prepinac',
-        'company_name' => 'firma_nazev', 'company_type' => 'firma_typ', 'company_id' => 'firma_ico', 'company_vat_id' => 'firma_dic', 'company_register' => 'firma_rejstrik', 'company_representative' => 'firma_zastupce', 'company_street' => 'firma_ulice',
-        'company_city' => 'firma_mesto', 'company_postcode' => 'firma_psc', 'company_country' => 'firma_zeme', 'company_phone' => 'firma_telefon', 'company_email' => 'firma_email',
-        'company_hours' => 'firma_hodiny', 'company_map' => 'firma_mapa', 'company_gps' => 'firma_gps',
+        'site_name' => 'site_name', 'site_description' => 'site_description', 'footer_text' => 'footer_text', 'logo' => 'logo', 'favicon' => 'favicon', 'share_image' => 'share_image',
+        'home_page' => 'home_page', 'social_facebook' => 'social_facebook', 'social_instagram' => 'social_instagram', 'social_x' => 'social_x', 'social_youtube' => 'social_youtube',
+        'social_linkedin' => 'social_linkedin', 'news_per_page' => 'news_per_page', 'share_buttons' => 'share_buttons', 'article_outline' => 'article_outline', 'related_news_auto' => 'related_news_auto', 'dark_mode' => 'dark_mode', 'theme_switcher' => 'theme_switcher',
+        'company_name' => 'company_name', 'company_type' => 'company_type', 'company_id' => 'company_id', 'company_vat_id' => 'company_vat_id', 'company_register' => 'company_register', 'company_representative' => 'company_representative', 'company_street' => 'company_street',
+        'company_city' => 'company_city', 'company_postcode' => 'company_postcode', 'company_country' => 'company_country', 'company_phone' => 'company_phone', 'company_email' => 'company_email',
+        'company_hours' => 'company_hours', 'company_map' => 'company_map', 'company_gps' => 'company_gps',
     ];
 
     /** Klíče výsledků česky => anglicky. */

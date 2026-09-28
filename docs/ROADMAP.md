@@ -90,7 +90,7 @@ Done in 1.4.0:
 Next, in 1.4.x:
 
 6. Admin CSS classes and `data-*` attributes.
-7. Settings keys, copied by a migration (old keys read as a fallback for two releases).
+7. Settings keys in English – done in 1.4.1 (migration 0026; old keys still accepted until 2.0).
 8. UI source texts in English, Czech moved to a dictionary like the other languages; code comments in English.
 
 ## 1.5 – newsletter mailing

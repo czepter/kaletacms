@@ -134,13 +134,13 @@ final class Account
         if ((string) $user['totp_tajemstvi'] === '') {
             return Response::json(['chyba' => t('Nejdřív zapněte dvoufázové přihlášení.')], 400);
         }
-        $url = $app->settings()->get('adresa_webu') ?: $app->request->origin();
+        $url = $app->settings()->get('site_url') ?: $app->request->origin();
         if (!$save) {
             $challenge = Passkey::challenge();
             $app->session->set('klic_registrace', $challenge);
 
             return Response::json(Passkey::registrationOptions(
-                $challenge, Passkey::rpId($url), $app->settings()->get('nazev_webu'),
+                $challenge, Passkey::rpId($url), $app->settings()->get('site_name'),
                 Passkey::b64(substr(hash('sha256', 'kaleta-klic|' . $url . '|' . $user['idu'], true), 0, 16)),
                 (string) $user['user'], (string) $user['jmeno'],
                 array_map(static fn (array $k): string => (string) $k['id_klice'], $app->auth()->accountKeys((int) $user['idu'])),
@@ -176,7 +176,7 @@ final class Account
 
         return $this->kernel->page('Můj účet', $app->view->render('admin/account', $data + [
             'app' => $app, 'user' => $user, 'csrf' => $app->session->csrfField(),
-            'uri' => $data['newSecret'] !== '' ? Totp::uri($data['newSecret'], $user['user'], $app->settings()->get('nazev_webu')) : '',
+            'uri' => $data['newSecret'] !== '' ? Totp::uri($data['newSecret'], $user['user'], $app->settings()->get('site_name')) : '',
             'codesLeft' => count((array) json_decode((string) $user['totp_zalozni'], true)),
             'claude' => Extensions::isEnabled($app->settings(), 'claude'),
             'keys' => $app->auth()->accountKeys((int) $user['idu']),

@@ -8,7 +8,7 @@
  * @var string $search
  * @var int $inTrash    počet stránek v koši
  */
-$home = $app->settings()->int('titulni_stranka');
+$home = $app->settings()->int('home_page');
 $url = fn (array $s): string => ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '') . ((int) $s['ids'] === $home ? '' : $s['seo_link']);
 ?>
 <div class="navigace-radek"><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('Nová stránka')) ?></a>

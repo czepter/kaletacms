@@ -70,9 +70,9 @@ final class PasswordReset
         $token = bin2hex(random_bytes(32));
         $time = $reason === 'zadost' ? time() : time() + 71 * 3600;
         $app->db()->update('uzivatele', ['obnova_otisk' => hash('sha256', $token), 'obnova_cas' => date('Y-m-d H:i:s', $time)], ['idu' => $user['idu']]);
-        $link = rtrim($app->settings()->get('adresa_webu') ?: $app->request->origin(), '/') . $app->url('admin.php?action=password&token=' . $token);
+        $link = rtrim($app->settings()->get('site_url') ?: $app->request->origin(), '/') . $app->url('admin.php?action=password&token=' . $token);
         $language = (string) ($user['jazyk'] ?? '') !== '' ? (string) $user['jazyk'] : Language::defaults($app->settings());
-        $siteSettings = $app->settings()->get('nazev_webu');
+        $siteSettings = $app->settings()->get('site_name');
         [$subject, $text] = Language::runWith($language, fn (): array => match ($reason) {
             'pozvanka' => [t('Pozvánka do administrace') . ' – ' . $siteSettings,
                 t('Dobrý den,') . "\n\n" . t('dostali jste přístup do administrace webu %s. Vaše přihlašovací jméno je %s.', $siteSettings, (string) $user['user'])

@@ -32,7 +32,7 @@ final class Stats extends Module
         return $this->view('list', 'Statistika', [
             'days' => $days,
             'chart' => $chart,
-            'isEnabled' => $this->app->settings()->bool('statistika'),
+            'isEnabled' => $this->app->settings()->bool('stats'),
             'newsItems' => $this->db->all(
                 'SELECT c.idc, c.titulek, c.seo_link, SUM(s.pocet) AS pocet FROM {stat_novinky} s JOIN {novinky} c ON c.idc = s.idc
                  WHERE s.den > CURDATE() - INTERVAL ? DAY GROUP BY c.idc, c.titulek, c.seo_link ORDER BY pocet DESC LIMIT 15',

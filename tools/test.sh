@@ -72,7 +72,7 @@ check "config.php není přístupný" 403 /config.php
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='neexistuje' WHERE promenna='layout'"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 check "chybějící šablona – web běží na výchozí" 200 / "layout/zakladni/style.css"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='0' WHERE promenna='titulni_stranka'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='0' WHERE promenna='home_page'"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 check "bez úvodní stránky je úvodem výpis novinek" 200 / "Vítejte v Kaletě"
 
@@ -84,7 +84,7 @@ TOKEN=$(csrf)
 code=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$TOKEN" -d user=admin -d password=spatne-heslo-123); expect "špatné heslo odmítnuto" "$code" 401
 code=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d user=admin --data-urlencode "password=$PASSWORD"); expect "POST bez CSRF odmítnut" "$code" 400
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN" -d user=admin --data-urlencode "password=$PASSWORD"
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('rozsireni','novinky,poptavky,newsletter,statistika,presmerovani,asistent,jazyky,api,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('extensions','novinky,poptavky,newsletter,statistika,presmerovani,asistent,jazyky,api,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
 check "přehled" 200 /admin.php "Přehled"
 check "přehled: nadpis obrazovky je h1" 200 /admin.php "<h1>Přehled</h1>"
 grep -q '<li class=""><a href="/admin.php?module=appearance">' "$WORK/response" && grep -q '<li class=""><a href="/admin.php?module=pages"><strong>Připravte stránky' "$WORK/response" && echo "  ok     první kroky nepočítají vzhled a stránky ze startovacího webu za hotové" || { echo "  CHYBA  první kroky odškrtnuté startovacím webem"; ERRORS=$((ERRORS+1)); }
@@ -92,11 +92,11 @@ check "administrace: nadpis h1 a hlavní menu v <nav>" 200 "/admin.php?module=pa
 for m in pages "pages&action=new" enquiries parts components "components&action=new" collections "collections&action=new" news "news&action=new" "news&action=links" categories "categories&action=new" tags media stats appearance users "users&action=new" redirects changelog transfer extensions; do check "modul $m" 200 "/admin.php?module=$m"; done
 check "uživatelé se shrnutím oprávnění" 200 "/admin.php?module=users" "Smí všechno"
 for z in general seo analytics cookies mail backups health; do check "nastavení/$z" 200 "/admin.php?module=settings&tab=$z"; done
-check "nastavení: volba úvodní stránky" 200 "/admin.php?module=settings&tab=general" 'name="titulni_stranka"'
+check "nastavení: volba úvodní stránky" 200 "/admin.php?module=settings&tab=general" 'name="home_page"'
 check "neznámý modul" 403 "/admin.php?module=neexistuje"
 check "API: novinky" 200 /api/novinky '"novinky"'
 check "API: stránky" 200 /api/stranky '/kontakt"'
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('jazyky_dalsi','en') ON DUPLICATE KEY UPDATE hodnota='en'"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('additional_languages','en') ON DUPLICATE KEY UPDATE hodnota='en'"
 check "anglická verze webu" 200 /en/ 'lang="en"'
 code=$(curl -s -o /dev/null -w '%{http_code}' "$B/en/novinky/vitejte-v-kalete"); expect "novinka jiné jazykové verze přesměruje" "$code" 301
 
@@ -107,10 +107,10 @@ code=$(curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST
 [ "$code" = 200 ] && grep -q 'name="titulek"' "$WORK/response" && echo "  ok     chyba ve formuláři novinky vrátí formulář" || { echo "  CHYBA  validace novinky: kód $code"; ERRORS=$((ERRORS+1)); }
 
 # novinky bez kategorie (zapnuté až po instalaci): „Nová novinka“ není slepá ulička – vznikne výchozí kategorie v jazyce webu
-"${MYSQL[@]}" "$DB_NAME" -e "SET FOREIGN_KEY_CHECKS=0; DROP TABLE IF EXISTS kat_zaloha; CREATE TABLE kat_zaloha AS SELECT * FROM ka_kategorie; DELETE FROM ka_kategorie; UPDATE ka_nastaveni SET hodnota='en' WHERE promenna='jazyk_webu'"
+"${MYSQL[@]}" "$DB_NAME" -e "SET FOREIGN_KEY_CHECKS=0; DROP TABLE IF EXISTS kat_zaloha; CREATE TABLE kat_zaloha AS SELECT * FROM ka_kategorie; DELETE FROM ka_kategorie; UPDATE ka_nastaveni SET hodnota='en' WHERE promenna='site_language'"
 check "nová novinka bez kategorie otevře editor" 200 "/admin.php?module=news&action=new" 'name="titulek"'
 expect "výchozí kategorie založená v jazyce webu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(COUNT(*), ':', MAX(nazev)) FROM ka_kategorie")" "1:News"
-"${MYSQL[@]}" "$DB_NAME" -e "SET FOREIGN_KEY_CHECKS=0; DELETE FROM ka_kategorie; INSERT INTO ka_kategorie SELECT * FROM kat_zaloha; DROP TABLE kat_zaloha; UPDATE ka_nastaveni SET hodnota='cs' WHERE promenna='jazyk_webu'"
+"${MYSQL[@]}" "$DB_NAME" -e "SET FOREIGN_KEY_CHECKS=0; DELETE FROM ka_kategorie; INSERT INTO ka_kategorie SELECT * FROM kat_zaloha; DROP TABLE kat_zaloha; UPDATE ka_nastaveni SET hodnota='cs' WHERE promenna='site_language'"
 
 # autor novinek: vidí jen své novinky a nevydává
 NEWS_ID=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idc FROM ka_novinky ORDER BY idc LIMIT 1")
@@ -130,18 +130,18 @@ check "editor vidí na přehledu novinky od autorů, které čekají na vydání
 check "výpis novinek: filtr Čekají na vydání" 200 "/admin.php?module=news&stav=ke_vydani" "XSS-test"
 
 echo "== firma"
-check "nastavení/firma" 200 "/admin.php?module=settings&tab=company" 'name="firma_hodiny"'
+check "nastavení/firma" 200 "/admin.php?module=settings&tab=company" 'name="company_hours"'
 TOKEN=$(csrf)
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=company --data-urlencode "firma_nazev=Testovací firma s.r.o." -d firma_typ=HomeAndConstructionBusiness \
-  -d firma_ico=12345678 -d firma_dic=CZ12345678 --data-urlencode "firma_ulice=Dlouhá 12" --data-urlencode "firma_mesto=Praha" --data-urlencode "firma_psc=110 00" -d firma_zeme=CZ \
-  --data-urlencode "firma_telefon=+420 123 456 789" --data-urlencode "firma_hodiny=Po–Pá 8:00–17:00
-So 9–12" --data-urlencode "firma_mapa=https://mapy.cz/s/abc" --data-urlencode "firma_gps=50.0875, 14.4213"
-expect "údaje firmy uloženy" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'firma_ico'")" 12345678
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d zalozka=firma -d firma_typ=LocalBusiness -d firma_zeme=CZ --data-urlencode "firma_hodiny=kdykoli"
-expect "nesrozumitelná otevírací doba odmítnuta" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota LIKE '%8:00%' AND hodnota NOT LIKE '%kdykoli%' FROM ka_nastaveni WHERE promenna = 'firma_hodiny'")" 1
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=company --data-urlencode "firma_nazev=Testovací firma s.r.o." -d firma_typ=HomeAndConstructionBusiness \
-  -d firma_ico=12345678 -d firma_dic=CZ12345678 --data-urlencode "firma_ulice=Dlouhá 12" --data-urlencode "firma_mesto=Praha" --data-urlencode "firma_psc=110 00" -d firma_zeme=CZ \
-  --data-urlencode "firma_telefon=+420 123 456 789" --data-urlencode "firma_hodiny=Po–Pá 8:00–17:00" --data-urlencode "firma_mapa=https://mapy.cz/s/abc" --data-urlencode "firma_gps=50.0875, 14.4213"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=company --data-urlencode "company_name=Testovací firma s.r.o." -d company_type=HomeAndConstructionBusiness \
+  -d company_id=12345678 -d company_vat_id=CZ12345678 --data-urlencode "company_street=Dlouhá 12" --data-urlencode "company_city=Praha" --data-urlencode "company_postcode=110 00" -d company_country=CZ \
+  --data-urlencode "company_phone=+420 123 456 789" --data-urlencode "company_hours=Po–Pá 8:00–17:00
+So 9–12" --data-urlencode "company_map=https://mapy.cz/s/abc" --data-urlencode "company_gps=50.0875, 14.4213"
+expect "údaje firmy uloženy" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'company_id'")" 12345678
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d zalozka=firma -d company_type=LocalBusiness -d company_country=CZ --data-urlencode "company_hours=kdykoli"
+expect "nesrozumitelná otevírací doba odmítnuta" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota LIKE '%8:00%' AND hodnota NOT LIKE '%kdykoli%' FROM ka_nastaveni WHERE promenna = 'company_hours'")" 1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=company --data-urlencode "company_name=Testovací firma s.r.o." -d company_type=HomeAndConstructionBusiness \
+  -d company_id=12345678 -d company_vat_id=CZ12345678 --data-urlencode "company_street=Dlouhá 12" --data-urlencode "company_city=Praha" --data-urlencode "company_postcode=110 00" -d company_country=CZ \
+  --data-urlencode "company_phone=+420 123 456 789" --data-urlencode "company_hours=Po–Pá 8:00–17:00" --data-urlencode "company_map=https://mapy.cz/s/abc" --data-urlencode "company_gps=50.0875, 14.4213"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/"
 grep -q '"@type":"HomeAndConstructionBusiness"' "$WORK/response" && grep -q '"openingHoursSpecification"' "$WORK/response" && grep -q '"latitude":50.0875' "$WORK/response" && grep -q '"vatID":"CZ12345678"' "$WORK/response" \
@@ -269,18 +269,18 @@ mcp nahraj_soubor "{\"nazev\":\"pismo.woff2\",\"data\":\"$(base64 < image/pisma/
 grep -q 'vlastni_pisma' "$WORK/response" && grep -q 'pismo-[a-f0-9]*\.woff2' "$WORK/response" && echo "  ok     MCP: písmo WOFF2 do Médií s návodem pro design system" || { echo "  CHYBA  MCP nahraj_soubor (písmo)"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp nahraj_soubor '{"nazev":"skript.php","data":"PD9waHAgZWNobyAxOw=="}' > "$WORK/response"; grep -q 'isError' "$WORK/response" && ! ls "$WORK"/web/media/*/*/skript* > /dev/null 2>&1 && echo "  ok     MCP: PHP ani jiný spustitelný soubor nahrát nejde" || { echo "  CHYBA  MCP nahraj_soubor pustil PHP"; ERRORS=$((ERRORS+1)); }
 mcp uprav_nastaveni '{"nastaveni":{"text_paticky":"Paticka od Clauda","email_webu":"utocnik@example.com","firma_ico":"abc"}}' > "$WORK/response"
-expect "MCP: nastavení webu – povolené se uloží, e-mail a neplatné IČO ne" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'text_paticky'), '|', COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'email_webu'), '') <> 'utocnik@example.com', '|', COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'firma_ico'), '') <> 'abc')")" "Paticka od Clauda|1|1"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = 'spravce@example.cz' WHERE promenna = 'email_webu'"; rm -f "$WORK"/web/storage/cache/stranky/*.html
+expect "MCP: nastavení webu – povolené se uloží, e-mail a neplatné IČO ne" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'footer_text'), '|', COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_email'), '') <> 'utocnik@example.com', '|', COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'company_id'), '') <> 'abc')")" "Paticka od Clauda|1|1"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = 'spravce@example.cz' WHERE promenna = 'site_email'"; rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s "$B/" | contains 'spravce@example.cz' && { echo "  CHYBA  e-mail webu je vidět na webu"; ERRORS=$((ERRORS+1)); } || echo "  ok     e-mail webu (poptávky, upozornění) se na webu neukazuje"
 mcp uprav_nastaveni '{"nastaveni":{"firma_email":"info@example.cz"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 check "veřejný e-mail firmy v patičce" 200 / "info@example.cz"
 mcp uprav_nastaveni '{"nastaveni":{"logo_webu":"image/kaleta-logo.svg","favicon":"../config.php"}}' > "$WORK/response"
-expect "MCP: logo webu ze systémových souborů, cesta mimo media/ a image/ neprojde" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'logo_webu'), '|', COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'favicon'), ''))")" "image/kaleta-logo.svg|"
+expect "MCP: logo webu ze systémových souborů, cesta mimo media/ a image/ neprojde" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'logo'), '|', COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'favicon'), ''))")" "image/kaleta-logo.svg|"
 mcp uloz_presmerovani '{"z":"/stary-web/sluzby","na":"/z-html"}' > /dev/null
 expect "MCP: přesměrování staré adresy" "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/stary-web/sluzby")" "301 $B/z-html"
 mcp smaz_stranku "{\"id\":$IDM2}" > /dev/null
 expect "MCP: stránka do koše" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT smazano IS NOT NULL FROM ka_stranky WHERE ids = $IDM2")" 1
-mcp smaz_stranku "{\"id\":$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'titulni_stranka'")}" | grep -q 'isError' && echo "  ok     MCP: úvodní stránku smazat nejde" || { echo "  CHYBA  MCP smazal úvodní stránku"; ERRORS=$((ERRORS+1)); }
+mcp smaz_stranku "{\"id\":$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page'")}" | grep -q 'isError' && echo "  ok     MCP: úvodní stránku smazat nejde" || { echo "  CHYBA  MCP smazal úvodní stránku"; ERRORS=$((ERRORS+1)); }
 mcp vytvor_sablonu '{"nazev":"test-kopie"}' > "$WORK/response"; mcp copy_theme '{"name":"test-kopie2"}' >> "$WORK/response"
 [ "$(grep -o 'isError' "$WORK/response" | wc -l | tr -d ' ')" = 2 ] && [ ! -d "$WORK/web/layout/test-kopie" ] && [ ! -d "$WORK/web/layout/test-kopie2" ] && echo "  ok     MCP: vlastní šablony už přes napojení nevznikají" || { echo "  CHYBA  MCP šablony"; ERRORS=$((ERRORS+1)); }
 mcp vytvor_kategorii '{"nazev":"Kategorie XSS","popis":"<p>Úvod</p><script>alert(1)</script><img src=x onerror=alert(2)>"}' > /dev/null
@@ -323,7 +323,7 @@ field_value() { grep -o "name=\"$1\" value=\"[^\"]*\"" "$WORK/formular.html" | h
 FORM_SOURCE=$(field_value zdroj); FORM_ELEMENT=$(field_value prvek); FORM_TIME=$(field_value as_cas); FORM_SIGNATURE=$(field_value as_podpis)
 submit_form() { curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/kontakt -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" "$@"; }
 # příliš rychlé odeslání (automatické vyplnění): vlastní kód a hlášení „počkejte chvilku“, ne „nepodařilo se ověřit“
-NOW=$(date +%s); FAST_SIGNATURE=$(php -r 'echo hash_hmac("sha256", $argv[1], $argv[2]);' "formular|$FORM_SOURCE|$FORM_ELEMENT|$NOW" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'tajny_klic'")")
+NOW=$(date +%s); FAST_SIGNATURE=$(php -r 'echo hash_hmac("sha256", $argv[1], $argv[2]);' "formular|$FORM_SOURCE|$FORM_ELEMENT|$NOW" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'secret_key'")")
 case "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/kontakt -d "as_cas=$NOW" -d "as_podpis=$FAST_SIGNATURE" -d p0=A -d p1=a@example.cz -d p3=x -d p4=1)" in *vysledek=rychle*) echo "  ok     příliš rychlé odeslání má vlastní výsledek";; *) echo "  CHYBA  příliš rychlé odeslání formuláře"; ERRORS=$((ERRORS+1));; esac
 check "hlášení po příliš rychlém odeslání radí počkat" 200 "/kontakt?formular=$FORM_ELEMENT&vysledek=rychle" "Počkejte prosím chvilku a odešlete ho znovu"
 grep -q 'type="text" autocomplete="name"' "$WORK/formular.html" && grep -q 'type="tel" autocomplete="tel" maxlength="30" pattern="' "$WORK/formular.html" && echo "  ok     jméno s automatickým vyplněním, telefon s kontrolou v prohlížeči" || { echo "  CHYBA  autocomplete jména nebo vzor telefonu"; ERRORS=$((ERRORS+1)); }
@@ -431,16 +431,16 @@ mcp stavba_nacti '{"cast":"paticka","jazyk":"en"}' > /dev/null
 expect "MCP: čtení části, která ještě není, nic nezaloží" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_casti WHERE typ = 'paticka' AND jazyk = 'en'")" 0
 mcp stavba_uprav '{"cast":"paticka","jazyk":"en","operace":[]}' > /dev/null
 expect "patička nového jazyka začíná kopií patičky výchozího jazyka" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT e.stavba_koncept = COALESCE(c.stavba_koncept, c.stavba) FROM ka_casti e JOIN ka_casti c ON c.typ = e.typ AND c.jazyk = '' AND c.varianta = '' WHERE e.typ = 'paticka' AND e.jazyk = 'en' AND e.varianta = ''")" 1
-"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('ulohy_token', 'testtoken123'); INSERT INTO ka_souhlasy (id_souhlasu, cas, kategorie) VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', NOW() - INTERVAL 40 MONTH, 'nic'), ('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', NOW(), 'nic')"
+"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('tasks_token', 'testtoken123'); INSERT INTO ka_souhlasy (id_souhlasu, cas, kategorie) VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', NOW() - INTERVAL 40 MONTH, 'nic'), ('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', NOW(), 'nic')"
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "úklid maže staré záznamy o souhlasech s cookies" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(LEFT(id_souhlasu, 1) ORDER BY id_souhlasu) FROM ka_souhlasy WHERE id_souhlasu IN ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')")" "b"
 echo 'ALTER TABLE ka_neexistuje ADD COLUMN x INT;' > "$WORK/web/system/sql/migrace/0099-rozbita.sql"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '19' WHERE promenna = 'verze_db'"; rm -f "$WORK"/web/storage/cache/stranky/*.html "$WORK/web/storage/cache/migrace-chyba"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '19' WHERE promenna = 'db_version'"; rm -f "$WORK"/web/storage/cache/stranky/*.html "$WORK/web/storage/cache/migrace-chyba"
 check "nepovedená migrace neshodí web" 200 /
 grep -q 'Migrace databáze se nepovedla' "$WORK/web/storage/log/chyby.log" && echo "  ok     nepovedená migrace je v protokolu chyb" || { echo "  CHYBA  nepovedená migrace chybí v protokolu"; ERRORS=$((ERRORS+1)); }
 check "nepovedená migrace nezamkne administraci" 200 "/admin.php" "Aktualizace databáze se nepovedla"
 rm -f "$WORK/web/system/sql/migrace/0099-rozbita.sql"; sed -i.bak "/Migrace databáze se nepovedla/d" "$WORK/web/storage/log/chyby.log"; rm -f "$WORK/web/storage/log/chyby.log.bak"
-expect "migrace, které prošly, zůstanou provedené" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'verze_db'")" "$LAST_MIGRATION"
+expect "migrace, které prošly, zůstanou provedené" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "$LAST_MIGRATION"
 mcp uprav_kolekci '{"kolekce":"tym","nazev":"Nas tym"}' > "$WORK/response"
 grep -q 'Nas tym' "$WORK/response" && grep -q 'medailonek' "$WORK/response" && echo "  ok     MCP: úprava kolekce ponechá pole" || { echo "  CHYBA  MCP uprav_kolekci"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 rm -f "$WORK"/web/storage/cache/stranky/*.html
@@ -649,7 +649,7 @@ check "záložka Koš u stránek" 200 "/admin.php?module=pages&stav=kos" "Kontak
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=restore" -d "_csrf=$TOKEN" -d "ids=$IDS"
 expect "obnovená stránka je skrytá" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', smazano IS NULL) FROM ka_stranky WHERE ids = $IDS")" "0/1"
 IDU=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'o-nas'")
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='$IDU' WHERE promenna='titulni_stranka'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='$IDU' WHERE promenna='home_page'"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=delete" -d "_csrf=$TOKEN" -d "ids=$IDU"
 expect "úvodní stránku nejde smazat" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT smazano IS NULL FROM ka_stranky WHERE ids = $IDU")" "1"
 # rozpracovaná jazyková verze (bez zveřejněného překladu úvodu) se v přepínači, hreflang ani mapě webu nenabízí
@@ -672,7 +672,7 @@ expect "Navigace s vypnutým přepínačem jazyků ho nemá, ostatní navigace a
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_casti WHERE typ = 'hlavicka'"
 mcp stavba_uloz '{"cast":"paticka","publikovat":true,"stavba":{"v":1,"deti":[{"typ":"sekce","znacka":"footer","deti":[{"typ":"udaje","obsah":{"udaj":"copyright"}}]}]}}' > /dev/null
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_stranky WHERE seo_link = 'about-home'"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='0' WHERE promenna='titulni_stranka'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='0' WHERE promenna='home_page'"
 
 echo "== podstránky, plán, historie, šablony, export"
 save_page() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=pages&action=save" -d "_csrf=$TOKEN" "$@"; }
@@ -688,7 +688,7 @@ code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/sluzby-firmy/k
 expect "změna textu uloží předchozí verzi" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT text FROM ka_stranky_revize WHERE ids = $IDR ORDER BY idr DESC LIMIT 1")" "<p>S</p>"
 save_page -d ids=0 --data-urlencode "titulek=Akce" -d v_menu=0 -d "text=<p>A</p>" -d "zverejnit_od=$(date -v+1d '+%Y-%m-%dT%H:%M' 2>/dev/null || date -d '+1 day' '+%Y-%m-%dT%H:%M')" > /dev/null
 expect "naplánovaná stránka čeká skrytá" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', zverejnit_od IS NOT NULL) FROM ka_stranky WHERE seo_link = 'akce'")" "0/1"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zverejnit_od = NOW() - INTERVAL 1 MINUTE WHERE seo_link = 'akce'; UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'oznameni_kontrola'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zverejnit_od = NOW() - INTERVAL 1 MINUTE WHERE seo_link = 'akce'; UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'notification_check'"
 curl -s -o /dev/null "$B/novinky?x=$RANDOM"; sleep 1
 expect "naplánovaná stránka se v čase sama zveřejní" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zobrazit FROM ka_stranky WHERE seo_link = 'akce'")" "1"
 location=$(save_page -d ids=0 --data-urlencode "titulek=Nabídka" -d sablona=landing -d zobrazit=0 -d v_menu=0 -d text=)
@@ -752,9 +752,9 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=roles&acti
 expect "změna role se přenese na členy" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(u.admin, ':', GROUP_CONCAT(p.ident_modulu)) FROM ka_uzivatele u JOIN ka_uzivatele_prava p ON p.fk_id_user = u.idu WHERE u.user = 'obchodnik' GROUP BY u.idu")" "1:enquiries"
 check "přehled rolí" 200 "/admin.php?module=roles" "Obchodník"
 check "uživatelé ukazují vlastní roli" 200 "/admin.php?module=users" "Obchodník"
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('vynutit_2fa', 'spravci') ON DUPLICATE KEY UPDATE hodnota = 'spravci'"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('require_2fa', 'spravci') ON DUPLICATE KEY UPDATE hodnota = 'spravci'"
 code=$(curl -s -b "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/admin.php?module=pages"); case "$code" in "302 "*action=account*) echo "  ok     povinné dvoufázové přihlášení pustí jen do Můj účet";; *) echo "  CHYBA  vynucení 2FA: $code"; ERRORS=$((ERRORS+1));; esac
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'vynutit_2fa'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'require_2fa'"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?action=account" -d "_csrf=$TOKEN" -d co=totp_start
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account"
 grep -q '<svg class="qr"' "$WORK/response" && grep -q 'class="totp-klic"' "$WORK/response" && echo "  ok     zapnutí 2FA ukáže QR kód i klíč k ručnímu zadání" || { echo "  CHYBA  QR kód při zapínání 2FA"; ERRORS=$((ERRORS+1)); }
@@ -811,7 +811,7 @@ done
 grep -q '"BreadcrumbList"' "$WORK/response" && ! grep -q '"FAQPage"' "$WORK/response" && echo "  ok     nové prvky na webu, drobečky i pro vyhledávače, akordeon bez FAQPage" || { echo "  CHYBA  strukturovaná data stránky"; ERRORS=$((ERRORS+1)); }
 
 echo "== další prvky: počítadlo, průběh, hodnocení, odpočet, sítě, hledání, nahoru, odběr, podmínky"
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('soc_instagram','https://instagram.com/firma') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('social_instagram','https://instagram.com/firma') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
 mcp stavba_uloz "{\"id\":$IDZ,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"obsah\":{\"video\":\"media/2026/01/pozadi.mp4\"},\"deti\":[
 {\"typ\":\"pocitadlo\",\"obsah\":{\"cislo\":1200,\"za\":\"+\"}},
 {\"typ\":\"prubeh\",\"obsah\":{\"polozky\":[{\"nazev\":\"Termíny\",\"hodnota\":96}]}},
@@ -844,10 +844,10 @@ curl -s -o "$WORK/response" -X POST "$B/odber?potvrdit=$SUB_TOKEN"; grep -q "Odb
 expect "odběratel je potvrzený" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stav FROM ka_odberatele WHERE email = 'odber@example.cz'")" "1"
 check "odběratelé v administraci" 200 "/admin.php?module=subscribers" "odber@example.cz"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=subscribers&action=csv"; grep -q "odber@example.cz;.*odber?odhlasit=$SUB_TOKEN" "$WORK/response" && echo "  ok     export odběratelů s odkazem na odhlášení" || { echo "  CHYBA  export odběratelů"; head -3 "$WORK/response"; ERRORS=$((ERRORS+1)); }
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = REPLACE(hodnota, 'newsletter,', '') WHERE promenna = 'rozsireni'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = REPLACE(hodnota, 'newsletter,', '') WHERE promenna = 'extensions'"
 check "odhlášení jde i s vypnutým Newsletterem" 200 "/odber?odhlasit=$SUB_TOKEN" "Odhlásit odběr"
 curl -s -o "$WORK/response" -X POST "$B/odber?odhlasit=$SUB_TOKEN"; grep -q "Odhlášeno" "$WORK/response" && echo "  ok     odhlášení tlačítkem" || { echo "  CHYBA  odhlášení"; ERRORS=$((ERRORS+1)); }
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = REPLACE(hodnota, 'poptavky,', 'poptavky,newsletter,') WHERE promenna = 'rozsireni'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = REPLACE(hodnota, 'poptavky,', 'poptavky,newsletter,') WHERE promenna = 'extensions'"
 expect "odhlášený je smazaný" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_odberatele")" "0"
 
 echo "== odběratelé do mailingové služby (falešný server)"
@@ -863,7 +863,7 @@ http_response_code(201); header('Content-Type: application/json'); echo '{}'; re
 PHP
 (cd "$WORK/sluzba" && exec php -S "127.0.0.1:$SERVICE_PORT" router.php > /dev/null 2>&1) & SERVICE_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$SERVICE_PORT/_log" && break; sleep 0.2; done
-set_service() { "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('newsletter_sluzba','$1'),('newsletter_klic','$2'),('newsletter_seznam','$3'),('newsletter_webhook','$4'),('newsletter_test_url','http://127.0.0.1:$SERVICE_PORT'); DELETE FROM ka_odber_fronta; DELETE FROM ka_odberatele; INSERT INTO ka_odberatele (email, stav, token, datum, potvrzeno) VALUES ('sluzba@example.cz', 1, '$(php -r 'echo bin2hex(random_bytes(16));')', NOW(), NOW())"; : > "$WORK/sluzba/pozadavky.log"; }
+set_service() { "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('newsletter_service','$1'),('newsletter_key','$2'),('newsletter_list','$3'),('newsletter_webhook','$4'),('newsletter_test_url','http://127.0.0.1:$SERVICE_PORT'); DELETE FROM ka_odber_fronta; DELETE FROM ka_odberatele; INSERT INTO ka_odberatele (email, stav, token, datum, potvrzeno) VALUES ('sluzba@example.cz', 1, '$(php -r 'echo bin2hex(random_bytes(16));')', NOW(), NOW())"; : > "$WORK/sluzba/pozadavky.log"; }
 subscriber_action() { curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=subscribers"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=subscribers&action=$1" -d "_csrf=$(csrf)" "${@:2}"; }
 last_request() { tail -1 "$WORK/sluzba/pozadavky.log"; }
 set_service brevo brevo-klic 7 ''; subscriber_action synchronizuj
@@ -910,14 +910,14 @@ curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&ta
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=backup" -d "_csrf=$TOKEN"
 BACKUP=$(ls -t "$WORK"/web/storage/zalohy/ 2>/dev/null | grep -v predobnovou | head -1 || true)
 [ -n "$BACKUP" ] && echo "  ok     záloha vytvořena" || { echo "  CHYBA  záloha nevznikla"; ERRORS=$((ERRORS+1)); }
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = 'Po zaloze' WHERE promenna = 'nazev_webu'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = 'Po zaloze' WHERE promenna = 'site_name'"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=restore_backup" -d "_csrf=$TOKEN" -d "soubor=$BACKUP"
-expect "obnova vrátí stav ze zálohy" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota <> 'Po zaloze' FROM ka_nastaveni WHERE promenna = 'nazev_webu'")" "1"
+expect "obnova vrátí stav ze zálohy" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota <> 'Po zaloze' FROM ka_nastaveni WHERE promenna = 'site_name'")" "1"
 BROKEN_BACKUP="kaleta-poskozena.sql"; [[ "$BACKUP" == *.gz ]] && BROKEN_BACKUP="kaleta-poskozena.sql.gz"
 if [[ "$BACKUP" == *.gz ]]; then { gzip -dc "$WORK/web/storage/zalohy/$BACKUP" | head -c 4000 || true; } | gzip > "$WORK/web/storage/zalohy/$BROKEN_BACKUP"; else head -c 4000 "$WORK/web/storage/zalohy/$BACKUP" > "$WORK/web/storage/zalohy/$BROKEN_BACKUP"; fi
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = 'Pred poskozenou' WHERE promenna = 'nazev_webu'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = 'Pred poskozenou' WHERE promenna = 'site_name'"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=restore_backup" -d "_csrf=$TOKEN" -d "soubor=$BROKEN_BACKUP"
-expect "poškozená záloha databázi nezmění" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'nazev_webu'")" "Pred poskozenou"
+expect "poškozená záloha databázi nezmění" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'")" "Pred poskozenou"
 
 echo "== role přes MCP, obnova hesla, zámek účtu"
 SUB_TOKEN2="kaleta_$(printf 'b%.0s' $(seq 1 48))"
@@ -996,8 +996,8 @@ expect "záložní kód jde použít jen jednou" "$(sign_in_2fa "$WORK/jar9" abc
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET totp_tajemstvi = '', totp_zalozni = NULL WHERE user = 'autor'; DELETE FROM ka_kontrola_ip WHERE typ = 'login'"
 
 echo "== vypnutá rozšíření Novinky a Formuláře a poptávky"
-EXTENSIONS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna='rozsireni'")
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='statistika,presmerovani,claude' WHERE promenna='rozsireni'"
+EXTENSIONS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna='extensions'")
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='statistika,presmerovani,claude' WHERE promenna='extensions'"
 rm -f "$WORK"/web/storage/cache/stranky/*.html "$WORK"/web/storage/cache/*.txt 2>/dev/null || true
 check "výpis novinek je pryč" 404 /novinky
 check "novinka je pryč" 404 /novinky/vitejte-v-kalete
@@ -1009,7 +1009,7 @@ expect "odeslání formuláře nejde" "$(curl -s -o /dev/null -w '%{http_code}' 
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"; ! grep -q 'module=news"' "$WORK/response" && ! grep -q 'module=enquiries"' "$WORK/response" && echo "  ok     administrace bez novinek a poptávek" || { echo "  CHYBA  administrace ukazuje vypnutá rozšíření"; ERRORS=$((ERRORS+1)); }
 mcp stavba_schema '{}' > "$WORK/response"; ! grep -q '\\"formular\\":' "$WORK/response" && ! grep -q 'seznam_novinek' <(curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}') \
   && echo "  ok     builder a MCP nenabízejí prvky ani nástroje vypnutých rozšíření" || { echo "  CHYBA  schéma nebo MCP s vypnutými rozšířeními"; ERRORS=$((ERRORS+1)); }
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='$EXTENSIONS' WHERE promenna='rozsireni'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='$EXTENSIONS' WHERE promenna='extensions'"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 
 echo "== old admin URLs of 1.3 (bookmarks, links in e-mails)"
@@ -1048,14 +1048,14 @@ php "$WORK/vydani-test.php" "$WORK/web" "$CHANNEL_PORT"
 for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$CHANNEL_PORT/ok.json" && break; sleep 0.2; done
 echo "# vlastni uprava spravce" >> "$WORK/web/.htaccess"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; TOKEN=$(csrf)
-update_from() { "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('aktualizace_url','http://127.0.0.1:$CHANNEL_PORT/$1') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'aktualizace_cache'"
+update_from() { "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/$1') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'"
   curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN"; }
 update_from zly.json
 [ ! -f "$WORK/web/layout/zakladni/test-aktualizace.txt" ] && echo "  ok     balíček s cizím podpisem se nenainstaluje" || { echo "  CHYBA  nainstalován balíček s neplatným podpisem"; ERRORS=$((ERRORS+1)); }
 update_from ok.json
 [ -f "$WORK/web/layout/zakladni/test-aktualizace.txt" ] && echo "  ok     podepsaná aktualizace se nainstaluje" || { echo "  CHYBA  aktualizace se nenainstalovala"; ERRORS=$((ERRORS+1)); }
 grep -q "vlastni uprava spravce" "$WORK/web/.htaccess" && [ -f "$WORK/web/.htaccess.kaleta-nova" ] && echo "  ok     vlastní .htaccess zůstal, nová verze leží vedle" || { echo "  CHYBA  aktualizace přepsala vlastní .htaccess"; ERRORS=$((ERRORS+1)); }
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('aktualizace_url', 'aktualizace_cache')"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_url', 'update_cache')"
 kill "$CHANNEL_PID" 2>/dev/null || true
 
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi

@@ -32,7 +32,7 @@ final class Appearance extends Module
             'ds' => $ds,
             'contrasts' => DesignSystem::contrasts($ds),
             'presets' => array_map(fn (string $k): array => ['nazev' => DesignSystem::PRESETS[$k][0], 'popis' => DesignSystem::PRESETS[$k][1], 'ds' => DesignSystem::preset($k)], array_combine(array_keys(DesignSystem::PRESETS), array_keys(DesignSystem::PRESETS))),
-            'values' => ['layout' => $siteSettings->get('layout'), 'logo_webu' => $siteSettings->get('logo_webu'), 'favicon' => $siteSettings->get('favicon'), 'tmavy_rezim' => $siteSettings->get('tmavy_rezim'), 'tmavy_prepinac' => $siteSettings->get('tmavy_prepinac'), 'nazev_webu' => $siteSettings->get('nazev_webu')],
+            'values' => ['layout' => $siteSettings->get('layout'), 'logo' => $siteSettings->get('logo'), 'favicon' => $siteSettings->get('favicon'), 'dark_mode' => $siteSettings->get('dark_mode'), 'theme_switcher' => $siteSettings->get('theme_switcher'), 'site_name' => $siteSettings->get('site_name')],
         ]);
     }
 
@@ -46,7 +46,7 @@ final class Appearance extends Module
         if (isset(Layouts::listAll()[$r->post('layout')])) {
             $siteSettings->set('layout', $r->post('layout'));
         }
-        $siteSettings->set('logo_webu', mb_substr($r->post('logo_webu'), 0, 255));
+        $siteSettings->set('logo', mb_substr($r->post('logo'), 0, 255));
         $icon = mb_substr($r->post('favicon'), 0, 255);
         if ($icon !== $siteSettings->get('favicon') || ($icon !== '' && !is_file(KALETA_ROOT . '/media/ikona-180.png'))) {
             // ikony pro telefony a instalaci webu se připraví z ikony jednou při uložení
@@ -56,14 +56,14 @@ final class Appearance extends Module
             }
         }
         $siteSettings->set('favicon', $icon);
-        $siteSettings->set('tmavy_rezim', in_array($r->post('tmavy_rezim'), ['auto', 'tmavy'], true) ? $r->post('tmavy_rezim') : 'vypnuto');
-        $siteSettings->set('tmavy_prepinac', $r->postBool('tmavy_prepinac') ? '1' : '0');
+        $siteSettings->set('dark_mode', in_array($r->post('dark_mode'), ['auto', 'tmavy'], true) ? $r->post('dark_mode') : 'vypnuto');
+        $siteSettings->set('theme_switcher', $r->postBool('theme_switcher') ? '1' : '0');
         $siteSettings->set('design_system', (string) json_encode($this->parseForm(), JSON_UNESCAPED_SLASHES));
-        $siteSettings->set('vzhled_ulozen', '1'); // první kroky: vzhled zvolil správce, ne startovací web
+        $siteSettings->set('appearance_saved', '1'); // první kroky: vzhled zvolil správce, ne startovací web
         // starší klíče Identity: od uložení design systému se nečtou, ať nemate export ani jiné nástroje
-        $siteSettings->set('brand_akcent', '');
-        $siteSettings->set('brand_pismo_titulky', 'vychozi');
-        $siteSettings->set('brand_pismo_text', 'vychozi');
+        $siteSettings->set('brand_accent', '');
+        $siteSettings->set('brand_heading_font', 'vychozi');
+        $siteSettings->set('brand_text_font', 'vychozi');
         \Kaleta\Front\Cache::clear();
 
         return $this->back('Vzhled webu byl uložen.');
@@ -89,7 +89,7 @@ final class Appearance extends Module
             return $this->back('Soubor neobsahuje design tokeny, které by šly použít (čekáme JSON ve formátu DTCG).', '', [], 'chyba');
         }
         $siteSettings->set('design_system', (string) json_encode($ds, JSON_UNESCAPED_SLASHES));
-        $siteSettings->set('vzhled_ulozen', '1');
+        $siteSettings->set('appearance_saved', '1');
         \Kaleta\Front\Cache::clear();
 
         return $this->back('Design tokeny byly načteny.');

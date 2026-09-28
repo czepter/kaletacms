@@ -96,7 +96,7 @@ final class Cache
      */
     public static function text(App $app, string $key, callable $produce): string
     {
-        if (!$app->settings()->bool('cache_stranek')) {
+        if (!$app->settings()->bool('page_cache')) {
             return $produce();
         }
         // přípona .html jen kvůli vymaz() - jakákoli změna v administraci smaže i tyhle soubory
@@ -125,7 +125,7 @@ final class Cache
     {
         $r = $app->request;
         $s = $app->settings();
-        if (!$s->bool('cache_stranek') || $r->isPost()) {
+        if (!$s->bool('page_cache') || $r->isPost()) {
             return null;
         }
         $params = array_filter(array_keys($_GET), fn (int|string $k): bool => !preg_match(self::TRACKING_PARAMS, (string) $k));

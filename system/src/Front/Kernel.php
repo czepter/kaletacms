@@ -60,10 +60,10 @@ final class Kernel
 
     public function __construct(private readonly App $app)
     {
-        $app->request->setOrigin($app->settings()->get('adresa_webu'));
+        $app->request->setOrigin($app->settings()->get('site_url'));
         $app->applyTimezone();
         // po aktualizaci systému (i automatické) se databáze upraví hned při první návštěvě, ne až po přihlášení administrátora
-        if ($app->settings()->int('verze_db') < KALETA_DB_VERSION) {
+        if ($app->settings()->int('db_version') < KALETA_DB_VERSION) {
             // nepovedená migrace nesmí shodit celý web: zapíše se a web běží dál (změny databáze jsou jen přidávající);
             // správce ji uvidí v administraci a může nainstalovat opravu
             \Kaleta\Core\Migration::safe($app->db(), $app->settings());
@@ -109,10 +109,10 @@ final class Kernel
         if (($oauth = (new OAuth($this->app))->handle($request->path())) !== null) {
             return $oauth;
         }
-        if ($this->app->settings()->bool('udrzba') && $request->path() !== '/mcp' && $this->app->auth()->user() === null) {
-            return new Response('<!doctype html><html lang="' . e(Language::code()) . '"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . e($this->app->settings()->get('nazev_webu')) . '</title>'
-                . '<body style="font:18px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;padding:24px;text-align:center"><div><h1 style="font-size:28px">' . e($this->app->settings()->get('nazev_webu'))
-                . '</h1><p>' . e($this->app->settings()->get('udrzba_text')) . '</p></div>', 503, ['Content-Type' => 'text/html; charset=utf-8', 'Retry-After' => '3600']);
+        if ($this->app->settings()->bool('maintenance') && $request->path() !== '/mcp' && $this->app->auth()->user() === null) {
+            return new Response('<!doctype html><html lang="' . e(Language::code()) . '"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . e($this->app->settings()->get('site_name')) . '</title>'
+                . '<body style="font:18px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;padding:24px;text-align:center"><div><h1 style="font-size:28px">' . e($this->app->settings()->get('site_name'))
+                . '</h1><p>' . e($this->app->settings()->get('maintenance_text')) . '</p></div>', 503, ['Content-Type' => 'text/html; charset=utf-8', 'Retry-After' => '3600']);
         }
         // stará číselná adresa WordPressu /?p=123 (po importu): její cesta je hlavní stránka, která existuje vždy, takže by se na
         // přesměrování při chybě 404 nikdy nedostalo – hledá se proto podle parametru, ještě před cache
@@ -144,7 +144,7 @@ final class Kernel
         if (preg_match('#^/novinky/stitek/([a-z0-9-]+)$#', $path, $m)) {
             return $this->tag($m[1]);
         }
-        if (preg_match('#^/novinky/([a-z0-9-]+)\.md$#', $path, $m) && $this->app->settings()->bool('markdown_clanky')) {
+        if (preg_match('#^/novinky/([a-z0-9-]+)\.md$#', $path, $m) && $this->app->settings()->bool('markdown_news')) {
             $newsItem = $this->news->bySlug($m[1]);
 
             return $newsItem === null
@@ -184,7 +184,7 @@ final class Kernel
         if ($path === '/llms.txt' && $this->app->settings()->bool('llms_txt')) {
             return new Response(Cache::text($this->app, 'llms|' . Language::siteColumn(), $seo->llmsTxt(...)), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
         }
-        $indexNowKey = $this->app->settings()->get('indexnow_klic');
+        $indexNowKey = $this->app->settings()->get('indexnow_key');
         if ($indexNowKey !== '' && $path === '/' . $indexNowKey . '.txt') {
             return new Response($indexNowKey, 200, ['Content-Type' => 'text/plain; charset=utf-8']);
         }
@@ -192,7 +192,7 @@ final class Kernel
             // evidence souhlasu s cookies: bez IP adresy, jen náhodný identifikátor z cookie návštěvníka
             $category = implode(',', array_intersect(explode(',', $request->post('kategorie')), ['analytika', 'marketing'])) ?: 'nic';
             $antispam = new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings());
-            if ($this->app->settings()->bool('cookies_evidence') && preg_match('/^[a-f0-9]{32}$/', $request->post('id')) && $antispam->count($request->ip(), 'souhlas', 0, 60) < 20) {
+            if ($this->app->settings()->bool('cookies_log') && preg_match('/^[a-f0-9]{32}$/', $request->post('id')) && $antispam->count($request->ip(), 'souhlas', 0, 60) < 20) {
                 $antispam->write($request->ip(), 'souhlas', 0);
                 $this->app->db()->insert('souhlasy', ['id_souhlasu' => $request->post('id'), 'cas' => date('Y-m-d H:i:s'), 'kategorie' => $category]);
             }
@@ -237,7 +237,7 @@ final class Kernel
         }
         if ($path === '/ulohy') {
             // úlohy na pozadí pro cron: weby s malou návštěvností tak vydají naplánovanou novinku a odešlou poštu včas
-            $token = $this->app->settings()->get('ulohy_token');
+            $token = $this->app->settings()->get('tasks_token');
             if ($token === '' || !hash_equals($token, $request->get('token'))) {
                 return new Response(t('Neplatný token.') . "\n", 403, ['Content-Type' => 'text/plain; charset=utf-8']);
             }
@@ -257,7 +257,7 @@ final class Kernel
             return new Response('OK ' . date('c') . ' ' . implode(', ', $done) . "\n", 200, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
         }
         if ($path === '/stav.json') {
-            $token = $this->app->settings()->get('stav_token');
+            $token = $this->app->settings()->get('health_token');
             if ($token === '' || !hash_equals($token, $request->get('token'))) {
                 return Response::json(['chyba' => 'Neplatný token.'], 403);
             }
@@ -406,7 +406,7 @@ final class Kernel
     /** Číslo úvodní stránky v jazyce zobrazené verze webu (protějšek stránky z Nastavení); 0 = úvodem je výpis novinek. */
     private function homePageId(): int
     {
-        $id = $this->app->settings()->int('titulni_stranka');
+        $id = $this->app->settings()->int('home_page');
         if ($id === 0 || Language::siteColumn() === '') {
             return $id;
         }
@@ -446,7 +446,7 @@ final class Kernel
         // titulek a údaje pro vyhledávače a sdílení (vlastní titulek, obrázek, noindex – jako u novinek)
         $title = $page['seo_titulek'] !== '' ? $page['seo_titulek'] : ($home ? '' : $page['titulek']);
         $meta = [
-            'popis' => $page['popis'] !== '' ? $page['popis'] : ($home ? $this->app->settings()->get('popis_webu') : ''),
+            'popis' => $page['popis'] !== '' ? $page['popis'] : ($home ? $this->app->settings()->get('site_description') : ''),
             'hlavni' => $home, 'obrazek' => $page['obrazek'], 'noindex' => (bool) $page['noindex'],
         ];
         // náhled rozpracované stavby pro editor: ?stavba=koncept (jen kdo smí upravovat stránky), &editor=1 přidá značky pro výběr prvků
@@ -483,7 +483,7 @@ final class Kernel
 
         return $this->page($home ? '' : t('Novinky'), $this->view->render('vypis', ['nadpis' => t('Novinky'), 'popis' => ''] + $this->listVariables($news, $total, $pageNumber, $home ? '' : 'novinky')), [
             'hlavni' => $home,
-            'popis' => $this->app->settings()->get('popis_webu'),
+            'popis' => $this->app->settings()->get('site_description'),
             'cast' => 'vypis',
         ]);
     }
@@ -558,7 +558,7 @@ final class Kernel
         $content = $this->view->render('novinka', [
             'novinka' => $newsItem,
             'url' => $this->app->url(...),
-            'souvisejici' => $this->app->settings()->bool('souvisejici_auto') ? $this->news->similar($newsItem) : [],
+            'souvisejici' => $this->app->settings()->bool('related_news_auto') ? $this->news->similar($newsItem) : [],
         ]);
 
         return $this->page($newsItem['seo_titulek'] !== '' ? $newsItem['seo_titulek'] : $newsItem['titulek'], $content, [
@@ -970,8 +970,8 @@ final class Kernel
         $languages = $this->languages($newsItem);
         $languageSwitcher = $languages === [] ? '' : $this->view->render('jazyky', ['jazyky' => $languages]);
         // přepínač světlý / tmavý vzhled pro návštěvníky – vedle jazyků (šablona, prvek Navigace)
-        $colorScheme = in_array($this->app->settings()->get('tmavy_rezim'), ['auto', 'tmavy'], true) && $this->app->settings()->bool('tmavy_prepinac')
-            ? $this->view->render('tema', ['vychozi' => $this->app->settings()->get('tmavy_rezim') === 'tmavy' ? 'tmavy' : 'auto']) : '';
+        $colorScheme = in_array($this->app->settings()->get('dark_mode'), ['auto', 'tmavy'], true) && $this->app->settings()->bool('theme_switcher')
+            ? $this->view->render('tema', ['vychozi' => $this->app->settings()->get('dark_mode') === 'tmavy' ? 'tmavy' : 'auto']) : '';
         $languagesHtml = $languageSwitcher . $colorScheme;
         // prvky builderu: Navigace přidá přepínač jazyků (volitelně) a vzhledu, Přepínač jazyků skládá z tohoto seznamu
         $this->context()->languageList = $languages;
@@ -985,7 +985,7 @@ final class Kernel
         $html = $this->view->render('base', [
             'web' => $siteSettings,
             'titulek' => $title,
-            'meta' => $meta + ['hlavni' => false, 'popis' => '', 'klicova_slova' => $siteSettings->get('klicova_slova'), 'obrazek' => '', 'typ' => 'website', 'noindex' => false],
+            'meta' => $meta + ['hlavni' => false, 'popis' => '', 'klicova_slova' => $siteSettings->get('keywords'), 'obrazek' => '', 'typ' => 'website', 'noindex' => false],
             'obsah' => $content,
             'hlava' => $seo->head($title, $meta + ['jazyky' => $languages], $newsItem),
             'pata' => $seo->foot() . $popups . ($this->editHereUrl !== '' ? '<a class="ka-upravit-zde" href="' . e($this->editHereUrl) . '">' . e(t('Upravit zde')) . '</a>' : ''),

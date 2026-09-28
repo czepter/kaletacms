@@ -40,7 +40,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 
 ## Web (front)
 
-- `Front\Kernel`: `/` = úvodní stránka (nastavení `titulni_stranka`, v jazykové verzi její protějšek `preklad_z`), bez ní výpis novinek;
+- `Front\Kernel`: `/` = úvodní stránka (nastavení `home_page`, v jazykové verzi její protějšek `preklad_z`), bez ní výpis novinek;
   úvodní stránka na své vlastní adrese přesměruje 301 na `/`. Novinky na `/novinky`, `/novinky/<seo>` (+ `.md`), `/novinky/kategorie/<seo>`,
   `/novinky/stitek/<seo>`. Stránky na `/<seo>` – vyhrazené adresy `Modules\Pages::RESERVED_SLUGS`.
 - **Layout** = `layout/<složka>/base.php` + `style.css` + `info.php`; může přepsat kterýkoli pohled z `system/views/front/`
@@ -49,7 +49,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   Barvy, písma, škálu a rozměry ber z tokenů design systému (`--ka-barva-*`, `--ka-krok-*`, `--ka-mezera-*`, `--ka-sirka`…) s vlastní výchozí hodnotou.
   **Vrstvy kaskády** celého webu: `@layer tokeny, spolecne, sablona, stavitel, tridy, prvky;` (`DesignSystem::LAYERS`) – šablona píše do `sablona`,
   nic nevrstveného (to by přebilo vše) a bez `!important`.
-- **Tmavý režim:** `<html data-tmavy>` podle `tmavy_rezim`, v CSS `@media (prefers-color-scheme: dark) { :root[data-tmavy] { … } }`.
+- **Tmavý režim:** `<html data-tmavy>` podle `dark_mode`, v CSS `@media (prefers-color-scheme: dark) { :root[data-tmavy] { … } }`.
 - **Společné prvky** (galerie, prohlížečka fotek, video, osnova, sdílení, FAQ, úprava na webu) mají styl a skript v `image/web.css` a `image/web.js`
   (vkládá `Seo::head()`); pravidla v `:where()` s nulovou vahou, aby je šablona přebila. Doplňky textu novinky vkládá `Front\NewsText`.
 - **Texty webu přes `t('Česky')`** (`Core\Language`, slovníky `system/jazyky/<kód>.php`; administrace `admin-<kód>.php`, instalátor
@@ -59,7 +59,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   vypisující obsah filtruje `Language::siteColumn()`. `App::url()` přidává `/en/` jen adresám bez přípony (soubory, `api/`, `mcp` jsou společné).
 - **Cache stránek** (`Front\Cache`): jen pro nepřihlášené; každý POST v administraci volá `Cache::clear()`. `Auth::user()` nesmí na webu
   založit session anonymnímu návštěvníkovi.
-- **Adresa webu je nastavení `adresa_webu`,** ne hlavička Host – absolutní adresy ber z `$app->request->origin()`.
+- **Adresa webu je nastavení `site_url`,** ne hlavička Host – absolutní adresy ber z `$app->request->origin()`.
 - **Obrázky:** varianty a WebP vznikají v `Core\Images::save()`, `srcset` doplňuje `Front\NewsRepository::prepare()`, rozměry `Front\ImageHtml::complete()`.
 - **Výpisy novinek nenačítají dlouhé texty** (`Front\NewsRepository::LIST_COLUMNS`) – nový sloupec pro výpis doplň i tam.
 - **Úprava přímo na webu** (`Kernel::editInPlace()`, `views/front/upravit.php`): „Upravit zde“ pro přihlášené s právem; ukládají akce
@@ -106,7 +106,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 - **Formuláře** (prvek `formular`, `Front\Forms` na `POST /formular`): pole a příjemce se berou z PUBLIKOVANÉ stavby podle `zdroj` + id prvku,
   nikdy z požadavku. Ochrana `Core\Antispam` (podpis času, honeypot, limit na IP) – bez cookies, stránka zůstává v cache. Výsledek jen jako kód
   v adrese (`?formular=<id>&vysledek=ok|pole|limit|overeni`), text hlášení nikdy z adresy. Poptávky v `ka_poptavky` (admin `Modules\Enquiries`,
-  CSV, samy se mažou po `poptavky_mesice`), upozornění přes `Mail::send` s Reply-To návštěvníka.
+  CSV, samy se mažou po `enquiries_months`), upozornění přes `Mail::send` s Reply-To návštěvníka.
 - **HTML → stavba** (`Builder\HtmlConverter`, MCP `stavba_z_html`): sémantické HTML + `<style>` s pravidly jedné třídy → prvky a třídy; `.trida:hover` a `@media (max-width: 1023px|767px)`
   se převedou na stavy třídy (`Style::fromCss` – deklarace s obdobou ve stylu builderu). Prvek se stylovanou třídou nedostane výchozí styl typu (vrstva `prvky` je
   v kaskádě za `tridy` a přebila by ji). Co převést nejde (mobile-first `min-width`, složité selektory), se nahlásí.
@@ -118,10 +118,10 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 - **Hledání** přes `ka_novinky.hledani` (`Core\Search`): kdo ukládá novinku jinudy než administrací nebo MCP, volá `Search::index()`.
 - **Oznámení o vydání** (webhook, IndexNow) jen přes `Core\Notifications::process()` a sloupec `oznameno`.
 - **Pošta** vždy přes `Core\Mail::send()` (fronta `ka_posta`). **Nahrávání:** obrázky `Core\Images`, přílohy `Core\Files` (whitelist přípon).
-- **Čas:** pásmo `casove_pasmo` (`App::applyTimezone()`); zapisuj přes `date()`, porovnávej s `NOW()`.
-- **AI asistent** (`Core\Assistant`): poskytovatel `ai_poskytovatel` (anthropic | openai | google | mistral, pevné adresy v `PROVIDERS`),
+- **Čas:** pásmo `time_zone` (`App::applyTimezone()`); zapisuj přes `date()`, porovnávej s `NOW()`.
+- **AI asistent** (`Core\Assistant`): poskytovatel `ai_provider` (anthropic | openai | google | mistral, pevné adresy v `PROVIDERS`),
   uvnitř se pracuje s tvarem Claude API a `call()` ho převádí (`naOpenAi`/`zOpenAi`). V builderu `suggestSection()` (HTML → `HtmlConverter::saveToSite`) a `rewrite()`.
-  Klíč `ai_klic` je typ `tajne`; odpověď modelu je nedůvěryhodný vstup. Překlad (`Assistant::translate()`) bere od modelu
+  Klíč `ai_key` je typ `tajne`; odpověď modelu je nedůvěryhodný vstup. Překlad (`Assistant::translate()`) bere od modelu
   jen text úseků, značky z originálu; výsledek je vždy koncept. Adresa API jen konstantou `KALETA_AI_URL` v `config.php`.
 - **MCP** (`Mcp\Server`, `Mcp\Tools`, `/mcp`, OAuth nebo token z Můj účet) je hlavní cesta, jak se na Kaletě stavějí weby – co jde v editoru, musí jít i tady:
   stránky (i builder: `stavba_schema` – stručný přehled `Build::overview`, `stavba_z_html`, `stavba_nacti` – `Build::compact`, `stavba_uloz`, `stavba_uprav` –
@@ -132,7 +132,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   `build_from_html`, `save_build`…); `Tools` dál implementuje nástroje česky a `Translator` překládá vstup i výstup. České názvy jsou skryté aliasy
   a chovají se jako dřív – existující napojení se nerozbijí. Datový model builderu (JSON stavby, `stavba_schema`, klíče design systému) se nepřekládá.
   Nový nástroj nebo parametr = záznam v `Translator::TOOLS`, nové hlášení = `MESSAGES`/`MESSAGE_PATTERNS`; hlídá to `tools/unit-tests.php`.
-  Zápis stavby vrací podepsaný náhled (`Core\Preview`, `?stavba=koncept&nahled_klic=`, HMAC `tajny_klic`, jen jeden cíl, omezená platnost). Nová novinka
+  Zápis stavby vrací podepsaný náhled (`Core\Preview`, `?stavba=koncept&nahled_klic=`, HMAC `secret_key`, jen jeden cíl, omezená platnost). Nová novinka
   je koncept, nová stránka skrytá; vydat/zveřejnit jen na výslovný pokyn a s právem. **Hranice (bezpečí na prvním místě):** žádný nástroj nesmí zapisovat mimo obsah
   spouštět kód ani dotaz (statickou kontrolu PHP nejde udělat neprůstřelnou, proto MCP šablony vůbec nemění). Pravidla pro Claude v souborech: `layout/CLAUDE.md`.
 - **Přihlášení:** hesla `password_hash`, TOTP, passkeys (`Core\Passkey`, jen jako náhrada kódu u účtu s TOTP), obnova hesla `Admin\PasswordReset`.

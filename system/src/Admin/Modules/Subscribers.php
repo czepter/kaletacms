@@ -30,7 +30,7 @@ final class Subscribers extends Module
             'subscribers' => $this->db->all('SELECT * FROM {odberatele}' . $whereParts . ' ORDER BY ido DESC LIMIT 100 OFFSET ' . (($pageNumber - 1) * 100), $params),
             'total' => (int) $this->db->value('SELECT COUNT(*) FROM {odberatele}' . $whereParts, $params),
             'confirmed' => (int) $this->db->value('SELECT COUNT(*) FROM {odberatele} WHERE stav = 1'),
-            'service' => \Kaleta\Core\Newsletter::isEnabled($this->app->settings()) ? $this->app->settings()->get('newsletter_sluzba') : '',
+            'service' => \Kaleta\Core\Newsletter::isEnabled($this->app->settings()) ? $this->app->settings()->get('newsletter_service') : '',
             'queue' => $this->db->one('SELECT SUM(dalsi IS NOT NULL) AS ceka, SUM(dalsi IS NULL) AS chyby FROM {odber_fronta}') ?? ['ceka' => 0, 'chyby' => 0],
             'search' => $search, 'pageNumber' => $pageNumber,
         ]);

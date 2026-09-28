@@ -51,18 +51,18 @@ final class CompanyDetails extends Element
         $wrapper = fn (string $html): string => $html === '' && !$k->editor ? '' : '<' . $z . Text::withClass($a, 'ka-udaj') . '>' . ($html !== '' ? $html : e(t('(doplňte v Nastavení → Firma)'))) . '</' . $z . '>';
 
         return match ($p['obsah']['udaj']) {
-            'copyright' => $wrapper('&copy; ' . date('Y') . ' ' . e($siteSettings->get('nazev_webu'))),
-            'nazev' => $wrapper(e($siteSettings->get('nazev_webu'))),
-            'popis' => $wrapper(e($siteSettings->get('popis_webu'))),
-            'text_paticky' => $wrapper(e($siteSettings->get('text_paticky'))),
-            'email' => $wrapper(($mail = $siteSettings->get('firma_email')) !== '' ? '<a href="mailto:' . e($mail) . '">' . e($mail) . '</a>' : ''),
+            'copyright' => $wrapper('&copy; ' . date('Y') . ' ' . e($siteSettings->get('site_name'))),
+            'nazev' => $wrapper(e($siteSettings->get('site_name'))),
+            'popis' => $wrapper(e($siteSettings->get('site_description'))),
+            'text_paticky' => $wrapper(e($siteSettings->get('footer_text'))),
+            'email' => $wrapper(($mail = $siteSettings->get('company_email')) !== '' ? '<a href="mailto:' . e($mail) . '">' . e($mail) . '</a>' : ''),
             'rss' => \Kaleta\Core\Extensions::isEnabled($siteSettings, 'novinky') ? $wrapper('<a href="' . e($k->url('rss.xml')) . '">RSS</a>') : '', // bez novinek RSS není
             'adresa' => $wrapper(implode('<br>', array_map(e(...), \Kaleta\Front\Company::address($siteSettings)))),
-            'telefon' => $wrapper($siteSettings->get('firma_telefon') !== '' ? '<a href="tel:' . e((string) preg_replace('/[^\d+]/', '', $siteSettings->get('firma_telefon'))) . '">' . e($siteSettings->get('firma_telefon')) . '</a>' : ''),
-            'mapa' => $wrapper($siteSettings->get('firma_mapa') !== '' ? '<a href="' . e($siteSettings->get('firma_mapa')) . '" target="_blank" rel="noopener">' . e(t('Zobrazit na mapě')) . '</a>' : ''),
+            'telefon' => $wrapper($siteSettings->get('company_phone') !== '' ? '<a href="tel:' . e((string) preg_replace('/[^\d+]/', '', $siteSettings->get('company_phone'))) . '">' . e($siteSettings->get('company_phone')) . '</a>' : ''),
+            'mapa' => $wrapper($siteSettings->get('company_map') !== '' ? '<a href="' . e($siteSettings->get('company_map')) . '" target="_blank" rel="noopener">' . e(t('Zobrazit na mapě')) . '</a>' : ''),
             'firma' => $wrapper(implode('<br>', array_map(e(...), array_filter([
-                $siteSettings->get('firma_nazev'),
-                trim(($siteSettings->get('firma_ico') !== '' ? t('IČO') . ' ' . $siteSettings->get('firma_ico') : '') . ($siteSettings->get('firma_dic') !== '' ? ', ' . t('DIČ') . ' ' . $siteSettings->get('firma_dic') : ''), ', '),
+                $siteSettings->get('company_name'),
+                trim(($siteSettings->get('company_id') !== '' ? t('IČO') . ' ' . $siteSettings->get('company_id') : '') . ($siteSettings->get('company_vat_id') !== '' ? ', ' . t('DIČ') . ' ' . $siteSettings->get('company_vat_id') : ''), ', '),
             ])))),
             'hodiny' => ($rows = \Kaleta\Front\Company::openingHoursLines($siteSettings)) !== []
                 ? '<ul' . Text::withClass($a, 'ka-hodiny') . '>' . implode('', array_map(fn (string $r): string => '<li>' . e($r) . '</li>', $rows)) . '</ul>'
@@ -79,15 +79,15 @@ final class CompanyDetails extends Element
      */
     private static function imprint(\Kaleta\Core\Settings $siteSettings, string $a, Context $k): string
     {
-        $phone = $siteSettings->get('firma_telefon');
-        $mail = $siteSettings->get('firma_email');
+        $phone = $siteSettings->get('company_phone');
+        $mail = $siteSettings->get('company_email');
         $rows = array_filter([
-            t('Provozovatel') => e($siteSettings->get('firma_nazev') !== '' ? $siteSettings->get('firma_nazev') : $siteSettings->get('nazev_webu')),
+            t('Provozovatel') => e($siteSettings->get('company_name') !== '' ? $siteSettings->get('company_name') : $siteSettings->get('site_name')),
             t('Sídlo') => implode('<br>', array_map(e(...), \Kaleta\Front\Company::address($siteSettings))),
-            t('IČO') => e($siteSettings->get('firma_ico')),
-            t('DIČ') => e($siteSettings->get('firma_dic')),
-            t('Zápis v rejstříku') => e($siteSettings->get('firma_rejstrik')),
-            t('Zastoupení') => e($siteSettings->get('firma_zastupce')),
+            t('IČO') => e($siteSettings->get('company_id')),
+            t('DIČ') => e($siteSettings->get('company_vat_id')),
+            t('Zápis v rejstříku') => e($siteSettings->get('company_register')),
+            t('Zastoupení') => e($siteSettings->get('company_representative')),
             t('Telefon') => $phone !== '' ? '<a href="tel:' . e((string) preg_replace('/[^\d+]/', '', $phone)) . '">' . e($phone) . '</a>' : '',
             t('E-mail') => $mail !== '' ? '<a href="mailto:' . e($mail) . '">' . e($mail) . '</a>' : '',
         ], fn (string $h): bool => $h !== '');
@@ -100,7 +100,7 @@ final class CompanyDetails extends Element
 
     private static function networks(\Kaleta\Core\Settings $siteSettings, string $a, Context $k): string
     {
-        $networks = array_filter(['LinkedIn' => $siteSettings->get('soc_linkedin'), 'Facebook' => $siteSettings->get('soc_facebook'), 'Instagram' => $siteSettings->get('soc_instagram'), 'YouTube' => $siteSettings->get('soc_youtube'), 'X' => $siteSettings->get('soc_x')]);
+        $networks = array_filter(['LinkedIn' => $siteSettings->get('social_linkedin'), 'Facebook' => $siteSettings->get('social_facebook'), 'Instagram' => $siteSettings->get('social_instagram'), 'YouTube' => $siteSettings->get('social_youtube'), 'X' => $siteSettings->get('social_x')]);
         if ($networks === []) {
             return $k->editor ? '<p' . $a . '>' . e(t('Sociální sítě doplníte v Nastavení.')) . '</p>' : '';
         }

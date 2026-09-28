@@ -116,7 +116,7 @@ final class Forms
         if (!empty($element['obsah']['potvrzeni']) && $email !== '') {
             // potvrzení odesílateli: jen poděkování a název formuláře – obsah zprávy ne, aby formulář nešel zneužít k rozesílání cizích textů
             $siteSettings = $this->app->settings();
-            Mail::send($siteSettings, $email, t('Potvrzení: %s', $siteSettings->get('nazev_webu')), $element['obsah']['dekujeme'] . "\n\n—\n" . $siteSettings->get('nazev_webu') . "\n" . rtrim($siteSettings->get('adresa_webu') ?: $r->origin(), '/'), '');
+            Mail::send($siteSettings, $email, t('Potvrzení: %s', $siteSettings->get('site_name')), $element['obsah']['dekujeme'] . "\n\n—\n" . $siteSettings->get('site_name') . "\n" . rtrim($siteSettings->get('site_url') ?: $r->origin(), '/'), '');
         }
         $thankYouUrl = (string) ($element['obsah']['dekovna'] ?? '');
         // „/\cizi.cz“ prohlížeč chápe jako //cizi.cz – zpětné lomítko v adrese děkovné stránky neprojde
@@ -205,14 +205,14 @@ final class Forms
     private function notify(int $idp, array $element, array $data, string $email, string $campaign): void
     {
         $siteSettings = $this->app->settings();
-        $recipient = filter_var($element['obsah']['prijemce'], FILTER_VALIDATE_EMAIL) !== false ? $element['obsah']['prijemce'] : $siteSettings->get('email_webu');
+        $recipient = filter_var($element['obsah']['prijemce'], FILTER_VALIDATE_EMAIL) !== false ? $element['obsah']['prijemce'] : $siteSettings->get('site_email');
         if ($recipient === '') {
             return; // poptávka je uložená v administraci i bez e-mailu
         }
-        $url = rtrim($siteSettings->get('adresa_webu') !== '' ? $siteSettings->get('adresa_webu') : $this->app->request->origin(), '/');
+        $url = rtrim($siteSettings->get('site_url') !== '' ? $siteSettings->get('site_url') : $this->app->request->origin(), '/');
         $text = implode("\n\n", array_map(fn (array $d): string => $d[0] . ":\n" . $d[1], $data))
             . ($campaign !== '' ? "\n\n" . t('Kampaň') . ":\n" . self::campaignText($campaign) : '')
             . "\n\n—\n" . t('Poptávka v administraci: %s', $url . $this->app->url('admin.php?module=enquiries&action=detail&id=' . $idp));
-        Mail::send($siteSettings, $recipient, t('%s: %s', $element['obsah']['nazev'], $siteSettings->get('nazev_webu')), $text, '', $email !== '' ? ['Reply-To' => $email] : []);
+        Mail::send($siteSettings, $recipient, t('%s: %s', $element['obsah']['nazev'], $siteSettings->get('site_name')), $text, '', $email !== '' ? ['Reply-To' => $email] : []);
     }
 }

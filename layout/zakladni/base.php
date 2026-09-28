@@ -20,17 +20,17 @@
  * @var callable(list<array<string, mixed>>, string, string): string $menu_html  položky menu jako <li> (Core\Menu::html: položky, cesta stránky, adresa úvodu)
  * @var array{hlavicka: ?string, paticka: ?string} $casti  záhlaví a patička z builderu (Vzhled → Části webu); null = kreslí je layout
  */
-$nazevWebu = $web->get('nazev_webu');
+$nazevWebu = $web->get('site_name');
 $cesta = (string) parse_url($kanonicka, PHP_URL_PATH);
 $jeAktivni = fn (string $odkaz): bool => $odkaz === '' ? $cesta === $url('') : ($cesta === $url($odkaz) || str_starts_with($cesta, $url($odkaz) . '/'));
-$site = array_filter(['LinkedIn' => $web->get('soc_linkedin'), 'Facebook' => $web->get('soc_facebook'), 'Instagram' => $web->get('soc_instagram'), 'YouTube' => $web->get('soc_youtube'), 'X' => $web->get('soc_x')]);
+$site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => $web->get('social_facebook'), 'Instagram' => $web->get('social_instagram'), 'YouTube' => $web->get('social_youtube'), 'X' => $web->get('social_x')]);
 ?>
 <!doctype html>
-<?php $tmavy = in_array($web->get('tmavy_rezim'), ['auto', 'tmavy'], true); ?>
-<html lang="<?= e($jazyk ?? 'cs') ?>"<?= $tmavy ? ' data-tmavy' : '' ?><?= $web->get('tmavy_rezim') === 'tmavy' ? ' data-tema="tmavy"' : '' ?>>
+<?php $tmavy = in_array($web->get('dark_mode'), ['auto', 'tmavy'], true); ?>
+<html lang="<?= e($jazyk ?? 'cs') ?>"<?= $tmavy ? ' data-tmavy' : '' ?><?= $web->get('dark_mode') === 'tmavy' ? ' data-tema="tmavy"' : '' ?>>
 <head>
 <meta charset="utf-8">
-<?php if ($tmavy && $web->get('tmavy_prepinac') === '1'): ?>
+<?php if ($tmavy && $web->get('theme_switcher') === '1'): ?>
 <script>try{var t=localStorage.getItem('ka-tema'),r=document.documentElement;if(t==='auto')r.removeAttribute('data-tema');else if(t==='svetly'||t==='tmavy')r.setAttribute('data-tema',t)}catch(e){}</script>
 <?php endif ?>
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -63,7 +63,7 @@ $site = array_filter(['LinkedIn' => $web->get('soc_linkedin'), 'Facebook' => $we
 <?php else: ?>
 <header class="hlavicka">
 	<div class="obal hlavicka-obal">
-		<a class="logo" href="<?= e($url('')) ?>"<?= $jeAktivni('') ? ' aria-current="page"' : '' ?>><?php if ($web->get('logo_webu') !== ''): ?><img src="<?= e(preg_match('#^(https?:)?/#', $web->get('logo_webu')) ? $web->get('logo_webu') : $url($web->get('logo_webu'))) ?>" alt="<?= e($nazevWebu) ?>"><?php else: ?><?= e($nazevWebu) ?><?php endif ?></a>
+		<a class="logo" href="<?= e($url('')) ?>"<?= $jeAktivni('') ? ' aria-current="page"' : '' ?>><?php if ($web->get('logo') !== ''): ?><img src="<?= e(preg_match('#^(https?:)?/#', $web->get('logo')) ? $web->get('logo') : $url($web->get('logo'))) ?>" alt="<?= e($nazevWebu) ?>"><?php else: ?><?= e($nazevWebu) ?><?php endif ?></a>
 		<button class="menu-tl" type="button" popovertarget="navigace" aria-label="<?= e(t('Menu')) ?>"><span aria-hidden="true"></span></button>
 		<nav class="navigace" id="navigace" popover aria-label="<?= e(t('Hlavní navigace')) ?>">
 			<ul>
@@ -84,14 +84,14 @@ $site = array_filter(['LinkedIn' => $web->get('soc_linkedin'), 'Facebook' => $we
 	<div class="obal paticka-obal">
 		<div>
 			<strong><?= e($nazevWebu) ?></strong>
-<?php if ($web->get('popis_webu') !== ''): ?>
-			<p><?= e($web->get('popis_webu')) ?></p>
+<?php if ($web->get('site_description') !== ''): ?>
+			<p><?= e($web->get('site_description')) ?></p>
 <?php endif ?>
-<?php if ($web->get('text_paticky') !== ''): ?>
-			<p><?= e($web->get('text_paticky')) ?></p>
+<?php if ($web->get('footer_text') !== ''): ?>
+			<p><?= e($web->get('footer_text')) ?></p>
 <?php endif ?>
-<?php if ($web->get('firma_email') !== ''): ?>
-			<p><a href="mailto:<?= e($web->get('firma_email')) ?>"><?= e($web->get('firma_email')) ?></a></p>
+<?php if ($web->get('company_email') !== ''): ?>
+			<p><a href="mailto:<?= e($web->get('company_email')) ?>"><?= e($web->get('company_email')) ?></a></p>
 <?php endif ?>
 		</div>
 		<nav aria-label="<?= e(t('Odkazy v patičce')) ?>">

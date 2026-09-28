@@ -8,9 +8,9 @@ echo '<?xml version="1.0" encoding="utf-8"?>' . "\n";
 ?>
 <rss version="2.0">
 <channel>
-	<title><?= e($web->get('nazev_webu')) ?></title>
+	<title><?= e($web->get('site_name')) ?></title>
 	<link><?= e($adresa) ?></link>
-	<description><?= e($web->get('popis_webu')) ?></description>
+	<description><?= e($web->get('site_description')) ?></description>
 	<language><?= e(\Kaleta\Core\Language::code()) ?></language>
 	<generator>Kaleta <?= e(KALETA_VERSION) ?></generator>
 <?php foreach ($novinky as $c): ?>

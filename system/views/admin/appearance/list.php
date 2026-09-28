@@ -86,11 +86,11 @@ $tabs = ['styl' => 'Styl', 'barvy' => 'Barvy', 'tmavy' => 'Tmavý režim', 'pism
 <fieldset>
 <legend><?= e(t('Tmavý režim')) ?></legend>
 <div class="volby">
-	<label><input type="radio" name="tmavy_rezim" value="vypnuto" data-prepni="tmave:0"<?= !in_array($values['tmavy_rezim'], ['auto', 'tmavy'], true) ? ' checked' : '' ?>> <?= e(t('vypnutý – web je vždy světlý')) ?></label><br>
-	<label><input type="radio" name="tmavy_rezim" value="auto" data-prepni="tmave:1"<?= $values['tmavy_rezim'] === 'auto' ? ' checked' : '' ?>> <?= e(t('podle zařízení návštěvníka')) ?></label><br>
-	<label><input type="radio" name="tmavy_rezim" value="tmavy" data-prepni="tmave:1"<?= $values['tmavy_rezim'] === 'tmavy' ? ' checked' : '' ?>> <?= e(t('vždy tmavý')) ?></label>
+	<label><input type="radio" name="dark_mode" value="vypnuto" data-prepni="tmave:0"<?= !in_array($values['dark_mode'], ['auto', 'tmavy'], true) ? ' checked' : '' ?>> <?= e(t('vypnutý – web je vždy světlý')) ?></label><br>
+	<label><input type="radio" name="dark_mode" value="auto" data-prepni="tmave:1"<?= $values['dark_mode'] === 'auto' ? ' checked' : '' ?>> <?= e(t('podle zařízení návštěvníka')) ?></label><br>
+	<label><input type="radio" name="dark_mode" value="tmavy" data-prepni="tmave:1"<?= $values['dark_mode'] === 'tmavy' ? ' checked' : '' ?>> <?= e(t('vždy tmavý')) ?></label>
 </div>
-<div class="vzhled-barvy" data-sekce="tmave"<?= !in_array($values['tmavy_rezim'], ['auto', 'tmavy'], true) ? ' hidden' : '' ?>>
+<div class="vzhled-barvy" data-sekce="tmave"<?= !in_array($values['dark_mode'], ['auto', 'tmavy'], true) ? ' hidden' : '' ?>>
 <?php foreach (['text' => 'Text', 'pozadi' => 'Pozadí', 'plocha' => 'Plocha'] as $key => $name): ?>
 	<label class="vzhled-barva">
 		<input type="color" name="ds[barvy_tmave][<?= e($key) ?>]" value="<?= e($ds['barvy_tmave'][$key]) ?>">
@@ -99,7 +99,7 @@ $tabs = ['styl' => 'Styl', 'barvy' => 'Barvy', 'tmavy' => 'Tmavý režim', 'pism
 <?php endforeach ?>
 	<p class="napoveda"><?= e(t('Zkontrolujte logo: tmavé logo na průhledném pozadí by na tmavém webu zaniklo.')) ?></p>
 </div>
-<label class="vzhled-prepinac" data-sekce="tmave"<?= !in_array($values['tmavy_rezim'], ['auto', 'tmavy'], true) ? ' hidden' : '' ?>><input type="checkbox" name="tmavy_prepinac" value="1"<?= $values['tmavy_prepinac'] === '1' ? ' checked' : '' ?>> <?= e(t('Přepínač pro návštěvníky – v záhlaví si zvolí světlý, tmavý nebo vzhled podle zařízení (volba se pamatuje v jejich prohlížeči)')) ?></label>
+<label class="vzhled-prepinac" data-sekce="tmave"<?= !in_array($values['dark_mode'], ['auto', 'tmavy'], true) ? ' hidden' : '' ?>><input type="checkbox" name="theme_switcher" value="1"<?= $values['theme_switcher'] === '1' ? ' checked' : '' ?>> <?= e(t('Přepínač pro návštěvníky – v záhlaví si zvolí světlý, tmavý nebo vzhled podle zařízení (volba se pamatuje v jejich prohlížeči)')) ?></label>
 </fieldset>
 </div>
 
@@ -204,7 +204,7 @@ $tabs = ['styl' => 'Styl', 'barvy' => 'Barvy', 'tmavy' => 'Tmavý režim', 'pism
 <div role="tabpanel" id="panel-znacka" aria-labelledby="zalozka-znacka">
 <fieldset>
 <legend><?= e(t('Logo a ikona')) ?></legend>
-<div class="radek"><label for="logo_webu"><?= e(t('Logo')) ?></label><div><input class="textpole siroke" type="text" id="logo_webu" name="logo_webu" value="<?= e($values['logo_webu']) ?>" maxlength="255" placeholder="<?= e(t('bez loga se v záhlaví zobrazí název webu')) ?>" data-obrazek><span class="napoveda"><?= e(t('Nejlépe PNG s průhledným pozadím, výška aspoň 120 px.')) ?></span></div></div>
+<div class="radek"><label for="logo"><?= e(t('Logo')) ?></label><div><input class="textpole siroke" type="text" id="logo" name="logo" value="<?= e($values['logo']) ?>" maxlength="255" placeholder="<?= e(t('bez loga se v záhlaví zobrazí název webu')) ?>" data-obrazek><span class="napoveda"><?= e(t('Nejlépe PNG s průhledným pozadím, výška aspoň 120 px.')) ?></span></div></div>
 <div class="radek"><label for="favicon"><?= e(t('Ikona webu')) ?></label><div><input class="textpole siroke" type="text" id="favicon" name="favicon" value="<?= e($values['favicon']) ?>" maxlength="255" data-obrazek><span class="napoveda"><?= e(t('Malý čtvercový obrázek na kartě prohlížeče a v záložkách. Stačí 256×256 px.')) ?></span></div></div>
 </fieldset>
 

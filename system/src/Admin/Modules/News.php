@@ -468,7 +468,7 @@ final class News extends Module
             'links' => $this->db->all('SELECT o.*, c.titulek FROM {odkazy_vadne} o JOIN {novinky} c ON c.idc = o.idc WHERE 1 = 1' . $this->app->auth()->articleScope('c.') . ' ORDER BY o.cas DESC LIMIT 300'),
             'checked' => (int) $this->db->value('SELECT COUNT(*) FROM {novinky} WHERE odkazy_cas IS NOT NULL'),
             'total' => (int) $this->db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW()'),
-            'isEnabled' => $this->app->settings()->bool('kontrola_odkazu'),
+            'isEnabled' => $this->app->settings()->bool('link_check'),
         ]);
     }
 

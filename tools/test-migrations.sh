@@ -18,7 +18,7 @@ OLD_DB_VERSION=$(git -C "$ROOT" show "${FROM}:system/bootstrap.php" | sed -nE 's
 git -C "$ROOT" show "${FROM}:system/sql/schema.sql" | "${MYSQL[@]}" "$OLD" || { echo "  CHYBA  old schema"; exit 1; }
 "${MYSQL[@]}" "$NEW" < "$ROOT/system/sql/schema.sql" || { echo "  CHYBA  current schema"; exit 1; }
 # a site as it was: its settings, including values that data migrations take over
-"${MYSQL[@]}" "$OLD" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('verze_db', '$OLD_DB_VERSION'), ('email_webu', 'owner@example.com')"
+"${MYSQL[@]}" "$OLD" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('verze_db', '$OLD_DB_VERSION'), ('email_webu', 'owner@example.com'), ('nazev_webu_en', 'Northfield')"
 
 migrate() {
   php -r '
@@ -29,9 +29,9 @@ migrate() {
   ' "$ROOT" "$DB_HOST" "$DB_PORT" "$DB_USER" "$DB_PASS" "$OLD"
 }
 if OUTPUT=$(migrate 2>&1); then echo "  ok     migrations ran: ${OUTPUT:-none}"; else echo "  CHYBA  migration failed: $OUTPUT"; ERRORS=$((ERRORS+1)); fi
-"${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = '$OLD_DB_VERSION' WHERE promenna = 'verze_db'"
+"${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = '$OLD_DB_VERSION' WHERE promenna = 'db_version'"
 # admin idents of 1.3 in a role and the change log: 0025 renames them to the English ones (Admin\LegacyUrls)
-"${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_role (nazev, uroven, moduly) VALUES ('Legacy', 0, 'stranky,novinky,config'); INSERT INTO ka_protokol (cas, modul, akce) VALUES (NOW(), 'intergal', 'uloz'); UPDATE ka_nastaveni SET hodnota = '24' WHERE promenna = 'verze_db'"
+"${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_role (nazev, uroven, moduly) VALUES ('Legacy', 0, 'stranky,novinky,config'); INSERT INTO ka_protokol (cas, modul, akce) VALUES (NOW(), 'intergal', 'uloz'); UPDATE ka_nastaveni SET hodnota = '24' WHERE promenna = 'db_version'"
 if OUTPUT=$(migrate 2>&1); then echo "  ok     migrations are repeatable"; else echo "  CHYBA  second run failed: $OUTPUT"; ERRORS=$((ERRORS+1)); fi
 
 structure() {
@@ -42,8 +42,12 @@ DIFF=$(diff <(structure "$OLD") <(structure "$NEW"))
 [ -z "$DIFF" ] && echo "  ok     upgraded database = fresh install (columns and indexes)" || { echo "  CHYBA  upgraded database differs from a fresh install:"; echo "$DIFF" | head -30; ERRORS=$((ERRORS+1)); }
 
 LAST_MIGRATION=$(ls "$ROOT"/system/sql/migrace/*.sql | sed 's/.*\/\([0-9]*\)-.*/\1/' | sort -n | tail -1 | sed 's/^0*//')
-[ "$("${MYSQL[@]}" "$OLD" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'verze_db'")" = "$LAST_MIGRATION" ] && echo "  ok     verze_db = $LAST_MIGRATION" || { echo "  CHYBA  verze_db after upgrade"; ERRORS=$((ERRORS+1)); }
+[ "$("${MYSQL[@]}" "$OLD" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" = "$LAST_MIGRATION" ] && echo "  ok     verze_db = $LAST_MIGRATION" || { echo "  CHYBA  verze_db after upgrade"; ERRORS=$((ERRORS+1)); }
 [ "$("${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT((SELECT moduly FROM ka_role WHERE nazev = 'Legacy'), '|', (SELECT CONCAT(modul, ':', akce) FROM ka_protokol ORDER BY idp DESC LIMIT 1))")" = "pages,news,settings|media:save" ] && echo "  ok     1.3 admin idents in roles and the change log are English" || { echo "  CHYBA  admin idents not migrated"; ERRORS=$((ERRORS+1)); }
-[ "$("${MYSQL[@]}" "$OLD" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'firma_email'")" = "owner@example.com" ] && echo "  ok     existing site keeps its public contact email" || { echo "  CHYBA  firma_email not taken over"; ERRORS=$((ERRORS+1)); }
+[ "$("${MYSQL[@]}" "$OLD" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'company_email'")" = "owner@example.com" ] && echo "  ok     existing site keeps its public contact email" || { echo "  CHYBA  firma_email not taken over"; ERRORS=$((ERRORS+1)); }
+
+expect_sql() { [ "$("${MYSQL[@]}" "$OLD" -N -e "$2")" = "$3" ] && echo "  ok     $1" || { echo "  CHYBA  $1"; ERRORS=$((ERRORS+1)); }; }
+expect_sql "settings keys of 1.4.0 renamed (0026), per-language ones too" "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_email'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name_en'))" "owner@example.com|Northfield"
+expect_sql "no settings row left under an old key" "SELECT COUNT(*) FROM ka_nastaveni WHERE promenna IN ('verze_db', 'email_webu', 'nazev_webu_en', 'firma_email')" "0"
 
 [ "$ERRORS" = 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

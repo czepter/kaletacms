@@ -54,8 +54,8 @@ final class Subscription
         }
         $siteSettings = $this->app->settings();
         $link = $this->address('odber?potvrdit=' . $token);
-        Mail::send($siteSettings, $email, t('Potvrďte odběr novinek – %s', $siteSettings->get('nazev_webu')),
-            t('Dobrý den,') . "\n\n" . t('pro potvrzení odběru novinek webu %s klikněte na odkaz:', $siteSettings->get('nazev_webu')) . "\n" . $link . "\n\n"
+        Mail::send($siteSettings, $email, t('Potvrďte odběr novinek – %s', $siteSettings->get('site_name')),
+            t('Dobrý den,') . "\n\n" . t('pro potvrzení odběru novinek webu %s klikněte na odkaz:', $siteSettings->get('site_name')) . "\n" . $link . "\n\n"
             . t('Pokud jste o odběr nežádali, e-mail ignorujte – bez potvrzení vám nic posílat nebudeme.') . "\n");
 
         return 'ok';
@@ -108,6 +108,6 @@ final class Subscription
 
     private function address(string $path): string
     {
-        return rtrim($this->app->settings()->get('adresa_webu') ?: $this->app->request->origin(), '/') . $this->app->url($path);
+        return rtrim($this->app->settings()->get('site_url') ?: $this->app->request->origin(), '/') . $this->app->url($path);
     }
 }

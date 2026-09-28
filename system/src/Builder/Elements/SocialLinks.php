@@ -21,11 +21,11 @@ final class SocialLinks extends Element
 
     /** klíč nastavení => [název, vnitřek SVG 24×24] */
     private const array SOCIAL_NETWORKS = [
-        'soc_facebook' => ['Facebook', '<path d="M14 8.5h2.5V5H14a4 4 0 0 0-4 4v2.5H7.5V15H10v6h3.5v-6H16l.5-3.5h-3V9a.5.5 0 0 1 .5-.5z"/>'],
-        'soc_instagram' => ['Instagram', '<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="0.6"/>'],
-        'soc_linkedin' => ['LinkedIn', '<rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M8 10.5V16M8 7.8v.01M11.5 16v-5.5M11.5 13c0-1.6 1-2.6 2.3-2.6s2.2.9 2.2 2.6v3"/>'],
-        'soc_youtube' => ['YouTube', '<rect x="2.5" y="5.5" width="19" height="13" rx="4"/><path d="m10 9.2 5 2.8-5 2.8z"/>'],
-        'soc_x' => ['X', '<path d="M4.5 4.5 19.5 19.5M19.5 4.5l-6.2 6.9M10.7 12.6 4.5 19.5"/>'],
+        'social_facebook' => ['Facebook', '<path d="M14 8.5h2.5V5H14a4 4 0 0 0-4 4v2.5H7.5V15H10v6h3.5v-6H16l.5-3.5h-3V9a.5.5 0 0 1 .5-.5z"/>'],
+        'social_instagram' => ['Instagram', '<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="0.6"/>'],
+        'social_linkedin' => ['LinkedIn', '<rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M8 10.5V16M8 7.8v.01M11.5 16v-5.5M11.5 13c0-1.6 1-2.6 2.3-2.6s2.2.9 2.2 2.6v3"/>'],
+        'social_youtube' => ['YouTube', '<rect x="2.5" y="5.5" width="19" height="13" rx="4"/><path d="m10 9.2 5 2.8-5 2.8z"/>'],
+        'social_x' => ['X', '<path d="M4.5 4.5 19.5 19.5M19.5 4.5l-6.2 6.9M10.7 12.6 4.5 19.5"/>'],
     ];
 
     public static function properties(): array

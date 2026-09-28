@@ -178,7 +178,7 @@ check('MCP: pevná hlášení mají anglický překlad', array_values(array_filt
 check('MCP anglicky: parametry, hodnoty a položky menu', Kaleta\Mcp\Translator::arguments('save_menu', ['location' => 'footer', 'items' => [['type' => 'page', 'page_id' => 2, 'children' => [['type' => 'link', 'url' => '/x', 'new_window' => true]]]]]),
     ['umisteni' => 'paticka', 'polozky' => [['typ' => 'stranka', 'ids' => 2, 'deti' => [['typ' => 'odkaz', 'url' => '/x', 'nove_okno' => true]]]]]);
 check('MCP anglicky: typy polí kolekce a nastavení', [Kaleta\Mcp\Translator::arguments('create_collection', ['fields' => [['label' => 'Foto', 'type' => 'image']]]), Kaleta\Mcp\Translator::arguments('update_settings', ['settings' => ['site_name_de' => 'X', 'company_email' => 'a@b.c', 'nazev_webu' => 'Y']])],
-    [['pole' => [['popisek' => 'Foto', 'typ' => 'obrazek']]], ['nastaveni' => ['nazev_webu_de' => 'X', 'firma_email' => 'a@b.c', 'nazev_webu' => 'Y']]]);
+    [['pole' => [['popisek' => 'Foto', 'typ' => 'obrazek']]], ['nastaveni' => ['site_name_de' => 'X', 'company_email' => 'a@b.c', 'nazev_webu' => 'Y']]]);
 check('MCP anglicky: výsledek s anglickými klíči, stavba beze změny', Kaleta\Mcp\Translator::result('save_build', ['id' => 3, 'stav' => 'publikováno', 'stavba' => ['v' => 1, 'deti' => [['typ' => 'nadpis', 'stav' => 'x']]], 'kontrola' => [['id' => 'a', 'zprava' => 'z']]]),
     ['id' => 3, 'status' => 'published', 'build' => ['v' => 1, 'deti' => [['typ' => 'nadpis', 'stav' => 'x']]], 'check' => [['id' => 'a', 'message' => 'z']]]);
 $mcpList = [['name' => 'save_collection_item', 'inputSchema' => ['properties' => ['data' => ['type' => 'object'], 'name' => ['type' => 'string'], 'fields' => ['type' => 'array']]]]];
@@ -280,7 +280,7 @@ check('Asistent::sloz: špatně vnořené symboly = úsek bez formátování', s
 check('Asistent::sloz: přeházené pořadí slov formátování zachová', str_contains(Kaleta\Core\Assistant::compose($r['kostra'], ['N', 'A [[2]]link[[3]] and [[0]]bold[[1]] first.', 'P']), '<p>A <a href="/x?a=1&amp;b=2">link</a> and <strong>bold</strong> first.</p>'), true);
 
 $settings = (new ReflectionClass(Kaleta\Core\Settings::class))->newInstanceWithoutConstructor();
-(new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($settings, ['nazev_webu' => 'Test', 'ai_klic' => 'x']);
+(new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($settings, ['site_name' => 'Test', 'ai_key' => 'x']);
 $fake = new class($settings) extends Kaleta\Core\Assistant {
     public int $calls = 0;
 
@@ -935,7 +935,7 @@ check('Asistent::naOpenAi: systém, obrázek jako data URL, limit tokenů podle 
 ]);
 check('Asistent::zOpenAi: odpověď do tvaru Claude API', Assistant::fromOpenAi(['choices' => [['message' => ['content' => 'Text'], 'finish_reason' => 'length']]]), ['content' => [['type' => 'text', 'text' => 'Text']], 'stop_reason' => 'max_tokens']);
 $aiSettings = (new ReflectionClass(Kaleta\Core\Settings::class))->newInstanceWithoutConstructor();
-(new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($aiSettings, ['nazev_webu' => 'Test', 'ai_klic' => 'x', 'ai_poskytovatel' => 'anthropic', 'ai_model' => 'claude-sonnet-5']);
+(new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($aiSettings, ['site_name' => 'Test', 'ai_key' => 'x', 'ai_provider' => 'anthropic', 'ai_model' => 'claude-sonnet-5']);
 $aiFake = new class($aiSettings) extends Assistant {
     public string $answer = '';
     public array $last = [];
@@ -956,7 +956,7 @@ check('Asistent::navrhniSekci: HTML z bloku ```html, zadání uvnitř <zadani>, 
 ], [true, true, false, false, ['sluzby-ai' => 'padding: var(--ka-mezera-l);']]);
 $aiFake->answer = '<p>Kratší <strong>text</strong> <img src=x onerror=alert(1)></p>';
 check('Asistent::prepis: HTML odpověď vyčištěná, prostý text bez značek', [$aiFake->rewrite('<p>Dlouhý text k přepsání.</p>', 'kratsi', true), $aiFake->rewrite('Nadpis', 'formalne', false)], ['<p>Kratší <strong>text</strong> </p>', 'Kratší text']);
-(new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($aiSettings, ['nazev_webu' => 'Test', 'ai_klic' => 'x', 'ai_poskytovatel' => 'openai', 'ai_model' => 'claude-sonnet-5']);
+(new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($aiSettings, ['site_name' => 'Test', 'ai_key' => 'x', 'ai_provider' => 'openai', 'ai_model' => 'claude-sonnet-5']);
 try {
     $aiFake->rewrite('Text', 'kratsi', false);
     $aiError = '';

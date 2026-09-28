@@ -255,10 +255,10 @@ final class Installer
             \Kaleta\Core\Menu::save($db, 'paticka', '', [['typ' => 'stranka', 'ids' => $privacyPolicyId, 'text' => '']]);
 
             \Kaleta\Core\Search::complete($db);
-            $settings = ['nazev_webu' => $d['nazev_webu'], 'adresa_webu' => $this->request->origin(), 'email_webu' => $d['email'], 'jazyk_webu' => $siteLanguage,
+            $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->request->origin(), 'site_email' => $d['email'], 'site_language' => $siteLanguage,
                 'design_system' => (string) json_encode(\Kaleta\Builder\DesignSystem::preset($siteSettings['predvolba']), JSON_UNESCAPED_SLASHES),
-                'casove_pasmo' => $d['casove_pasmo'], 'layout' => Layouts::DEFAULTS, 'titulni_stranka' => (string) $home, 'verze_db' => (string) Migration::latest(),
-                'rozsireni' => $extensions === [] ? '-' : implode(',', $extensions), 'cookies_zasady_url' => $this->request->basePath() . '/' . slugify($privacyPolicy)];
+                'time_zone' => $d['casove_pasmo'], 'layout' => Layouts::DEFAULTS, 'home_page' => (string) $home, 'db_version' => (string) Migration::latest(),
+                'extensions' => $extensions === [] ? '-' : implode(',', $extensions), 'cookies_policy_url' => $this->request->basePath() . '/' . slugify($privacyPolicy)];
             foreach ($settings as $key => $value) {
                 $db->insert('nastaveni', ['promenna' => $key, 'hodnota' => $value]);
             }

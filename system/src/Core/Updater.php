@@ -30,7 +30,7 @@ final class Updater
 
     public function url(): string
     {
-        return $this->settings->get('aktualizace_url') !== '' ? $this->settings->get('aktualizace_url') : self::DEFAULT_URL;
+        return $this->settings->get('update_url') !== '' ? $this->settings->get('update_url') : self::DEFAULT_URL;
     }
 
     /**
@@ -44,7 +44,7 @@ final class Updater
         if (!$state['nastaveno']) {
             return $state;
         }
-        $cache = json_decode($this->settings->get('aktualizace_cache'), true);
+        $cache = json_decode($this->settings->get('update_cache'), true);
         if (!$force && is_array($cache) && ($cache['url'] ?? '') === $this->url() && time() - (int) ($cache['overeno'] ?? 0) < 12 * 3600) {
             $manifest = $cache['manifest'] ?? null;
             $state['chyba'] = $cache['chyba'] ?? null;
@@ -57,7 +57,7 @@ final class Updater
                 $state['chyba'] = $e->getMessage();
             }
             $state['overeno'] = time();
-            $this->settings->set('aktualizace_cache', (string) json_encode(['url' => $this->url(), 'overeno' => time(), 'manifest' => $manifest, 'chyba' => $state['chyba']], JSON_UNESCAPED_UNICODE));
+            $this->settings->set('update_cache', (string) json_encode(['url' => $this->url(), 'overeno' => time(), 'manifest' => $manifest, 'chyba' => $state['chyba']], JSON_UNESCAPED_UNICODE));
         }
         if (is_array($manifest) && version_compare((string) $manifest['verze'], KALETA_VERSION, '>')) {
             $state['nova'] = $manifest;
@@ -77,7 +77,7 @@ final class Updater
         if ($a->url() === '') {
             return;
         }
-        $cache = json_decode($s->get('aktualizace_cache'), true);
+        $cache = json_decode($s->get('update_cache'), true);
         if (is_array($cache) && time() - (int) ($cache['overeno'] ?? 0) < 12 * 3600) {
             return;
         }
@@ -86,15 +86,15 @@ final class Updater
         }
         ignore_user_abort(true);
         $newVersion = $a->state(true)['nova'];
-        if ($newVersion === null || empty($newVersion['bezpecnostni']) || $s->get('aktualizace_pokus') === $newVersion['verze']) {
+        if ($newVersion === null || empty($newVersion['bezpecnostni']) || $s->get('update_attempt') === $newVersion['verze']) {
             return;
         }
-        $s->set('aktualizace_pokus', (string) $newVersion['verze']); // každá verze se zkouší a oznamuje jen jednou
+        $s->set('update_attempt', (string) $newVersion['verze']); // každá verze se zkouší a oznamuje jen jednou
         // píše se na e-mail webu (adresa bez účtu): texty administrace ve výchozím jazyce webu. Úloha běží i z veřejného webu,
         // kde slovník administrace načtený není – Jazyk::docasne() ho načte jen na tuto chvíli (i pro hlášky chyb instalace).
         [$subject, $text] = Language::runWith(Language::defaults($s), function () use ($app, $a, $s, $newVersion): array {
             $result = t('Je k dispozici bezpečnostní aktualizace %s. Nainstalujte ji v administraci: Nastavení → Zálohy a aktualizace.', (string) $newVersion['verze']);
-            if ($s->bool('aktualizace_auto')) {
+            if ($s->bool('auto_updates')) {
                 try {
                     Backup::create($app->db(), 'predaktualizaci');
                     $a->install($app->db());
@@ -106,10 +106,10 @@ final class Updater
 
             return [
                 t('Kaleta: bezpečnostní aktualizace %s', (string) $newVersion['verze']),
-                $result . "\n\n" . t('Změny:') . "\n- " . implode("\n- ", $newVersion['zmeny']) . "\n\n" . $s->get('nazev_webu'),
+                $result . "\n\n" . t('Změny:') . "\n- " . implode("\n- ", $newVersion['zmeny']) . "\n\n" . $s->get('site_name'),
             ];
         }, 'admin-');
-        $recipient = $s->get('email_webu');
+        $recipient = $s->get('site_email');
         if ($recipient !== '') {
             Mail::send($s, $recipient, $subject, $text);
         }
@@ -207,7 +207,7 @@ final class Updater
         if (function_exists('opcache_reset')) {
             @opcache_reset();
         }
-        $this->settings->set('aktualizace_cache', '');
+        $this->settings->set('update_cache', '');
 
         return (string) $m['verze'];
     }

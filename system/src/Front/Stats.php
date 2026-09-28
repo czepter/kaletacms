@@ -20,7 +20,7 @@ final class Stats
     {
         $server = $_SERVER;
         $ua = (string) ($server['HTTP_USER_AGENT'] ?? '');
-        if (!\Kaleta\Core\Extensions::isEnabled($app->settings(), 'statistika') || !$app->settings()->bool('statistika') || $ua === '' || preg_match(self::BOTS, $ua) || $app->request->get('nahled') !== '') {
+        if (!\Kaleta\Core\Extensions::isEnabled($app->settings(), 'statistika') || !$app->settings()->bool('stats') || $ua === '' || preg_match(self::BOTS, $ua) || $app->request->get('nahled') !== '') {
             return;
         }
         $db = $app->db();

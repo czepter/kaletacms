@@ -38,8 +38,8 @@ final class Health
 
         // --- databáze
         $add(t('Databáze'), t('Server'), 'ok', (string) $db->value('SELECT VERSION()'));
-        $pending = Migration::latest() - max(1, $siteSettings->int('verze_db'));
-        $add(t('Databáze'), t('Struktura databáze'), $pending <= 0, $pending <= 0 ? t('aktuální (verze %d)', $siteSettings->int('verze_db')) : t('čeká %d aktualizací - proběhnou při příštím načtení administrace', $pending));
+        $pending = Migration::latest() - max(1, $siteSettings->int('db_version'));
+        $add(t('Databáze'), t('Struktura databáze'), $pending <= 0, $pending <= 0 ? t('aktuální (verze %d)', $siteSettings->int('db_version')) : t('čeká %d aktualizací - proběhnou při příštím načtení administrace', $pending));
         $size = (int) $db->value('SELECT COALESCE(SUM(data_length + index_length), 0) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ?', [addcslashes($db->prefix, '_%') . '%']);
         $add(t('Databáze'), t('Velikost'), 'ok', t('%s, novinek: %d', self::size($size), (int) $db->value('SELECT COUNT(*) FROM {novinky}')));
 
@@ -72,8 +72,8 @@ final class Health
         $add(t('Provoz'), t('Chyby za posledních 24 hodin'), $errorCount === 0 ? 'ok' : 'varovani', $errorCount === 0 ? t('žádné') : t('%d - podrobnosti v storage/log/chyby.log', $errorCount));
         $last = Backup::listAll()[0]['cas'] ?? 0;
         $age = $last > 0 ? (int) floor((time() - $last) / 86400) : null;
-        $add(t('Provoz'), t('Záloha databáze'), $age !== null && $age <= 8 ? 'ok' : 'varovani', $age === null ? t('zatím žádná - vytvořte ji v záložce Zálohy a aktualizace') : ($age === 0 ? t('dnes') : t('před %d dny', $age)) . ', ' . ($siteSettings->bool('zalohy_auto') ? t('automatické zálohy zapnuté') : t('automatické zálohy vypnuté')));
-        $add(t('Provoz'), t('Indexování vyhledávači'), $siteSettings->bool('indexovani') ? 'ok' : 'varovani', $siteSettings->bool('indexovani') ? t('povoleno') : t('zakázáno v záložce SEO a GEO - web se neobjeví ve vyhledávání'));
+        $add(t('Provoz'), t('Záloha databáze'), $age !== null && $age <= 8 ? 'ok' : 'varovani', $age === null ? t('zatím žádná - vytvořte ji v záložce Zálohy a aktualizace') : ($age === 0 ? t('dnes') : t('před %d dny', $age)) . ', ' . ($siteSettings->bool('auto_backups') ? t('automatické zálohy zapnuté') : t('automatické zálohy vypnuté')));
+        $add(t('Provoz'), t('Indexování vyhledávači'), $siteSettings->bool('indexing') ? 'ok' : 'varovani', $siteSettings->bool('indexing') ? t('povoleno') : t('zakázáno v záložce SEO a GEO - web se neobjeví ve vyhledávání'));
         $media = 0;
         if (is_dir(KALETA_ROOT . '/media')) {
             foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(KALETA_ROOT . '/media', \FilesystemIterator::SKIP_DOTS)) as $file) {
@@ -81,15 +81,15 @@ final class Health
             }
         }
         $add(t('Provoz'), t('Velikost médií'), 'ok', self::size($media));
-        $remote = explode('|', $app->settings()->get('zaloha_vzdalena_stav'), 2);
-        if ($app->settings()->get('zaloha_vzdalena') !== 'vypnuto') {
+        $remote = explode('|', $app->settings()->get('remote_backup_status'), 2);
+        if ($app->settings()->get('remote_backup') !== 'vypnuto') {
             $add(t('Provoz'), t('Zálohy mimo server'), ($remote[1] ?? '') === 'ok' ? 'ok' : 'varovani', ($remote[1] ?? '') === 'ok' ? t('poslední kopie nahrána %s', $remote[0]) : (($remote[1] ?? '') !== '' ? t('poslední pokus %s selhal: %s', $remote[0], $remote[1]) : t('zatím žádná kopie nevznikla')));
         } else {
             $add(t('Provoz'), t('Zálohy mimo server'), 'varovani', t('vypnuté – zálohy leží jen na stejném serveru jako web (Nastavení → Zálohy a aktualizace)'));
         }
-        $smtp = $app->settings()->get('posta_rezim') === 'smtp' && $app->settings()->get('smtp_host') !== '';
+        $smtp = $app->settings()->get('mail_mode') === 'smtp' && $app->settings()->get('smtp_host') !== '';
         // úlohy na pozadí (naplánované novinky, fronta pošty, push, newsletter) spouští návštěvy webu nebo cron
-        $lastRun = $siteSettings->int('oznameni_kontrola');
+        $lastRun = $siteSettings->int('notification_check');
         $before = $lastRun > 0 ? (int) floor((time() - $lastRun) / 60) : null;
         $add(t('Provoz'), t('Úlohy na pozadí'), $before !== null && $before <= 30 ? 'ok' : 'varovani', $before === null
             ? t('zatím neproběhly – spustí je první návštěva webu')

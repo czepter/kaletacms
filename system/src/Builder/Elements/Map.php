@@ -47,13 +47,13 @@ final class Map extends Element
     {
         $siteSettings = $k->app->settings();
         $url = $p['obsah']['adresa'] !== '' ? $p['obsah']['adresa']
-            : ($siteSettings->get('firma_gps') !== '' ? $siteSettings->get('firma_gps') : trim(implode(', ', array_filter([$siteSettings->get('firma_ulice'), $siteSettings->get('firma_psc') . ' ' . $siteSettings->get('firma_mesto')])), ', '));
+            : ($siteSettings->get('company_gps') !== '' ? $siteSettings->get('company_gps') : trim(implode(', ', array_filter([$siteSettings->get('company_street'), $siteSettings->get('company_postcode') . ' ' . $siteSettings->get('company_city')])), ', '));
         if (trim($url) === '') {
             return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Vyplňte adresu v panelu Obsah nebo v Nastavení → Firma.')) . '</div>' : '';
         }
         $q = rawurlencode($url);
         $embedUrl = 'https://maps.google.com/maps?q=' . $q . '&z=' . (int) $p['obsah']['priblizeni'] . '&output=embed';
-        $link = $siteSettings->get('firma_mapa') !== '' && $p['obsah']['adresa'] === '' ? $siteSettings->get('firma_mapa') : 'https://www.google.com/maps/search/?api=1&query=' . $q;
+        $link = $siteSettings->get('company_map') !== '' && $p['obsah']['adresa'] === '' ? $siteSettings->get('company_map') : 'https://www.google.com/maps/search/?api=1&query=' . $q;
         $button = '<button type="button" data-vlozit="' . e($embedUrl) . '" data-titulek="' . e(t('Mapa: %s', $url)) . '">'
             . '<strong>' . e(t('Zobrazit mapu')) . '</strong><span>' . e($url) . '</span><small>' . e(t('Po klepnutí se načte z Google Map.')) . '</small></button>';
         $labelText = '<figcaption><a href="' . e($link) . '" target="_blank" rel="noopener">' . e(t('Otevřít v mapách')) . '</a></figcaption>';

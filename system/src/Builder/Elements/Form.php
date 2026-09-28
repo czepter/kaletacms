@@ -117,7 +117,7 @@ final class Form extends Element
         $html = $result !== '' ? '<p class="ka-formular-chyba" role="alert">' . e(self::messages($result)) . '</p>' : '';
         $invalid = $result === 'pole' ? $r->getInt('pole', -1) : -1;
         foreach ($o['pole'] as $i => $field) {
-            $html .= self::fields($field, $i, $p['id'], $i === $invalid, $k->app->settings()->get('cookies_zasady_url'));
+            $html .= self::fields($field, $i, $p['id'], $i === $invalid, $k->app->settings()->get('cookies_policy_url'));
         }
         $antispam = new Antispam($k->app->db(), $k->app->settings());
 

@@ -28,7 +28,7 @@ final class Extensions
     /** @return list<string> */
     public static function enabled(Settings $settings): array
     {
-        $stored = $settings->get('rozsireni');
+        $stored = $settings->get('extensions');
         if ($stored === '') {
             return array_keys(array_filter(self::CATALOG, fn (array $r): bool => $r[2]));
         }
@@ -46,6 +46,6 @@ final class Extensions
     {
         $keys = array_values(array_intersect($keys, array_keys(self::CATALOG)));
         // prázdný řetězec znamená "výchozí stav", proto se prázdný výběr ukládá jako "-"
-        $settings->set('rozsireni', $keys === [] ? '-' : implode(',', $keys));
+        $settings->set('extensions', $keys === [] ? '-' : implode(',', $keys));
     }
 }

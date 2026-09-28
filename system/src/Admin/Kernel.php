@@ -68,10 +68,10 @@ final class Kernel
         }
         $action = $request->get('action');
         // adresa webu: starší instalace ji ještě nemá - zapíše se podle adresy, na které pracuje přihlášený administrátor
-        if ($app->settings()->get('adresa_webu') === '' && $app->auth()->isAdmin()) {
-            $app->settings()->set('adresa_webu', $request->origin());
+        if ($app->settings()->get('site_url') === '' && $app->auth()->isAdmin()) {
+            $app->settings()->set('site_url', $request->origin());
         }
-        $request->setOrigin($app->settings()->get('adresa_webu'));
+        $request->setOrigin($app->settings()->get('site_url'));
         $app->applyTimezone();
         if ($app->auth()->user() === null) {
             return $action === 'password' ? (new PasswordReset($app))->handle() : $this->login();
@@ -83,13 +83,13 @@ final class Kernel
         }
 
         // po přechodu na novou verzi jednorázově uklidit známé zrušené soubory (viz Aktualizace::ZRUSENE)
-        if ($app->auth()->isAdmin() && $app->settings()->get('uklizeno_verze') !== KALETA_VERSION) {
+        if ($app->auth()->isAdmin() && $app->settings()->get('cleaned_version') !== KALETA_VERSION) {
             \Kaleta\Core\Updater::cleanUpRemoved(KALETA_ROOT, $app->settings()->get('layout'));
-            $app->settings()->set('uklizeno_verze', KALETA_VERSION);
+            $app->settings()->set('cleaned_version', KALETA_VERSION);
         }
 
         // aktualizace struktury databáze po nahrání nové verze systému
-        if ($app->auth()->isAdmin() && $app->settings()->int('verze_db') < Migration::latest()) {
+        if ($app->auth()->isAdmin() && $app->settings()->int('db_version') < Migration::latest()) {
             try {
                 foreach (Migration::apply($app->db(), $app->settings()) as $migration) {
                     $app->session->flash('info', t('Databáze byla aktualizována: %s', $migration));
@@ -127,7 +127,7 @@ final class Kernel
             return $this->handleOAuthConsent();
         }
         if ($action === 'hide_first_steps' && $request->isPost() && $app->auth()->isAdmin()) {
-            $app->settings()->set('pruvodce_skryt', '1');
+            $app->settings()->set('first_steps_hidden', '1');
 
             return Response::redirect($app->url('admin.php'));
         }
@@ -266,20 +266,20 @@ final class Kernel
     {
         $app = $this->app;
         $s = $app->settings();
-        if (!$app->auth()->isAdmin() || $s->bool('pruvodce_skryt')) {
+        if (!$app->auth()->isAdmin() || $s->bool('first_steps_hidden')) {
             return [];
         }
         $db = $app->db();
         $steps = [
             // hotovo až po vlastní volbě: vzhled a stránky ze startovacího webu se nepočítají
-            ['Dejte webu tvář', 'Logo, hlavní barva a písmo.', 'admin.php?module=appearance', $s->get('logo_webu') !== '' || $s->bool('vzhled_ulozen') || $s->get('brand_akcent') !== ''],
-            ['Vyplňte údaje o firmě', 'Adresa, telefon a otevírací doba se ukážou na kontaktu, v patičce i vyhledávačům.', 'admin.php?module=settings&tab=company', $s->get('firma_ulice') !== '' && ($s->get('firma_telefon') !== '' || $s->get('firma_email') !== '' || $s->get('email_webu') !== '')],
-            ['Připravte stránky', 'O nás, Služby, Kontakt – a v Nastavení vyberte, která bude úvodní.', 'admin.php?module=pages', (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1') >= 3 && $s->int('titulni_stranka') > 0
+            ['Dejte webu tvář', 'Logo, hlavní barva a písmo.', 'admin.php?module=appearance', $s->get('logo') !== '' || $s->bool('appearance_saved') || $s->get('brand_accent') !== ''],
+            ['Vyplňte údaje o firmě', 'Adresa, telefon a otevírací doba se ukážou na kontaktu, v patičce i vyhledávačům.', 'admin.php?module=settings&tab=company', $s->get('company_street') !== '' && ($s->get('company_phone') !== '' || $s->get('company_email') !== '' || $s->get('site_email') !== '')],
+            ['Připravte stránky', 'O nás, Služby, Kontakt – a v Nastavení vyberte, která bude úvodní.', 'admin.php?module=pages', (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1') >= 3 && $s->int('home_page') > 0
                 && $db->value('SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND zmeneno IS NOT NULL LIMIT 1') !== null],
             ['Doplňte zásady ochrany osobních údajů', 'Formulář s poptávkou sbírá osobní údaje – návštěvník musí vědět, jak s nimi naložíte. Kostru stránky máte připravenou jako skrytou: doplňte údaje v hranatých závorkách a stránku zveřejněte.', 'admin.php?module=pages',
                 // hotovo, až stránka existuje a nemá v sobě hranaté závorky ke kostře z instalace ([NÁZEV FIRMY]…)
                 $db->value("SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND (seo_link LIKE '%soukromi%' OR seo_link LIKE '%osobni%' OR seo_link LIKE '%gdpr%' OR seo_link LIKE '%privacy%') AND text NOT LIKE '%[%]%' LIMIT 1") !== null],
-            ['Nastavte poštu', 'Odkud web odesílá e-maily (formuláře, obnova hesla).', 'admin.php?module=settings&tab=mail', $s->get('posta_rezim') === 'smtp' || $s->get('posta_od') !== ''],
+            ['Nastavte poštu', 'Odkud web odesílá e-maily (formuláře, obnova hesla).', 'admin.php?module=settings&tab=mail', $s->get('mail_mode') === 'smtp' || $s->get('mail_from') !== ''],
         ];
         $result = array_map(fn (array $k): array => ['nazev' => $k[0], 'popis' => $k[1], 'url' => $app->url($k[2]), 'hotovo' => (bool) $k[3]], $steps);
 
@@ -298,7 +298,7 @@ final class Kernel
         $error = null;
         // druhý krok přihlašovacím klíčem (otisk prstu, Face ID): skript image/klice.js si řekne o výzvu a pošle podpis zařízení
         if ($app->request->isPost() && in_array($app->request->post('krok'), ['klic_moznosti', 'klic'], true)) {
-            $url = $app->settings()->get('adresa_webu') ?: $app->request->origin();
+            $url = $app->settings()->get('site_url') ?: $app->request->origin();
             if ($app->request->post('krok') === 'klic_moznosti') {
                 $options = $app->auth()->keyChallenge($url);
 

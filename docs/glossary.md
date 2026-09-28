@@ -12,7 +12,7 @@ clients. They keep their Czech names; the rename tool never touches string liter
 
 | Contract | Examples | Why |
 |---|---|---|
-| Database tables and columns, stored values | `ka_stranky.seo_link`, `ka_casti.typ = 'hlavicka'` | data on every installed site |
+| Database tables and columns, stored values | `ka_stranky.seo_link`, `ka_casti.typ = 'hlavicka'`, extension keys (`novinky`) | data on every installed site |
 | Build JSON: keys, element types, style keys | `{"typ":"nadpis","obsah":{…},"styl":{"mobil":{"mezera":"s"}},"deti":[…]}` | stored builds, MCP clients |
 | Design system keys and CSS custom properties | `barvy.primarni`, `--ka-barva-text`, `--ka-mezera-l` | stored design, shared classes |
 | Public HTML hooks | classes `ka-*`, `data-ka-*`, `#popup-<slug>`, localStorage `ka-jazyk` | custom CSS and scripts of sites |
@@ -23,12 +23,13 @@ clients. They keep their Czech names; the rename tool never touches string liter
 
 Renamed later, each with a migration or an alias so old links and data keep working:
 
-- settings keys in `ka_nastaveni` (phase 5: the value is copied, the old key is read as a fallback for two releases);
 - UI source strings `t('…')`, now Czech sentences (phase 6: English source, Czech moves to a dictionary).
 
 Old class names keep working through `system/class-aliases.php` until 2.0. Old admin URLs of 1.3 (bookmarks, links in
 sent e-mails; parameters modul, akce, zalozka with Czech values) are translated by `Admin\LegacyUrls` and redirected to the
 current ones (`?module=pages&action=save&tab=backups`); the idents stored with user and role permissions were migrated (0025).
+Settings keys are English since 1.4.1 (`site_name`, `company_id`…, the list is `Core\Settings::LEGACY_KEYS`): migration 0026
+renamed the stored rows, and `Settings` still accepts an old key (custom layouts, MCP clients that send `nazev_webu`) until 2.0.
 
 ## Conventions
 

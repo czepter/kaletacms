@@ -81,7 +81,7 @@ final class Server
             'initialize' => $ok([
                 'protocolVersion' => is_string($z['params']['protocolVersion'] ?? null) ? $z['params']['protocolVersion'] : self::PROTOCOL,
                 'capabilities' => ['tools' => new \stdClass()],
-                'serverInfo' => ['name' => 'Kaleta – ' . $this->app->settings()->get('nazev_webu'), 'version' => KALETA_VERSION],
+                'serverInfo' => ['name' => 'Kaleta – ' . $this->app->settings()->get('site_name'), 'version' => KALETA_VERSION],
                 'instructions' => Translator::instructions(),
             ]),
             'ping' => $ok([]),

@@ -75,7 +75,7 @@ final class OAuth
     private function resourceMetadata(): array
     {
         return ['resource' => $this->issuer() . '/mcp', 'authorization_servers' => [$this->issuer()], 'bearer_methods_supported' => ['header'],
-            'scopes_supported' => ['mcp'], 'resource_name' => $this->app->settings()->get('nazev_webu')];
+            'scopes_supported' => ['mcp'], 'resource_name' => $this->app->settings()->get('site_name')];
     }
 
     /** @return array<string, mixed> */

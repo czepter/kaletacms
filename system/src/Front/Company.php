@@ -42,16 +42,16 @@ final class Company
     public static function address(Settings $s): array
     {
         return array_values(array_filter([
-            $s->get('firma_ulice'),
-            trim($s->get('firma_psc') . ' ' . $s->get('firma_mesto')),
-            $s->get('firma_zeme') !== '' && $s->get('firma_zeme') !== 'CZ' ? $s->get('firma_zeme') : '',
+            $s->get('company_street'),
+            trim($s->get('company_postcode') . ' ' . $s->get('company_city')),
+            $s->get('company_country') !== '' && $s->get('company_country') !== 'CZ' ? $s->get('company_country') : '',
         ], fn (string $r): bool => $r !== ''));
     }
 
     /** @return list<string> řádky otevírací doby, jak je zadal správce */
     public static function openingHoursLines(Settings $s): array
     {
-        return array_values(array_filter(array_map('trim', preg_split('/\R/', $s->get('firma_hodiny')) ?: []), fn (string $r): bool => $r !== ''));
+        return array_values(array_filter(array_map('trim', preg_split('/\R/', $s->get('company_hours')) ?: []), fn (string $r): bool => $r !== ''));
     }
 
     /**
@@ -100,30 +100,30 @@ final class Company
      */
     public static function schema(Settings $s, string $siteSettings, callable $absoluteUrl): array
     {
-        $type = isset(self::TYPES[$s->get('firma_typ')]) ? $s->get('firma_typ') : 'Organization';
-        $url = array_filter(['@type' => 'PostalAddress', 'streetAddress' => $s->get('firma_ulice'), 'addressLocality' => $s->get('firma_mesto'),
-            'postalCode' => $s->get('firma_psc'), 'addressCountry' => $s->get('firma_zeme')]);
-        [$lat, $lng] = array_map('trim', explode(',', $s->get('firma_gps'), 2)) + [1 => ''];
+        $type = isset(self::TYPES[$s->get('company_type')]) ? $s->get('company_type') : 'Organization';
+        $url = array_filter(['@type' => 'PostalAddress', 'streetAddress' => $s->get('company_street'), 'addressLocality' => $s->get('company_city'),
+            'postalCode' => $s->get('company_postcode'), 'addressCountry' => $s->get('company_country')]);
+        [$lat, $lng] = array_map('trim', explode(',', $s->get('company_gps'), 2)) + [1 => ''];
 
         return array_filter([
             '@type' => $type,
             '@id' => $siteSettings . '#firma',
-            'name' => $s->get('nazev_webu'),
-            'legalName' => $s->get('firma_nazev'),
+            'name' => $s->get('site_name'),
+            'legalName' => $s->get('company_name'),
             'url' => $siteSettings,
-            'logo' => $s->get('logo_webu') !== '' ? $absoluteUrl($s->get('logo_webu')) : null,
-            'image' => $s->get('logo_webu') !== '' && $type !== 'Organization' ? $absoluteUrl($s->get('logo_webu')) : null,
-            'description' => $s->get('popis_webu'),
-            'email' => $s->get('firma_email'),
-            'telephone' => $s->get('firma_telefon'),
-            'vatID' => $s->get('firma_dic'),
-            'identifier' => $s->get('firma_ico') !== '' ? ['@type' => 'PropertyValue', 'propertyID' => $s->get('firma_zeme') === 'CZ' ? 'IČO' : 'Company ID', 'value' => $s->get('firma_ico')] : null,
+            'logo' => $s->get('logo') !== '' ? $absoluteUrl($s->get('logo')) : null,
+            'image' => $s->get('logo') !== '' && $type !== 'Organization' ? $absoluteUrl($s->get('logo')) : null,
+            'description' => $s->get('site_description'),
+            'email' => $s->get('company_email'),
+            'telephone' => $s->get('company_phone'),
+            'vatID' => $s->get('company_vat_id'),
+            'identifier' => $s->get('company_id') !== '' ? ['@type' => 'PropertyValue', 'propertyID' => $s->get('company_country') === 'CZ' ? 'IČO' : 'Company ID', 'value' => $s->get('company_id')] : null,
             'address' => count($url) > 1 ? $url : null,
             'geo' => is_numeric($lat) && is_numeric($lng) ? ['@type' => 'GeoCoordinates', 'latitude' => (float) $lat, 'longitude' => (float) $lng] : null,
-            'hasMap' => $s->get('firma_mapa'),
+            'hasMap' => $s->get('company_map'),
             'openingHoursSpecification' => $type !== 'Organization' ? (array_map(fn (array $h): array => ['@type' => 'OpeningHoursSpecification', 'dayOfWeek' => $h['dny'], 'opens' => $h['od'], 'closes' => $h['do']],
-                self::parseOpeningHours($s->get('firma_hodiny')) ?? []) ?: null) : null,
-            'sameAs' => array_values(array_filter(array_map($s->get(...), ['soc_facebook', 'soc_instagram', 'soc_x', 'soc_youtube', 'soc_linkedin']))) ?: null,
+                self::parseOpeningHours($s->get('company_hours')) ?? []) ?: null) : null,
+            'sameAs' => array_values(array_filter(array_map($s->get(...), ['social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin']))) ?: null,
         ], fn (mixed $v): bool => $v !== null && $v !== '');
     }
 }

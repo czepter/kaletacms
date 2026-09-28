@@ -21,9 +21,9 @@ final class SiteExport
     private const int KEEP = 3;
 
     /** Jediná nastavení, která se exportují: název, popis, identita a jazyky webu. */
-    private const array SETTINGS = ['nazev_webu', 'popis_webu', 'klicova_slova', 'adresa_webu', 'logo_webu', 'favicon', 'design_system', 'firma_nazev', 'firma_typ', 'firma_ico', 'firma_dic', 'firma_rejstrik', 'firma_zastupce', 'firma_ulice', 'firma_mesto', 'firma_psc', 'firma_zeme', 'firma_telefon', 'firma_hodiny', 'firma_mapa', 'firma_gps', 'brand_akcent', 'tmavy_rezim',
-        'brand_pismo_titulky', 'brand_pismo_text', 'text_paticky', 'soc_facebook', 'soc_instagram', 'soc_x', 'soc_youtube', 'soc_linkedin',
-        'casove_pasmo', 'jazyk_webu', 'jazyky_dalsi', 'layout', 'titulni_stranka'];
+    private const array SETTINGS = ['site_name', 'site_description', 'keywords', 'site_url', 'logo', 'favicon', 'design_system', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_hours', 'company_map', 'company_gps', 'brand_accent', 'dark_mode',
+        'brand_heading_font', 'brand_text_font', 'footer_text', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin',
+        'time_zone', 'site_language', 'additional_languages', 'layout', 'home_page'];
 
     /** Sloupce novinky, které jsou jen provozní (index hledání, kontrola odkazů…) a do exportu nepatří. */
     private const array EXCLUDED_ARTICLE_COLUMNS = ['hledani', 'odkazy_cas', 'oznameno', 'autor', 'autor_jmeno'];

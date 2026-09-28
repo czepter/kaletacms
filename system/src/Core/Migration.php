@@ -64,7 +64,7 @@ final class Migration
         }
         $applied = [];
         try {
-            $version = max(1, (int) $db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'verze_db'"));
+            $version = max(1, (int) $db->value("SELECT MAX(CAST(hodnota AS UNSIGNED)) FROM {nastaveni} WHERE promenna IN ('db_version', 'verze_db')"));
             foreach (self::files() as $number => $file) {
                 if ($number <= $version) {
                     continue;
@@ -80,8 +80,13 @@ final class Migration
                         }
                     }
                 }
-                $settings->set('verze_db', (string) $number);
+                $settings->set('db_version', (string) $number);
                 $applied[] = basename($file, '.sql');
+            }
+            // settings keys of 1.4.0 and older (verze_db…) written again by the release that ran the update, after migration
+            // 0026 had renamed them – only once 0026 is in (older data migrations still read the old keys)
+            if ((int) $db->value("SELECT MAX(CAST(hodnota AS UNSIGNED)) FROM {nastaveni} WHERE promenna IN ('db_version', 'verze_db')") >= 26) {
+                Settings::adoptLegacyRows($db);
             }
         } finally {
             $db->run('SELECT RELEASE_LOCK(?)', [$lock]);

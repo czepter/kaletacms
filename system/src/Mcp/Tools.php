@@ -30,7 +30,7 @@ final class Tools
     private const int MAX_UPLOAD = 12 * 1024 * 1024;
 
     /** Nastavení, která smí MCP měnit (ostatní – e-mail, webhooky, 2FA, pošta, zálohy – jen v administraci). */
-    private const string MCP_SETTINGS = '/^(nazev_webu|popis_webu|text_paticky|titulni_stranka|soc_(facebook|instagram|x|youtube|linkedin)|pocet_clanku|sdileni|osnova_clanku|souvisejici_auto|firma_[a-z]+|tmavy_rezim|tmavy_prepinac|(nazev|popis)_webu_[a-z]{2})$/';
+    private const string MCP_SETTINGS = '/^(site_name|site_description|footer_text|home_page|social_(facebook|instagram|x|youtube|linkedin)|news_per_page|share_buttons|article_outline|related_news_auto|company_[a-z_]+|dark_mode|theme_switcher|site_(name|description)_[a-z]{2})$/';
 
     public function __construct(private readonly App $app)
     {
@@ -209,8 +209,8 @@ final class Tools
         switch ($name) {
             case 'info_o_webu':
                 return [
-                    'web' => $siteSettings->get('nazev_webu'), 'adresa' => $this->app->request->origin() . $this->app->url(''), 'popis' => $siteSettings->get('popis_webu'),
-                    'sablona' => $siteSettings->get('layout'), 'uvodni_stranka' => $siteSettings->int('titulni_stranka') ?: null, 'verze_kaleta' => KALETA_VERSION,
+                    'web' => $siteSettings->get('site_name'), 'adresa' => $this->app->request->origin() . $this->app->url(''), 'popis' => $siteSettings->get('site_description'),
+                    'sablona' => $siteSettings->get('layout'), 'uvodni_stranka' => $siteSettings->int('home_page') ?: null, 'verze_kaleta' => KALETA_VERSION,
                     'stranek' => (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL'),
                     'novinek_vydanych' => (int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL'),
                     'uzivatel' => $auth->user()['user'], 'role' => \Kaleta\Core\Auth::TYPES[(int) $auth->user()['admin']], 'smi_vydavat' => $auth->canPublish(),
@@ -218,7 +218,7 @@ final class Tools
                 ];
 
             case 'seznam_stranek':
-                $home = $siteSettings->int('titulni_stranka');
+                $home = $siteSettings->int('home_page');
 
                 // adresa jazykové verze má předponu (/de/…); překlad úvodu je kořenem své verze (/de/)
                 return array_map(fn (array $r): array => ['id' => (int) $r['ids'], 'titulek' => $r['titulek'], 'adresa' => $this->app->request->origin()
@@ -261,7 +261,7 @@ final class Tools
                 $saved = \Kaleta\Core\Menu::load($db, $location, $menuLanguage);
 
                 return ['umisteni' => $location, 'jazyk' => $menuLanguage, 'automaticke' => $saved === null, 'polozky' => $saved ?? [],
-                    'na_webu' => \Kaleta\Core\Menu::items($this->app, $location, $menuLanguage, $siteSettings->int('titulni_stranka')),
+                    'na_webu' => \Kaleta\Core\Menu::items($this->app, $location, $menuLanguage, $siteSettings->int('home_page')),
                     'stranky' => $db->all('SELECT ids, titulek, zobrazit FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$menuLanguage])];
 
             case 'stavba_schema':
@@ -668,8 +668,10 @@ final class Tools
                 $stored = [];
                 $errors = [];
                 foreach ($changes as $key => $value) {
+                    // keys of 1.4.0 and older still work (nazev_webu, firma_email, nazev_webu_de…)
                     $key = (string) $key;
-                    if (in_array($key, ['logo_webu', 'favicon', 'og_obrazek'], true)) {
+                    $key = \Kaleta\Core\Settings::LEGACY_KEYS[$key] ?? (preg_match('/^(nazev_webu|popis_webu)_([a-z]{2})$/', $key, $m) ? \Kaleta\Core\Settings::LEGACY_KEYS[$m[1]] . '_' . $m[2] : $key);
+                    if (in_array($key, ['logo', 'favicon', 'share_image'], true)) {
                         // logo a ikona: soubor z Médií (nahraj_soubor) nebo ze systému (image/…); prázdné = bez loga / ikony
                         $path = ltrim(trim((string) $value), '/');
                         $ok = $path === '' || (preg_match('#^(media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif)$#', $path) && !str_contains($path, '..') && is_file(KALETA_ROOT . '/' . $path));
@@ -688,7 +690,7 @@ final class Tools
                         continue;
                     }
                     $clean = preg_match(self::MCP_SETTINGS, $key) && is_scalar($value) ? \Kaleta\Admin\Modules\Settings::verifyValue($key, is_bool($value) ? ($value ? '1' : '0') : (string) $value) : null;
-                    if ($clean !== null && $key === 'titulni_stranka' && (int) $clean > 0
+                    if ($clean !== null && $key === 'home_page' && (int) $clean > 0
                         && $db->value('SELECT ids FROM {stranky} WHERE ids = ? AND zobrazit = 1 AND smazano IS NULL', [(int) $clean]) === null) {
                         $errors[$key] = 'Úvodní stránkou může být jen zveřejněná stránka.';
                         continue;
@@ -704,8 +706,8 @@ final class Tools
                     \Kaleta\Front\Cache::clear();
                 }
                 $current = [];
-                foreach (['nazev_webu', 'popis_webu', 'text_paticky', 'logo_webu', 'favicon', 'titulni_stranka', 'soc_facebook', 'soc_instagram', 'soc_x', 'soc_youtube', 'soc_linkedin', 'pocet_clanku',
-                    'og_obrazek', 'firma_nazev', 'firma_typ', 'firma_ico', 'firma_dic', 'firma_rejstrik', 'firma_zastupce', 'firma_ulice', 'firma_mesto', 'firma_psc', 'firma_zeme', 'firma_telefon', 'firma_email', 'firma_hodiny', 'firma_mapa', 'firma_gps', 'tmavy_rezim', 'tmavy_prepinac'] as $key) {
+                foreach (['site_name', 'site_description', 'footer_text', 'logo', 'favicon', 'home_page', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin', 'news_per_page',
+                    'share_image', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_email', 'company_hours', 'company_map', 'company_gps', 'dark_mode', 'theme_switcher'] as $key) {
                     $current[$key] = $siteSettings->get($key);
                 }
 
@@ -748,7 +750,7 @@ final class Tools
                     throw new \DomainException('Stránku smí smazat editor nebo správce.');
                 }
                 $page = $this->page((int) ($a['id'] ?? 0));
-                if ((int) $page['ids'] === $siteSettings->int('titulni_stranka')) {
+                if ((int) $page['ids'] === $siteSettings->int('home_page')) {
                     throw new \DomainException('Úvodní stránku smazat nejde – nejdřív nastav jinou (uprav_nastaveni → titulni_stranka).');
                 }
                 $db->run('UPDATE {stranky} SET smazano = NOW(), zobrazit = 0 WHERE ids = ? AND smazano IS NULL', [(int) $page['ids']]);
@@ -1228,7 +1230,7 @@ final class Tools
             return $this->app->request->origin() . $this->app->url(($language !== '' ? $language . '/' : '') . $r['seo_link'] . '/' . ($item ?? '_ukazka'));
         }
         if ($target['druh'] === 'stranka') {
-            $home = $this->app->settings()->int('titulni_stranka') === (int) $r['ids'];
+            $home = $this->app->settings()->int('home_page') === (int) $r['ids'];
             $path = $home ? '' : $r['seo_link'];
         } elseif ($r['varianta'] !== '') {
             // varianta se ukazuje na první stránce, pro kterou platí

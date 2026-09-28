@@ -63,7 +63,7 @@ final class SiteIdentity
     public static function manifest(Settings $siteSettings, string $base): string
     {
         $colors = \Kaleta\Builder\DesignSystem::load($siteSettings)['barvy'];
-        $name = $siteSettings->get('nazev_webu') ?: 'Web';
+        $name = $siteSettings->get('site_name') ?: 'Web';
         $icons = [];
         foreach ([192, 512] as $n) {
             if (is_file(KALETA_ROOT . '/media/ikona-' . $n . '.png')) {

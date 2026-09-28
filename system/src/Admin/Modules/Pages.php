@@ -203,7 +203,7 @@ final class Pages extends Module
         } elseif (($other = $this->db->one('SELECT ids, smazano FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$data['seo_link'], $id])) !== null) {
             $errors['seo_link'] = $other['smazano'] !== null ? 'Tuto adresu má stránka v koši – obnovte ji, nebo ji smažte natrvalo.' : 'Stránka s touto adresou už existuje.';
         }
-        if ($id > 0 && $id === $this->app->settings()->int('titulni_stranka') && !$data['zobrazit']) {
+        if ($id > 0 && $id === $this->app->settings()->int('home_page') && !$data['zobrazit']) {
             $errors['zobrazit'] = 'Úvodní stránku nejde skrýt. Nejdřív v Nastavení → Základní vyberte jinou úvodní stránku.';
         }
         if ($errors !== []) {
@@ -282,7 +282,7 @@ final class Pages extends Module
     protected function describeTarget(array $target): array
     {
         $page = $target['radek'];
-        $home = $this->app->settings()->int('titulni_stranka') === (int) $page['ids'];
+        $home = $this->app->settings()->int('home_page') === (int) $page['ids'];
         $url = $this->app->url(($page['jazyk'] !== '' ? $page['jazyk'] . '/' : '') . ($home ? '' : $page['seo_link']));
 
         return [
@@ -415,7 +415,7 @@ final class Pages extends Module
         if (($refusal = $this->requirePublishPermission()) !== null) {
             return $refusal;
         }
-        if ($ids === $this->app->settings()->int('titulni_stranka')) {
+        if ($ids === $this->app->settings()->int('home_page')) {
             return $this->back('Úvodní stránku nejde smazat. Nejdřív v Nastavení → Základní vyberte jinou úvodní stránku.', '', [], 'chyba');
         }
         $this->db->run('UPDATE {stranky} SET smazano = NOW(), zobrazit = 0 WHERE ids = ? AND smazano IS NULL', [$ids]);
@@ -485,7 +485,7 @@ final class Pages extends Module
             'parents' => array_values(array_filter($this->db->all('SELECT ids, titulek, seo_link FROM {stranky} WHERE jazyk = ? AND smazano IS NULL AND ids <> ? ORDER BY seo_link', [$language, (int) $page['ids']]),
                 fn (array $s): bool => $custom === '' || !str_starts_with($s['seo_link'] . '/', $custom . '/'))),
             'versions' => $page['ids'] ? $this->db->all('SELECT r.idr, r.datum, r.titulek, IF(u.jmeno = \'\', u.user, u.jmeno) AS kdo FROM {stranky_revize} r LEFT JOIN {uzivatele} u ON u.idu = r.kdo WHERE r.ids = ? ORDER BY r.idr DESC LIMIT 30', [(int) $page['ids']]) : [],
-            'home' => $page['ids'] > 0 && (int) $page['ids'] === $this->app->settings()->int('titulni_stranka'),
+            'home' => $page['ids'] > 0 && (int) $page['ids'] === $this->app->settings()->int('home_page'),
             'inMenu' => $page['ids'] > 0 ? \Kaleta\Core\Menu::hasPage($this->db, (int) $page['ids'], (string) ($page['jazyk'] ?? '')) : null,
             'customMenu' => \Kaleta\Core\Menu::load($this->db, 'hlavni', (string) ($page['jazyk'] ?? '')) !== null,
         ]);

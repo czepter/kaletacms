@@ -13,12 +13,12 @@ final class Webhook
     /** Nová poptávka z formuláře webu → adresa z Nastavení (CRM, Make, Zapier, n8n, Slack…). */
     public static function enquiryReceived(App $app, int $idp, string $form, array $data, string $email, string $page, string $campaign = ''): void
     {
-        $url = $app->settings()->get('webhook_poptavky');
+        $url = $app->settings()->get('webhook_enquiries');
         if (!preg_match('#^https://#i', $url)) {
             return;
         }
         self::deliver($url, [
-            'udalost' => 'nova_poptavka', 'web' => $app->settings()->get('nazev_webu'), 'id' => $idp, 'formular' => $form, 'email' => $email,
+            'udalost' => 'nova_poptavka', 'web' => $app->settings()->get('site_name'), 'id' => $idp, 'formular' => $form, 'email' => $email,
             'stranka' => $app->request->origin() . $page, 'prijato' => date('c'),
             'pole' => array_map(fn (array $d): array => ['popisek' => $d[0], 'hodnota' => $d[1]], $data),
         ] + ($campaign !== '' ? ['utm' => self::utm($campaign)] : []));
@@ -63,7 +63,7 @@ final class Webhook
         }
         $root = $app->request->origin() . $app->request->basePath() . '/'; // soubory jsou společné všem jazykům
         $data = [
-            'udalost' => 'novinka_vydana', 'web' => $app->settings()->get('nazev_webu'), 'titulek' => $c['titulek'],
+            'udalost' => 'novinka_vydana', 'web' => $app->settings()->get('site_name'), 'titulek' => $c['titulek'],
             'adresa' => $app->request->origin() . $app->newsItemUrl($c['seo_link'], $c['jazyk']), 'perex' => trim(strip_tags($c['uvod'])), 'kategorie' => $c['kategorie'],
             'obrazek' => $c['obrazek'] === '' ? '' : (preg_match('#^https?://#i', $c['obrazek']) ? $c['obrazek'] : rtrim($root, '/') . '/' . ltrim($c['obrazek'], '/')),
             'stitky' => array_column($app->db()->all('SELECT s.nazev FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ?', [$idc]), 'nazev'),

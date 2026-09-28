@@ -126,7 +126,8 @@ fi
 for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$CHANNEL_PORT/aktualizace.json" && break; sleep 0.2; done
 
 echo "== update through the admin"
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('aktualizace_url','http://127.0.0.1:$CHANNEL_PORT/aktualizace.json') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'aktualizace_cache'"
+# the channel under the key of the old release (1.4.0 and older: aktualizace_url) and of the current one
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('aktualizace_url','http://127.0.0.1:$CHANNEL_PORT/aktualizace.json'), ('update_url','http://127.0.0.1:$CHANNEL_PORT/aktualizace.json') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('aktualizace_cache', 'update_cache')"
 # the old release answers to its own URLs (the admin of a 1.3 site clicks Update there)
 curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?modul=config&zalozka=zalohy"; TOKEN=$(csrf) # 1.4+ redirects this to its own URL
 curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?modul=config&akce=aktualizuj" -d "_csrf=$TOKEN"
@@ -146,10 +147,11 @@ rm -f "$WORK"/web/storage/cache/stranky/*.html
 for s in / /o-nas /sluzby /kontakt /novinky /sitemap.xml; do check "page $s" "$s"; done
 grep -q "Testovací firma" <(curl -s "$B/") && echo "  ok     content kept" || { echo "  CHYBA  home page lost its content"; ERRORS=$((ERRORS+1)); }
 # every admin module of the new version, with all extensions on
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('rozsireni','novinky,poptavky,newsletter,statistika,presmerovani,asistent,jazyky,api,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('extensions','novinky,poptavky,newsletter,statistika,presmerovani,asistent,jazyky,api,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
 check "admin dashboard" /admin.php
 # releases before 1.1 migrate on the first admin load after the update, later ones during the update itself
-expect "database migrated to $LAST_MIGRATION" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'verze_db'")" "$LAST_MIGRATION"
+expect "database migrated to $LAST_MIGRATION" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "$LAST_MIGRATION"
+expect "no settings row left under a key of 1.4.0" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_nastaveni WHERE promenna IN ('verze_db', 'nazev_webu', 'aktualizace_url', 'aktualizace_cache', 'uklizeno_verze')")" "0"
 for m in $(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; foreach (Kaleta\Admin\Kernel::MODULES as $m) { echo $m::IDENT, "\n"; }'); do check "admin $m" "/admin.php?module=$m"; done
 for z in general seo health backups; do check "admin settings/$z" "/admin.php?module=settings&tab=$z"; done
 grep -q 'name="password"' "$WORK/response" && { echo "  CHYBA  the update logged the admin out"; ERRORS=$((ERRORS+1)); } || echo "  ok     admin session survived"

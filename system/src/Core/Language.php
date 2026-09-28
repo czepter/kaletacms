@@ -162,7 +162,7 @@ final class Language
     /** Výchozí jazyk webu. */
     public static function defaults(Settings $s): string
     {
-        return isset(self::AVAILABLE[$s->get('jazyk_webu')]) ? $s->get('jazyk_webu') : 'cs';
+        return isset(self::AVAILABLE[$s->get('site_language')]) ? $s->get('site_language') : 'cs';
     }
 
     /**
@@ -176,7 +176,7 @@ final class Language
             return [];
         }
 
-        return array_values(array_diff(array_intersect(explode(',', $s->get('jazyky_dalsi')), array_keys(self::AVAILABLE)), [self::defaults($s)]));
+        return array_values(array_diff(array_intersect(explode(',', $s->get('additional_languages')), array_keys(self::AVAILABLE)), [self::defaults($s)]));
     }
 
     /**
@@ -188,7 +188,7 @@ final class Language
     public static function published(Settings $s, Db $db): array
     {
         $additional = self::additional($s);
-        $home = $s->int('titulni_stranka');
+        $home = $s->int('home_page');
         if ($additional === [] || $home === 0) {
             return $additional;
         }

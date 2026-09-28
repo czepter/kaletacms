@@ -44,11 +44,11 @@ $group = '';
 </fieldset>
 <fieldset>
 <legend><?= e(t('Monitoring')) ?></legend>
-<?php if ($values['stav_token'] !== ''): ?>
-<p><?= e(t('Stav ve formátu JSON pro dohledové nástroje (UptimeRobot, Zabbix…):')) ?><br><code><?= e($siteUrl) ?>stav.json?token=<?= e($values['stav_token']) ?></code></p>
+<?php if ($values['health_token'] !== ''): ?>
+<p><?= e(t('Stav ve formátu JSON pro dohledové nástroje (UptimeRobot, Zabbix…):')) ?><br><code><?= e($siteUrl) ?>stav.json?token=<?= e($values['health_token']) ?></code></p>
 <?php else: ?>
 <p><?= e(t('Dohledový nástroj může stav číst jako JSON. Nejprve vytvořte přístupový token.')) ?></p>
 <?php endif ?>
-<input type="hidden" name="stav_token" value="<?= e($values['stav_token']) ?>">
-<p><button class="navigace" type="submit" name="novy_token" value="1"><?= e(t($values['stav_token'] !== '' ? 'Vytvořit nový token (starý přestane platit)' : 'Vytvořit token')) ?></button></p>
+<input type="hidden" name="health_token" value="<?= e($values['health_token']) ?>">
+<p><button class="navigace" type="submit" name="novy_token" value="1"><?= e(t($values['health_token'] !== '' ? 'Vytvořit nový token (starý přestane platit)' : 'Vytvořit token')) ?></button></p>
 </fieldset>

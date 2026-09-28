@@ -36,11 +36,11 @@ final class Seo
     public function robotsTxt(): string
     {
         $s = $this->app->settings();
-        if (!$s->bool('indexovani')) {
+        if (!$s->bool('indexing')) {
             return "# Indexování webu je vypnuté v Nastavení.\nUser-agent: *\nDisallow: /\n";
         }
         $rows = ['User-agent: *', 'Disallow: /admin.php', 'Disallow: /hledani', 'Disallow: /search', 'Disallow: /*?nahled=', ''];
-        if ($s->get('ai_crawlery') === 'zakazat') {
+        if ($s->get('ai_crawlers') === 'zakazat') {
             foreach (self::AI_BOTS as $bot) {
                 $rows[] = 'User-agent: ' . $bot;
             }
@@ -69,7 +69,7 @@ final class Seo
         foreach (array_slice($languages, 1) as $language) {
             $xml[] = $url('', null, '0.9', $language);
         }
-        $home = $this->app->settings()->int('titulni_stranka');
+        $home = $this->app->settings()->int('home_page');
         foreach ($db->all('SELECT seo_link, zmeneno, jazyk FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND smazano IS NULL AND ids <> ? AND (preklad_z IS NULL OR preklad_z <> ?)' . $inLanguages, [$home, $home, ...$languages]) as $r) {
             $xml[] = $url($r['seo_link'], $r['zmeneno'], '0.8', $r['jazyk']);
         }
@@ -105,7 +105,7 @@ final class Seo
         $s = $this->app->settings();
 
         return [
-            'version' => 'https://jsonfeed.org/version/1.1', 'title' => $s->get('nazev_webu'), 'description' => $s->get('popis_webu'),
+            'version' => 'https://jsonfeed.org/version/1.1', 'title' => $s->get('site_name'), 'description' => $s->get('site_description'),
             'home_page_url' => $this->siteSettings, 'feed_url' => $this->siteSettings . 'feed.json', 'language' => \Kaleta\Core\Language::code(),
             'items' => array_map(fn (array $c): array => array_filter([
                 'id' => 'novinka-' . $c['idc'], 'url' => $this->siteSettings . $this->path('novinky/') . $c['seo_link'], 'title' => $c['titulek'],
@@ -126,10 +126,10 @@ final class Seo
     {
         $s = $this->app->settings();
         $host = (string) parse_url($this->siteSettings, PHP_URL_HOST);
-        if (!$s->bool('indexnow') || $s->get('indexnow_klic') === '' || !$s->bool('indexovani') || in_array($host, ['localhost', '127.0.0.1'], true) || str_ends_with($host, '.test')) {
+        if (!$s->bool('indexnow') || $s->get('indexnow_key') === '' || !$s->bool('indexing') || in_array($host, ['localhost', '127.0.0.1'], true) || str_ends_with($host, '.test')) {
             return;
         }
-        $data = json_encode(['host' => $host, 'key' => $s->get('indexnow_klic'), 'keyLocation' => $this->app->request->origin() . $this->app->request->basePath() . '/' . $s->get('indexnow_klic') . '.txt', 'urlList' => [$this->app->request->origin() . $url]]);
+        $data = json_encode(['host' => $host, 'key' => $s->get('indexnow_key'), 'keyLocation' => $this->app->request->origin() . $this->app->request->basePath() . '/' . $s->get('indexnow_key') . '.txt', 'urlList' => [$this->app->request->origin() . $url]]);
         @file_get_contents('https://api.indexnow.org/indexnow', false, stream_context_create(['http' => [
             'method' => 'POST', 'header' => "Content-Type: application/json; charset=utf-8\r\n", 'content' => $data, 'timeout' => 3, 'ignore_errors' => true,
         ]]));
@@ -140,13 +140,13 @@ final class Seo
     {
         $s = $this->app->settings();
         $db = $this->app->db();
-        $md = $s->bool('markdown_clanky') ? '.md' : '';
-        $rows = ['# ' . $s->get('nazev_webu'), ''];
-        if ($s->get('popis_webu') !== '') {
-            array_push($rows, '> ' . str_replace("\n", ' ', $s->get('popis_webu')), '');
+        $md = $s->bool('markdown_news') ? '.md' : '';
+        $rows = ['# ' . $s->get('site_name'), ''];
+        if ($s->get('site_description') !== '') {
+            array_push($rows, '> ' . str_replace("\n", ' ', $s->get('site_description')), '');
         }
         $rows[] = '## ' . t('Stránky');
-        $home = $s->int('titulni_stranka');
+        $home = $s->int('home_page');
         foreach ($db->all('SELECT ids, titulek, seo_link, popis FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY poradi, titulek', [\Kaleta\Core\Language::siteColumn()]) as $r) {
             $rows[] = '- [' . $r['titulek'] . '](' . $this->siteSettings . ((int) $r['ids'] === $home ? '' : $r['seo_link']) . ')' . ($r['popis'] !== '' ? ': ' . $r['popis'] : '');
         }
@@ -186,7 +186,7 @@ final class Seo
     public function newsItemMarkdown(array $newsItem): string
     {
         $head = ['# ' . $newsItem['titulek'], ''];
-        $head[] = '- ' . t('Autor') . ': ' . ($newsItem['autor_jm'] ?? $this->app->settings()->get('nazev_webu'));
+        $head[] = '- ' . t('Autor') . ': ' . ($newsItem['autor_jm'] ?? $this->app->settings()->get('site_name'));
         $head[] = '- ' . t('Vydáno') . ': ' . date('Y-m-d', strtotime($newsItem['datum'])) . ($newsItem['zmeneno'] ? ', ' . t('aktualizováno') . ': ' . date('Y-m-d', strtotime($newsItem['zmeneno'])) : '');
         $head[] = '- ' . t('Kategorie') . ': ' . $newsItem['tema_jm'];
         $head[] = '- ' . t('Zdroj') . ': ' . $this->siteSettings . $this->path('novinky/') . $newsItem['seo_link'];
@@ -204,20 +204,20 @@ final class Seo
     {
         $s = $this->app->settings();
         $h = [];
-        if ($s->get('cookies_rezim') === 'externi' && trim($s->get('cookies_externi_kod')) !== '') {
-            $h[] = $s->get('cookies_externi_kod');
+        if ($s->get('cookies_mode') === 'externi' && trim($s->get('cookies_external_code')) !== '') {
+            $h[] = $s->get('cookies_external_code');
         }
-        if (!$s->bool('indexovani')) {
+        if (!$s->bool('indexing')) {
             $h[] = '<meta name="robots" content="noindex, nofollow">';
         } // noindex jednotlivé stránky nebo novinky vypíše šablona podle $meta['noindex'] (a vynechá kanonickou adresu)
-        if ($s->get('overeni_google') !== '') {
-            $h[] = '<meta name="google-site-verification" content="' . e($s->get('overeni_google')) . '">';
+        if ($s->get('verification_google') !== '') {
+            $h[] = '<meta name="google-site-verification" content="' . e($s->get('verification_google')) . '">';
         }
-        if ($s->get('overeni_bing') !== '') {
-            $h[] = '<meta name="msvalidate.01" content="' . e($s->get('overeni_bing')) . '">';
+        if ($s->get('verification_bing') !== '') {
+            $h[] = '<meta name="msvalidate.01" content="' . e($s->get('verification_bing')) . '">';
         }
-        if (($meta['obrazek'] ?? '') === '' && $s->get('og_obrazek') !== '') {
-            $h[] = '<meta property="og:image" content="' . e($this->absoluteUrl($s->get('og_obrazek'))) . '">';
+        if (($meta['obrazek'] ?? '') === '' && $s->get('share_image') !== '') {
+            $h[] = '<meta property="og:image" content="' . e($this->absoluteUrl($s->get('share_image'))) . '">';
         }
         // jazykové verze: hreflang jen na existující překlady (novinka, stránka, kategorie, položka kolekce), na úvodu na úvod každé verze
         $defaults = \Kaleta\Core\Language::defaults($s);
@@ -234,8 +234,8 @@ final class Seo
         if (($meta['popis'] ?? '') !== '') {
             $h[] = '<meta property="og:description" content="' . e($meta['popis']) . '">';
         }
-        $h[] = '<meta name="twitter:card" content="' . (($meta['obrazek'] ?? '') !== '' || $s->get('og_obrazek') !== '' ? 'summary_large_image' : 'summary') . '">';
-        if ($newsItem !== null && $s->bool('markdown_clanky')) {
+        $h[] = '<meta name="twitter:card" content="' . (($meta['obrazek'] ?? '') !== '' || $s->get('share_image') !== '' ? 'summary_large_image' : 'summary') . '">';
+        if ($newsItem !== null && $s->bool('markdown_news')) {
             $h[] = '<link rel="alternate" type="text/markdown" href="' . e($this->siteSettings . $this->path('novinky/') . $newsItem['seo_link'] . '.md') . '">';
         }
         if ($s->bool('schema_org')) {
@@ -252,8 +252,8 @@ final class Seo
         // a do konzole vypíše neošetřenou chybu „Transition was aborted because of invalid state“.
         $h[] = '<script src="' . e($this->app->url('image/web.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute() . '></script>';
         $h[] = $this->analyticsCode();
-        if (trim($s->get('kod_hlava')) !== '') {
-            $h[] = $s->get('kod_hlava');
+        if (trim($s->get('head_code')) !== '') {
+            $h[] = $s->get('head_code');
         }
 
         return implode("\n", array_filter($h)) . "\n";
@@ -282,8 +282,8 @@ final class Seo
     public function foot(): string
     {
         $s = $this->app->settings();
-        $mode = $s->get('cookies_rezim');
-        $marketing = trim($s->get('kod_marketing'));
+        $mode = $s->get('cookies_mode');
+        $marketing = trim($s->get('marketing_code'));
         $html = $marketing === '' ? '' : self::deferUntilConsent($marketing, $mode);
         $hasMarketing = $marketing !== '';
         if ($mode !== 'vestavena' || (!$this->usesAnalyticsCookies() && !$hasMarketing)) {
@@ -293,10 +293,10 @@ final class Seo
 
         return $html . $view->render('cookies', [
             'text' => $s->get('cookies_text'),
-            'zasady' => $s->get('cookies_zasady_url'),
+            'zasady' => $s->get('cookies_policy_url'),
             'analytika' => $this->usesAnalyticsCookies(),
             'marketing' => $hasMarketing,
-            'evidence' => $s->bool('cookies_evidence') ? $this->app->url('souhlas') : '',
+            'evidence' => $s->bool('cookies_log') ? $this->app->url('souhlas') : '',
         ]);
     }
 
@@ -325,7 +325,7 @@ final class Seo
     {
         $s = $this->app->settings();
         // se souhlasem: skript je "text/plain", dokud ho lišta (vestavěná i Cookiebot) nepovolí
-        $pending = $s->get('cookies_rezim') !== 'zadna';
+        $pending = $s->get('cookies_mode') !== 'zadna';
         $attributes = $pending ? ' type="text/plain" data-souhlas="analytika" data-cookieconsent="statistics"' : '';
         $code = '';
         if ($s->get('ga4_id') !== '') {
@@ -339,8 +339,8 @@ final class Seo
             $url = json_encode(rtrim($s->get('matomo_url'), '/') . '/', JSON_UNESCAPED_SLASHES | JSON_HEX_TAG);
             $code .= "<script{$attributes}>var _paq=window._paq=window._paq||[];_paq.push(['trackPageView']);_paq.push(['enableLinkTracking']);(function(){var u={$url};_paq.push(['setTrackerUrl',u+'matomo.php']);_paq.push(['setSiteId','{$s->int('matomo_id')}']);var d=document,g=d.createElement('script'),s=d.getElementsByTagName('script')[0];g.async=true;g.src=u+'matomo.js';s.parentNode.insertBefore(g,s);})();</script>\n";
         }
-        if ($s->get('plausible_domena') !== '') {
-            $code .= '<script defer data-domain="' . e($s->get('plausible_domena')) . '" src="https://plausible.io/js/script.js"></script>' . "\n";
+        if ($s->get('plausible_domain') !== '') {
+            $code .= '<script defer data-domain="' . e($s->get('plausible_domain')) . '" src="https://plausible.io/js/script.js"></script>' . "\n";
         }
 
         return $code;
@@ -358,8 +358,8 @@ final class Seo
         $issuer = Company::schema($s, $this->siteSettings, $this->absoluteUrl(...));
         if ($newsItem === null) {
             $chart = [
-                ['@type' => 'WebSite', '@id' => $this->siteSettings . '#web', 'name' => $s->get('nazev_webu'), 'url' => $this->siteSettings,
-                    'description' => $s->get('popis_webu'), 'inLanguage' => \Kaleta\Core\Language::code(), 'publisher' => ['@id' => $issuer['@id']],
+                ['@type' => 'WebSite', '@id' => $this->siteSettings . '#web', 'name' => $s->get('site_name'), 'url' => $this->siteSettings,
+                    'description' => $s->get('site_description'), 'inLanguage' => \Kaleta\Core\Language::code(), 'publisher' => ['@id' => $issuer['@id']],
                     'potentialAction' => ['@type' => 'SearchAction', 'target' => $this->siteSettings . $this->path('hledani?q={q}'), 'query-input' => 'required name=q']],
                 $issuer,
             ];
@@ -397,7 +397,7 @@ final class Seo
             ]),
             ...($this->faqData($newsItem)),
             ['@type' => 'BreadcrumbList', 'itemListElement' => [
-                ['@type' => 'ListItem', 'position' => 1, 'name' => $s->get('nazev_webu'), 'item' => $this->siteSettings],
+                ['@type' => 'ListItem', 'position' => 1, 'name' => $s->get('site_name'), 'item' => $this->siteSettings],
                 ['@type' => 'ListItem', 'position' => 2, 'name' => t('Novinky'), 'item' => $this->siteSettings . $this->path('novinky')],
                 ['@type' => 'ListItem', 'position' => 3, 'name' => $newsItem['tema_jm'], 'item' => $this->siteSettings . $this->path('novinky/kategorie/') . $newsItem['tema_seo']],
                 ['@type' => 'ListItem', 'position' => 4, 'name' => $newsItem['titulek']],

@@ -51,11 +51,11 @@ install() { # install <starter> <extension…>: a clean English install (the ins
 }
 public_site() { # public_site <starter>: every visible page, news, search, 404 and the privacy policy, as a visitor sees them
   local slug
-  for slug in $(sql "SELECT IF(ids = (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'titulni_stranka'), '', seo_link) FROM ka_stranky WHERE zobrazit = 1 ORDER BY poradi"); do
+  for slug in $(sql "SELECT IF(ids = (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page'), '', seo_link) FROM ka_stranky WHERE zobrazit = 1 ORDER BY poradi"); do
     page "$1: page" "/$slug"; headings "$1: page /$slug"
   done
   [ "$(sql "SELECT COUNT(*) FROM ka_stranky WHERE stavba LIKE '%\"typ\":\"obrazek\"%' AND stavba NOT LIKE '%\"src\":\"media/%'")" = 0 ] || fail "$1: a starter page has an image slot without an image"
-  if [ -n "$(sql "SELECT 1 FROM ka_nastaveni WHERE promenna = 'rozsireni' AND FIND_IN_SET('novinky', hodnota)")" ]; then
+  if [ -n "$(sql "SELECT 1 FROM ka_nastaveni WHERE promenna = 'extensions' AND FIND_IN_SET('novinky', hodnota)")" ]; then
     page "$1: news" /news
     code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/novinky/kategorie/x")
     [ "$code" = "301 $B/news/category/x" ] || fail "$1: the Czech address /novinky/kategorie/x does not redirect to /news/category/x ($code)"
@@ -122,7 +122,7 @@ done
 
 # messages after saving: settings, menu, an upload over the server limit and a news item saved by its author
 TOKEN=$(token "$WORK/page.html")
-curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/page.html" -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=company --data-urlencode "firma_nazev=Acme Ltd" -d firma_zeme=GB
+curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/page.html" -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=company --data-urlencode "company_name=Acme Ltd" -d company_country=GB
 check "message after saving settings" "$WORK/page.html"
 curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/page.html" -X POST "$B/admin.php?module=menu&action=save&umisteni=paticka" -d "_csrf=$TOKEN" --data-urlencode 'polozky=[{"typ":"novinky","text":""}]'
 check "message after saving a menu" "$WORK/page.html"

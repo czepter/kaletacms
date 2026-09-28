@@ -19,10 +19,10 @@ final class Links
     public static function runInBackground(App $app): void
     {
         $s = $app->settings();
-        if (!$s->bool('kontrola_odkazu') || !function_exists('curl_init') || time() - $s->int('kontrola_odkazu_cas') < 300) {
+        if (!$s->bool('link_check') || !function_exists('curl_init') || time() - $s->int('link_check_time') < 300) {
             return;
         }
-        $s->set('kontrola_odkazu_cas', (string) time());
+        $s->set('link_check_time', (string) time());
         $db = $app->db();
         $newsItem = $db->one('SELECT idc, uvod, text FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND (odkazy_cas IS NULL OR odkazy_cas < NOW() - INTERVAL 30 DAY) ORDER BY odkazy_cas IS NOT NULL, odkazy_cas, datum DESC LIMIT 1');
         if ($newsItem === null) {
