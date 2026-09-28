@@ -140,6 +140,8 @@ findable, then remove what is left of the old ways. Each step uses the previous 
 3. MCP look tools write to the draft by default; `publish_look` and `discard_look`. Site appearance in the admin gets the
    same Publish button.
 4. The change log shows look changes before and after; the previous look is restored with one click.
+5. **Ready-made templates of site parts:** four headers, four footers and plain or extended wrappers – structure only,
+   the look comes from the design system; they go into the part's draft (admin and `apply_part_template`).
 
 ## 1.8 – own and move your site
 

@@ -93,6 +93,11 @@ administrace ukazuje lištu s tím, co mění, a třemi tlačítky:
 
 **Vzhled → Části webu.** Dokud část nepublikujete z builderu, kreslí ji vestavěná výchozí podoba.
 
+- **Začít ze šablony:** čtyři záhlaví (logo vlevo a menu vpravo, logo uprostřed, s kontaktní lištou, minimální), čtyři
+  patičky (sloupce, kompaktní, s tiráží, s výzvou k akci) a jednoduché nebo rozšířené obálky. Šablona je čistá kostra –
+  barvy, písma a mezery si bere z design systému. Uloží se do konceptu části, takže web se změní až po publikování;
+  zkontrolujte ji na celém webu přes **Náhled celého webu**.
+
 - **Záhlaví a patička** jsou na každé stránce. Prvky **Logo**, **Navigace** (na telefonu se schová za tlačítko) a
   **Údaje firmy** se plní samy.
 - **Obálky** (detail novinky, výpis novinek, stránka 404) přidají sekce kolem obsahu, který skládá systém. Prvek

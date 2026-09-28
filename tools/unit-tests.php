@@ -204,7 +204,8 @@ $parity = [
         'replace' => 'admin: a new file behind the same address', 'folder' => 'admin: media folders', 'folder_delete' => 'admin: media folders'],
     'appearance' => ['list' => $readOnly, 'preview' => $readOnly, 'tokens' => $readOnly, 'save' => 'update_design_system', 'tokens_import' => 'admin: upload of a design tokens file',
         'publish_look' => 'publish_look', 'discard_look' => 'discard_look', 'restore_look' => 'restore_look_version', 'preview_site' => 'preview_link'],
-    'parts' => $builderParity + ['list' => $readOnly, 'variant' => $readOnly, 'save_variant' => 'save_part_variant', 'template' => 'save_part_variant'],
+    'parts' => $builderParity + ['list' => $readOnly, 'variant' => $readOnly, 'save_variant' => 'save_part_variant', 'template' => 'save_part_variant',
+        'templates' => $readOnly, 'apply_template' => 'apply_part_template'],
     'menu' => ['list' => $readOnly, 'save' => 'save_menu', 'automatic' => 'save_menu'],
     'components' => $builderParity + ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'save_component', 'delete' => 'delete_component', 'from_element' => 'save_component'],
     'popups' => $builderParity + ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'create' => 'save_popup', 'save' => 'save_popup', 'toggle' => 'save_popup',
@@ -288,6 +289,23 @@ check('Vocabulary: the Czech form is still accepted on input', $vocabulary::elem
     ['typ' => 'nadpis', 'obsah' => ['text' => 'A'], 'styl' => ['mobil' => ['barva' => 'primarni']]]);
 check('Vocabulary: English in, Czech stored', $vocabulary::elementToCzech(['type' => 'button', 'content' => ['text' => 'Go', 'variant' => 'outline', 'icon' => 'arrow'], 'style' => ['hover' => ['background' => 'primary-soft', 'radius' => 'full']]]),
     ['typ' => 'tlacitko', 'obsah' => ['text' => 'Go', 'varianta' => 'obrys', 'ikona' => 'sipka'], 'styl' => ['hover' => ['pozadi' => 'primarni-jemna', 'zaobleni' => 'plne']]]);
+// Ready-made templates of site parts: each builds without errors, wrappers keep exactly one page content element, headers carry the logo
+$templateProblems = [];
+foreach (Kaleta\Builder\PartTemplates::LIST as $partType => $partTemplates) {
+    foreach (array_keys($partTemplates) as $templateKey) {
+        $templateBuild = Kaleta\Builder\PartTemplates::build($partType, $templateKey, 'en', ['newsletter']);
+        [, $templateErrors] = Kaleta\Builder\Build::sanitize($templateBuild);
+        $json = (string) json_encode($templateBuild);
+        $contentCount = preg_match_all('/"typ":"obsah"/', $json);
+        if ($templateErrors !== [] || (in_array($partType, ['novinka', 'vypis', 'nenalezeno'], true) ? $contentCount !== 1 : $contentCount !== 0)
+            || ($partType === 'hlavicka' && !str_contains($json, '"typ":"logo"'))) {
+            $templateProblems[] = $partType . ':' . $templateKey;
+        }
+    }
+}
+check('Part templates: valid builds, one page content in wrappers, a logo in headers', $templateProblems, []);
+check('Part templates: the newsletter sign-up only with the Newsletter extension', [str_contains((string) json_encode(Kaleta\Builder\PartTemplates::build('paticka', 'sloupce', 'en', [])), '"typ":"newsletter"'),
+    array_column(Kaleta\Builder\PartTemplates::forType('vypis', []), 'klic')], [false, ['jednoduchy']]);
 // MCP in English: every tool has an English name, every fixed message a translation, parameters and results are converted
 $mcpSource = (string) file_get_contents(KALETA_ROOT . '/system/src/Mcp/Tools.php');
 preg_match_all("/^\s+\['([a-z_]+)', '/m", substr($mcpSource, 0, (int) strpos($mcpSource, 'public function zavolej')), $mcpTools);

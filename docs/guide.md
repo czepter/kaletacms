@@ -93,7 +93,12 @@ A brand-new shared class applies at once – it changes nothing that is already 
 
 ## 4. Site parts: header, footer, wrappers, pop-ups
 
-**Appearance → Site parts.** Until you publish a part from the builder, the theme draws it.
+**Appearance → Site parts.** Until you publish a part from the builder, its built-in default design is shown.
+
+- **Start from a template:** four headers (logo left and menu right, centred logo, with a contact bar, minimal), four
+  footers (columns, compact, with the imprint, with a call to action) and plain or extended wrappers. A template is a
+  clean skeleton – colours, fonts and spacing come from your design system. It goes into the part's draft, so the site
+  changes only when you publish it; check it on the whole site with **Preview the whole site**.
 
 - **Header and footer** appear on every page. The **Logo**, **Navigation** (hidden behind a button on phones) and
   **Company details** elements fill themselves.

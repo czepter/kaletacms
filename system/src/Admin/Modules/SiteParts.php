@@ -74,6 +74,33 @@ final class SiteParts extends Module
     }
 
     /** Form of a header or footer variant: name and the pages it applies to. */
+    /** Ready-made templates of the part (PartTemplates) to start from. */
+    protected function actionTemplates(): Response
+    {
+        [$type, $language, $variant] = $this->readPartParams();
+        if ($type === null) {
+            return $this->error('The site part does not exist.', 404);
+        }
+
+        return $this->view('templates', t('Templates: %s', t(CastiWebu::TYPES[$type][0])), [
+            'type' => $type, 'language' => $language, 'variant' => $variant,
+            'templates' => \Kaleta\Builder\PartTemplates::forType($type, \Kaleta\Core\Extensions::enabled($this->app->settings())),
+        ]);
+    }
+
+    /** A template into the part's draft – the builder opens with it; the site changes only after publishing. */
+    protected function actionApplyTemplate(): Response
+    {
+        [$type, $language, $variant] = $this->readPartParams();
+        if (!$this->request->isPost() || $type === null
+            || !CastiWebu::applyTemplate($this->db, $type, $language, $variant, $this->request->post('sablona'), $this->contentLanguage($language), \Kaleta\Core\Extensions::enabled($this->app->settings()))) {
+            return $this->back('The template could not be used.', '', [], 'chyba');
+        }
+        $this->app->session->flash('ok', 'The template is in the draft – adjust it and publish; until then visitors see the published version.');
+
+        return Response::redirect($this->url('builder', ['typ' => $type, 'jazyk' => $language] + ($variant !== '' ? ['varianta' => $variant] : [])));
+    }
+
     protected function actionVariant(): Response
     {
         [$type, $language, $variant] = $this->readPartParams();

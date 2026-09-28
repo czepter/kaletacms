@@ -195,6 +195,9 @@ final class Tools
             ['update_enquiry', 'Marks an enquiry new, read or resolved and writes an internal note (users with the Enquiries section).',
                 $s(['id' => $number('enquiry ID from list_enquiries'), 'status' => $text('new | read | resolved'), 'note' => $text('internal note (replaces the previous one)')], ['id'])],
             ['delete_enquiry', 'Deletes an enquiry with its attachments for good (only when the user explicitly asks – for example a request to erase personal data).', $s(['id' => $number('enquiry ID')], ['id'])],
+            ['apply_part_template', 'Puts a ready-made template into the draft of a site part (administrators): a clean skeleton of the header, the footer or a wrapper whose look comes from the design system. The published version stays until publish_build with the part. Templates are in builder_schema → part_templates.',
+                $s(['part' => $text('header | footer | news_item | news_list | not_found'), 'template' => $text('template key from builder_schema → part_templates'),
+                    'language' => $text('language version of the part (empty = default)'), 'variant' => $text('header or footer variant (empty = the default version)')], ['part', 'template'])],
             ['publish_look', 'Publishes the draft look – design system, shared classes and menus changed by update_design_system, save_classes and save_menu (administrators; only when the user explicitly asks, after they saw the preview). The published look is kept as a version first.', $s([])],
             ['discard_look', 'Throws the draft look away – the published look stays (administrators; only when the user explicitly asks).', $s([])],
             ['list_look_versions', 'Earlier published looks (the last 20), with what the next publishing changed. restore_look_version brings one back into the draft.', $s([])],
@@ -239,7 +242,10 @@ final class Tools
     private const array CONTENT_TOOLS = ['list_trash' => '', 'restore_from_trash' => '', 'trash_news' => 'novinky', 'delete_collection_item' => '', 'delete_collection' => '',
         'update_category' => 'novinky', 'delete_category' => 'novinky', 'delete_popup' => '', 'list_components' => '', 'save_component' => '', 'delete_component' => '',
         'save_section' => '', 'delete_section' => '', 'update_media' => '', 'delete_media' => '', 'update_enquiry' => 'poptavky', 'delete_enquiry' => 'poptavky',
-        'publish_look' => '', 'discard_look' => '', 'list_look_versions' => '', 'restore_look_version' => ''];
+        'publish_look' => '', 'discard_look' => '', 'list_look_versions' => '', 'restore_look_version' => '', 'apply_part_template' => ''];
+
+    /** Site parts by their English names (MCP) => Czech types. */
+    private const array PART_NAMES = ['header' => 'hlavicka', 'footer' => 'paticka', 'news_item' => 'novinka', 'news_list' => 'vypis', 'not_found' => 'nenalezeno'];
 
     /** Newsletter tools (1.5; English names only – they never had Czech ones). */
     private const array NEWSLETTER_TOOLS = ['list_newsletters', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter'];
@@ -264,7 +270,7 @@ final class Tools
     {
         return in_array($name, ['obnov_verzi', 'zahod_koncept', 'uloz_variantu', 'vytvor_kolekci', 'uprav_kolekci', 'uloz_polozku_kolekce', 'uloz_popup', 'stavba_z_html', 'stavba_uloz', 'stavba_uprav', 'uloz_tridy', 'nahraj_soubor', 'uprav_nastaveni', 'uloz_presmerovani', 'smaz_stranku', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'uloz_menu', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter',
             'restore_from_trash', 'trash_news', 'delete_collection_item', 'delete_collection', 'update_category', 'delete_category', 'delete_popup', 'save_component', 'delete_component',
-            'save_section', 'delete_section', 'update_media', 'delete_media', 'update_enquiry', 'delete_enquiry', 'publish_look', 'discard_look', 'restore_look_version'], true);
+            'save_section', 'delete_section', 'update_media', 'delete_media', 'update_enquiry', 'delete_enquiry', 'publish_look', 'discard_look', 'restore_look_version', 'apply_part_template'], true);
     }
 
     /** @param array<string, mixed> $a */
@@ -1347,6 +1353,22 @@ final class Tools
 
                 return ['deleted' => $id, 'path' => $file['obr_poloha']];
 
+            case 'apply_part_template':
+                $need($auth->isAdmin(), 'Site parts can be changed only by an administrator.');
+                $type = self::PART_NAMES[(string) ($a['part'] ?? '')] ?? (string) ($a['part'] ?? '');
+                if (!isset(SiteParts::TYPES[$type])) {
+                    throw new \InvalidArgumentException('part must be header, footer, news_item, news_list or not_found.');
+                }
+                $language = in_array($a['language'] ?? '', Language::additional($this->app->settings()), true) ? (string) $a['language'] : '';
+                $variant = (string) ($a['variant'] ?? '');
+                if (!SiteParts::applyTemplate($db, $type, $language, $variant, (string) ($a['template'] ?? ''), Language::ofContent($this->app->settings(), $language), \Kaleta\Core\Extensions::enabled($this->app->settings()))) {
+                    throw new \InvalidArgumentException('Unknown template or variant – builder_schema lists part_templates, list_site_parts the variants.');
+                }
+                $target = $this->loadBuildTarget(['cast' => $type, 'jazyk' => $language, 'varianta' => $variant]);
+
+                return ['part' => (string) $a['part'], 'template' => (string) $a['template'], 'status' => 'draft – publish_build with the part publishes it',
+                    'preview' => $this->targetPreviewUrl($target, 60)];
+
             case 'publish_look':
             case 'discard_look':
             case 'restore_look_version':
@@ -1441,6 +1463,9 @@ final class Tools
             'library' => array_column(array_map(fn (array $k): array => ['key' => $k['klic'], 'description' => $admin($k['nazev']) . ' – ' . $admin($k['popis'])], $library), 'description', 'key'),
             'saved_sections' => array_map(fn (array $r): array => ['id' => (int) $r['idx'], 'name' => $r['nazev']], $db->all('SELECT idx, nazev FROM {sekce} ORDER BY nazev LIMIT 200'))
                 + ['note' => 'Sections saved in the builder: insert_section with saved_section: <id>.'],
+            'part_templates' => array_map(fn (string $type): array => array_column(array_map(fn (array $t): array => ['key' => $t['klic'], 'text' => $admin($t['nazev']) . ' – ' . $admin($t['popis'])],
+                \Kaleta\Builder\PartTemplates::forType($type, \Kaleta\Core\Extensions::enabled($siteSettings))), 'text', 'key'), self::PART_NAMES)
+                + ['note' => 'apply_part_template puts one into the draft of the part; the look comes from the design system.'],
             'site_classes' => array_column($db->all('SELECT nazev FROM {tridy} ORDER BY nazev'), 'nazev'),
             'design_system' => DesignSystem::load($siteSettings) + ['presets' => array_map(fn (array $p): string => $admin($p[0]) . ' – ' . $admin($p[1]), DesignSystem::PRESETS),
                 'heading_fonts' => array_keys(SiteIdentity::TITLE_FONTS), 'text_fonts' => array_keys(SiteIdentity::TEXT_FONTS),

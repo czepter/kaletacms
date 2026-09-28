@@ -118,6 +118,30 @@ final class SiteParts
         });
     }
 
+    /**
+     * A ready-made template (PartTemplates) into the part's draft: the published version stays until publishing, and a
+     * part that does not exist yet is created with the template as its draft. Returns false for an unknown template.
+     *
+     * @param list<string> $extensions
+     */
+    public static function applyTemplate(Db $db, string $type, string $language, string $variant, string $key, string $contentLanguage, array $extensions): bool
+    {
+        $build = PartTemplates::build($type, $key, $contentLanguage, $extensions);
+        if ($build === null) {
+            return false;
+        }
+        if (self::row($db, $type, $language, $variant) === null) {
+            if ($variant !== '') {
+                return false;
+            }
+            $db->insert('casti', ['typ' => $type, 'jazyk' => $language, 'stavba_koncept' => Build::toJson($build), 'zmeneno' => date('Y-m-d H:i:s')]);
+        } else {
+            $db->update('casti', ['stavba_koncept' => Build::toJson($build)], ['typ' => $type, 'jazyk' => $language, 'varianta' => $variant]);
+        }
+
+        return true;
+    }
+
     public static function versionKey(string $type, string $language, string $variant = ''): string
     {
         return $type . ':' . $language . ($variant !== '' ? ':' . $variant : '');
