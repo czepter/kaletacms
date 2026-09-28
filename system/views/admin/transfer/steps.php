@@ -1,8 +1,8 @@
 <?php
 /**
- * Ukazatel tří kroků importu (soubor → náhled → import).
+ * Indicator of the three import steps (file → preview → import).
  *
- * @var int $step  právě probíhající krok 1–3
+ * @var int $step  the step in progress, 1–3
  */
 $steps = [1 => 'Soubor', 2 => 'Náhled', 3 => 'Import'];
 ?>

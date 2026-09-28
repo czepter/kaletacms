@@ -1,14 +1,14 @@
 <?php
 /**
- * Vestavěná cookie lišta. Souhlas se ukládá do cookie "kaleta_souhlas" na 6 měsíců.
- * Skripty čekající na souhlas mají type="text/plain" data-souhlas="analytika", marketingové kódy jsou v <template data-souhlas="marketing">.
- * Vzhled je záměrně neutrální a nezávislý na layoutu; layout ho může přepsat třídami .cookies-*.
+ * Built-in cookie bar. Consent is stored in the cookie "kaleta_souhlas" for 6 months.
+ * Scripts waiting for consent have type="text/plain" data-souhlas="analytika", marketing codes are in <template data-souhlas="marketing">.
+ * The appearance is deliberately neutral and independent of the layout; the layout can override it with the .cookies-* classes.
  *
  * @var string $text
  * @var string $zasady
  * @var bool $analytika
  * @var bool $marketing
- * @var string $evidence  adresa pro zápis souhlasu, prázdná = neevidovat
+ * @var string $evidence  url for recording consent, empty = do not record
  */
 ?>
 <div class="cookies-lista" id="cookies-lista" role="dialog" aria-modal="false" aria-labelledby="cookies-nadpis" hidden>

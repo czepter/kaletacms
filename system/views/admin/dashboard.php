@@ -1,12 +1,12 @@
 <?php
 /**
- * Úvodní obrazovka administrace.
- * Přehled webu: první kroky, upozornění, počty, návštěvnost, nové poptávky a naposledy upravený obsah.
+ * The admin start screen.
+ * Site overview: first steps, warnings, counts, traffic, new enquiries and recently edited content.
  *
  * @var Kaleta\Core\App $app
  * @var array<string, class-string<Kaleta\Admin\Module>> $modules
- * @var array<string, array{0: int, 1: string}> $counts  popisek => [počet, adresa]
- * @var list<array{0: string, 1: string}> $warnings  [text, adresa]
+ * @var array<string, array{0: int, 1: string}> $counts  label => [count, url]
+ * @var list<array{0: string, 1: string}> $warnings  [text, url]
  * @var list<array<string, mixed>> $enquiries
  * @var list<array{druh: string, titulek: string, kdy: string, url: string, stav: string}> $edited
  */
@@ -45,7 +45,7 @@
 <?php endforeach ?>
 </div>
 <?php if (count($traffic) >= 2):
-    // sloupcový graf v čistém SVG: jeden sloupec na den, výška podle návštěv
+    // bar chart in plain SVG: one bar per day, height by visits
     $days = [];
     for ($i = 13; $i >= 0; $i--) { $days[date('Y-m-d', strtotime("-{$i} day"))] = 0; }
     foreach ($traffic as $n) { $days[$n['den']] = (int) $n['navstevy']; }

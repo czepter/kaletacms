@@ -1,6 +1,6 @@
 <?php
 /**
- * Pop-up okna webu s počitadly.
+ * The site's popups with counters.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Popups $module

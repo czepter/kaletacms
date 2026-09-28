@@ -5,19 +5,19 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Aktualizace struktury databáze.
+ * Database structure updates.
  *
- * Soubory system/sql/migrace/NNNN-popis.sql se provedou vzestupně, číslo poslední provedené
- * je v ka_nastaveni (verze_db). Nová instalace dostane rovnou úplné schema.sql a nejvyšší číslo.
+ * The files system/sql/migrace/NNNN-description.sql run in ascending order, the number of the last one applied
+ * is in ka_nastaveni (db_version). A new installation gets the complete schema.sql and the highest number right away.
  */
 final class Migration
 {
     private const string FOLDER = KALETA_SYSTEM . '/sql/migrace';
 
-    /** Chyby MySQL, které znamenají „tahle změna už v databázi je“: tabulka, sloupec, index, cizí klíč existuje, rušený sloupec či index chybí. */
+    /** MySQL errors that mean "this change is already in the database": a table, column, index or foreign key exists, a dropped column or index is missing. */
     private const array ALREADY_APPLIED = [1050, 1060, 1061, 1022, 1826, 1091];
 
-    /** @return array<int, string> číslo => soubor, vzestupně */
+    /** @return array<int, string> number => file, ascending */
     public static function files(): array
     {
         $files = [];
@@ -34,7 +34,7 @@ final class Migration
         return max(1, ...array_keys(self::files()));
     }
 
-    /** Migrace pro veřejný web: chyba se zapíše do protokolu (nejvýš jednou za hodinu) a web běží dál. */
+    /** Migrations for the public site: an error is written to the log (at most once per hour) and the site keeps running. */
     public static function safe(Db $db, Settings $settings): void
     {
         try {
@@ -54,10 +54,10 @@ final class Migration
         @file_put_contents(KALETA_ROOT . '/storage/log/chyby.log', sprintf("[%s] Migrace databáze se nepovedla: %s\n", date('c'), $e->getMessage()), FILE_APPEND | LOCK_EX);
     }
 
-    /** @return list<string> názvy právě provedených migrací */
+    /** @return list<string> names of the migrations just applied */
     public static function apply(Db $db, Settings $settings): array
     {
-        // zámek: migrace spouští administrace i web, dva souběžné požadavky nesmí tutéž změnu provést dvakrát
+        // lock: both the admin and the site run migrations, two concurrent requests must not apply the same change twice
         $lock = 'kaleta_migrace_' . $db->prefix;
         if ((int) $db->value('SELECT GET_LOCK(?, 15)', [$lock]) !== 1) {
             return [];
@@ -73,8 +73,8 @@ final class Migration
                     try {
                         $db->pdo()->exec($sql);
                     } catch (\PDOException $e) {
-                        // migrace přerušená uprostřed (výpadek, časový limit) se při dalším pokusu dokončí: změny, které už
-                        // proběhly (tabulka, sloupec, index či cizí klíč existuje / chybí), se přeskočí místo chyby 500 napořád
+                        // a migration interrupted halfway (outage, time limit) completes on the next attempt: changes that already
+                        // happened (a table, column, index or foreign key exists / is missing) are skipped instead of a permanent error 500
                         if (!in_array((int) ($e->errorInfo[1] ?? 0), self::ALREADY_APPLIED, true)) {
                             throw $e;
                         }
@@ -96,16 +96,16 @@ final class Migration
     }
 
     /**
-     * Rozdělí SQL skript na příkazy a nahradí předponu "ka_" předponou instalace.
+     * Splits an SQL script into statements and replaces the prefix "ka_" with the installation's prefix.
      *
      * @return list<string>
      */
     public static function statements(string $sql, string $prefix): array
     {
-        // názvy omezení musí být v databázi jedinečné - dostanou předponu také
+        // constraint names must be unique in the database - they get the prefix too
         $sql = preg_replace('/\b((?:CONSTRAINT|DROP FOREIGN KEY)\s+)fk_/', '$1' . $prefix . 'fk_', $sql) ?? $sql;
         $sql = preg_replace('/\bka_(?=[a-z])/', $prefix, $sql) ?? $sql;
-        // příkaz končí středníkem na konci řádku; za středníkem smí být už jen komentář
+        // a statement ends with a semicolon at the end of a line; only a comment may follow the semicolon
         $statements = preg_split('/;[ \t]*(--[^\n]*)?(\r?\n|$)/', $sql) ?: [];
 
         return array_values(array_filter(array_map(trim(...), $statements), function (string $statement): bool {

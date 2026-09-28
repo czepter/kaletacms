@@ -10,8 +10,9 @@ use Kaleta\Core\Menu as MenuWebu;
 use Kaleta\Core\Response;
 
 /**
- * Vzhled → Menu: hlavní menu a menu v patičce pro každou jazykovou verzi. Položky jsou stránky, vlastní odkazy,
- * novinky a skupiny, pod každou jedna úroveň podmenu. Dokud hlavní menu nikdo neuloží, skládá se ze stránek „v menu“.
+ * Vzhled → Menu (Appearance → Menu): the main menu and the footer menu for each language version. Items are pages, custom
+ * links, news and groups, each with one level of submenu. Until someone saves the main menu, it is assembled from pages
+ * "in menu".
  */
 final class Menu extends Module
 {
@@ -26,7 +27,7 @@ final class Menu extends Module
         [$location, $language] = $this->selection();
         $saved = MenuWebu::load($this->db, $location, $language);
         $pages = $this->db->all('SELECT ids, titulek, zobrazit, v_menu FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$language]);
-        // automatické hlavní menu se v editoru ukáže tak, jak ho vidí návštěvník – uložením se z něj stane vlastní
+        // the automatic main menu is shown in the editor as the visitor sees it – saving turns it into a custom one
         $items = $saved ?? ($location === 'hlavni'
             ? [...array_map(fn (array $s): array => ['typ' => 'stranka', 'ids' => (int) $s['ids'], 'text' => ''], array_values(array_filter($pages, fn (array $s): bool => $s['zobrazit'] && $s['v_menu']))), ...(\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky') ? [['typ' => 'novinky', 'text' => '']] : [])]
             : []);
@@ -54,7 +55,7 @@ final class Menu extends Module
         return $this->back('Menu bylo uloženo.', '', ['umisteni' => $location, 'jazyk' => $language]);
     }
 
-    /** Hlavní menu se vrátí k automatickému skládání ze stránek „v menu“; menu v patičce se vyprázdní. */
+    /** The main menu returns to being assembled automatically from pages "in menu"; the footer menu is emptied. */
     protected function actionAutomatic(): Response
     {
         [$location, $language] = $this->selection();
@@ -65,7 +66,7 @@ final class Menu extends Module
         return $this->back($location === 'hlavni' ? 'Menu se zase skládá samo ze stránek zařazených do navigace.' : 'Menu v patičce je prázdné.', '', ['umisteni' => $location, 'jazyk' => $language]);
     }
 
-    /** @return array{0: string, 1: string} umístění a jazyk (sloupec) z adresy */
+    /** @return array{0: string, 1: string} location and language (column) from the URL */
     private function selection(): array
     {
         $location = $this->request->get('umisteni');

@@ -8,8 +8,9 @@ use Kaleta\Admin\Module;
 use Kaleta\Core\Response;
 
 /**
- * Odběratelé novinek (rozšíření Newsletter): kdo se přihlásil prvkem Odběr novinek a zda odběr potvrdil.
- * Rozesílání Kaleta nedělá – potvrzené adresy se vyvezou do CSV i s odkazem na odhlášení pro rozesílací nástroj.
+ * News subscribers (the Newsletter extension): who subscribed with the Newsletter subscription element and whether they
+ * confirmed the subscription. Kaleta does not send the mailings – confirmed addresses are exported to CSV, with an
+ * unsubscribe link, for the mailing tool.
  */
 final class Subscribers extends Module
 {
@@ -42,14 +43,14 @@ final class Subscribers extends Module
         if ($o !== null) {
             $this->db->delete('odberatele', ['ido' => $this->request->postInt('ido')]);
             if ((int) $o['stav'] === 1) {
-                \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'odebrat'); // i z mailingové služby
+                \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'odebrat'); // from the mailing service too
             }
         }
 
         return $this->back('Odběratel byl smazán.');
     }
 
-    /** Po napojení služby: všechny potvrzené, kteří v ní ještě nejsou, do fronty – a hned první dávku. */
+    /** After connecting the service: all confirmed subscribers who are not in it yet go to the queue – and the first batch right away. */
     protected function actionSync(): Response
     {
         if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
@@ -61,7 +62,7 @@ final class Subscribers extends Module
         return $this->back(t('Do mailingové služby jde %d odběratelů; zbytek odešle web postupně na pozadí.', $count));
     }
 
-    /** Nepovedené přenosy zkusit znovu hned. */
+    /** Retry failed transfers right away. */
     protected function actionRetry(): Response
     {
         if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
@@ -73,7 +74,7 @@ final class Subscribers extends Module
         return $this->back('Nepovedené přenosy se zkusily znovu – výsledek vidíte ve sloupci Služba.');
     }
 
-    /** Potvrzení odběratelé do CSV (UTF-8 s BOM, středník) i s odkazem na odhlášení. */
+    /** Confirmed subscribers to CSV (UTF-8 with BOM, semicolon) with an unsubscribe link. */
     protected function actionCsv(): Response
     {
         $f = fopen('php://temp', 'w+');

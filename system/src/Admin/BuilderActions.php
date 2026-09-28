@@ -15,31 +15,33 @@ use Kaleta\Builder\Build;
 use Kaleta\Builder\Style;
 
 /**
- * Akce builderu společné pro stránky (Moduly\Stranky) a části webu (Moduly\Casti): editor, průběžné ukládání konceptu,
- * publikování, zahození změn, verze, sekce z knihovny a sdílené třídy. Modul dodá, co je „cíl“ stavby a jak ho uložit.
+ * Builder actions shared by pages (Modules\Pages) and site parts (Modules\SiteParts): editor, autosaving the draft,
+ * publishing, discarding changes, versions, sections from the library and shared classes. The module supplies what the
+ * build "target" is and how to save it.
  *
- * Cíl: ['radek' => řádek z databáze, 'stavba' => ?string, 'koncept' => ?string, 'jazyk' => kód obsahu, 'titulek' => string,
- *       'revize' => ['ids' => …] | ['cast' => …], 'parametry' => parametry adres akcí (id nebo typ a jazyk)]
+ * Target: ['radek' => database row, 'stavba' => ?string, 'koncept' => ?string, 'jazyk' => content code, 'titulek' => string,
+ *         'revize' => ['ids' => …] | ['cast' => …], 'parametry' => parameters of action URLs (id, or type and language)]
  */
 trait BuilderActions
 {
-    /** @return array<string, mixed>|null cíl z parametrů požadavku */
+    /** @return array<string, mixed>|null the target from the request parameters */
     abstract protected function loadBuildTarget(): ?array;
 
-    /** Uloží rozpracovaný koncept (null = zahodit). */
+    /** Saves the work-in-progress draft (null = discard). */
     abstract protected function saveDraft(array $target, ?string $draft): void;
 
     abstract protected function publishTarget(array $target): void;
 
     /**
-     * Údaje pro editor: titulek, adresa (veřejná), nahled (plátno), zobrazena, casti (nabízet prvky částí), zpet [adresa, text],
-     * nastaveni (adresa nastavení cíle, nebo null), podpis (cíl podepsaného náhledu, např. „stranka:12“ – Core\Nahled).
+     * Details for the editor: titulek, adresa (public), nahled (canvas), zobrazena, casti (offer site part elements),
+     * zpet [adresa, text], nastaveni (URL of the target's settings, or null), podpis (target of the signed preview,
+     * e.g. "stranka:12" – Core\Preview).
      *
      * @return array<string, mixed>
      */
     abstract protected function describeTarget(array $target): array;
 
-    /** Editor stavby na celou obrazovku: plátno se skutečnou stránkou webu, strom, vlastnosti. */
+    /** Full-screen build editor: canvas with the real site page, tree, properties. */
     protected function actionBuilder(): Response
     {
         $target = $this->loadBuildTarget();
@@ -58,17 +60,17 @@ trait BuilderActions
                     'moznosti' => ['' => '—'] + array_column(array_map(fn (array $k): array => ['id' => (string) $k['id'], 'nazev' => $k['nazev']], $components), 'nazev', 'id')];
             }
             if ($element['typ'] === 'kolekce') {
-                // v editoru výběr z kolekcí webu (validátor bere adresu kolekce jako text)
+                // in the editor, a choice of the site's collections (the validator takes the collection slug as text)
                 $element['vlastnosti']['kolekce'] = ['typ' => 'vyber', 'popisek' => 'Kolekce', 'vychozi' => $collection[0]['seo_link'] ?? '',
                     'moznosti' => ['' => '—'] + array_column($collection, 'nazev', 'seo_link')];
             }
         }
         unset($element);
         $schema = self::translateSchema($schema);
-        Library::createClasses($this->db, ['karta']); // vzor karty ve Výpisu kolekce
+        Library::createClasses($this->db, ['karta']); // card pattern in the Collection list
         $data = [
             'stranka' => ['titulek' => $target['titulek'], 'adresa' => $e['adresa'], 'zobrazena' => $e['zobrazena'], 'publikovana' => $target['stavba'] !== null, 'smiPublikovat' => $app->auth()->canPublish(),
-                'nadpisy' => (bool) ($e['nadpisy'] ?? false)], // kontrola před publikováním: stránka má mít jeden h1 a nepřeskakovat úrovně
+                'nadpisy' => (bool) ($e['nadpisy'] ?? false)], // check before publishing: the page should have one h1 and not skip levels
             'stavba' => Build::fromJson($target['koncept'] ?? $target['stavba']),
             'zmeny' => $target['koncept'] !== null && $target['koncept'] !== $target['stavba'],
             'verze' => self::computeBuildVersion($target['koncept'] ?? $target['stavba']),
@@ -82,11 +84,11 @@ trait BuilderActions
             'tridy' => $this->loadBuilderClasses(),
             'mojeSekce' => self::listMySections($this->db),
             'barvy' => DesignSystem::load($app->settings())['barvy'],
-            // nabídka pro pole odkazu: stránky webu (s jazykovou předponou) a novinky; kotvy na stránce doplní editor
+            // options for the link field: site pages (with the language prefix) and news; the editor adds anchors on the page
             'odkazy' => [...array_map(fn (array $s): array => ['/' . ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '') . ((int) $s['ids'] === $app->settings()->int('home_page') ? '' : $s['seo_link']), $s['titulek'] . ($s['zobrazit'] ? '' : ' (' . t('skrytá') . ')')],
                 $this->db->all('SELECT ids, titulek, seo_link, jazyk, zobrazit FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, titulek LIMIT 300')), ['/' . \Kaleta\Core\Routes::publicPath('novinky', \Kaleta\Core\Language::defaults($app->settings()), $this->db), t('Novinky')]],
             'nahled' => $e['nahled'],
-            'textNastaveni' => $e['textNastaveni'] ?? null, // popisek odkazu na nastavení cíle (jinak „Nastavení stránky“)
+            'textNastaveni' => $e['textNastaveni'] ?? null, // label of the link to the target's settings (otherwise "Nastavení stránky" – Page settings)
             'zpet' => $e['zpet'],
             'adresy' => array_map(fn (string $action): string => $this->url($action, $target['parametry']), [
                 'uloz' => 'build_save', 'publikuj' => 'build_publish', 'zahod' => 'build_discard', 'sekce' => 'build_section', 'trida' => 'build_class',
@@ -100,7 +102,7 @@ trait BuilderActions
         return Response::html($app->view->render('admin/pages/builder', ['app' => $app, 'data' => $data, 'title' => $target['titulek']]));
     }
 
-    /** Průběžné ukládání konceptu z editoru (JSON). Vrací vyčištěnou stavbu a chyby, které editor ukáže. */
+    /** Autosaving the draft from the editor (JSON). Returns the sanitized build and the errors the editor shows. */
     protected function actionBuildSave(): Response
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
@@ -121,7 +123,7 @@ trait BuilderActions
         return Response::json(['ok' => true, 'stavba' => $build, 'chyby' => $errors, 'zmeny' => $json !== $target['stavba'], 'verze' => self::computeBuildVersion($json)]);
     }
 
-    /** Publikování: koncept se stane stavbou; předchozí publikovaná verze jde do historie. */
+    /** Publishing: the draft becomes the build; the previous published version goes to the history. */
     protected function actionBuildPublish(): Response
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
@@ -131,7 +133,7 @@ trait BuilderActions
         if (!$this->app->auth()->canPublish()) {
             return Response::json(['ok' => false, 'chyba' => t('Publikovat smí jen editor nebo správce. Změny zůstávají uložené jako koncept.')], 403);
         }
-        // publikuje se jen to, co editor naposledy uložil – ne starší koncept, ani cizí rozpracované změny
+        // only what the editor saved last is published – not an older draft, nor someone else's work-in-progress changes
         if (($conflict = $this->checkVersionConflict($target)) !== null) {
             return $conflict;
         }
@@ -142,8 +144,9 @@ trait BuilderActions
     }
 
     /**
-     * Odkaz na náhled konceptu pro kolegu nebo klienta: otevře ho kdokoli bez přihlášení, platí jen pro tenhle cíl a zadaný
-     * počet dní (1–7). Ukazuje koncept v okamžiku otevření, ne stav při vytvoření odkazu; vyhledávače ho neindexují.
+     * Draft preview link for a colleague or a client: anyone can open it without signing in, it is valid only for this
+     * target and the given number of days (1–7). It shows the draft at the moment of opening, not the state when the link
+     * was created; search engines do not index it.
      */
     protected function actionBuildShare(): Response
     {
@@ -160,7 +163,7 @@ trait BuilderActions
         return Response::json(['ok' => true, 'odkaz' => $this->request->origin() . $url . '&nahled_klic=' . $key, 'plati_do' => time() + $days * 86400]);
     }
 
-    /** Zahodí rozpracované změny: editor se vrátí k publikované stavbě. */
+    /** Discards the work-in-progress changes: the editor returns to the published build. */
     protected function actionBuildDiscard(): Response
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
@@ -172,7 +175,7 @@ trait BuilderActions
         return Response::json(['ok' => true, 'stavba' => Build::fromJson($target['stavba']), 'verze' => self::computeBuildVersion($target['stavba'])]);
     }
 
-    /** Sekce z knihovny jako nové prvky (JSON) v jazyce cíle; chybějící třídy, které používá, se založí. */
+    /** A section from the library as new elements (JSON) in the target's language; missing classes it uses are created. */
     protected function actionBuildSection(): Response
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
@@ -185,14 +188,14 @@ trait BuilderActions
         return Response::json(['ok' => true, 'prvek' => $section['prvek'], 'tridy' => $this->loadBuilderClasses()]);
     }
 
-    /** @return list<array{id:int, nazev:string, prvek:array<string, mixed>}> vlastní sekce webu (panel Přidat → Moje sekce) */
+    /** @return list<array{id:int, nazev:string, prvek:array<string, mixed>}> the site's custom sections (panel "Přidat → Moje sekce", Add → My sections) */
     public static function listMySections(\Kaleta\Core\Db $db): array
     {
         return array_values(array_filter(array_map(fn (array $r): ?array => is_array($p = json_decode((string) $r['prvek'], true)) ? ['id' => (int) $r['idx'], 'nazev' => $r['nazev'], 'prvek' => $p] : null,
             $db->all('SELECT idx, nazev, prvek FROM {sekce} ORDER BY nazev LIMIT 200'))));
     }
 
-    /** Uloží vybraný prvek do vlastní knihovny sekcí (projde validátorem jako každá stavba). */
+    /** Saves the selected element to the custom section library (it goes through the validator like every build). */
     protected function actionBuildSaveSection(): Response
     {
         $name = mb_substr(trim($this->request->post('nazev')), 0, 100);
@@ -220,7 +223,7 @@ trait BuilderActions
         return Response::json(['ok' => true, 'sekce' => self::listMySections($this->db)]);
     }
 
-    /** Uložení nebo smazání sdílené třídy (JSON). */
+    /** Saving or deleting a shared class (JSON). */
     protected function actionBuildClass(): Response
     {
         if (!$this->request->isPost()) {
@@ -234,11 +237,12 @@ trait BuilderActions
             return Response::json(['ok' => true, 'pouziti' => $this->findClassUsages($name)]);
         }
         if (!$this->app->auth()->isAdmin()) {
-            // sdílená třída mění vzhled na všech stránkách okamžitě (bez konceptu) – proto ji upravuje, přejmenovává i maže jen správce
+            // a shared class changes the look on all pages immediately (without a draft) – so only the administrator edits,
+            // renames and deletes it
             return Response::json(['ok' => false, 'chyba' => t('Sdílenou třídu upravuje jen správce – změna se hned projeví na celém webu. Vzhled jednoho prvku nastavíte v jeho stylu.')], 403);
         }
         if (($new = $this->request->post('novy_nazev')) !== '') {
-            // přejmenování: řádek třídy i všechny stavby, které ji používají (stránky, části, šablony kolekcí, komponenty, moje sekce)
+            // renaming: the class row and all builds that use it (pages, site parts, collection item templates, components, my sections)
             if (!preg_match(Build::CLASS_PATTERN, $new) || $this->db->value('SELECT 1 FROM {tridy} WHERE nazev = ?', [$new]) !== null) {
                 return Response::json(['ok' => false, 'chyba' => t('Nový název musí být volný a psaný malými písmeny bez diakritiky (např. karta-velka).')], 400);
             }
@@ -268,7 +272,7 @@ trait BuilderActions
             $this->db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE styl = VALUES(styl), css = VALUES(css), zmeneno = NOW()',
                 [$name, (string) json_encode($style ?: new \stdClass(), JSON_UNESCAPED_UNICODE), $css]);
             if ($errors !== [] || $discarded !== []) {
-                \Kaleta\Front\Cache::clear(); // platná část třídy se uložila – web ji musí vidět
+                \Kaleta\Front\Cache::clear(); // the valid part of the class was saved – the site must see it
                 return Response::json(['ok' => true, 'tridy' => $this->loadBuilderClasses(), 'chyby' => $errors + array_map(fn (string $d): string => t('Nepovolená deklarace: %s', $d), $discarded)]);
             }
         }
@@ -277,13 +281,13 @@ trait BuilderActions
         return Response::json(['ok' => true, 'tridy' => $this->loadBuilderClasses()]);
     }
 
-    /** Tabulky se stavbami: tabulka => [klíč, sloupce se stavbou JSON]. */
+    /** Tables with builds: table => [key, columns with the build JSON]. */
     private const array BUILD_SOURCES = [
         'stranky' => ['ids', ['stavba', 'stavba_koncept']], 'casti' => ['typ', ['stavba', 'stavba_koncept']], 'kolekce' => ['idk', ['stavba', 'stavba_koncept']],
         'komponenty' => ['idm', ['stavba', 'stavba_koncept']], 'sekce' => ['idx', ['prvek']],
     ];
 
-    /** Přejmenuje třídu v poli „tridy“ všech prvků stavby (JSON) – jiné výskyty textu zůstanou. */
+    /** Renames the class in the "tridy" array of all build elements (JSON) – other occurrences of the text stay. */
     private static function renameClass(string $json, string $old, string $new): string
     {
         $data = json_decode($json, true);
@@ -306,7 +310,7 @@ trait BuilderActions
         return (string) json_encode($walk($data), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
-    /** @return list<string> kde je třída použitá (názvy stránek, částí, kolekcí, komponent, mých sekcí) */
+    /** @return list<string> where the class is used (names of pages, site parts, collections, components, my sections) */
     private function findClassUsages(string $name): array
     {
         $pattern = '%"tridy":[%"' . addcslashes($name, '%_\\') . '"%';
@@ -326,16 +330,16 @@ trait BuilderActions
         return array_values(array_unique($whereParts));
     }
 
-    /** Publikované verze (JSON pro dialog Verze). */
+    /** Published versions (JSON for the Versions dialog). */
     protected function actionBuildVersions(): Response
     {
         $target = $this->loadBuildTarget();
 
-        // datum ve formátu administrace (datum()), ne prohlížeče – anglicky jinak vycházelo americké 9/25/2026, 9:43:45 AM
+        // date in the admin format (format_date()), not the browser's – in English it otherwise came out as the American 9/25/2026, 9:43:45 AM
         return Response::json(['revize' => $target === null ? [] : array_map(fn (array $r): array => $r + ['kdy' => format_date($r['datum'], true)], Publisher::listAll($this->db, $target['revize']))]);
     }
 
-    /** Starší verze se načte do konceptu; publikuje se až tlačítkem Publikovat. */
+    /** An older version is loaded into the draft; it is published only with the Publish button. */
     protected function actionBuildRestore(): Response
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
@@ -348,15 +352,16 @@ trait BuilderActions
         return Response::json(['ok' => true, 'stavba' => Build::fromJson($build), 'verze' => self::computeBuildVersion($build)]);
     }
 
-    /** Otisk obsahu, který editor naposledy viděl na serveru (koncept, jinak publikovaná stavba). */
+    /** Hash of the content the editor last saw on the server (the draft, otherwise the published build). */
     private static function computeBuildVersion(?string $json): string
     {
         return substr(md5((string) $json), 0, 16);
     }
 
     /**
-     * Ochrana před přepsáním cizích změn: editor posílá otisk verze, ze které vychází. Když se koncept mezitím změnil
-     * (jiný editor, Claude přes MCP, druhá záložka), odmítne se a editor nabídne načíst novější, nebo přepsat.
+     * Protection against overwriting someone else's changes: the editor sends the hash of the version it is based on. When
+     * the draft has changed in the meantime (another editor, Claude via MCP, a second tab), it is rejected and the editor
+     * offers to load the newer one, or to overwrite.
      */
     private function checkVersionConflict(array $target): ?Response
     {
@@ -371,8 +376,8 @@ trait BuilderActions
     }
 
     /**
-     * Popisky schématu (názvy prvků, polí, vlastností stylu a jejich voleb) do jazyka administrace. Výchozí obsah prvků
-     * se nepřekládá – je v jazyce stránky (Stavba::schema).
+     * Schema labels (names of elements, fields, style properties and their options) into the admin language. The default
+     * content of elements is not translated – it is in the page language (Build::schema).
      */
     private static function translateSchema(array $schema): array
     {
@@ -398,7 +403,7 @@ trait BuilderActions
         return $schema;
     }
 
-    /** AI asistent: nová sekce podle popisu (JSON s prvky k vložení). */
+    /** AI assistant: a new section from a description (JSON with elements to insert). */
     protected function actionBuildAiSection(): Response
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
@@ -420,7 +425,7 @@ trait BuilderActions
         return Response::json(['ok' => true, 'prvky' => $clean['deti'], 'tridy' => $this->loadBuilderClasses(), 'hlaseni' => $messages]);
     }
 
-    /** AI asistent: přepis textu prvku (kratší, delší, formálněji…). Nic neukládá – editor text vloží jako běžnou změnu. */
+    /** AI assistant: rewrite of an element's text (shorter, longer, more formal…). Saves nothing – the editor inserts the text as a regular change. */
     protected function actionBuildAiText(): Response
     {
         $assistant = new \Kaleta\Core\Assistant($this->app->settings());

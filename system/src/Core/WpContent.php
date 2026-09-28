@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Převod obsahu příspěvku z WordPressu na HTML, jaké píše editor novinek Kalety. Jen převádí text – nic nečte ani nezapisuje.
+ * Converting the content of a WordPress post into HTML such as Kaleta's news editor writes. It only converts text – it reads and writes nothing.
  *
- * Pořadí kroků: bloky Gutenbergu → zkratky v hranatých závorkách ([caption], [gallery]…) → vložená videa → odstavce
- * (starý „klasický“ editor je odděluje jen prázdným řádkem) → propuštění jen povolených značek a atributů.
- * Obsah exportu se bere jako nedůvěryhodný: co není na seznamu POVOLENE, do článku se nedostane (skripty, rámce, styly, onclick…).
+ * Order of steps: Gutenberg blocks → shortcodes in square brackets ([caption], [gallery]…) → embedded videos → paragraphs
+ * (the old "classic" editor separates them only by an empty line) → letting through only allowed tags and attributes.
+ * The export content is treated as untrusted: what is not on the ALLOWED list does not get into the article (scripts, frames, styles, onclick…).
  */
 final class WpContent
 {
-    /** Stejná podmnožina HTML, jakou propouští editor článků při vkládání (image/editor.js, POVOLENE) – jen bez IFRAME. */
+    /** The same HTML subset the article editor lets through on paste (image/editor.js, ALLOWED) – only without IFRAME. */
     private const array ALLOWED = [
         'p' => [], 'h2' => [], 'h3' => [], 'h4' => [], 'strong' => [], 'em' => [], 'b' => [], 'i' => [], 'u' => [], 's' => [], 'sub' => [], 'sup' => [], 'mark' => [], 'br' => [], 'hr' => [],
         'a' => ['href', 'title', 'target'], 'ul' => [], 'ol' => [], 'li' => [], 'blockquote' => [], 'code' => [], 'pre' => [],
@@ -21,29 +21,29 @@ final class WpContent
         'table' => [], 'thead' => [], 'tbody' => [], 'tr' => [], 'th' => ['colspan', 'rowspan'], 'td' => ['colspan', 'rowspan'],
     ];
 
-    /** Značky, které editor nezná, ale mají blízkou náhradu. */
+    /** Tags the editor does not know but that have a close replacement. */
     private const array TAG_REPLACEMENTS = ['h1' => 'h2', 'h5' => 'h4', 'h6' => 'h4'];
 
-    /** Tyhle značky mizí i s obsahem (u ostatních nepovolených zůstává aspoň jejich text). */
+    /** These tags disappear together with their content (for other disallowed ones at least their text stays). */
     private const array DISCARD = ['script', 'style', 'iframe', 'object', 'embed', 'applet', 'form', 'noscript', 'svg', 'math', 'template', 'head', 'title', 'meta', 'link', 'base',
         'input', 'button', 'select', 'textarea', 'video', 'audio', 'canvas', 'frame', 'frameset'];
 
-    /** Značky, které tvoří vlastní odstavec – kolem nich se <p> nedělá. */
+    /** Tags that form their own paragraph – no <p> is made around them. */
     private const string BLOCK_TAGS = 'table|thead|tfoot|tbody|tr|td|th|caption|div|dl|dd|dt|ul|ol|li|pre|blockquote|figure|figcaption|h[1-6]|hr|p|address|section|article|aside|header|footer|nav|details|summary';
 
-    /** Zkratky, které převádíme sami, a proto na ně náhled neupozorňuje. */
+    /** Shortcodes we convert ourselves, so the preview does not warn about them. */
     private const array KNOWN_SHORTCODES = ['caption', 'wp_caption', 'gallery', 'embed'];
 
-    /** Zkratky WordPressu bez atributů a párové značky, které by jinak vypadaly jako běžný text v závorce. */
+    /** WordPress shortcodes without attributes and paired tags that would otherwise look like ordinary text in brackets. */
     private const array ALWAYS_SHORTCODES = ['audio', 'video', 'playlist', 'more', 'toc', 'contact-form-7', 'contact-form', 'sitemap', 'products', 'recent_posts'];
 
     /**
-     * @param array<int|string, string> $attachments čísla příloh WordPressu => adresa souboru (pro [gallery ids="…"])
+     * @param array<int|string, string> $attachments WordPress attachment numbers => file URL (for [gallery ids="…"])
      */
     public static function sanitize(string $content, array $attachments = []): string
     {
         $html = str_replace(["\r\n", "\r"], "\n", $content);
-        $blockEditor = str_contains($html, '<!-- wp:'); // Gutenberg má odstavce hotové, klasický editor ne
+        $blockEditor = str_contains($html, '<!-- wp:'); // Gutenberg has the paragraphs ready, the classic editor does not
         $html = self::blocks($html);
         $html = self::outsideCode($html, fn (string $part): string => self::shortcodesToHtml($part, $attachments));
         $html = self::embeddedVideos($html);
@@ -54,15 +54,16 @@ final class WpContent
         return self::allowedHtml($html);
     }
 
-    /** Text pro builder (prvek Text, odpovědi FAQ…): stejný povolovací seznam značek jako editor, bez převodů z WordPressu. */
+    /** Text for the builder (Text element, FAQ answers…): the same tag allowlist as the editor, without the WordPress conversions. */
     public static function safeHtml(string $html): string
     {
         return self::allowedHtml($html);
     }
 
     /**
-     * Perex a text článku. Perex je ruční výtah z WordPressu; když chybí, vezme se část před značkou „Číst dál“ (<!--more-->),
-     * a když není ani ta, první odstavec textu – ten se pak v textu neopakuje.
+     * Intro and text of an article. The intro is the manual excerpt from WordPress; when it is missing, the part before the
+     * "Read more" tag (<!--more-->) is taken, and when that is missing too, the first paragraph of the text – which is then not
+     * repeated in the text.
      *
      * @param array<int|string, string> $attachments
      * @return array{0:string, 1:string} [perex, text]
@@ -78,7 +79,7 @@ final class WpContent
             return [self::sanitize($parts[0], $attachments), self::sanitize($parts[1], $attachments)];
         }
         $text = self::sanitize($content, $attachments);
-        // první odstavec, ve kterém je skutečný text
+        // the first paragraph that contains real text
         if (preg_match('#<p>((?:(?!</?p>).)*?\p{L}(?:(?!</?p>).)*?)</p>\s*#su', $text, $m, PREG_OFFSET_CAPTURE)) {
             return ['<p>' . $m[1][0] . '</p>', trim(substr($text, 0, $m[0][1]) . substr($text, $m[0][1] + strlen($m[0][0])))];
         }
@@ -87,14 +88,14 @@ final class WpContent
     }
 
     /**
-     * Zkratky doplňků (plug-inů), které v obsahu jsou a které import neumí převést – pro varování v náhledu.
+     * Shortcodes of add-ons (plugins) that are in the content and that the import cannot convert – for a warning in the preview.
      *
-     * @return list<string> názvy zkratek
+     * @return list<string> shortcode names
      */
     public static function unknownShortcodes(string $content): array
     {
         $found = [];
-        $content = (string) preg_replace('#<pre\b.*?</pre>|<code\b.*?</code>#is', '', $content); // v ukázkách kódu jsou závorky běžný text
+        $content = (string) preg_replace('#<pre\b.*?</pre>|<code\b.*?</code>#is', '', $content); // in code samples brackets are ordinary text
         preg_match_all('#\[/([a-zA-Z][\w-]*)\]#', $content, $paired);
         if (preg_match_all('#(?<!\[)\[([a-zA-Z][\w-]*)((?:\s[^\]]*)?)/?\]#', $content, $m, PREG_SET_ORDER)) {
             foreach ($m as $z) {
@@ -107,39 +108,39 @@ final class WpContent
         return array_keys($found);
     }
 
-    /* ---------- bloky Gutenbergu ---------- */
+    /* ---------- Gutenberg blocks ---------- */
 
     private static function blocks(string $html): string
     {
-        // fotogalerie: z bloku zůstanou jen obrázky, složené do naší galerie
+        // photo gallery: only the images remain from the block, put together into our gallery
         $html = preg_replace_callback('#<!--\s*wp:gallery\b.*?-->(.*?)<!--\s*/wp:gallery\s*-->#s', function (array $m): string {
             preg_match_all('#<img\b[^>]*>#i', $m[1], $images);
 
             return self::gallery($images[0]);
         }, $html) ?? $html;
-        // vložené video či příspěvek: adresa je v nastavení bloku; u nás stačí adresa na samostatném řádku (Front\TextNovinky)
+        // an embedded video or post: the URL is in the block settings; for us the URL on its own line is enough (Front\NewsText)
         $html = preg_replace_callback('#<!--\s*wp:(?:core-embed/[\w-]+|embed)\s+(\{.*?\})\s*-->.*?<!--\s*/wp:(?:core-embed/[\w-]+|embed)\s*-->#s', function (array $m): string {
             $url = (string) (json_decode($m[1], true)['url'] ?? '');
 
             return preg_match('#^https?://[^\s<>"]+$#i', $url) ? "\n<p>" . e($url) . "</p>\n" : '';
         }, $html) ?? $html;
 
-        // ostatní komentáře (hranice bloků, <!--more-->, <!--nextpage-->) už nic neznamenají
+        // other comments (block boundaries, <!--more-->, <!--nextpage-->) no longer mean anything
         return preg_replace('/<!--.*?-->/s', '', $html) ?? $html;
     }
 
-    /** @param list<string> $imgTags hotové značky <img …> */
+    /** @param list<string> $imgTags finished <img …> tags */
     private static function gallery(array $imgTags): string
     {
         return $imgTags === [] ? '' : "\n" . '<figure class="galerie">' . implode('', $imgTags) . '</figure>' . "\n";
     }
 
-    /* ---------- zkratky v hranatých závorkách ---------- */
+    /* ---------- shortcodes in square brackets ---------- */
 
     /** @param array<int|string, string> $attachments */
     private static function shortcodesToHtml(string $html, array $attachments): string
     {
-        // [caption]<img> Popisek[/caption] → obrázek s popiskem
+        // [caption]<img> Caption[/caption] → image with a caption
         $html = preg_replace_callback('#\[(?:wp_)?caption\b([^\]]*)\](.*?)\[/(?:wp_)?caption\]#s', function (array $m): string {
             if (!preg_match('#<img\b[^>]*>#i', $m[2], $img)) {
                 return $m[2];
@@ -149,7 +150,7 @@ final class WpContent
             return "\n\n<figure>" . $img[0] . ($labelText !== '' ? '<figcaption>' . $labelText . '</figcaption>' : '') . "</figure>\n\n";
         }, $html) ?? $html;
 
-        // [gallery ids="1,2,3"] → naše galerie; obrázky se dohledají mezi přílohami exportu
+        // [gallery ids="1,2,3"] → our gallery; the images are looked up among the export's attachments
         $html = preg_replace_callback('#\[gallery\b([^\]]*)\]#', function (array $m) use ($attachments): string {
             $images = [];
             foreach (preg_match('#\bids="([\d,\s]+)"#', $m[1], $a) ? explode(',', $a[1]) : [] as $id) {
@@ -162,10 +163,10 @@ final class WpContent
             return "\n\n" . self::gallery($images) . "\n\n";
         }, $html) ?? $html;
 
-        // [embed]adresa[/embed] → adresa na samostatném řádku
+        // [embed]url[/embed] → the URL on its own line
         $html = preg_replace('#\[embed[^\]]*\]\s*(https?://[^\s\[]+)\s*\[/embed\]#i', "\n\n$1\n\n", $html) ?? $html;
 
-        // zbylé zkratky doplňků: značka zmizí, text uvnitř zůstává
+        // remaining add-on shortcodes: the tag disappears, the text inside stays
         preg_match_all('#\[/([a-zA-Z][\w-]*)\]#', $html, $paired);
 
         return preg_replace_callback('#(?<!\[)\[(/?)([a-zA-Z][\w-]*)((?:\s[^\]]*)?)/?\]#', function (array $z) use ($paired): string {
@@ -174,10 +175,10 @@ final class WpContent
     }
 
     /**
-     * Pozná zkratku od běžného textu v závorce ([sic], [1]): zkratka má atributy, uzavírací značku, podtržítko či pomlčku v názvu,
-     * nebo je na seznamu známých.
+     * Tells a shortcode from ordinary text in brackets ([sic], [1]): a shortcode has attributes, a closing tag, an underscore or
+     * a dash in its name, or is on the list of known ones.
      *
-     * @param list<string> $paired názvy, ke kterým v textu existuje uzavírací [/název]
+     * @param list<string> $paired names for which a closing [/name] exists in the text
      */
     private static function isShortcode(string $name, string $attributes, array $paired): bool
     {
@@ -185,7 +186,7 @@ final class WpContent
             || in_array(strtolower($name), self::ALWAYS_SHORTCODES, true) || in_array(strtolower($name), self::KNOWN_SHORTCODES, true);
     }
 
-    /** Přehrávače vložené jako <iframe> se mění na adresu videa na samostatném řádku; ostatní rámce později zmizí. */
+    /** Players embedded as an <iframe> turn into the video URL on its own line; other frames disappear later. */
     private static function embeddedVideos(string $html): string
     {
         return preg_replace_callback('#<iframe\b[^>]*\bsrc=["\']([^"\']+)["\'][^>]*>.*?</iframe>#is', function (array $m): string {
@@ -200,18 +201,18 @@ final class WpContent
         }, $html) ?? $html;
     }
 
-    /* ---------- odstavce klasického editoru ---------- */
+    /* ---------- paragraphs of the classic editor ---------- */
 
     /**
-     * Klasický editor WordPressu ukládá odstavce jen jako text oddělený prázdným řádkem; značky <p> doplňuje až při zobrazení.
-     * Tady se doplní natrvalo: prázdný řádek = nový odstavec, jednoduchý konec řádku = <br>. Blokové značky se neobalují.
+     * WordPress's classic editor stores paragraphs only as text separated by an empty line; it adds the <p> tags only on display.
+     * Here they are added permanently: an empty line = a new paragraph, a single line break = <br>. Block tags are not wrapped.
      */
     public static function paragraphs(string $text): string
     {
         if (trim($text) === '') {
             return '';
         }
-        // <pre> se nesmí dotknout nic – schová se a na konci vrátí
+        // nothing may touch <pre> – it is hidden and put back at the end
         $hidden = [];
         $text = preg_replace_callback('#<pre\b.*?</pre>#is', function (array $m) use (&$hidden): string {
             $key = "\x02PRE" . count($hidden) . "\x03";
@@ -219,7 +220,7 @@ final class WpContent
 
             return "\n\n" . $key . "\n\n";
         }, $text) ?? $text;
-        // adresa sama na řádku (video z YouTube…) má být vlastním odstavcem, aby ji web poznal
+        // a URL alone on a line (a YouTube video…) should be its own paragraph, so the site recognizes it
         $text = preg_replace('#^[ \t]*(https?://[^\s<>"]+)[ \t]*$#m', "\n\n$1\n\n", $text) ?? $text;
         $text = preg_replace('#<br\s*/?>\s*<br\s*/?>#i', "\n\n", $text) ?? $text;
         $text = preg_replace('#(<(?:' . self::BLOCK_TAGS . ')(?:\s[^>]*)?/?>)#i', "\n\n$1", $text) ?? $text;
@@ -231,7 +232,7 @@ final class WpContent
             if ($part === '' || isset($hidden[$part]) || preg_match('#^</?(?:' . self::BLOCK_TAGS . ')\b#i', $part)) {
                 $html .= $part . "\n";
             } elseif (preg_match('#^(.*?)((?:</(?:' . self::BLOCK_TAGS . ')>\s*)+)$#is', $part, $m)) {
-                $html .= '<p>' . self::lineBreaks($m[1]) . '</p>' . $m[2] . "\n"; // text těsně před koncem bloku: „…text</div>“
+                $html .= '<p>' . self::lineBreaks($m[1]) . '</p>' . $m[2] . "\n"; // text right before the end of a block: "…text</div>"
             } else {
                 $html .= '<p>' . self::lineBreaks($part) . "</p>\n";
             }
@@ -245,9 +246,9 @@ final class WpContent
         return (string) preg_replace('#(?<!<br>)\n#', "<br>\n", trim((string) preg_replace('#<br\s*/?>[ \t]*\n?#i', "<br>\n", $text)));
     }
 
-    /* ---------- jen povolené značky ---------- */
+    /* ---------- allowed tags only ---------- */
 
-    /** Propustí jen značky a atributy ze seznamu POVOLENE; HTML čte skutečný analyzátor HTML5, ne regulární výrazy. */
+    /** Lets through only tags and attributes from the ALLOWED list; the HTML is read by a real HTML5 parser, not regular expressions. */
     private static function allowedHtml(string $html): string
     {
         if (trim($html) === '') {
@@ -266,7 +267,7 @@ final class WpContent
         }
         $output = str_replace(['&nbsp;', "\u{00A0}"], ' ', $output);
 
-        // úklid mimo ukázky kódu: zalomení na kraji odstavce a prázdné řádky nic neznamenají
+        // cleanup outside code samples: line breaks at the edge of a paragraph and empty lines mean nothing
         return trim(self::outsideCode($output, fn (string $part): string => (string) preg_replace(['#<p>(?:\s*<br>)+\s*#', '#(?:\s*<br>)+\s*</p>#', "/\n{2,}/"], ['<p>', '</p>', "\n"], $part)));
     }
 
@@ -274,7 +275,7 @@ final class WpContent
     {
         foreach (iterator_to_array($node->childNodes) as $n) {
             if (!$n instanceof \Dom\Element) {
-                // komentáře a instrukce pryč; stejně tak prázdné řádky mezi obrázkem a popiskem
+                // comments and processing instructions go away; so do empty lines between an image and its caption
                 if (!$n instanceof \Dom\Text || ($node instanceof \Dom\Element && $node->localName === 'figure' && trim($n->data) === '')) {
                     $n->parentNode?->removeChild($n);
                 }
@@ -287,11 +288,11 @@ final class WpContent
             }
             self::sanitizeNode($doc, $n);
             if ($tag === 'a' && self::isLinkToOwnImage($n)) {
-                self::extract($n); // náhled odkazující na velký obrázek: prohlížečku fotek má web vlastní
+                self::extract($n); // a thumbnail linking to the large image: the site has its own photo viewer
                 continue;
             }
             if ($tag === 'div' || isset(self::TAG_REPLACEMENTS[$tag])) {
-                // <div> s bloky uvnitř jen zmizí, <div> s textem je odstavec
+                // a <div> with blocks inside just disappears, a <div> with text is a paragraph
                 $new = $tag === 'div' ? (self::hasBlockChild($n) ? null : 'p') : self::TAG_REPLACEMENTS[$tag];
                 if ($new === null) {
                     self::extract($n);
@@ -306,7 +307,7 @@ final class WpContent
             }
             self::sanitizeAttributes($n, $tag);
             if ($tag === 'a' && !$n->hasAttribute('href')) {
-                self::extract($n); // odkaz, kterému nezbyla bezpečná adresa, je jen text
+                self::extract($n); // a link left without a safe URL is just text
             }
         }
     }
@@ -314,7 +315,7 @@ final class WpContent
     private static function sanitizeAttributes(\Dom\Element $n, string $tag): void
     {
         if ($tag === 'img') {
-            // doplňky pro líné načítání dávají skutečnou adresu do data-src
+            // lazy-loading add-ons put the real URL into data-src
             $url = $n->getAttribute('data-src') ?? $n->getAttribute('data-lazy-src') ?? $n->getAttribute('src') ?? '';
             if (!self::isSafeUrl($url) || str_starts_with(strtolower(trim($url)), 'data:')) {
                 $n->remove();
@@ -348,7 +349,7 @@ final class WpContent
         }
     }
 
-    /** Adresa smí být http(s), mailto, tel nebo místní; javascript:, data:, vbscript: a podobné ne (ani s vloženými mezerami a tabulátory). */
+    /** A URL may be http(s), mailto, tel or local; javascript:, data:, vbscript: and the like may not (not even with inserted spaces and tabs). */
     public static function isSafeUrl(string $url): bool
     {
         $url = (string) preg_replace('/[\x00-\x20]+/', '', $url);
@@ -356,7 +357,7 @@ final class WpContent
         return $url !== '' && (!preg_match('#^[a-z][a-z0-9+.-]*:#i', $url) || preg_match('#^(https?|mailto|tel):#i', $url) === 1);
     }
 
-    /** Po vyčištění nesmí na nejvyšší úrovni zůstat volný text ani samotný obrázek: text patří do <p>, obrázek do <figure>. */
+    /** After cleaning, neither loose text nor a bare image may remain at the top level: text belongs in <p>, an image in <figure>. */
     private static function normalizeRoot(\Dom\HTMLDocument $doc, \Dom\Element $body): void
     {
         $paragraph = null;
@@ -393,9 +394,9 @@ final class WpContent
             }
             $text = trim(str_replace("\u{00A0}", ' ', (string) $n->textContent));
             if ($text === '' && $images === []) {
-                $n->remove(); // prázdný odstavec
+                $n->remove(); // empty paragraph
             } elseif ($text === '' && count($images) === 1) {
-                $wrapper = $doc->createElement('figure'); // odstavec jen s obrázkem = obrázek, jak ho vkládá editor
+                $wrapper = $doc->createElement('figure'); // a paragraph with only an image = an image, as the editor inserts it
                 $wrapper->appendChild($images[0]);
                 $body->replaceChild($wrapper, $n);
             }
@@ -421,7 +422,7 @@ final class WpContent
         return false;
     }
 
-    /** Odstraní značku, její obsah nechá na místě. */
+    /** Removes a tag, leaving its content in place. */
     private static function extract(\Dom\Element $n): void
     {
         while ($n->firstChild !== null) {
@@ -442,7 +443,7 @@ final class WpContent
     }
 
     /**
-     * Zavolá funkci jen na části HTML mimo <pre> a <code> – v ukázkách kódu jsou hranaté závorky běžný text.
+     * Calls the function only on the parts of the HTML outside <pre> and <code> – in code samples square brackets are ordinary text.
      *
      * @param callable(string): string $callback
      */

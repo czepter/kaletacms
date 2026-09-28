@@ -8,7 +8,7 @@ use Kaleta\Admin\Module;
 use Kaleta\Core\Response;
 
 /**
- * Statistika: vlastní měření bez cookies (návštěvy, zobrazení, nejčtenější novinky, zdroje návštěv).
+ * Stats: own measurement without cookies (visits, views, most-read news, traffic sources).
  */
 final class Stats extends Module
 {

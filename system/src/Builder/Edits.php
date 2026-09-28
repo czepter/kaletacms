@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace Kaleta\Builder;
 
 /**
- * Dílčí úpravy stavby podle id prvků – aby jazykový model (MCP) při opravě jednoho odkazu nemusel posílat celou stránku.
- * Operace se provedou postupně nad kopií; výsledek pak projde Stavba::vycisti() jako každá jiná stavba.
+ * Partial edits of a build by element id – so that the language model (MCP) does not have to send the whole page to fix one link.
+ * The operations run one after another on a copy; the result then goes through Build::sanitize() like any other build.
  *
  *   {"op":"uprav","id":"…","obsah":{…},"styl":{"mobil":{"mezera":"s","sloupce":null}},"tridy":[…],"kotva":"…","znacka":"…"}
- *       obsah a styl se slučují (null nebo "" hodnotu odebere), tridy se nahradí
+ *       obsah and styl are merged (null or "" removes a value), tridy is replaced
  *   {"op":"nahrad","id":"…","prvek":{…}}
  *   {"op":"smaz","id":"…"}
- *   {"op":"vloz","prvky":[…] (nebo "prvek"),"do":"id rodiče | null = kořen","pozice":0 | "za":"id" | "pred":"id"}
+ *   {"op":"vloz","prvky":[…] (or "prvek"),"do":"parent id | null = root","pozice":0 | "za":"id" | "pred":"id"}
  *   {"op":"presun","id":"…","do":…,"pozice":… | "za":… | "pred":…}
  */
 final class Edits
@@ -22,7 +22,7 @@ final class Edits
     /**
      * @param array<string, mixed> $build
      * @param list<array<string, mixed>> $operations
-     * @param array<string, string> $errors op[i] => text chyby (operace s chybou se přeskočí, ostatní proběhnou)
+     * @param array<string, string> $errors op[i] => error text (an operation with an error is skipped, the others run)
      * @return array<string, mixed>
      */
     public static function apply(array $build, array $operations, array &$errors = []): array
@@ -117,7 +117,7 @@ final class Edits
         throw new \InvalidArgumentException('Neznámá operace (op): uprav | nahrad | smaz | vloz | presun.');
     }
 
-    /** Sloučí změny do pole: null nebo "" klíč odebere, ostatní přepíše. */
+    /** Merges changes into an array: null or "" removes the key, anything else overwrites it. */
     private static function merge(array $previous, array $changes): array
     {
         foreach ($changes as $k => $v) {
@@ -131,7 +131,7 @@ final class Edits
         return $previous;
     }
 
-    /** Změní prvek s daným id; když ve stavbě není, hlásí chybu. */
+    /** Changes the element with the given id; when it is not in the build, reports an error. */
     private static function change(array $root, string $id, callable $change): array
     {
         $found = false;
@@ -164,7 +164,7 @@ final class Edits
         return $node;
     }
 
-    /** @return array{0: array<string, mixed>, 1: ?array<string, mixed>} [strom bez prvku, vyjmutý prvek] */
+    /** @return array{0: array<string, mixed>, 1: ?array<string, mixed>} [tree without the element, the removed element] */
     private static function detach(array $node, string $id): array
     {
         foreach ($node['deti'] ?? [] as $i => $p) {
@@ -201,7 +201,7 @@ final class Edits
         return false;
     }
 
-    /** Vloží prvky do rodiče „do“ (null = kořen) na pozici, za prvek „za“ nebo před prvek „pred“; bez určení na konec. */
+    /** Inserts elements into the parent „do“ (null = root) at a position, after the element „za“ or before the element „pred“; unspecified = at the end. */
     private static function insert(array $root, array $elements, array $o): array
     {
         $sibling = is_string($o['za'] ?? null) ? $o['za'] : (is_string($o['pred'] ?? null) ? $o['pred'] : null);

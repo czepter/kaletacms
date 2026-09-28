@@ -9,9 +9,9 @@ use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
 /**
- * Použití komponenty: vloží její publikovanou stavbu a dosadí vlastní hodnoty jejích {{vlastností}}.
- * Na webu nemá vlastní značku (vypíše rovnou obsah komponenty), pokud použití nemá vlastní styl, třídu nebo kotvu;
- * v editoru ji obalí prvek, aby šla vybrat jako celek.
+ * Use of a component: inserts its published build and fills in its own values of its {{properties}}.
+ * On the site it has no tag of its own (it outputs the component content directly) unless the use has its own style, class or anchor;
+ * in the editor an element wraps it so that it can be selected as a whole.
  */
 final class Component extends Element
 {
@@ -30,7 +30,7 @@ final class Component extends Element
         ];
     }
 
-    /** Obsah komponenty s hodnotami tohoto použití (volá Stavba při vykreslení). */
+    /** Content of the component with the values of this use (called by Build when rendering). */
     public static function inner(array $p, Context $k, callable $render): string
     {
         $id = (int) $p['obsah']['komponenta'];
@@ -43,10 +43,10 @@ final class Component extends Element
             return $k->editor ? '<p>' . e(t('Vyberte komponentu v panelu Obsah.')) . '</p>' : '';
         }
         if (in_array($id, $k->nesting, true) || count($k->nesting) >= Components::MAX_NESTING) {
-            return ''; // komponenta sama v sobě by se vykreslovala donekonečna
+            return ''; // a component inside itself would render forever
         }
-        // uvnitř se použije jen publikovaná podoba a bez značek editoru (vybírá se komponenta jako celek);
-        // komponenta může být na stránce víckrát, proto styl přes třídu jako ve výpisu kolekce
+        // inside, only the published version is used, without editor markers (the component is selected as a whole);
+        // a component can be on a page several times, hence the style through a class as in a collection list
         [$item, $editor, $loop] = [$k->item, $k->editor, $k->inLoop];
         $k->nesting[] = $id;
         $k->item = Components::values($component, is_array($p['obsah']['hodnoty'] ?? null) ? $p['obsah']['hodnoty'] : []);
@@ -62,7 +62,7 @@ final class Component extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        // obal jen tam, kde má použití vlastní styl, třídu nebo kotvu (jinak by přidal zbytečnou úroveň do mřížek a flexu)
+        // a wrapper only where the use has its own style, class or anchor (otherwise it would add a needless level to grids and flex)
         $hasWrapper = str_contains($a, ' id="') || str_contains($a, ' class="');
         if ($hasWrapper) {
             return '<div' . $a . '>' . $children . '</div>';

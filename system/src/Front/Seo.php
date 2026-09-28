@@ -7,18 +7,18 @@ namespace Kaleta\Front;
 use Kaleta\Core\App;
 
 /**
- * SEO, GEO, měření a souhlasy: robots.txt, sitemap.xml, llms.txt, Markdown verze novinky,
- * značky do <head> (ověření, strukturovaná data, měřicí kódy) a cookie lišta před </body>.
- * Vše se řídí Nastavením; layouty jen vypíší proměnné $hlava a $pata.
+ * SEO, GEO, analytics and consent: robots.txt, sitemap.xml, llms.txt, Markdown version of a news item,
+ * tags for <head> (verification, structured data, tracking codes) and the cookie bar before </body>.
+ * Everything is driven by Settings; layouts only print the variables $hlava and $pata.
  */
 final class Seo
 {
-    /** Roboti AI služeb, kterých se týká přepínač v Nastavení. */
+    /** Bots of AI services that the switch in Settings applies to. */
     private const array AI_BOTS = ['GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'Claude-User', 'anthropic-ai', 'PerplexityBot', 'Perplexity-User', 'Google-Extended', 'Applebot-Extended', 'CCBot', 'Bytespider', 'Amazonbot', 'meta-externalagent', 'cohere-ai'];
 
     private readonly string $siteSettings;
 
-    /** Kořen webu bez předpony jazykové verze. */
+    /** Site root without the language version prefix. */
     private readonly string $root;
 
     public function __construct(private readonly App $app)
@@ -27,7 +27,7 @@ final class Seo
         $this->root = $app->request->origin() . $app->request->basePath() . '/';
     }
 
-    /** Systémová cesta v jazyce právě zobrazené verze (/news mimo češtinu) – Core\Cesty. */
+    /** System path in the language of the currently shown version (/news outside Czech) – Core\Routes. */
     private function path(string $path): string
     {
         return \Kaleta\Core\Routes::publicPath($path, $this->app->languagePrefix !== '' ? $this->app->languagePrefix : \Kaleta\Core\Language::defaults($this->app->settings()), $this->app->db());
@@ -57,12 +57,12 @@ final class Seo
     public function sitemapXml(): string
     {
         $db = $this->app->db();
-        // mapa webu je jedna pro všechny jazykové verze: adresa dostane předponu podle jazyka záznamu
+        // there is one sitemap for all language versions: the URL gets a prefix by the language of the record
         $url = fn (string $path, ?string $change = null, string $priority = '0.5', string $language = ''): string => '<url><loc>'
             . e($this->root . ($language !== '' ? $language . '/' : '') . \Kaleta\Core\Routes::publicPath($path, $language !== '' ? $language : \Kaleta\Core\Language::defaults($this->app->settings()), $db)) . '</loc>'
             . ($change !== null ? '<lastmod>' . date('c', strtotime($change)) . '</lastmod>' : '') . '<priority>' . $priority . '</priority></url>';
 
-        // jen zapnuté a zveřejněné jazykové verze; obsah vypnutého nebo rozpracovaného jazyka v mapě není
+        // only enabled and published language versions; content of a disabled or unfinished language is not in the sitemap
         $languages = ['', ...\Kaleta\Core\Language::published($this->app->settings(), $db)];
         $inLanguages = ' AND jazyk IN (' . implode(',', array_fill(0, count($languages), '?')) . ')';
         $xml = [$url('', null, '1.0')];
@@ -79,7 +79,7 @@ final class Seo
         if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky')) {
             return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", $xml) . "\n</urlset>\n";
         }
-        // výpis novinek, kategorie a štítky jen tam, kde nějaká vydaná novinka je
+        // news listing, categories and tags only where there is some published news item
         $published = 'visible = 1 AND datum <= NOW() AND smazano IS NULL';
         foreach ($db->all("SELECT jazyk, MAX(COALESCE(zmeneno, datum)) AS zmena FROM {novinky} WHERE {$published}{$inLanguages} GROUP BY jazyk", $languages) as $r) {
             $xml[] = $url('novinky', $r['zmena'], '0.6', $r['jazyk']);
@@ -95,7 +95,7 @@ final class Seo
     }
 
     /**
-     * JSON Feed 1.1 (https://jsonfeed.org) - moderní obdoba RSS s plným textem.
+     * JSON Feed 1.1 (https://jsonfeed.org) - a modern counterpart of RSS with full text.
      *
      * @param list<array<string, mixed>> $news
      * @return array<string, mixed>
@@ -118,10 +118,10 @@ final class Seo
     }
 
     /**
-     * IndexNow: oznámí vyhledávačům (Bing, Seznam, Yandex) novou nebo změněnou adresu.
-     * Volá se po uložení vydané novinky; selhání se ignoruje, web kvůli němu nesmí čekat.
+     * IndexNow: notifies search engines (Bing, Seznam, Yandex) of a new or changed URL.
+     * Called after a published news item is saved; a failure is ignored, the site must not wait because of it.
      */
-    /** @param string $url adresa na webu od kořene serveru (App::newsItemUrl()) */
+    /** @param string $url URL on the site from the server root (App::newsItemUrl()) */
     public function indexNow(string $url): void
     {
         $s = $this->app->settings();
@@ -135,7 +135,7 @@ final class Seo
         ]]));
     }
 
-    /** llms.txt - průvodce webem pro jazykové modely (https://llmstxt.org). */
+    /** llms.txt - a guide to the site for language models (https://llmstxt.org). */
     public function llmsTxt(): string
     {
         $s = $this->app->settings();
@@ -150,7 +150,7 @@ final class Seo
         foreach ($db->all('SELECT ids, titulek, seo_link, popis FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY poradi, titulek', [\Kaleta\Core\Language::siteColumn()]) as $r) {
             $rows[] = '- [' . $r['titulek'] . '](' . $this->siteSettings . ((int) $r['ids'] === $home ? '' : $r['seo_link']) . ')' . ($r['popis'] !== '' ? ': ' . $r['popis'] : '');
         }
-        // kolekce s vlastními stránkami položek (návod, tým, produkty…): položka s prvním delším textem jako popisem
+        // collections with their own item pages (guide, team, products…): item with the first longer text as its description
         foreach ($db->all('SELECT idk, nazev, seo_link, pole FROM {kolekce} WHERE detail = 1 ORDER BY nazev') as $k) {
             $field = json_decode((string) $k['pole'], true) ?: [];
             $descriptiveFields = array_column(array_filter($field, fn (array $f): bool => in_array($f['typ'] ?? '', ['radky', 'html', 'text'], true)), 'klic');
@@ -195,10 +195,10 @@ final class Seo
     }
 
     /**
-     * Značky před </head>.
+     * Tags before </head>.
      *
-     * @param array<string, mixed> $meta     meta údaje stránky (typ, popis, obrazek, noindex...)
-     * @param array<string, mixed>|null $newsItem celá novinka, jde-li o stránku novinky
+     * @param array<string, mixed> $meta     page meta data (typ, popis, obrazek, noindex...)
+     * @param array<string, mixed>|null $newsItem the full news item, if this is a news item page
      */
     public function head(string $title, array $meta, ?array $newsItem): string
     {
@@ -209,7 +209,7 @@ final class Seo
         }
         if (!$s->bool('indexing')) {
             $h[] = '<meta name="robots" content="noindex, nofollow">';
-        } // noindex jednotlivé stránky nebo novinky vypíše šablona podle $meta['noindex'] (a vynechá kanonickou adresu)
+        } // noindex of an individual page or news item is printed by the template from $meta['noindex'] (and it omits the canonical URL)
         if ($s->get('verification_google') !== '') {
             $h[] = '<meta name="google-site-verification" content="' . e($s->get('verification_google')) . '">';
         }
@@ -219,13 +219,14 @@ final class Seo
         if (($meta['obrazek'] ?? '') === '' && $s->get('share_image') !== '') {
             $h[] = '<meta property="og:image" content="' . e($this->absoluteUrl($s->get('share_image'))) . '">';
         }
-        // jazykové verze: hreflang jen na existující překlady (novinka, stránka, kategorie, položka kolekce), na úvodu na úvod každé verze
+        // language versions: hreflang only to existing translations (news item, page, category, collection item), on the home
+        // page to the home page of each version
         $defaults = \Kaleta\Core\Language::defaults($s);
         foreach ($meta['jazyky'] ?? [] as $code => $j) {
             if ($j['preklad'] || ($meta['hlavni'] ?? false)) {
                 $h[] = '<link rel="alternate" hreflang="' . e($code) . '" href="' . e($this->app->request->origin() . $j['url']) . '">';
                 if ($code === $defaults) {
-                    // návštěvník v jazyce, který web nemá, dostane výchozí verzi
+                    // a visitor in a language the site does not have gets the default version
                     $h[] = '<link rel="alternate" hreflang="x-default" href="' . e($this->app->request->origin() . $j['url']) . '">';
                 }
             }
@@ -241,15 +242,15 @@ final class Seo
         if ($s->bool('schema_org')) {
             $h[] = '<script type="application/ld+json">' . json_encode($this->structuredData($title, $meta, $newsItem), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) . '</script>';
         }
-        // design systém (tokeny a pořadí vrstev kaskády) a styl stavby stránky, pokud jde o stránku z builderu
+        // design system (tokens and cascade layer order) and the style of the page build, if it is a page from the builder
         $h[] = '<style>' . \Kaleta\Builder\DesignSystem::css(\Kaleta\Builder\DesignSystem::load($s), $this->app->request->basePath()) . ($meta['css'] ?? '') . '</style>';
         $h[] = SiteIdentity::head($s, $this->app->request->basePath());
-        // společné prvky webu (fotogalerie, prohlížečka fotek, video, sdílení…) pro všechny šablony
+        // shared site elements (photo gallery, photo viewer, video, sharing…) for all templates
         $version = rawurlencode(KALETA_VERSION);
         $h[] = '<link rel="stylesheet" href="' . e($this->app->url('image/web.css')) . '?v=' . $version . '">';
-        // blocking="render": stránka se poprvé vykreslí až s načteným skriptem (načítá se souběžně se styly, které vykreslení
-        // blokují stejně). Bez toho Chrome přeruší přechod mezi stránkami (View Transitions), dokud se odložený skript stahuje,
-        // a do konzole vypíše neošetřenou chybu „Transition was aborted because of invalid state“.
+        // blocking="render": the page is first rendered only with the script loaded (it loads in parallel with the styles, which
+        // block rendering anyway). Without it Chrome aborts the transition between pages (View Transitions) while the deferred
+        // script is downloading, and prints the unhandled error „Transition was aborted because of invalid state“ to the console.
         $h[] = '<script src="' . e($this->app->url('image/web.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute() . '></script>';
         $h[] = $this->analyticsCode();
         if (trim($s->get('head_code')) !== '') {
@@ -259,12 +260,15 @@ final class Seo
         return implode("\n", array_filter($h)) . "\n";
     }
 
-    /** České texty, které návštěvníkovi vypisuje image/web.js (tam jsou obalené T() nebo A()); slovník webu je překládá jako každý jiný text. */
+    /**
+     * Czech texts that image/web.js shows to the visitor (wrapped in T() or A() there); the site dictionary translates
+     * them like any other text.
+     */
     public const array SCRIPT_TEXTS = ['Předchozí fotka', 'Další fotka', 'Zavřít'];
 
     /**
-     * Atribut data-texty pro značku <script> s image/web.js: překlady textů skriptu (česky => překlad) jako JSON.
-     * Bez dalšího požadavku a bez inline skriptu; česká verze nepotřebuje nic – skript má češtinu v sobě.
+     * The data-texty attribute for the <script> tag with image/web.js: translations of the script texts (Czech => translation)
+     * as JSON. No extra request and no inline script; the Czech version needs nothing – the script has Czech built in.
      */
     private static function scriptTextsAttribute(): string
     {
@@ -278,7 +282,7 @@ final class Seo
         return $translations === [] ? '' : ' data-texty="' . e((string) json_encode($translations, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) . '"';
     }
 
-    /** Cookie lišta vestavěného řešení a marketingové kódy; vkládá se před </body>. */
+    /** Cookie bar of the built-in solution and marketing codes; inserted before </body>. */
     public function foot(): string
     {
         $s = $this->app->settings();
@@ -301,9 +305,9 @@ final class Seo
     }
 
     /**
-     * Marketingový kód podle režimu cookies: bez lišty se vypíše rovnou; vestavěná lišta ho po souhlasu
-     * rozbalí ze značky <template>; u externí služby dostanou skripty značení, kterému rozumí Cookiebot a služby s ním kompatibilní
-     * (stejné jako u měřicích kódů) – spustí je až ona.
+     * Marketing code by cookie mode: without a bar it is printed directly; the built-in bar unpacks it from the <template>
+     * tag after consent; with an external service the scripts get markup understood by Cookiebot and services compatible
+     * with it (the same as for tracking codes) – only that service runs them.
      */
     public static function deferUntilConsent(string $code, string $mode): string
     {
@@ -324,7 +328,7 @@ final class Seo
     private function analyticsCode(): string
     {
         $s = $this->app->settings();
-        // se souhlasem: skript je "text/plain", dokud ho lišta (vestavěná i Cookiebot) nepovolí
+        // with consent: the script is "text/plain" until the bar (built-in or Cookiebot) enables it
         $pending = $s->get('cookies_mode') !== 'zadna';
         $attributes = $pending ? ' type="text/plain" data-souhlas="analytika" data-cookieconsent="statistics"' : '';
         $code = '';
@@ -354,7 +358,7 @@ final class Seo
     private function structuredData(string $title, array $meta, ?array $newsItem): array
     {
         $s = $this->app->settings();
-        // firma z Nastavení → Firma (Organization nebo LocalBusiness s adresou, otevírací dobou a mapou)
+        // company from "Nastavení → Firma" (Settings → Company) (Organization or LocalBusiness with address, opening hours and map)
         $issuer = Company::schema($s, $this->siteSettings, $this->absoluteUrl(...));
         if ($newsItem === null) {
             $chart = [
@@ -364,7 +368,7 @@ final class Seo
                 $issuer,
             ];
             if (!empty($meta['faq'])) {
-                // stránka z builderu s otázkami a odpověďmi – vedle údajů o webu a firmě, ne místo nich
+                // a builder page with questions and answers – next to the site and company details, not instead of them
                 $chart[] = ['@type' => 'FAQPage', 'mainEntity' => array_map(fn (array $d): array => [
                     '@type' => 'Question', 'name' => $d[0], 'acceptedAnswer' => ['@type' => 'Answer', 'text' => $d[1]],
                 ], $meta['faq'])];
@@ -406,7 +410,7 @@ final class Seo
     }
 
     /**
-     * Otázky a odpovědi novinky: text "otázka \n odpověď \n\n ..." -> dvojice.
+     * Questions and answers of a news item: text "question \n answer \n\n ..." -> pairs.
      *
      * @return list<array{0:string, 1:string}>
      */
@@ -442,7 +446,7 @@ final class Seo
         return str_starts_with($url, '/') ? $this->app->request->origin() . $url : $this->root . $url;
     }
 
-    /** Jednoduchý převod HTML na Markdown - nadpisy, odstavce, seznamy, odkazy, citace, obrázky. */
+    /** Simple conversion of HTML to Markdown - headings, paragraphs, lists, links, quotes, images. */
     private static function htmlToMarkdown(string $html): string
     {
         $md = preg_replace('/\s+/', ' ', $html) ?? $html;

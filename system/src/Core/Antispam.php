@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Ochrana formulářů čtenářů bez cookies a bez CAPTCHA:
- *  - podepsaná časová značka (formulář nejde odeslat dřív než za pár vteřin ani po hodinách),
- *  - skryté pole, které člověk nevidí a robot vyplní (honeypot),
- *  - omezení počtu akcí z jedné IP adresy.
+ * Spam protection for visitors' forms without cookies and without CAPTCHA:
+ *  - a signed timestamp (a form cannot be sent sooner than a few seconds, nor after hours),
+ *  - a hidden field that a human does not see and a bot fills in (honeypot),
+ *  - a limit on the number of actions from one IP address.
  */
 final class Antispam
 {
-    /** Formulář odeslaný dřív se odmítne (robot); image/web.js odeslání o zbytek odloží (atribut data-cekat). */
+    /** A form sent sooner is rejected (bot); image/web.js delays sending by the remainder (attribute data-cekat). */
     public const int MIN_SECONDS = 4;
     private const int MAX_SECONDS = 4 * 3600;
 
@@ -20,7 +20,7 @@ final class Antispam
     {
     }
 
-    /** Tajný klíč instalace; vznikne při prvním použití. */
+    /** Secret key of the installation; created on first use. */
     public function key(): string
     {
         $key = $this->settings->get('secret_key');
@@ -32,7 +32,7 @@ final class Antispam
         return $key;
     }
 
-    /** Skrytá pole do formuláře: podepsaný čas vystavení a past na roboty. */
+    /** Hidden fields for a form: the signed time of issue and a bot trap. */
     public function fields(string $purpose): string
     {
         $time = (string) time();
@@ -41,7 +41,7 @@ final class Antispam
             . '<div style="position:absolute;left:-9999px" aria-hidden="true"><label>' . e(t('Toto pole nevyplňujte')) . ' <input type="text" name="web_adresa" tabindex="-1" autocomplete="off"></label></div>';
     }
 
-    /** @return string|null důvod odmítnutí (už přeložený do jazyka webu; 'robot' je značka, ne text), null = v pořádku */
+    /** @return string|null reason for rejection (already translated to the site language; 'robot' is a marker, not text), null = OK */
     public function verify(Request $request, string $purpose): ?string
     {
         return match ($this->reason($request, $purpose)) {
@@ -53,7 +53,7 @@ final class Antispam
         };
     }
 
-    /** @return 'robot'|'podpis'|'rychle'|'vyprselo'|null kód důvodu odmítnutí (formuláře builderu podle něj volí hlášení), null = v pořádku */
+    /** @return 'robot'|'podpis'|'rychle'|'vyprselo'|null code of the rejection reason (builder forms choose their message by it), null = OK */
     public function reason(Request $request, string $purpose): ?string
     {
         if ($request->post('web_adresa') !== '') {
@@ -71,7 +71,7 @@ final class Antispam
         return $age > self::MAX_SECONDS ? 'vyprselo' : null;
     }
 
-    /** Kolikrát už IP adresa danou akci za posledních $minut provedla. */
+    /** How many times the IP address has already performed the given action in the last $minutes. */
     public function count(string $ip, string $type, int $target, int $minutes): int
     {
         return (int) $this->db->value(
@@ -88,7 +88,7 @@ final class Antispam
         }
     }
 
-    /** Do tabulky se neukládá IP adresa, jen její otisk. */
+    /** The table does not store the IP address, only its hash. */
     public static function hash(string $ip): string
     {
         return substr(hash('sha256', 'kaleta|' . $ip), 0, 40);

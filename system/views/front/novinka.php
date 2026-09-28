@@ -1,9 +1,9 @@
 <?php
 /**
- * Celá novinka. Layout ji může přepsat vlastním souborem novinka.php.
+ * The full news item. A layout can override it with its own file novinka.php.
  *
- * @var array<string, mixed> $novinka  sloupce ka_novinky + tema_jm, tema_seo, autor_jm, stitky (nazev, seo_link),
- *                                     obrazek_srcset, obrazek_alt, obrazek_popisek_html, faq_html - hotové HTML, stačí vypsat
+ * @var array<string, mixed> $novinka  columns of ka_novinky + tema_jm, tema_seo, autor_jm, stitky (nazev, seo_link),
+ *                                     obrazek_srcset, obrazek_alt, obrazek_popisek_html, faq_html - ready-made HTML, just output it
  * @var callable(string): string $url
  * @var list<array<string, mixed>> $souvisejici
  */

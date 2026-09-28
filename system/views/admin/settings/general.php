@@ -1,4 +1,4 @@
-<?php /** Záložka Základní. Proměnné a funkce $field viz vypis.php. */ ?>
+<?php /** The "Základní" (General) tab. For the variables and the $field function see vypis.php. */ ?>
 <fieldset>
 <legend><?= e(t('Web')) ?></legend>
 <?php

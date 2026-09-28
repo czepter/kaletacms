@@ -5,17 +5,18 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Aktualizace systému z administrace.
+ * System updates from the admin.
  *
- * Zdroj je soubor aktualizace.json: {"verze","vydano","url","sha256","podpis","min_php","bezpecnostni","zmeny":[...]}.
- * Vydání označené "bezpecnostni": true se umí nainstalovat samo (Nastavení -> Zálohy a aktualizace).
- * Balíček (ZIP) se přijme jen tehdy, když sedí SHA-256 a podpis Ed25519 (Core\Podpis::zpravaBalicku) ověřený některým
- * z veřejných klíčů v system/aktualizace.pub (provozní + záložní, viz docs/RELEASING.md). Soukromý klíč má jen vydavatel (tools/release.php).
- * Nikdy se nepřepisuje config.php, media/, storage/, install.php ani layouty, které nejsou součástí balíčku.
+ * The source is the file aktualizace.json: {"verze","vydano","url","sha256","podpis","min_php","bezpecnostni","zmeny":[...]}.
+ * A release marked "bezpecnostni": true can install itself ("Nastavení -> Zálohy a aktualizace", Settings -> Backups and updates).
+ * The package (ZIP) is accepted only when the SHA-256 and the Ed25519 signature (Core\Signature::packageMessage) match,
+ * verified by one of the public keys in system/aktualizace.pub (operational + backup, see docs/RELEASING.md). Only the
+ * publisher has the private key (tools/release.php).
+ * config.php, media/, storage/, install.php and layouts that are not part of the package are never overwritten.
  */
 final class Updater
 {
-    /** Výchozí zdroj aktualizací; doplní se, až poběží web projektu. Lze přepsat v Nastavení. */
+    /** Default update source; to be filled in once the project website runs. Can be overridden in Settings. */
     public const string DEFAULT_URL = 'https://kaletacms.com/aktualizace.json';
 
     private const array PROTECTED_PATHS = ['config.php', 'install.php', 'media/', 'storage/', 'image/ukazka/', 'tools/', '.git/'];
@@ -34,7 +35,7 @@ final class Updater
     }
 
     /**
-     * Stav aktualizací; výsledek dotazu se pamatuje 12 hodin.
+     * Update status; the result of the request is remembered for 12 hours.
      *
      * @return array{nastaveno:bool, aktualni:string, nova:?array<string, mixed>, chyba:?string, overeno:int}
      */
@@ -67,8 +68,8 @@ final class Updater
     }
 
     /**
-     * Údržba na pozadí: jednou za 12 hodin ověří novou verzi; bezpečnostní vydání nainstaluje samo (je-li to
-     * povoleno), jinak administrátora upozorní e-mailem. Volá se po odeslání stránky, takže návštěvníka nezdržuje.
+     * Background maintenance: once every 12 hours checks for a new version; installs a security release itself (if that is
+     * allowed), otherwise notifies the administrator by e-mail. Called after the page is sent, so it does not hold up the visitor.
      */
     public static function runInBackground(App $app): void
     {
@@ -89,9 +90,10 @@ final class Updater
         if ($newVersion === null || empty($newVersion['bezpecnostni']) || $s->get('update_attempt') === $newVersion['verze']) {
             return;
         }
-        $s->set('update_attempt', (string) $newVersion['verze']); // každá verze se zkouší a oznamuje jen jednou
-        // píše se na e-mail webu (adresa bez účtu): texty administrace ve výchozím jazyce webu. Úloha běží i z veřejného webu,
-        // kde slovník administrace načtený není – Jazyk::docasne() ho načte jen na tuto chvíli (i pro hlášky chyb instalace).
+        $s->set('update_attempt', (string) $newVersion['verze']); // each version is tried and announced only once
+        // written to the site e-mail (an address without an account): admin texts in the site's default language. The task also
+        // runs from the public site, where the admin dictionary is not loaded – Language::runWith() loads it just for this moment
+        // (also for installation error messages).
         [$subject, $text] = Language::runWith(Language::defaults($s), function () use ($app, $a, $s, $newVersion): array {
             $result = t('Je k dispozici bezpečnostní aktualizace %s. Nainstalujte ji v administraci: Nastavení → Zálohy a aktualizace.', (string) $newVersion['verze']);
             if ($s->bool('auto_updates')) {
@@ -116,9 +118,9 @@ final class Updater
     }
 
     /**
-     * @param Db|null $db databáze webu: migrace nové verze proběhnou hned po nahrání souborů a když selže, vrátí se
-     *                    i soubory (web tak nezůstane s novým kódem nad nezmigrovanou databází)
-     * @return string nainstalovaná verze
+     * @param Db|null $db the site database: the new version's migrations run right after the files are uploaded, and when they
+     *                    fail, the files are reverted too (so the site is not left with new code over an unmigrated database)
+     * @return string the installed version
      */
     public function install(?Db $db = null): string
     {
@@ -139,7 +141,7 @@ final class Updater
             throw new \RuntimeException(t('Chybí veřejný klíč vydavatele (system/aktualizace.pub), balíček nelze ověřit.'));
         }
 
-        // zámek: automatická aktualizace z úloh na pozadí a klik správce (nebo dvě návštěvy naráz) nesmějí přepisovat soubory současně
+        // lock: an automatic update from background tasks and an administrator's click (or two visits at once) must not overwrite files simultaneously
         $lock = fopen(KALETA_ROOT . '/storage/cache/aktualizace.zamek', 'c');
         if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
             throw new \RuntimeException(t('Aktualizace už právě běží. Zkuste to za chvíli.'));
@@ -152,7 +154,7 @@ final class Updater
             if (!hash_equals(strtolower((string) $m['sha256']), $sha)) {
                 throw new \RuntimeException(t('Kontrolní součet balíčku nesouhlasí.'));
             }
-            // podpis kryje i příznak bezpečnostního vydání: kdo by ovládl jen web s manifestem, nesmí běžné vydání prohlásit za bezpečnostní
+            // the signature also covers the security-release flag: whoever controlled only the site with the manifest must not declare a regular release a security one
             if (!Signature::isValid(Signature::packageMessage((string) $m['verze'], $sha, !empty($m['bezpecnostni'])), (string) $m['podpis'], $this->keyFile)) {
                 throw new \RuntimeException(t('Podpis balíčku není platný - balíček nepochází od vydavatele Kalety.'));
             }
@@ -160,14 +162,14 @@ final class Updater
             $previous = $this->releaseFiles();
             $releaseHashes = $this->releaseHashes();
             touch(KALETA_ROOT . '/storage/udrzba.lock');
-            // každý přepisovaný soubor se nejdřív odloží: selže-li zápis uprostřed, web se vrátí do původního stavu (ne směs verzí)
+            // every file being overwritten is set aside first: if writing fails halfway, the site returns to its original state (not a mix of versions)
             $setAside = $workDir . '-puvodni';
             $written = [];
             try {
                 foreach ($files as $relativePath) {
                     $target = $this->root . '/' . $relativePath;
                     if ($relativePath === '.htaccess' && is_file($target) && isset($releaseHashes['.htaccess']) && !hash_equals($releaseHashes['.htaccess'], (string) hash_file('sha256', $target))) {
-                        // vlastní úpravy .htaccess (HTTPS, www, přesměrování) se nepřepíšou – nová verze leží vedle k porovnání
+                        // custom edits of .htaccess (HTTPS, www, redirects) are not overwritten – the new version is placed next to it for comparison
                         copy($workDir . '/' . $relativePath, $target . '.kaleta-nova');
                         continue;
                     }
@@ -185,7 +187,7 @@ final class Updater
                     $written[] = $relativePath;
                 }
                 if ($db !== null) {
-                    // migrace čtou soubory z disku, tedy už z nové verze; změny jsou jen přidávající, starý kód nad nimi běží dál
+                    // migrations read files from disk, i.e. already from the new version; the changes are additive only, the old code keeps running on them
                     Migration::apply($db, $this->settings);
                 }
             } catch (\Throwable $e) {
@@ -215,7 +217,7 @@ final class Updater
     /** @return array<string, mixed> */
     private function manifest(): array
     {
-        $json = $this->http($this->url(), 200 * 1024, 6); // krátký limit: kontrola běží po odeslání stránky, ale ne každý server ji umí oddělit
+        $json = $this->http($this->url(), 200 * 1024, 6); // short limit: the check runs after the page is sent, but not every server can detach it
         $m = json_decode($json, true);
         if (!is_array($m) || !isset($m['verze'], $m['url'], $m['sha256'], $m['podpis']) || !preg_match('/^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$/', (string) $m['verze'])) {
             throw new \RuntimeException(t('Soubor s informací o aktualizaci nemá platný tvar.'));
@@ -249,7 +251,7 @@ final class Updater
     }
 
     /**
-     * Rozbalí balíček do pracovní složky a vrátí seznam souborů k přepsání (bez chráněných cest).
+     * Extracts the package into a working folder and returns the list of files to overwrite (without protected paths).
      *
      * @return list<string>
      */
@@ -263,7 +265,7 @@ final class Updater
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $fileNames[] = (string) $zip->getNameIndex($i);
         }
-        // balíček může mít všechno v jedné složce navrch (jak to dělá GitHub) - ta se odřízne
+        // the package may have everything in one top-level folder (as GitHub does) - it is stripped off
         $first = array_unique(array_map(fn (string $j): string => explode('/', $j, 2)[0], $fileNames));
         $prefix = count($first) === 1 && !in_array('index.php', $fileNames, true) ? $first[0] . '/' : '';
 
@@ -297,18 +299,18 @@ final class Updater
     }
 
     /**
-     * Soubory, které z balíčku odešly dřív, než aktualizace uměla po sobě uklízet (nebo je web přeskočil): cesta => otisky
-     * všech vydaných podob. Seznam souborů jádra o nich už neví, proto se uklízejí podle tohoto výčtu.
+     * Files that left the package before the update could clean up after itself (or the site skipped them): path => hashes
+     * of all released versions. The core file list no longer knows about them, so they are cleaned up by this list.
      */
     private const array REMOVED_FILES = [
-        // 'cesta/k/souboru.php' => ['sha256 vydané podoby', …] – soubory, které nová verze zrušila
+        // 'path/to/file.php' => ['sha256 of a released version', …] – files the new version removed
     ];
 
     /**
-     * Jednorázový úklid po přechodu na novou verzi: smaže známé zrušené soubory, ale jen když jsou přesně takové, jaké
-     * jsme je vydali. Soubor, který si správce upravil (nebo šablonu, kterou web právě používá), nechává být.
+     * One-time cleanup after moving to a new version: deletes known removed files, but only when they are exactly as we
+     * released them. A file the administrator edited (or a template the site currently uses) is left alone.
      *
-     * @return int počet smazaných souborů
+     * @return int number of deleted files
      */
     public static function cleanUpRemoved(string $root, string $activeLayout = ''): int
     {
@@ -320,11 +322,11 @@ final class Updater
             }
             if (is_file($file) && in_array(hash_file('sha256', $file), $hashes, true) && @unlink($file)) {
                 $deleted++;
-                @rmdir(dirname($file)); // složka zmizí, jen když zůstala prázdná
+                @rmdir(dirname($file)); // the folder disappears only if it was left empty
             }
         }
-        // soubory předchozího vydání, které balíček nese jen kvůli průběhu aktualizace: starý kód, který ji instaluje,
-        // v tomtéž požadavku ještě načítá své třídy (přejmenované třídy by jinak chyběly) – nová verze je pak smaže
+        // files of the previous release that the package carries only for the update to run: the old code that installs it
+        // still loads its classes in the same request (renamed classes would otherwise be missing) – the new version then deletes them
         $legacy = json_decode((string) @file_get_contents($root . '/system/soubory.json'), true)['legacy'] ?? [];
         foreach (is_array($legacy) ? $legacy : [] as $relativePath => $hash) {
             $file = $root . '/' . $relativePath;
@@ -338,7 +340,7 @@ final class Updater
         return $deleted;
     }
 
-    /** @return array<string, string> otisky souborů právě nainstalovaného vydání (system/soubory.json) */
+    /** @return array<string, string> hashes of the files of the currently installed release (system/soubory.json) */
     private function releaseHashes(): array
     {
         $data = json_decode((string) @file_get_contents($this->root . '/system/soubory.json'), true);
@@ -346,7 +348,7 @@ final class Updater
         return is_array($data['soubory'] ?? null) ? array_map('strval', $data['soubory']) : [];
     }
 
-    /** @return list<string> soubory jádra podle seznamu právě nainstalovaného vydání (system/soubory.json); bez seznamu prázdné */
+    /** @return list<string> core files per the list of the currently installed release (system/soubory.json); empty without the list */
     private function releaseFiles(): array
     {
         $data = json_decode((string) @file_get_contents($this->root . '/system/soubory.json'), true);
@@ -355,12 +357,12 @@ final class Updater
     }
 
     /**
-     * Smaže soubory, které patřily ke starému vydání a v novém už nejsou (přejmenované a zrušené části systému).
-     * Maže jen to, co staré vydání samo přineslo - vlastní soubory, šablony, média ani chráněné cesty se nedotkne.
+     * Deletes files that belonged to the old release and are no longer in the new one (renamed and removed parts of the system).
+     * Deletes only what the old release itself brought - it does not touch custom files, templates, media or protected paths.
      *
      * @param list<string> $previous
      * @param list<string> $newItems
-     * @return int počet smazaných souborů
+     * @return int number of deleted files
      */
     public static function cleanUpObsolete(string $root, array $previous, array $newItems): int
     {
@@ -377,7 +379,7 @@ final class Updater
             $file = $root . '/' . $relativePath;
             if (is_file($file) && @unlink($file)) {
                 $deleted++;
-                @rmdir(dirname($file)); // složka zmizí, jen když zůstala prázdná
+                @rmdir(dirname($file)); // the folder disappears only if it was left empty
             }
         }
 

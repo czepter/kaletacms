@@ -8,18 +8,18 @@ use Kaleta\Core\Settings;
 use Kaleta\Front\SiteIdentity;
 
 /**
- * Design systém webu: pár rozhodnutí (barvy, písma, základní velikost a poměr škály, šířka, zaoblení), ze kterých se dopočítají
- * CSS proměnné (tokeny) pro šablonu i builder. Typografie a mezery jsou fluidní (clamp mezi šířkou telefonu a velkého monitoru),
- * odstíny barev se míchají v prohlížeči (color-mix v OKLCH) – web tak potřebuje jen hrstku čísel a nic se neduplikuje.
+ * The site's design system: a few decisions (colors, fonts, base size and scale ratio, width, corner radius) from which the
+ * CSS custom properties (tokens) for the layout and the builder are computed. Typography and spacing are fluid (clamp between a phone's
+ * and a large monitor's width), color shades are mixed in the browser (color-mix in OKLCH) – so the site needs only a handful of numbers and nothing is duplicated.
  *
- * Uloženo v nastavení „design_system“ (JSON). Chybějící klíč = výchozí hodnota; hlavní barva a písma se berou i ze starší Identity webu.
+ * Stored in the „design_system“ setting (JSON). A missing key = the default value; the primary color and fonts are also taken from the older site Identity.
  */
 final class DesignSystem
 {
-    /** Barvy, které si web volí; ostatní odstíny se z nich dopočítají. */
+    /** Colors the site chooses; the other shades are computed from them. */
     public const array COLORS = ['primarni' => 'Hlavní', 'sekundarni' => 'Doplňková', 'text' => 'Text', 'pozadi' => 'Pozadí', 'plocha' => 'Plocha (karty, patička)'];
 
-    /** Barevné tokeny, ze kterých se vybírá v builderu (klíč => popis). */
+    /** Color tokens to choose from in the builder (key => description). */
     public const array COLOR_TOKENS = [
         'primarni' => 'Hlavní', 'primarni-jemna' => 'Hlavní – jemná', 'na-primarni' => 'Text na hlavní', 'sekundarni' => 'Doplňková',
         'text' => 'Text', 'tlumeny' => 'Tlumený text', 'pozadi' => 'Pozadí', 'plocha' => 'Plocha', 'linka' => 'Linka', 'bila' => 'Bílá', 'cerna' => 'Černá',
@@ -35,8 +35,8 @@ final class DesignSystem
     ];
 
     /**
-     * Typografické styly: pojmenovaná kombinace velikosti, tloušťky, řádkování a písma. Prvek dostane styl jedním výběrem
-     * („Nadpis sekce“, „Perex“) a změna ve Vzhledu se projeví na celém webu. klíč => [název, krok, tloušťka, řádkování, písmo titulků]
+     * Typography styles: a named combination of size, weight, line height and font. An element gets the style with one choice
+     * („Nadpis sekce“, „Perex“) and a change in Appearance shows on the whole site. key => [name, step, weight, line height, heading font]
      */
     public const array TYPOGRAPHY = [
         'titulek' => ['Hlavní titulek', '5', 800, 1.1, true],
@@ -48,16 +48,16 @@ final class DesignSystem
         'nadtitulek' => ['Nadtitulek', '-1', 600, 1.3, false],
     ];
 
-    /** Tloušťky písma nabízené u typografických stylů. */
+    /** Font weights offered for typography styles. */
     public const array FONT_WEIGHTS = [300 => 'tenké', 400 => 'normální', 500 => 'střední', 600 => 'polotučné', 700 => 'tučné', 800 => 'extra tučné'];
 
     /**
-     * Pořadí vrstev kaskády pro celý web: tokeny, společné prvky (image/web.css), šablona, základ prvků builderu, třídy, styl prvků.
-     * Pozdější vrstva vyhrává bez ohledu na specifičnost – nic se nemusí přebíjet selektory ani !important.
+     * Order of the cascade layers for the whole site: tokens, shared elements (image/web.css), layout, base of builder elements, classes, element styles.
+     * A later layer wins regardless of specificity – nothing has to be overridden with selectors or !important.
      */
     public const string LAYERS = '@layer tokeny, spolecne, sablona, stavitel, tridy, prvky;';
 
-    /** Fluidní škály se roztahují mezi těmito šířkami okna (rem). */
+    /** Fluid scales stretch between these viewport widths (rem). */
     private const float VIEWPORT_MIN = 22.5;
     private const float VIEWPORT_MAX = 80;
 
@@ -69,12 +69,12 @@ final class DesignSystem
         'sirka' => 72, 'sirka_textu' => 44, 'zaobleni' => 'm',
     ];
 
-    /** Poměry typografické škály (krok n = základ × poměr^n): čím větší, tím víc se nadpisy liší od textu. */
+    /** Typographic scale ratios (step n = base × ratio^n): the larger, the more the headings differ from the text. */
     public const array RATIOS = ['1.125' => 'jemný (1,125)', '1.2' => 'klidný (1,2)', '1.25' => 'vyvážený (1,25)', '1.333' => 'výrazný (1,333)', '1.414' => 'dramatický (1,414)', '1.5' => 'plakátový (1,5)'];
 
     /**
-     * Předvolby: celý vzhled webu jedním klikem, pak se dá doladit. Nezadané klíče mají výchozí hodnotu.
-     * klíč => [název, popis, hodnoty]
+     * Presets: the whole appearance of the site in one click, then it can be fine-tuned. Keys not given have the default value.
+     * key => [name, description, values]
      */
     public const array PRESETS = [
         'firemni' => ['Firemní', 'Modrá, bezpatkové písmo, střídmé zaoblení', [
@@ -99,14 +99,14 @@ final class DesignSystem
         ]],
     ];
 
-    /** Předvolba jako kompletní design systém. @return array<string, mixed>|null */
+    /** A preset as a complete design system. @return array<string, mixed>|null */
     public static function preset(string $key): ?array
     {
         return isset(self::PRESETS[$key]) ? self::sanitize(self::PRESETS[$key][2] + self::DEFAULTS) : null;
     }
 
     /**
-     * Čitelnost dvojic barev podle WCAG 2.2 AA (text 4,5 : 1). Obecné dvojice, které se na webu opravdu potkávají.
+     * Legibility of color pairs by WCAG 2.2 AA (text 4.5 : 1). General pairs that really meet on the site.
      *
      * @return list<array{popis: string, pomer: float, ok: bool}>
      */
@@ -124,7 +124,7 @@ final class DesignSystem
         return array_map(fn (array $d): array => ['popis' => $d[0], 'pomer' => $p = self::contrast($d[1], $d[2]), 'ok' => $p >= 4.5], $pairs);
     }
 
-    /** @return array<string, mixed> uložená hodnota doplněná o výchozí (a o barvu a písma ze starší Identity webu) */
+    /** @return array<string, mixed> the stored value completed with the defaults (and with the color and fonts from the older site Identity) */
     public static function load(Settings $siteSettings): array
     {
         $stored = json_decode($siteSettings->get('design_system'), true);
@@ -144,7 +144,7 @@ final class DesignSystem
     }
 
     /**
-     * Hodnoty z formuláře nebo od AI: jen známé klíče ve správném tvaru a rozsahu, jinak výchozí.
+     * Values from the form or from AI: only known keys in the right shape and range, otherwise the defaults.
      *
      * @param array<string, mixed> $ds
      * @return array<string, mixed>
@@ -168,7 +168,7 @@ final class DesignSystem
             'zaobleni' => isset(self::RADII[$ds['zaobleni'] ?? '']) ? $ds['zaobleni'] : $v['zaobleni'],
             'typografie' => [],
         ];
-        // typografické styly: uloží se jen to, co se liší od výchozího (krok a tloušťka)
+        // typography styles: only what differs from the default is saved (step and weight)
         foreach (self::TYPOGRAPHY as $key => [, $step, $weight]) {
             $t = is_array($ds['typografie'][$key] ?? null) ? $ds['typografie'][$key] : [];
             $change = [];
@@ -182,7 +182,7 @@ final class DesignSystem
                 $clean['typografie'][$key] = $change;
             }
         }
-        // vlastní písmo (vlastni-1…3) jde vybrat jen, když je nahrané
+        // a custom font (vlastni-1…3) can be selected only when it is uploaded
         foreach (['pismo_titulky', 'pismo_text'] as $key) {
             if (preg_match('/^vlastni-([1-3])$/', (string) ($ds[$key] ?? ''), $m) && isset($clean['vlastni_pisma'][(int) $m[1] - 1])) {
                 $clean[$key] = $ds[$key];
@@ -199,7 +199,7 @@ final class DesignSystem
     }
 
     /**
-     * Vlastní písma webu (soubory WOFF2 z Médií, hostované na vlastním serveru – žádné cizí servery ani souhlas).
+     * The site's custom fonts (WOFF2 files from Media, hosted on the site's own server – no third-party servers or consent).
      *
      * @return list<array{nazev: string, soubor: string, tucny: string}>
      */
@@ -217,7 +217,7 @@ final class DesignSystem
         return $result;
     }
 
-    /** Hodnota font-family pro zvolené písmo (i vlastní); záloha je systémové písmo stejného charakteru. */
+    /** The font-family value for the chosen font (custom ones too); the fallback is a system font of the same character. */
     public static function fontFamily(array $ds, string $key, bool $forHeadings): string
     {
         if (preg_match('/^vlastni-([1-3])$/', $key, $m) && isset($ds['vlastni_pisma'][(int) $m[1] - 1])) {
@@ -227,12 +227,12 @@ final class DesignSystem
         return ($forHeadings ? SiteIdentity::TITLE_FONTS : SiteIdentity::TEXT_FONTS)[$key][2] ?? 'system-ui, sans-serif';
     }
 
-    /** Tokeny jako CSS proměnné v první vrstvě kaskády; šablona a builder je jen používají. $zaklad = složka instalace (pro soubory písem). */
+    /** Tokens as CSS custom properties in the first cascade layer; the layout and the builder only use them. $base = installation folder (for the font files). */
     public static function css(array $ds, string $base = ''): string
     {
         $fonts = '';
         foreach ($ds['vlastni_pisma'] ?? [] as $p) {
-            // jeden soubor = běžný řez (i variabilní písmo se všemi tloušťkami), druhý případně tučný
+            // one file = the regular weight (or a variable font with all weights), the second one, if any, bold
             $fonts .= '@font-face { font-family: "' . $p['nazev'] . '"; src: url("' . $base . '/' . $p['soubor'] . '") format("woff2"); font-weight: ' . ($p['tucny'] !== '' ? '400' : '100 900') . '; font-display: swap; }' . "\n";
             if ($p['tucny'] !== '') {
                 $fonts .= '@font-face { font-family: "' . $p['nazev'] . '"; src: url("' . $base . '/' . $p['tucny'] . '") format("woff2"); font-weight: 600 900; font-display: swap; }' . "\n";
@@ -244,18 +244,18 @@ final class DesignSystem
             '--ka-barva-pozadi' => $b['pozadi'], '--ka-barva-plocha' => $b['plocha'],
             '--ka-barva-na-primarni' => self::contrastColor($b['primarni']),
             '--ka-barva-bila' => '#ffffff', '--ka-barva-cerna' => '#000000',
-            // text světlého a tmavého režimu napevno – pro plochy, které se s režimem nemění (bílé a černé pozadí)
+            // text of the light and dark mode, fixed – for surfaces that do not change with the mode (white and black background)
             '--ka-barva-text-svetle' => $b['text'], '--ka-barva-text-tmave' => $ds['barvy_tmave']['text'],
             '--ka-barva-tlumeny' => 'color-mix(in oklch, var(--ka-barva-text) 64%, var(--ka-barva-pozadi))',
             '--ka-barva-linka' => 'color-mix(in oklch, var(--ka-barva-text) 14%, var(--ka-barva-pozadi))',
             '--ka-barva-primarni-jemna' => 'color-mix(in oklch, var(--ka-barva-primarni) 12%, var(--ka-barva-pozadi))',
-            '--ka-akcent' => 'var(--ka-barva-primarni)', // starší jméno z Identity webu
+            '--ka-akcent' => 'var(--ka-barva-primarni)', // older name from the site Identity
             '--ka-pismo-text' => self::fontFamily($ds, $ds['pismo_text'], false),
             '--ka-pismo-titulky' => self::fontFamily($ds, $ds['pismo_titulky'], true),
             '--ka-sirka' => $ds['sirka'] . 'rem', '--ka-sirka-textu' => $ds['sirka_textu'] . 'rem',
             '--ka-zaobleni' => 'var(--ka-zaobleni-' . $ds['zaobleni'] . ')',
         ];
-        // typografická škála: krok n = základ × poměr^n, na telefonu menší základ i poměr, na velkém monitoru větší
+        // typographic scale: step n = base × ratio^n, a smaller base and ratio on a phone, larger on a large monitor
         foreach (self::STEPS as $n) {
             $p['--ka-krok-' . $n] = self::clamp($ds['zaklad_min'] * $ds['pomer_min'] ** (int) $n, $ds['zaklad_max'] * $ds['pomer_max'] ** (int) $n);
         }
@@ -275,15 +275,15 @@ final class DesignSystem
         $rows = array_map(fn (string $k, string $h): string => "\t{$k}: {$h};", array_keys($p), $p);
         $dark = array_map(fn (string $k, string $h): string => "\t\t--ka-barva-{$k}: {$h};", array_keys($ds['barvy_tmave']), $ds['barvy_tmave']);
 
-        // tmavé barvy: podle zařízení (bez volby návštěvníka „světlý“) a vždy, když web nebo návštěvník zvolí tmavý vzhled
+        // dark colors: by the device (unless the visitor chose „svetly“) and always when the site or the visitor chooses dark mode
         return self::LAYERS . "\n" . $fonts . "@layer tokeny {\n:root {\n" . implode("\n", $rows) . "\n}\n"
             . "@media (prefers-color-scheme: dark) {\n\t:root[data-tmavy]:not([data-tema=\"svetly\"]) {\n" . implode("\n", $dark) . "\n\t}\n}\n"
             . ":root[data-tmavy][data-tema=\"tmavy\"] {\n" . implode("\n", $dark) . "\n}\n}\n";
     }
 
     /**
-     * Design tokeny ve formátu W3C Design Tokens (DTCG, https://tr.designtokens.org/format/) pro Figmu, Tokens Studio a jiné nástroje.
-     * Úplný design systém Kalety je navíc v $extensions, aby se při importu zpět nic neztratilo.
+     * Design tokens in the W3C Design Tokens format (DTCG, https://tr.designtokens.org/format/) for Figma, Tokens Studio and other tools.
+     * Kaleta's complete design system is also in $extensions, so that nothing is lost when importing back.
      *
      * @param array<string, mixed> $ds
      * @return array<string, mixed>
@@ -319,12 +319,12 @@ final class DesignSystem
     }
 
     /**
-     * Design systém z tokenů DTCG: z exportu Kalety celý (rozšíření cz.kaleta), z cizího nástroje aspoň barvy – podle našich
-     * klíčů i běžných anglických názvů (primary, secondary, text, background, surface). Ostatní zůstává, jak je.
+     * Design system from DTCG tokens: from a Kaleta export the whole of it (extension cz.kaleta), from another tool at least the colors –
+     * by our keys and by common English names (primary, secondary, text, background, surface). The rest stays as it is.
      *
      * @param array<string, mixed> $tokens
-     * @param array<string, mixed> $ds stávající design systém
-     * @return array<string, mixed>|null null = soubor neobsahuje nic použitelného
+     * @param array<string, mixed> $ds the current design system
+     * @return array<string, mixed>|null null = the file contains nothing usable
      */
     public static function fromDtcg(array $tokens, array $ds): ?array
     {
@@ -361,7 +361,7 @@ final class DesignSystem
         return $change ? self::sanitize($ds) : null;
     }
 
-    /** Fluidní hodnota v rem mezi VIEWPORT_MIN a VIEWPORT_MAX. */
+    /** A fluid value in rem between VIEWPORT_MIN and VIEWPORT_MAX. */
     public static function clamp(float $min, float $max): string
     {
         if (abs($max - $min) < 0.001) {
@@ -379,13 +379,13 @@ final class DesignSystem
         return rtrim(rtrim(number_format($value, 4, '.', ''), '0'), '.') . 'rem';
     }
 
-    /** Bílá nebo téměř černá – podle toho, co má na dané barvě lepší kontrast (WCAG relativní jas). */
+    /** White or near black – whichever has the better contrast on the given color (WCAG relative luminance). */
     public static function contrastColor(string $hex): string
     {
         return self::contrast($hex, '#ffffff') >= self::contrast($hex, '#111111') ? '#ffffff' : '#111111';
     }
 
-    /** Kontrastní poměr dvou barev podle WCAG 2.2 (1–21). */
+    /** Contrast ratio of two colors by WCAG 2.2 (1–21). */
     public static function contrast(string $a, string $b): float
     {
         $luminance = function (string $hex): float {

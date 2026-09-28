@@ -11,8 +11,8 @@ use Kaleta\Core\Response;
 use Kaleta\Core\Settings;
 
 /**
- * Kategorie novinek (tabulka ka_kategorie). Plochý seznam – firemní blog stromové rubriky nepotřebuje.
- * Kategorie určuje i jazykovou verzi novinky.
+ * News categories (table ka_kategorie). A flat list – a company blog does not need a category tree.
+ * The category also determines the language version of a news item.
  */
 final class Categories extends Module
 {
@@ -24,7 +24,7 @@ final class Categories extends Module
     public const string PARENT = 'news';
 
     /**
-     * Kategorie seřazené podle pořadí a názvu, s počtem novinek.
+     * Categories sorted by order and name, with the number of news items.
      *
      * @return list<array<string, mixed>>
      */
@@ -39,8 +39,8 @@ final class Categories extends Module
     }
 
     /**
-     * Novinky potřebují aspoň jednu kategorii. Když žádná není (novinky zapnuté až po instalaci), založí výchozí
-     * „Aktuality“ v jazyce webu, jako to dělá instalace. Vrací id nové kategorie, nebo null, když už nějaká je.
+     * News needs at least one category. When there is none (news enabled only after installation), it creates the default
+     * "Aktuality" in the site language, as the installation does. Returns the id of the new category, or null when one exists.
      */
     public static function createDefault(Db $db, Settings $s): ?int
     {
@@ -96,10 +96,10 @@ final class Categories extends Module
             $previous = $this->db->value('SELECT seo_link FROM {kategorie} WHERE idt = ?', [$id]);
             $this->db->update('kategorie', $data, ['idt' => $id]);
             if ($previous !== null && $previous !== $data['seo_link']) {
-                // kategorie změnila adresu: stará se přesměruje, odkazy ani vyhledávače o stránku nepřijdou
+                // the category changed its slug: the old one is redirected, neither links nor search engines lose the page
                 Redirects::add($this->db, 'novinky/kategorie/' . $previous, 'novinky/kategorie/' . $data['seo_link']);
             }
-            $this->db->run('UPDATE {novinky} SET jazyk = ? WHERE tema = ?', [$data['jazyk'], $id]); // novinky mají jazyk své kategorie
+            $this->db->run('UPDATE {novinky} SET jazyk = ? WHERE tema = ?', [$data['jazyk'], $id]); // news items have the language of their category
         } else {
             $this->db->insert('kategorie', $data);
         }

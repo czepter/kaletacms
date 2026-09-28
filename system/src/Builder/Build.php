@@ -9,10 +9,10 @@ use Kaleta\Core\Db;
 use Kaleta\Core\WpContent;
 
 /**
- * Stavba stránky: strom prvků {"v": 1, "deti": [{"id", "typ", "znacka", "obsah", "styl", "tridy", "kotva", "deti"}]}.
+ * Page build: a tree of elements {"v": 1, "deti": [{"id", "typ", "znacka", "obsah", "styl", "tridy", "kotva", "deti"}]}.
  *
- * Jediný validátor pro editor, MCP i API (vycisti) a jediný vykreslovač v PHP (vykresli) – co editor ukáže, je přesně web.
- * Neplatná část stromu se při čištění opraví nebo zahodí a nahlásí; na veřejném webu se nikdy nevyhazuje výjimka.
+ * The single validator for the editor, MCP and API (sanitize) and the single renderer in PHP (render) – what the editor shows is exactly the site.
+ * An invalid part of the tree is fixed or discarded and reported during sanitizing; the public site never throws an exception.
  */
 final class Build
 {
@@ -21,13 +21,13 @@ final class Build
     public const int MAX_DEPTH = 12;
     public const string CLASS_PATTERN = '/^[a-z][a-z0-9-]{0,40}(__[a-z0-9-]{1,30})?(--[a-z0-9-]{1,30})?$/';
 
-    /** Vlastní atributy prvku: jen neškodné (žádné on…, style, href, src, ani háčky skriptů webu jako data-vlozit – ty by šly zneužít). */
+    /** Custom attributes of an element: only harmless ones (no on…, style, href, src, nor hooks of the site's scripts like data-vlozit – those could be abused). */
     public const string ATTRIBUTE_PATTERN = '/^(data-(?!ka-|(?:adresa|cast|formular|hotovo|karusel|konec|kopirovat|krok|obnovit|odeslano|odpocet|pocitadlo|samo|sdilet|tema|texty|titulek|vlozit|zalozky|zapnuto|zavrit|znovu)$)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
 
-    /** Id, která používá šablona webu (skok na obsah, navigace, cookie lišta) – kotva prvku je nesmí zopakovat. */
+    /** Ids used by the site layout (skip to content, navigation, cookie bar) – an element's anchor must not repeat them. */
     public const array RESERVED_ANCHORS = ['obsah', 'navigace', 'cookies-lista', 'cookies-nadpis', 'cookies-znovu'];
 
-    /** Registr typů prvků (pořadí = pořadí v panelu Přidat). @var list<class-string<Prvek>> */
+    /** Registry of element types (order = the order in the Add panel). @var list<class-string<Element>> */
     public const array ELEMENTS = [
         Elements\Section::class, Elements\Container::class, Elements\Grid::class,
         Elements\Heading::class, Elements\Text::class, Elements\Image::class, Elements\Button::class, Elements\BulletList::class,
@@ -55,7 +55,7 @@ final class Build
         return substr(bin2hex(random_bytes(4)), 0, 7);
     }
 
-    /** Nový prvek daného typu s výchozím obsahem a stylem (pro editor, knihovnu i převod HTML). */
+    /** A new element of the given type with the default content and style (for the editor, the library and the HTML conversion). */
     public static function fresh(string $type, array $content = [], array $children = []): array
     {
         $className = self::className($type) ?? throw new \InvalidArgumentException('Neznámý typ prvku ' . $type);
@@ -65,12 +65,12 @@ final class Build
     }
 
     /**
-     * Vyčistí strom od kohokoli (editor, AI, import). Neznámé typy, vlastnosti a hodnoty zahodí, chybějící doplní výchozími,
-     * duplicitní nebo chybějící id vytvoří znovu.
+     * Sanitizes a tree from anyone (editor, AI, import). Unknown types, properties and values are discarded, missing ones filled
+     * with defaults, duplicate or missing ids created anew.
      *
-     * @param bool $admin smí měnit prvky JEN_SPRAVCE (vlastní HTML); ostatním se jejich obsah převezme z $previous
-     * @param array<string, mixed>|null $previous dosavadní stavba (kvůli prvkům JEN_SPRAVCE)
-     * @return array{0: array<string, mixed>, 1: array<string, string>} [stavba, chyby cesta => text]
+     * @param bool $admin can change ADMIN_ONLY elements (custom HTML); for others their content is taken over from $previous
+     * @param array<string, mixed>|null $previous the existing build (because of ADMIN_ONLY elements)
+     * @return array{0: array<string, mixed>, 1: array<string, string>} [build, errors path => text]
      */
     public static function sanitize(mixed $input, bool $admin = true, ?array $previous = null): array
     {
@@ -108,7 +108,7 @@ final class Build
                     $errors[$place] = 'Prvek „' . $className::NAME . '“ smí vložit jen správce webu – vynechán.';
                     continue;
                 }
-                $output[] = $protected[$id]; // obsah vlastního HTML se nemění, jen může zůstat na místě
+                $output[] = $protected[$id]; // the custom HTML content does not change, it can only stay in place
                 continue;
             }
             $htmlTag = in_array($p['znacka'] ?? null, $className::HTML_TAGS, true) ? $p['znacka'] : $className::HTML_TAGS[0];
@@ -122,7 +122,7 @@ final class Build
                 $clean['tridy'] = array_slice($classes, 0, 8);
             }
             if (is_string($p['kotva'] ?? null) && preg_match('/^[a-z][a-z0-9-]{0,40}$/', $p['kotva'])) {
-                // kotva = id na stránce: musí být jedinečná a nesmí se srazit s id šablony ani stylem jiného prvku (s-…)
+                // anchor = id on the page: it must be unique and must not clash with a layout id or with another element's style (s-…)
                 if (isset($used['kotva:' . $p['kotva']]) || in_array($p['kotva'], self::RESERVED_ANCHORS, true) || preg_match('/^(s|ka)-/', $p['kotva'])) {
                     $errors[$place . '.kotva'] = 'Kotvu „' . $p['kotva'] . '“ už na stránce používá jiný prvek nebo šablona – vynechána.';
                 } else {
@@ -131,9 +131,9 @@ final class Build
                 }
             }
             if (is_string($p['popis'] ?? null) && trim($p['popis']) !== '') {
-                $clean['popis'] = mb_substr(trim(strip_tags($p['popis'])), 0, 60); // jméno prvku ve stromu editoru
+                $clean['popis'] = mb_substr(trim(strip_tags($p['popis'])), 0, 60); // element name in the editor's tree
             }
-            // vlastní CSS prvku: jen bezpečné deklarace (jako u tříd)
+            // the element's custom CSS: only safe declarations (as with classes)
             if (is_string($p['css'] ?? null) && trim($p['css']) !== '') {
                 $discarded = [];
                 $css = Style::customCss(mb_substr($p['css'], 0, 2000), $discarded);
@@ -144,7 +144,7 @@ final class Build
                     $errors[$place . '.css'] = 'Nepovolená deklarace: ' . mb_substr($d, 0, 60);
                 }
             }
-            // vlastní atributy: data-*, aria-*, title, lang, role, rel – hodnoty se escapují při vykreslení
+            // custom attributes: data-*, aria-*, title, lang, role, rel – the values are escaped when rendering
             if (is_array($p['atributy'] ?? null)) {
                 $attributes = [];
                 foreach (array_slice($p['atributy'], 0, 10, true) as $name => $value) {
@@ -158,7 +158,7 @@ final class Build
                     $clean['atributy'] = $attributes;
                 }
             }
-            // podmínky zobrazení: jen pro přihlášené / nepřihlášené, od a do data (včetně)
+            // display conditions: only for signed-in / signed-out visitors, from and to a date (inclusive)
             if (is_array($p['podminky'] ?? null)) {
                 $conditions = [];
                 if (in_array($p['podminky']['prihlaseni'] ?? '', ['ano', 'ne'], true)) {
@@ -177,7 +177,7 @@ final class Build
                 }
             }
             if (($p['zamek'] ?? false) === true) {
-                $clean['zamek'] = true; // v editoru nejde na plátně vybrat ani přetáhnout
+                $clean['zamek'] = true; // in the editor it cannot be selected or dragged on the canvas
             }
             if ($className::CONTAINER) {
                 if ($depth >= self::MAX_DEPTH) {
@@ -213,7 +213,7 @@ final class Build
                 'vyber' => is_scalar($value) && isset($def['moznosti'][(string) $value]) ? (string) $value : (string) $def['vychozi'],
                 'cislo' => is_numeric($value) ? max((int) ($def['min'] ?? 0), min((int) ($def['max'] ?? 100), (int) $value)) : (int) $def['vychozi'],
                 'prepinac' => (bool) $value,
-                // hodnoty vlastností komponenty: jen klíč => text; podle typu vlastnosti se zkontrolují při vykreslení
+                // component property values: only key => text; they are checked by the property type when rendering
                 'hodnoty' => array_slice(array_filter(
                     array_map(fn (mixed $v): ?string => is_scalar($v) ? mb_substr((string) $v, 0, 20000) : null, is_array($value) ? $value : []),
                     fn (?string $v, int|string $k): bool => $v !== null && is_string($k) && preg_match('/^[a-z][a-z0-9_]{0,30}$/', $k) === 1,
@@ -233,7 +233,7 @@ final class Build
         return $clean;
     }
 
-    /** Krátký text s tučným písmem, kurzívou, zvýrazněním (mark = doplňková barva, např. tečka za titulkem), zalomením a odkazem – nic dalšího. */
+    /** Short text with bold, italic, highlight (mark = the accent color, e.g. a dot after a title), line break and link – nothing else. */
     private static function inline(string $html, int $max): string
     {
         $clean = WpContent::safeHtml('<p>' . mb_substr($html, 0, $max * 2) . '</p>');
@@ -244,12 +244,12 @@ final class Build
     }
 
     /**
-     * Vlastní HTML správce (prvek jen pro správce): bez skriptů, obsluh událostí a odkazů javascript:. Vložené mapy a formuláře
-     * služeb jsou <iframe>, ty zůstávají – není to čistič pro obsah od jiných rolí (na ten je Core\Html::bezpecne).
+     * The administrator's custom HTML (an administrator-only element): without scripts, event handlers and javascript: links. Embedded
+     * maps and service forms are <iframe>s, those stay – this is not a sanitizer for content from other roles (that is Core\Html::safe).
      */
     public static function code(string $html): string
     {
-        // opakovat, dokud se něco mění: vnořené <scr<script></script>ipt> by se po jednom průchodu složilo znovu
+        // repeat while something changes: a nested <scr<script></script>ipt> would reassemble after a single pass
         do {
             $before = $html;
             $html = (string) preg_replace(['#<script\b[^>]*>.*?</script\s*>#is', '#<script\b[^>]*>#i', '#</script\s*>#i'], '', $html);
@@ -264,7 +264,7 @@ final class Build
     {
         $url = trim($url);
         if ($url === '' || $url === '#' || preg_match('/^\{\{[a-z][a-z0-9_]{0,30}\}\}$/', $url)) {
-            return $url; // {{url}} a další pole kolekce: dosadí se a zkontrolují při vykreslení
+            return $url; // {{url}} and other collection fields: filled in and checked when rendering
         }
         if (WpContent::isSafeUrl($url) && !preg_match('/[\s"<>]/', $url)) {
             return mb_substr($url, 0, 500);
@@ -274,7 +274,7 @@ final class Build
         return '';
     }
 
-    /** @return array<string, array<string, mixed>> id => prvek pro všechny prvky, jejichž třída splní podmínku */
+    /** @return array<string, array<string, mixed>> id => element for all elements whose class meets the condition */
     private static function elementsOfType(array $build, callable $condition): array
     {
         $found = [];
@@ -295,8 +295,8 @@ final class Build
     }
 
     /**
-     * Vykreslí stavbu: HTML a CSS jen toho, co stránka používá (základ typů, použité třídy, styl prvků) ve vrstvách kaskády.
-     * V režimu editoru dostane každý prvek data-ka-id, aby šel na plátně vybrat.
+     * Renders a build: HTML and CSS of only what the page uses (type bases, used classes, element styles) in cascade layers.
+     * In editor mode every element gets data-ka-id so that it can be selected on the canvas.
      *
      * @return array{html:string, css:string, faq:list<array{0:string, 1:string}>}
      */
@@ -308,7 +308,7 @@ final class Build
         return ['html' => $html, 'css' => self::css($app->db(), $k), 'faq' => $k->faq];
     }
 
-    /** HTML stavby ve sdíleném kontextu stránky (web tak skládá stránku, záhlaví a patičku a CSS vypíše jednou přes css()). */
+    /** HTML of a build in the page's shared context (this is how the site assembles the page, header and footer and outputs the CSS once via css()). */
     public static function html(array $build, Context $k): string
     {
         return self::renderChildren($build['deti'] ?? [], $k);
@@ -321,7 +321,7 @@ final class Build
             try {
                 $html .= self::renderElement($p, $k);
             } catch (\Throwable $e) {
-                // „doktor“: vadný prvek se na webu vynechá, v editoru se ukáže hláška
+                // "doctor": a broken element is left out on the site, the editor shows a message
                 error_log('Builder: prvek ' . ($p['id'] ?? '?') . ' – ' . $e->getMessage());
                 $html .= $k->editor ? '<div data-ka-id="' . e((string) ($p['id'] ?? '')) . '" style="padding:1rem;border:2px dashed #b3261e;color:#b3261e">' . e(t('Prvek se nepodařilo vykreslit.')) . '</div>' : '';
             }
@@ -359,11 +359,11 @@ final class Build
             }
         }
         if ($className::EXTENSION !== '' && !\Kaleta\Core\Extensions::isEnabled($k->app->settings(), $className::EXTENSION)) {
-            // prvek vypnutého rozšíření (novinky, formulář): na webu nic, v editoru upozornění – stavba zůstává, po zapnutí se vrátí
+            // an element of a disabled extension (news, form): nothing on the site, a notice in the editor – the build stays, it comes back once enabled
             return $k->editor ? '<div data-ka-id="' . e((string) ($p['id'] ?? '')) . '" data-ka-typ="' . e($className::TYPE) . '" style="padding:1rem;border:2px dashed currentColor;opacity:.6">'
                 . e(t('%s – rozšíření je vypnuté, na webu se nezobrazí.', t($className::NAME))) . '</div>' : '';
         }
-        // stavba uložená starší verzí nemusí mít vlastnosti, které prvek dostal později – doplní se výchozí hodnotou
+        // a build saved by an older version may lack properties the element got later – they are filled with the default value
         $p['obsah'] = (is_array($p['obsah'] ?? null) ? $p['obsah'] : []) + array_map(fn (array $field): mixed => $field['vychozi'] ?? '', $className::properties());
         $k->types[$className::TYPE] = true;
         if ($k->item !== null) {
@@ -378,10 +378,10 @@ final class Build
         $style = $p['styl'] ?? [];
         $customCss = (string) ($p['css'] ?? '');
         $hasStyle = $style !== [] || $customCss !== '';
-        // uvnitř Výpisu kolekce se prvek opakuje: styl přes třídu s-<id>, ne přes id (id musí být na stránce jen jednou)
+        // inside a Collection list the element repeats: style through the class s-<id>, not through the id (an id must be on the page only once)
         $isRepeated = $k->inLoop > 0;
         if ($className === Elements\Modal::class && empty($p['kotva']) && !$isRepeated) {
-            $p['kotva'] = 'okno-' . $p['id']; // okno má stálou adresu #okno-…, i když později dostane styl (tlačítka na ni odkazují)
+            $p['kotva'] = 'okno-' . $p['id']; // a modal has a fixed url #okno-…, even when it later gets a style (buttons link to it)
         }
         $id = $isRepeated ? null : ($p['kotva'] ?? ($hasStyle ? 's-' . $p['id'] : null));
         $classes = array_merge($isRepeated && $hasStyle ? ['s-' . $p['id']] : [], $p['tridy'] ?? []);
@@ -401,7 +401,7 @@ final class Build
     }
 
     /**
-     * Hodnoty položky kolekce do polí obsahu podle jejich typu ({{nazev}} v nadpisu, {{foto}} v obrázku, {{url}} v odkazu…).
+     * Collection item values into content fields by their type ({{nazev}} in a heading, {{foto}} in an image, {{url}} in a link…).
      *
      * @param array<string, array<string, mixed>> $properties
      * @param array<string, array{0: string, 1: string}> $values
@@ -412,7 +412,7 @@ final class Build
             if (is_string($content[$key] ?? null)) {
                 $content[$key] = Collections::fill($content[$key], $def['typ'], $values);
             } elseif ($def['typ'] === 'hodnoty' && is_array($content[$key] ?? null)) {
-                // komponenta ve výpisu kolekce: {{pole}} položky v hodnotách vlastností (zkontrolují se až podle typu vlastnosti)
+                // a component in a collection list: the item's {{field}} in property values (checked only later by the property type)
                 $content[$key] = array_map(fn (mixed $v): mixed => is_string($v) ? Collections::fill($v, 'text', $values) : $v, $content[$key]);
             } elseif ($def['typ'] === 'polozky' && is_array($content[$key] ?? null)) {
                 $content[$key] = array_map(fn (array $item): array => self::fillItem($def['pole'], $item, $values), $content[$key]);
@@ -422,10 +422,10 @@ final class Build
         return $content;
     }
 
-    /** CSS stránky: základ použitých typů, použité třídy (z ka_tridy) a styl jednotlivých prvků – každé ve své vrstvě. */
+    /** Page CSS: the base of the used types, the used classes (from ka_tridy) and the style of individual elements – each in its own layer. */
     public static function css(Db $db, Context $k): string
     {
-        // ve stavbě řídí rozestupy mezery kontejnerů (gap), ne okraje nadpisů a odstavců ze šablony; text uvnitř prvku Text je má
+        // in a build, spacing is controlled by the containers' gap, not by the layout's margins of headings and paragraphs; text inside a Text element keeps them
         $base = ':where(.stavba) :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, figure, hr) { margin-block: 0; }' . "\n"
             . ':where(.stavba) :where(.ka-text) > * + * { margin-block-start: 1em; }' . "\n";
         foreach (self::ELEMENTS as $className) {
@@ -441,7 +441,7 @@ final class Build
             }
         }
         if (preg_match('/animation: ka-(objevit|vyjet|priblizit)/', $k->css . $classes)) {
-            // animace „Objevení při rolování“; kdo nechce pohyb (nastavení systému), vidí prvky rovnou
+            // the „Objevení při rolování“ (reveal on scroll) animations; whoever does not want motion (system setting) sees the elements right away
             $base .= '@keyframes ka-objevit { from { opacity: 0; } }' . "\n"
                 . '@keyframes ka-vyjet { from { opacity: 0; translate: 0 2.5rem; } }' . "\n"
                 . '@keyframes ka-priblizit { from { opacity: 0; scale: 0.92; } }' . "\n"
@@ -457,7 +457,7 @@ final class Build
         return $css;
     }
 
-    /** Stavba ze stránky: publikovaná, nebo koncept (editor, náhled). Neplatný JSON = null. */
+    /** A build from a page: the published one, or the draft (editor, preview). Invalid JSON = null. */
     public static function fromJson(?string $json): ?array
     {
         $data = $json === null ? null : json_decode($json, true);
@@ -471,9 +471,9 @@ final class Build
     }
 
     /**
-     * Obsah stavby jako prosté sémantické HTML bez rozložení a stylu (nadpisy, odstavce, seznamy, odkazy, obrázky).
-     * Při publikování se ukládá do sloupce text – z něj čerpá hledání, llms.txt, verze .md, API, MCP i export, a je to
-     * i obsah stránky, kdyby se vrátila k textu.
+     * Build content as plain semantic HTML without layout and style (headings, paragraphs, lists, links, images).
+     * On publish it is saved into the text column – search, llms.txt, the .md version, API, MCP and export draw on it, and it is
+     * also the page content if the page went back to text.
      */
     public static function asText(array $build): string
     {
@@ -495,7 +495,7 @@ final class Build
                     'oddelovac' => "<hr>\n",
                     default => '',
                 };
-                // vnitřek Výpisu kolekce je vzor se {{značkami}}, ne obsah stránky
+                // the inside of a Collection list is a pattern with {{tags}}, not page content
                 if (is_array($p['deti'] ?? null) && ($p['typ'] ?? '') !== 'kolekce') {
                     $walk($p['deti']);
                 }
@@ -506,7 +506,7 @@ final class Build
         return trim($html);
     }
 
-    /** Textová stránka převedená na stavbu: jedna úzká sekce s nadpisem a textem (zpět jde přes verze). */
+    /** A text page converted to a build: one narrow section with a heading and text (going back works through versions). */
     public static function fromText(string $title, string $html): array
     {
         return ['v' => self::VERSION, 'deti' => [self::fresh('sekce', ['sirka' => 'uzka'], [
@@ -516,23 +516,23 @@ final class Build
     }
 
     /**
-     * Popis schématu pro editor a pro jazykové modely (MCP stavba_schema): typy prvků s poli, vlastnosti stylu a tokeny.
+     * Schema description for the editor and for language models (MCP builder_schema): element types with fields, style properties and tokens.
      *
      * @return array<string, mixed>
      */
-    /** @param list<string>|null $extensions zapnutá rozšíření (null = všechna) – prvky vypnutých se nenabízejí */
+    /** @param list<string>|null $extensions enabled extensions (null = all) – elements of disabled ones are not offered */
     public static function schema(bool $admin = true, string $language = 'cs', bool $parts = false, ?array $extensions = null): array
     {
-        // výchozí obsah nových prvků je v jazyce stránky, popisky polí překládá editor do jazyka administrace
+        // the default content of new elements is in the page language, the editor translates field labels into the admin language
         return \Kaleta\Core\Language::runWith($language, fn (): array => self::buildSchema($admin, $parts, $extensions));
     }
 
     /**
-     * Schéma ve zkratce pro jazykový model (MCP): prvek i vlastnost stylu na jednom řádku. Výčty mají výchozí hodnotu
-     * označenou hvězdičkou, položky (polozky) vypíšou svá pole v hranatých závorkách. Úplné definice vybraných prvků
-     * (popisky, výchozí děti) vrací schéma s parametrem prvky.
+     * The schema in brief for the language model (MCP): each element and style property on one line. Enumerations have the default
+     * value marked with an asterisk, items (polozky) list their fields in square brackets. Full definitions of chosen elements
+     * (labels, default children) are returned by the schema with the elements (prvky) parameter.
      *
-     * @param array<string, mixed> $schema výstup schema()
+     * @param array<string, mixed> $schema output of schema()
      * @return array<string, mixed>
      */
     public static function overview(array $schema): array
@@ -582,9 +582,9 @@ final class Build
     }
 
     /**
-     * Stavba bez toho, co doplní vycisti(): výchozí obsah, výchozí značka, prázdný styl, třídy a děti. Styl zůstává celý –
-     * výchozí styl typu (flex kontejneru) dostane jen nový prvek z builderu, uložený prvek bez stylu by ho ztratil. Pro výstup do MCP –
-     * model čte i posílá jen to, co je nastavené (stejná stavba má zhruba třetinovou délku).
+     * A build without what sanitize() fills in: default content, default tag, empty style, classes and children. The style stays whole –
+     * only a new element from the builder gets the type's default style (container flex), a saved element without a style would lose it. For output to MCP –
+     * the model reads and sends only what is set (the same build is roughly a third of the length).
      *
      * @param array<string, mixed> $build
      * @return array<string, mixed>
@@ -618,15 +618,15 @@ final class Build
         return ['v' => $build['v'] ?? self::VERSION, 'deti' => array_map($node, $build['deti'] ?? [])];
     }
 
-    /** Typy vlastností prvku, které nesou text pro návštěvníka nebo odkaz (překlad stavby). */
+    /** Element property types that carry text for the visitor or a link (build translation). */
     private const array TEXT_PROPERTIES = ['text', 'odkaz', 'radky', 'html', 'inline', 'textarea', 'polozky', 'souhlas'];
 
-    /** Textové vlastnosti, které jsou nastavení, ne text pro návštěvníka (klíče kolekcí a polí, e-mail, datum, číslo hodnocení). */
+    /** Text properties that are settings, not text for the visitor (collection and field keys, e-mail, date, rating number). */
     private const array TECHNICAL_PROPERTIES = ['kolekce', 'razeni_pole', 'filtr_pole', 'komponenta', 'kategorie', 'prijemce', 'cil', 'hodnota'];
 
     /**
-     * Texty stavby pro překlad: prvky s id a jen ty vlastnosti obsahu, které nesou text nebo odkaz (bez stylů a struktury),
-     * a popisky pro čtečky v atributech. Změny se vrací operací „uprav“ podle id (Upravy).
+     * Build texts for translation: elements with an id and only those content properties that carry text or a link (without styles
+     * and structure), plus labels for screen readers in the attributes. Changes come back through the „uprav“ operation by id (Edits).
      *
      * @param array<string, mixed> $build
      * @return list<array{id: string, typ: string, obsah?: array<string, mixed>, atributy?: array<string, string>}>

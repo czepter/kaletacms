@@ -1,19 +1,19 @@
 <?php
 /**
- * Rámec administrace: menu, login proužek, nadpis sekce, hlášky, obsah.
+ * The admin frame: menu, login strip, section heading, messages, content.
  *
  * @var Kaleta\Core\App $app
  * @var string $heading
- * @var string $content  hotové HTML modulu
+ * @var string $content  ready-made HTML of the module
  * @var array<string, class-string<Kaleta\Admin\Module>> $modules
  * @var string $active
  * @var array<string, mixed>|null $user
  * @var list<array{typ:string, text:string}> $flashes
  */
 $icon = require __DIR__ . '/icons.php';
-$onDashboard = $active === '' && (string) $app->request->get('action') === ''; // Můj účet (akce=ucet) není Přehled
+$onDashboard = $active === '' && (string) $app->request->get('action') === ''; // My account (akce=ucet) is not the Dashboard
 
-// paleta příkazů (Ctrl/⌘+K): jen to, kam přihlášený smí – seznam modulů už je podle práv
+// command palette (Ctrl/⌘+K): only where the signed-in user may go – the module list already follows permissions
 $statements = [];
 if ($user !== null) {
     $adminUrl = fn (string $query = ''): string => $app->url('admin.php' . ($query !== '' ? '?' . $query : ''));
@@ -36,7 +36,7 @@ if ($user !== null) {
     foreach (isset($modules['settings']) ? Kaleta\Admin\Modules\Settings::TABS : [] as $key => $name) {
         $statements[] = ['n' => t('Nastavení') . ' → ' . t($name), 'u' => $adminUrl('module=settings&tab=' . $key), 's' => t('Nastavení')];
     }
-    // stránky webu jdou v paletě najít podle názvu (novinky se hledají na serveru, je jich víc)
+    // site pages can be found in the palette by name (news is searched on the server, there are more of them)
     foreach (isset($modules['pages']) ? $app->db()->all('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY poradi, titulek LIMIT 300') : [] as $pageRow) {
         $statements[] = ['n' => $pageRow['titulek'], 'u' => $adminUrl('module=pages&action=edit&id=' . (int) $pageRow['ids']), 's' => t('Stránka')];
     }

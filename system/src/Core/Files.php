@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Přílohy ke stažení v Médiích: PDF, dokumenty, tabulky, zvuk a video. Obrázky řeší Core\Obrazky.
+ * Downloadable attachments in Media: PDF, documents, spreadsheets, audio and video. Images are handled by Core\Images.
  *
- * Povolené jsou jen vyjmenované přípony; soubor dostane nové bezpečné jméno a nikdy se nespouští
- * (media/.htaccess). HTML, SVG ani skripty nahrát nejdou - prohlížeč by je otevřel jako součást webu.
+ * Only the listed extensions are allowed; the file gets a new safe name and is never executed
+ * (media/.htaccess). HTML, SVG and scripts cannot be uploaded - the browser would open them as part of the site.
  */
 final class Files
 {
@@ -16,7 +16,7 @@ final class Files
     private const int MAX_BYTES = 200 * 1024 * 1024;
     private const string FORBIDDEN_TYPES = '#html|php|javascript|svg|x-sh|x-dosexec|x-executable|x-mach|x-msdownload#i';
 
-    /** Kolik bajtů smí mít jeden nahrávaný soubor: menší z upload_max_filesize a post_max_size (0 = bez omezení). */
+    /** How many bytes one uploaded file can have: the smaller of upload_max_filesize and post_max_size (0 = no limit). */
     public static function limit(): int
     {
         $bytes = static function (string $ini): int {
@@ -31,7 +31,7 @@ final class Files
         return $limits === [] ? 0 : min($limits);
     }
 
-    /** Limit pro lidi: „2 MB“ místo zkratky z php.ini („2M“). */
+    /** The limit for humans: „2 MB“ instead of the shorthand from php.ini („2M“). */
     public static function limitText(): string
     {
         $mb = self::limit() / 1024 / 1024;
@@ -39,7 +39,7 @@ final class Files
         return $mb <= 0 ? '' : (fmod($mb, 1.0) === 0.0 ? (string) (int) $mb : number_format($mb, 1, Language::code() === 'cs' ? ',' : '.', '')) . ' MB';
     }
 
-    /** Hláška pro soubor nad limitem serveru – přeložená, s limitem v MB a s radou, co dělat. */
+    /** Message for a file over the server limit – translated, with the limit in MB and advice on what to do. */
     public static function limitMessage(): string
     {
         return t('Soubor je větší, než server dovoluje nahrát (nejvýš %s). Zmenšete ho, nebo požádejte správce hostingu o vyšší limit.', self::limitText());
@@ -51,9 +51,9 @@ final class Files
     }
 
     /**
-     * @param array<string, mixed> $file položka z $_FILES
+     * @param array<string, mixed> $file item from $_FILES
      * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string}
-     * @throws \RuntimeException s českou hláškou pro uživatele
+     * @throws \RuntimeException with a Czech message for the user
      */
     public static function save(array $file): array
     {
@@ -68,7 +68,7 @@ final class Files
     }
 
     /**
-     * Příloha ze souboru, který už je na disku (MCP, import) – zdroj zůstane, uloží se kopie.
+     * An attachment from a file already on disk (MCP, import) – the source stays, a copy is saved.
      *
      * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string}
      */
@@ -102,7 +102,7 @@ final class Files
             throw new \RuntimeException('Soubor se nepodařilo uložit.');
         }
 
-        // příloha se v tabulce médií pozná podle prázdného náhledu a nulových rozměrů
+        // an attachment is recognized in the media table by an empty thumbnail and zero dimensions
         return ['obr_poloha' => $target, 'obr_width' => 0, 'obr_height' => 0, 'obr_vel' => (int) filesize(KALETA_ROOT . '/' . $target),
             'nahl_poloha' => '', 'nahl_width' => 0, 'nahl_height' => 0, 'nazev' => mb_substr($name, 0, 150)];
     }

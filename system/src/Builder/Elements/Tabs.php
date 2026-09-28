@@ -8,8 +8,8 @@ use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
 /**
- * Záložky: obsah rozdělený pod přepínací karty (ARIA tabs, šipky na klávesnici – image/web.js).
- * Bez JavaScriptu se ukážou všechny panely pod sebou i s nadpisy, nic se neztratí.
+ * Tabs: content split under switchable tabs (ARIA tabs, arrow keys on the keyboard – image/web.js).
+ * Without JavaScript all panels show one below another with their headings, nothing gets lost.
  */
 final class Tabs extends Element
 {
@@ -46,7 +46,7 @@ final class Tabs extends Element
         foreach (array_values(array_filter($p['obsah']['karty'], fn (array $x): bool => $x['nazev'] !== '')) as $i => $card) {
             [$tab, $panel] = ['z-' . $p['id'] . '-' . $i, 'zp-' . $p['id'] . '-' . $i];
             $tabList .= '<button type="button" role="tab" id="' . $tab . '" aria-controls="' . $panel . '" aria-selected="' . ($i === 0 ? 'true' : 'false') . '"' . ($i === 0 ? '' : ' tabindex="-1"') . '>' . e($card['nazev']) . '</button>';
-            // bez skriptu jsou vidět všechny panely s nadpisem; skript skryje neaktivní a nadpisy (atribut data-zapnuto)
+            // without the script all panels with a heading are visible; the script hides the inactive ones and the headings (the data-zapnuto attribute)
             $panels .= '<div role="tabpanel" id="' . $panel . '" aria-labelledby="' . $tab . '" tabindex="0"><h3 class="ka-zalozky-nadpis">' . e($card['nazev']) . '</h3>' . $card['obsah'] . '</div>';
         }
 

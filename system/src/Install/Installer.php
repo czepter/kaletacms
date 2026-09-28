@@ -16,7 +16,7 @@ use Kaleta\Builder\Library;
 use Kaleta\Builder\Build;
 
 /**
- * Webový instalátor: ověří server, založí tabulky, prvního admina a zapíše config.php.
+ * Web installer: checks the server, creates the tables and the first administrator and writes config.php.
  */
 final class Installer
 {
@@ -29,12 +29,12 @@ final class Installer
         $this->view = new View([KALETA_SYSTEM . '/views']);
     }
 
-    /** Jazyky instalace (= jazyky administrace) a výchozí časové pásmo, které k nim nabídneme. */
+    /** Installation languages (= admin languages) and the default time zone we offer for them. */
     private const array TIME_ZONES = ['cs' => 'Europe/Prague', 'en' => 'Europe/London'];
 
     private string $language = 'cs';
 
-    /** Jazyk instalace: výslovná volba (?jazyk=, skryté pole formuláře), jinak první známý jazyk z hlavičky prohlížeče. */
+    /** Installation language: an explicit choice (?jazyk=, hidden form field), otherwise the first known language from the browser header. */
     private function chooseLanguage(): string
     {
         $choice = (string) ($_POST['jazyk'] ?? $_GET['jazyk'] ?? '');
@@ -68,12 +68,12 @@ final class Installer
             'casove_pasmo' => self::TIME_ZONES[$this->language], 'web' => 'firemni', 'jazyk_webu' => $this->language,
         ];
         $errors = [];
-        // rozšíření zapnutá po instalaci: výchozí sada, po odeslání formuláře volba uživatele
+        // extensions enabled after installation: the default set, after the form is submitted the user's choice
         $extensions = array_keys(array_filter(Extensions::CATALOG, fn (array $r): bool => $r[2]));
 
         if ($this->request->isPost() && !in_array(false, array_column($requirements, 'ok'), true)) {
             foreach (array_keys($data) as $key) {
-                // heslo k databázi se neořezává - může obsahovat mezery
+                // the database password is not trimmed - it can contain spaces
                 $data[$key] = $key === 'db_password' ? (string) ($_POST[$key] ?? '') : $this->request->post($key);
             }
             $data['jazyk_webu'] = isset(\Kaleta\Core\Language::AVAILABLE[$data['jazyk_webu']]) ? $data['jazyk_webu'] : $this->language;
@@ -88,8 +88,9 @@ final class Installer
     }
 
     /**
-     * Po instalaci instalátor smaže sám sebe, ať správce nemusí na FTP. Když to hosting nedovolí (práva k souborům),
-     * zůstane výzva ke smazání a Stav systému na soubor dál upozorňuje. Ve vývojové kopii (složka .git) se nemaže.
+     * After installation the installer deletes itself, so the administrator does not have to use FTP. When the hosting does
+     * not allow it (file permissions), a prompt to delete it remains and the system health page keeps warning about the file.
+     * In a development copy (a .git folder) it is not deleted.
      */
     private function deleteSelf(): bool
     {
@@ -116,8 +117,8 @@ final class Installer
 
     /**
      * @param array<string, string> $d
-     * @param list<string> $extensions zapnutá rozšíření
-     * @return array<string, string> chyby; prázdné pole = nainstalováno
+     * @param list<string> $extensions enabled extensions
+     * @return array<string, string> errors; empty array = installed
      */
     private function install(array $d, string $password, string $password2, array $extensions): array
     {
@@ -187,7 +188,7 @@ final class Installer
     }
 
     /**
-     * Chyba připojení k databázi lidsky a u pole, které je potřeba opravit (kód chyby MySQL/MariaDB); neznámá chyba s textem ovladače.
+     * A database connection error in human terms and at the field that needs fixing (MySQL/MariaDB error code); an unknown error with the driver's text.
      *
      * @return array<string, string>
      */
@@ -208,7 +209,7 @@ final class Installer
      */
     private function createDefaultData(Db $db, array $d, string $password, array $extensions): void
     {
-        // zvolené časové pásmo platí už pro úvodní obsah: jinak by uvítací novinka mohla mít datum „v budoucnosti“ a web by ji neukázal
+        // the chosen time zone already applies to the initial content: otherwise the welcome news item could have a date "in the future" and the site would not show it
         $timeZone = in_array($d['casove_pasmo'], \DateTimeZone::listIdentifiers(), true) ? $d['casove_pasmo'] : self::TIME_ZONES[$this->language];
         date_default_timezone_set($timeZone);
         $db->pdo()->exec("SET time_zone = '" . date('P') . "'");
@@ -220,26 +221,26 @@ final class Installer
                 'jmeno' => $d['jmeno'],
                 'email' => $d['email'],
                 'admin' => Auth::ADMIN,
-                'jazyk' => $this->language === 'cs' ? '' : $this->language, // administrace prvního účtu v jazyce instalace
+                'jazyk' => $this->language === 'cs' ? '' : $this->language, // the admin of the first account in the installation language
             ]);
 
-            // obsah webu vzniká v jazyce webu (slovník webu), administrace prvního účtu zůstává v jazyce instalace
+            // the site content is created in the site language (the site dictionary), the admin of the first account stays in the installation language
             $siteLanguage = $d['jazyk_webu'];
             $x = fn (string $text): string => \Kaleta\Core\Language::runWith($siteLanguage, fn (): string => t($text));
-            // kostra běžného firemního webu: úvod, o nás, služby, kontakt – texty jsou jen vodítko, co na stránku patří
+            // skeleton of a typical company site: home, about us, services, contact – the texts are only a guide to what belongs on the page
             $pages = [
                 [$x('Úvod'), 'uvod', 0, '<h1>' . e($d['nazev_webu']) . '</h1><p>' . e($x('Jednou větou: co děláte a pro koho. Tuto stránku upravíte v administraci v sekci Stránky.')) . '</p>'],
                 [$x('O nás'), slugify($x('O nás')), 1, '<p>' . e($x('Kdo jste, jak dlouho to děláte a proč vám zákazníci věří.')) . '</p>'],
                 [$x('Služby'), slugify($x('Služby')), 1, '<p>' . e($x('Co nabízíte – každou službu krátce a srozumitelně.')) . '</p>'],
                 [$x('Kontakt'), slugify($x('Kontakt')), 1, '<p>' . e($x('Adresa, telefon, e-mail a otevírací doba.')) . '</p>'],
             ];
-            // stránky rovnou ze sekcí builderu podle zvoleného ukázkového webu – nový web vypadá jako web, ne jako prázdná šablona
+            // pages straight from builder sections according to the chosen sample site – a new site looks like a site, not like an empty template
             $siteSettings = Library::SITES[$d['web']] ?? Library::SITES['firemni'];
             $home = 0;
             foreach ($pages as $i => [$title, $url, $inMenu, $text]) {
                 $row = ['titulek' => $title, 'seo_link' => $url, 'text' => $text, 'v_menu' => $inMenu, 'poradi' => ($i + 1) * 10];
                 if (($siteSettings['stranky'][$i] ?? []) !== []) {
-                    // sekce s prvky vypnutých rozšíření (výpis novinek, formulář) se na úvodní stránky nedávají, prázdné obrázky také
+                    // sections with elements of disabled extensions (news list, form) are not put on the initial pages, neither are empty images
                     $build = Library::page($db, $siteSettings['stranky'][$i], $title, $siteLanguage, Build::disabledTypes($extensions), true);
                     $row['stavba'] = Build::toJson($build);
                     $row['text'] = Build::asText($build);
@@ -248,8 +249,9 @@ final class Installer
                 $home = $home ?: $id;
             }
 
-            // zásady ochrany osobních údajů: kostra k doplnění v jazyce webu (slovník webu, ne instalátoru), skrytá, dokud ji správce
-            // nedoplní a nezveřejní (připomene to První kroky); mimo hlavní menu, odkaz z patičky, cookie lišty a souhlasu ve formuláři
+            // privacy policy: a skeleton to fill in, in the site language (the site dictionary, not the installer's), hidden until the
+            // administrator fills it in and publishes it (First steps remind of it); outside the main menu, linked from the footer,
+            // the cookie bar and the consent in the form
             [$privacyPolicy, $privacyPolicyText] = \Kaleta\Core\Language::runWith($siteLanguage, fn (): array => [t('Zásady ochrany osobních údajů'), Library::privacyPolicyText()]);
             $privacyPolicyId = $db->insert('stranky', ['titulek' => $privacyPolicy, 'seo_link' => slugify($privacyPolicy), 'text' => $privacyPolicyText, 'zobrazit' => 0, 'v_menu' => 0, 'poradi' => 90]);
             \Kaleta\Core\Menu::save($db, 'paticka', '', [['typ' => 'stranka', 'ids' => $privacyPolicyId, 'text' => '']]);
@@ -264,7 +266,7 @@ final class Installer
             }
 
             if (!in_array('novinky', $extensions, true)) {
-                return; // bez novinek i bez uvítací novinky
+                return; // without news and without the welcome news item
             }
             $category = $db->insert('kategorie', ['nazev' => $x('Aktuality'), 'seo_link' => slugify($x('Aktuality')), 'popis' => '']);
             $db->insert('novinky', [

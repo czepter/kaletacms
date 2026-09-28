@@ -8,8 +8,8 @@ use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
 /**
- * Mapa s místem firmy. Cizí mapa (Google) se načte až po klepnutí – do té doby web nic neposílá třetí straně
- * a nepotřebuje souhlas s cookies. Vedle je vždy obyčejný odkaz na mapu.
+ * Map with the company's location. The third-party map (Google) loads only after a click – until then the site sends nothing to a third party
+ * and does not need cookie consent. Next to it there is always a plain link to the map.
  */
 final class Map extends Element
 {

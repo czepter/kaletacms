@@ -7,7 +7,7 @@ namespace Kaleta\Admin;
 use Kaleta\Core\App;
 
 /**
- * Protokol změn: kdo, kdy a co v administraci udělal. Záznamy starší než půl roku se mažou.
+ * Change log: who did what in the admin and when. Records older than half a year are deleted.
  */
 final class ChangeLog
 {
@@ -23,7 +23,7 @@ final class ChangeLog
                 $app->db()->run('DELETE FROM {protokol} WHERE cas < NOW() - INTERVAL 180 DAY');
             }
         } catch (\Throwable) {
-            // protokol nesmí rozbít akci, kterou zaznamenává (např. před provedením migrace tabulka ještě neexistuje)
+            // the log must not break the action it records (e.g. before the migration runs, the table does not exist yet)
         }
     }
 }

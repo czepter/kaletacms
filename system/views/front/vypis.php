@@ -1,16 +1,16 @@
 <?php
 /**
- * Výpis novinek: /novinky, kategorie, štítek, výsledky hledání (a úvod webu, když nemá úvodní stránku).
+ * News list: /novinky, category, tag, search results (and the site's front page when the site has no home page).
  *
  * @var string $nadpis
- * @var string $popis  HTML úvod nad výpisem (popis kategorie, stránka tématu)
+ * @var string $popis  HTML intro above the list (category description, topic page)
  * @var list<array<string, mixed>> $novinky
  * @var int $celkem
  * @var int $strana
  * @var int $stran
  * @var callable(int): string $strankaUrl
- * @var string|null $hledano  hledaný text; null = nejde o hledání
- * @var list<array{titulek:string, seo_link:string, uryvek?:string}> $nalezeneStranky  stránky a položky kolekcí odpovídající hledání
+ * @var string|null $hledano  the searched text; null = not a search
+ * @var list<array{titulek:string, seo_link:string, uryvek?:string}> $nalezeneStranky  pages and collection items matching the search
  * @var callable(string): string $url
  */
 ?>

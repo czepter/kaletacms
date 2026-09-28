@@ -1,18 +1,18 @@
 <?php
 /**
- * Přepínač jazykových verzí. Layout ho dostává hotový v proměnné $jazyky_html (prázdná, má-li web jediný jazyk).
- * Dva až tři jazyky = přepínač v jedné řadě, víc = tlačítko s nabídkou (Popover API, bez JavaScriptu). Barvy, zaoblení
- * a písmo bere z design systému (tokeny --ka-…), takže sedí ke vzhledu webu.
+ * Language version switcher. The layout gets it ready-made in the variable $jazyky_html (empty if the site has a single language).
+ * Two to three languages = a switcher in one row, more = a button with a menu (Popover API, no JavaScript). Colours, corner
+ * rounding and font come from the design system (tokens --ka-…), so it matches the appearance of the site.
  *
- * Popisek „Language“ je záměrně anglicky (rozumí mu i návštěvník, který jazyku stránky nerozumí), proto lang="en".
+ * The label "Language" is deliberately in English (even a visitor who does not understand the page language understands it), hence lang="en".
  *
- * Prvek Přepínač jazyků (třeba v patičce) volí styl: „rada“, nebo „nabidka“ s celým názvem jazyka v tlačítku, a směr,
- * kam se nabídka otevře (v patičce nahoru).
+ * The Language switcher element (e.g. in the footer) chooses the style: "rada" (row), or "nabidka" (menu) with the full language
+ * name in the button, and the direction in which the menu opens (upwards in the footer).
  *
  * @var array<string, array{nazev:string, url:string, aktivni:bool, preklad:bool}> $jazyky
- * @var string|null $styl auto (do tří jazyků řada, víc nabídka) | rada | nabidka
+ * @var string|null $styl auto (a row up to three languages, a menu for more) | rada | nabidka
  * @var string|null $smer dolu | nahoru
- * @var string|null $atributy atributy prvku z builderu (id, třídy)
+ * @var string|null $atributy attributes of the element from the builder (id, classes)
  */
 $aktivni = array_key_first(array_filter($jazyky, fn (array $j): bool => $j['aktivni'])) ?? array_key_first($jazyky);
 $styl ??= 'auto';

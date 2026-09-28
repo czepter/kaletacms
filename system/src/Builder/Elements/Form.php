@@ -9,9 +9,9 @@ use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
 /**
- * Poptávkový / kontaktní formulář. Odesílá se na /formular (Front\Formulare): server vezme pole z publikované stavby
- * (ne z prohlížeče), ověří je, uloží poptávku (Administrace → Poptávky) a pošle upozornění e-mailem.
- * Ochrana bez cookies a CAPTCHA (Core\Antispam), takže stránka s formulářem zůstává v cache.
+ * Enquiry / contact form. It is sent to /formular (Front\Forms): the server takes the fields from the published build
+ * (not from the browser), verifies them, saves the enquiry („Administrace → Poptávky“, i.e. Admin → Enquiries) and sends a notification e-mail.
+ * Protection without cookies and CAPTCHA (Core\Antispam), so the page with the form stays in the cache.
  */
 final class Form extends Element
 {
@@ -23,12 +23,12 @@ final class Form extends Element
     public const string GROUP = 'Dynamické';
     public const array HTML_TAGS = ['form'];
 
-    /** Typy polí formuláře. */
+    /** Form field types. */
     public const array FIELD_TYPES = ['text' => 'text', 'email' => 'e-mail', 'tel' => 'telefon', 'textarea' => 'delší text', 'vyber' => 'výběr ze seznamu',
         'volba' => 'volba jedné možnosti (přepínače)', 'datum' => 'datum', 'cislo' => 'číslo', 'soubor' => 'příloha (soubor)', 'souhlas' => 'zaškrtnutí (souhlas)'];
 
-    /** Přílohy formuláře: povolené typy a největší velikost jednoho souboru. */
-    /** Telefon v atributu pattern (prohlížeč ho čte s příznakem v – závorky, lomítko a pomlčka ve třídě musí být escapované). */
+    /** Form attachments: allowed types and the maximum size of one file. */
+    /** Phone in the pattern attribute (the browser reads it with the v flag – parentheses, slash and hyphen in the class must be escaped). */
     public const string PHONE_PATTERN = '[+\\(\\)\\d\\s\\/.\\-]{6,30}';
 
     public const array ATTACHMENT_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'heic', 'doc', 'docx', 'xls', 'xlsx', 'odt', 'ods', 'txt', 'zip', 'dwg', 'dxf'];
@@ -61,7 +61,7 @@ final class Form extends Element
 
     public static function baseCss(): string
     {
-        // kotva po odeslání míří na formulář: odstup, aby nad ním byl vidět i nadpis a nezakrylo ho přilepené záhlaví
+        // the anchor after sending points to the form: an offset so that the heading above it is visible too and the sticky header does not cover it
         return '.ka-formular { display: grid; gap: var(--ka-mezera-s); }
 .ka-formular, .ka-formular-hotovo { scroll-margin-top: 6rem; }
 .ka-pole { display: grid; gap: var(--ka-mezera-2xs); margin: 0; }
@@ -85,13 +85,13 @@ final class Form extends Element
 .ka-formular-chyba { background: color-mix(in oklch, #c4281c 12%, var(--ka-barva-pozadi)); color: color-mix(in oklch, #c4281c 80%, var(--ka-barva-text)); }';
     }
 
-    /** Kotva formuláře (kam se po odeslání vrátí stránka): stejná jako id, které formulář dostane při vykreslení. */
+    /** Form anchor (where the page returns after sending): the same as the id the form gets when rendered. */
     public static function anchor(array $p): string
     {
         return $p['kotva'] ?? (!empty($p['styl']) ? 's-' . $p['id'] : 'formular-' . $p['id']);
     }
 
-    /** Hlášení po odeslání podle kódu v adrese (?formular=<id>&vysledek=<kód>) – text nikdy nejde z adresy. */
+    /** Message after sending by the code in the url (?formular=<id>&vysledek=<code>) – the text never comes from the url. */
     public static function messages(string $code): string
     {
         return match ($code) {
@@ -110,10 +110,10 @@ final class Form extends Element
         $result = $r->get('formular') === $p['id'] ? $r->get('vysledek') : '';
         $id = str_contains($a, ' id="') ? '' : ' id="' . e(self::anchor($p)) . '"';
         if ($result === 'ok') {
-            // data-odeslano: image/web.js ohlásí konverzi (událost kaleta:odeslano a dataLayer, když na webu je)
+            // data-odeslano: image/web.js reports the conversion (the kaleta:odeslano event and dataLayer, when the site has it)
             return '<div' . Text::withClass($a, 'ka-formular-hotovo') . $id . ' role="status" data-odeslano="' . e($o['nazev']) . '"><p>' . e($o['dekujeme']) . '</p></div>';
         }
-        $k->types['tlacitko'] = true; // tlačítko formuláře vypadá jako prvek Tlačítko
+        $k->types['tlacitko'] = true; // the form button looks like the Button element
         $html = $result !== '' ? '<p class="ka-formular-chyba" role="alert">' . e(self::messages($result)) . '</p>' : '';
         $invalid = $result === 'pole' ? $r->getInt('pole', -1) : -1;
         foreach ($o['pole'] as $i => $field) {
@@ -121,7 +121,7 @@ final class Form extends Element
         }
         $antispam = new Antispam($k->app->db(), $k->app->settings());
 
-        // data-formular: po chybě image/web.js vrátí do polí, co návštěvník vyplnil (drží to jen jeho prohlížeč)
+        // data-formular: after an error image/web.js puts back into the fields what the visitor filled in (only their browser keeps it)
         $files = in_array('soubor', array_column($o['pole'], 'typ'), true) ? ' enctype="multipart/form-data"' : '';
 
         return '<form' . Text::withClass($a, 'ka-formular') . $id . ' method="post" action="' . e($k->url('formular')) . '"' . $files . ' data-formular="' . e($p['id']) . '"' . ($result !== '' ? ' data-obnovit' : '') . '>'
@@ -139,7 +139,7 @@ final class Form extends Element
         $required = $field['povinne'] ? ' required' : '';
         $star = $field['povinne'] ? ' <span class="ka-povinne" aria-hidden="true">*</span>' : '';
         $labelText = e($field['popisek']);
-        // pole, které server odmítl: označené a s hláškou, na kterou odkazuje aria-describedby
+        // a field the server rejected: marked and with a message that aria-describedby points to
         $marking = $error ? ' aria-invalid="true" aria-describedby="' . $id . '-chyba" autofocus' : '';
         $message = $error ? '<span class="ka-pole-chyba" id="' . $id . '-chyba">' . e($field['typ'] === 'email' ? t('Zadejte platnou e-mailovou adresu.') : t('Toto pole je potřeba vyplnit správně.')) . '</span>' : '';
         if ($field['typ'] === 'souhlas') {
@@ -164,7 +164,7 @@ final class Form extends Element
             'cislo' => '<input id="' . $id . '" name="' . $displayName . '" type="number" step="any" inputmode="decimal"' . $required . $marking . '>',
             'soubor' => '<input id="' . $id . '" name="' . $displayName . '" type="file" accept=".' . implode(',.', self::ATTACHMENT_EXTENSIONS) . '"' . $required . $marking . '>'
                 . '<small class="ka-pole-napoveda">' . e(t('Nejvýš %d MB: PDF, obrázek, dokument nebo ZIP.', (int) (self::MAX_ATTACHMENT / 1048576))) . '</small>',
-            // telefon: stejné pravidlo jako na serveru (Front\Formulare), prohlížeč ho zkontroluje hned; vzor platí i s příznakem v
+            // phone: the same rule as on the server (Front\Forms), the browser checks it right away; the pattern is valid with the v flag too
             'tel' => '<input id="' . $id . '" name="' . $displayName . '" type="tel" autocomplete="tel" maxlength="30" pattern="' . self::PHONE_PATTERN . '" title="' . e(t('Telefonní číslo, například +420 123 456 789.')) . '"' . $required . $marking . '>',
             default => '<input id="' . $id . '" name="' . $displayName . '" type="' . ($field['typ'] === 'email' ? 'email" autocomplete="email' : 'text' . self::autocomplete($field['popisek'])) . '" maxlength="300"' . $required . $marking . '>',
         };
@@ -173,8 +173,8 @@ final class Form extends Element
     }
 
     /**
-     * Automatické vyplnění textového pole podle popisku (WCAG 1.3.5): jméno a firma. Typ pole zůstává „text“,
-     * aby fungovaly i dříve postavené formuláře.
+     * Autocomplete of a text field by its label (WCAG 1.3.5): name and company. The field type stays "text",
+     * so that forms built earlier keep working.
      */
     private static function autocomplete(string $labelText): string
     {
@@ -185,7 +185,7 @@ final class Form extends Element
         };
     }
 
-    /** @return list<string> možnosti výběru nebo přepínačů */
+    /** @return list<string> options of a select or radio buttons */
     public static function options(array $field): array
     {
         $text = ($field['typ'] ?? '') === 'volba' ? (string) ($field['moznosti_volby'] ?? '') : (string) $field['moznosti'];

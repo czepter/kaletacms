@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Oznámení o vydání novinky: webhook a IndexNow. Volá se hned po vydání v administraci a také po návštěvách
- * webu (nejvýše jednou za minutu) - díky tomu se oznámí i novinky naplánované do budoucna a novinky vydané
- * přes Claude (MCP), jakmile jejich čas nastane. Na pozadí se přitom odešle i fronta pošty a zkontrolují odkazy.
+ * Notifications about a published news item: webhook and IndexNow. Called right after publishing in the admin and also after
+ * visits to the site (at most once per minute) - thanks to that, news items scheduled for the future and news items published
+ * through Claude (MCP) are announced as soon as their time comes. In the background the mail queue is also sent and links are checked.
  */
 final class Notifications
 {
-    /** Po odeslání stránky návštěvníkovi (index.php). */
+    /** After the page is sent to the visitor (index.php). */
     public static function runInBackground(App $app): void
     {
         $s = $app->settings();
@@ -30,13 +30,14 @@ final class Notifications
             Links::runInBackground($app);
             self::purgePersonalData($app);
         } catch (\Throwable) {
-            // oznámení nesmí shodit web; další pokus proběhne při příští návštěvě
+            // notifications must not break the site; the next attempt happens on the next visit
         }
     }
 
     /**
-     * Jednou denně: poptávky po nastavené době uchování a nepotvrzené přihlášky k odběru starší 30 dní (GDPR – bez souhlasu
-     * se adresa nedrží). Běží bez ohledu na to, jestli je rozšíření zapnuté: data z doby, kdy zapnuté bylo, se mažou také.
+     * Once a day: enquiries past the configured retention period and unconfirmed subscription sign-ups older than 30 days
+     * (GDPR – without consent the address is not kept). Runs regardless of whether the extension is enabled: data from the
+     * time when it was enabled is deleted too.
      */
     public static function purgePersonalData(App $app, bool $immediately = false): void
     {
@@ -47,27 +48,27 @@ final class Notifications
         $s->set('data_cleanup', (string) time());
         \Kaleta\Admin\Modules\Enquiries::deleteExpired($app->db(), $s);
         if ($s->int('cookies_log_months') > 0) {
-            // záznamy o souhlasech s cookies nemají ležet věčně
+            // records of cookie consents should not be kept forever
             $app->db()->run('DELETE FROM {souhlasy} WHERE cas < NOW() - INTERVAL ? MONTH', [$s->int('cookies_log_months')]);
         }
         $app->db()->run('DELETE FROM {odberatele} WHERE stav = 0 AND datum < NOW() - INTERVAL 30 DAY');
     }
 
-    /** Oznámí všechny vydané a dosud neoznámené novinky (nejvýš 2 dny staré, aby se po výpadku nerozeslal archiv). */
+    /** Announces all published and not yet announced news items (at most 2 days old, so that the archive is not sent out after an outage). */
     public static function process(App $app): void
     {
         $db = $app->db();
-        // naplánované stránky: skrytá stránka se v zadaný čas sama zveřejní
+        // scheduled pages: a hidden page publishes itself at the given time
         if ($db->run('UPDATE {stranky} SET zobrazit = 1, zverejnit_od = NULL WHERE zverejnit_od IS NOT NULL AND zverejnit_od <= NOW() AND smazano IS NULL')->rowCount() > 0) {
             \Kaleta\Front\Cache::clear();
         }
         $newsItems = $db->all('SELECT idc, seo_link, jazyk, noindex FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND oznameno IS NULL ORDER BY datum LIMIT 5');
         foreach ($newsItems as $c) {
-            // nejdřív označit: kdyby oznámení spadlo, nesmí se opakovat donekonečna
+            // mark first: if the notification fails, it must not repeat forever
             if ($db->run('UPDATE {novinky} SET oznameno = NOW() WHERE idc = ? AND oznameno IS NULL', [$c['idc']])->rowCount() === 0) {
                 continue;
             }
-            \Kaleta\Front\Cache::clear(); // naplánovaná novinka právě vyšla - výpis z cache ji ještě nezná
+            \Kaleta\Front\Cache::clear(); // a scheduled news item has just gone out - the cached listing does not know it yet
             if ($c['noindex'] || (int) $db->value('SELECT datum < NOW() - INTERVAL 2 DAY FROM {novinky} WHERE idc = ?', [$c['idc']]) === 1) {
                 continue;
             }

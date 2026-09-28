@@ -1,10 +1,10 @@
 <?php
 /**
- * Výběr jazykové verze ve filtru výpisu (stránky, kategorie, položky kolekcí). Web s jediným jazykem nic nevypíše.
- * S $submitOnChange se výpis přefiltruje hned po výběru (formulář bez dalších polí).
+ * Language version choice in a list filter (pages, categories, collection items). A site with a single language outputs nothing.
+ * With $submitOnChange the list is filtered right after the choice (a form without other fields).
  *
  * @var list<string> $siteLanguages
- * @var string $language zvolený kód ('' = všechny)
+ * @var string $language the selected code ('' = all)
  * @var bool|null $submitOnChange
  */
 if ($siteLanguages === []) {

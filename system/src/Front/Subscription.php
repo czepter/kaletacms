@@ -9,19 +9,23 @@ use Kaleta\Core\App;
 use Kaleta\Core\Mail;
 
 /**
- * Odběr novinek (rozšíření Newsletter): přihlášení z prvku Odběr novinek, potvrzení a odhlášení odkazem z e-mailu.
- * Adresa se počítá za odběratele až po potvrzení (double opt-in). Kdo se přihlásí podruhé, dostane jen nový odkaz –
- * web nikomu neprozradí, jestli adresa už v seznamu je.
+ * News subscription (Newsletter extension): sign-up from the News subscription element, confirmation and unsubscribe by
+ * a link from the e-mail. An address counts as a subscriber only after confirmation (double opt-in). Whoever signs up
+ * a second time only gets a new link – the site does not reveal to anyone whether the address is already on the list.
  */
 final class Subscription
 {
-    private const int LIMIT = 5; // přihlášení z jedné adresy za 10 minut
+    private const int LIMIT = 5; // sign-ups from one address per 10 minutes
 
     public function __construct(private readonly App $app)
     {
     }
 
-    /** POST z prvku: uloží nebo obnoví nepotvrzenou adresu a pošle odkaz. @return string výsledek pro hlášku prvku (ok | chyba | limit) */
+    /**
+     * POST from the element: saves or renews an unconfirmed address and sends the link.
+     *
+     * @return string result for the element's message (ok | chyba | limit)
+     */
     public function subscribe(): string
     {
         $r = $this->app->request;
@@ -44,7 +48,7 @@ final class Subscription
         $db = $this->app->db();
         $subscriber = $db->one('SELECT * FROM {odberatele} WHERE email = ?', [$email]);
         if ($subscriber !== null && (int) $subscriber['stav'] === 1) {
-            return 'ok'; // už odebírá – nic dalšího neposíláme
+            return 'ok'; // already subscribed – we send nothing more
         }
         $token = bin2hex(random_bytes(16));
         if ($subscriber === null) {
@@ -62,11 +66,11 @@ final class Subscription
     }
 
     /**
-     * Odkaz z e-mailu (?potvrdit= / ?odhlasit=). Otevření odkazu (GET) jen ukáže tlačítko – poštovní skenery odkazů
-     * (Safe Links apod.) by jinak odběr samy potvrdily nebo odběratele odhlásily. Změna proběhne až odesláním (POST),
-     * odhlášení i jedním klepnutím z poštovního klienta (List-Unsubscribe-Post).
+     * Link from the e-mail (?potvrdit= / ?odhlasit=). Opening the link (GET) only shows a button – mail link scanners
+     * (Safe Links etc.) would otherwise confirm the subscription or unsubscribe the subscriber on their own. The change
+     * happens only on submission (POST), unsubscribing also with one click from the mail client (List-Unsubscribe-Post).
      *
-     * @return array{0: string, 1: string} titulek a obsah stránky (HTML)
+     * @return array{0: string, 1: string} page title and content (HTML)
      */
     public function link(): array
     {
@@ -87,20 +91,20 @@ final class Subscription
         if ($action === 'odhlasit') {
             $db->delete('odberatele', ['ido' => (int) $o['ido']]);
             if ((int) $o['stav'] === 1) {
-                \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'odebrat'); // i z mailingové služby
+                \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'odebrat'); // from the mailing service too
             }
 
             return [t('Odhlášeno'), '<p>' . e(t('Adresu %s jsme ze seznamu odběratelů smazali.', $o['email'])) . '</p>'];
         }
         if ((int) $o['stav'] === 0) {
             $db->update('odberatele', ['stav' => 1, 'potvrzeno' => date('Y-m-d H:i:s')], ['ido' => (int) $o['ido']]);
-            \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'pridat'); // do mailingové služby, odešle úklid na pozadí
+            \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'pridat'); // to the mailing service, sent by the background cleanup
         }
 
         return [t('Odběr je potvrzený'), '<p>' . e(t('Děkujeme, novinky vám budeme posílat na %s. Odhlásit se můžete odkazem v každém e-mailu.', $o['email'])) . '</p>'];
     }
 
-    /** Odkaz pro odhlášení do rozesílacího nástroje (export odběratelů). */
+    /** Unsubscribe link for the mailing tool (subscriber export). */
     public static function unsubscribeLink(App $app, string $token): string
     {
         return (new self($app))->address('odber?odhlasit=' . $token);

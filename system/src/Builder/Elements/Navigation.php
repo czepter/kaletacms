@@ -8,8 +8,8 @@ use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
 /**
- * Navigace: menu z Vzhled → Menu (hlavní nebo v patičce, i s podmenu) a přepínač jazyků. Na telefonu se schová
- * za tlačítko a otevře jako popover (Popover API – bez JavaScriptu, zavře ho Esc i klepnutí mimo).
+ * Navigation: the menu from „Vzhled → Menu“ (Appearance → Menu; main or in the footer, with submenus too) and the language switcher.
+ * On a phone it hides behind a button and opens as a popover (Popover API – without JavaScript, Esc and a click outside close it).
  */
 final class Navigation extends Element
 {

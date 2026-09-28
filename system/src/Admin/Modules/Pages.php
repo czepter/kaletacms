@@ -10,8 +10,8 @@ use Kaleta\Builder\Publisher;
 use Kaleta\Builder\Build;
 
 /**
- * Stránky webu: úvod, O nás, Služby, Kontakt, Zásady ochrany soukromí… Úvodní stránku určuje Nastavení → Základní.
- * Stránka má adresu /<seo_link>. Obsah je buď text z editoru, nebo stavba z builderu (sloupec stavba, rozpracovaná stavba_koncept).
+ * Site pages: home, About us, Services, Contact, Privacy policy… The home page is set in Nastavení → Základní (Settings → General).
+ * A page has the URL /<seo_link>. The content is either text from the editor, or a build from the builder (column stavba, the draft stavba_koncept).
  */
 final class Pages extends Module
 {
@@ -24,10 +24,10 @@ final class Pages extends Module
     public const string GROUP = 'Obsah';
     public const string ICON = 'stranky';
 
-    /** Adresy, které patří systému a stránka je mít nemůže. */
+    /** Slugs that belong to the system and a page cannot have. */
     public const array RESERVED_SLUGS = ['novinky', 'hledani', 'news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'stav', 'ulohy', 'souhlas', 'formular', 'popup'];
 
-    /** Stránky v koši vydrží tolik dní, pak se smažou natrvalo (jako novinky). */
+    /** Pages in the trash last this many days, then they are deleted permanently (like news). */
     public const int TRASH_DAYS = 30;
 
     protected function actionList(): Response
@@ -49,7 +49,7 @@ final class Pages extends Module
 
         $pages = $this->db->all('SELECT * FROM {stranky} WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . ($trash ? 'smazano DESC' : 'jazyk, poradi, titulek'), $params);
 
-        // sloupec „V navigaci“: s vlastním menu podle položek menu (stránka nebo odkaz na její adresu), jinak příznak v_menu
+        // column "V navigaci" (In navigation): with a custom menu by the menu items (the page or a link to its URL), otherwise the flag v_menu
         foreach ($pages as &$s) {
             $s['v_menu'] = \Kaleta\Core\Menu::hasPage($this->db, (int) $s['ids'], (string) $s['jazyk'], (string) $s['seo_link']) ?? (bool) $s['v_menu'];
         }
@@ -63,7 +63,7 @@ final class Pages extends Module
     }
 
     /**
-     * Stránky seřazené jako strom: podstránka hned za nadřazenou, s hloubkou (klíč „uroven“) pro odsazení ve výpisu.
+     * Pages sorted as a tree: a subpage right after its parent, with the depth (key "uroven") for indentation in the list.
      *
      * @param list<array<string, mixed>> $pages
      * @return list<array<string, mixed>>
@@ -85,7 +85,7 @@ final class Pages extends Module
             }
         };
         $add(0, 0);
-        // stránky, jejichž nadřazená je v koši nebo neexistuje, se ukážou na nejvyšší úrovni
+        // pages whose parent is in the trash or does not exist are shown at the top level
         foreach ($byParent as $parent => $children) {
             if ($parent !== 0 && !in_array($parent, array_map('intval', $ids), true)) {
                 foreach ($children as $s) {
@@ -110,7 +110,7 @@ final class Pages extends Module
         return $page === null ? $this->error('Stránka neexistuje.', 404) : $this->form($page);
     }
 
-    /** Uložení z úpravy „přímo na webu“ (views/front/upravit.php): jen název a text stránky. */
+    /** Saving from editing "directly on the site" (views/front/upravit.php): only the page's name and text. */
     protected function actionSaveText(): Response
     {
         $r = $this->request;
@@ -124,7 +124,7 @@ final class Pages extends Module
         }
         $text = \Kaleta\Core\Html::forUser($r->post('text'), $this->app->auth());
         if ($page['titulek'] !== $title || (string) $page['text'] !== $text) {
-            $this->saveVersion((int) $page['ids'], $page['titulek'], (string) $page['text']); // úprava přímo na webu jde do historie jako v administraci
+            $this->saveVersion((int) $page['ids'], $page['titulek'], (string) $page['text']); // an edit directly on the site goes to the history as in the admin
         }
         $this->db->update('stranky', ['titulek' => $title, 'text' => $text, 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $page['ids']]);
         \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'úprava přímo na webu', mb_substr($title, 0, 80));
@@ -133,8 +133,8 @@ final class Pages extends Module
     }
 
     /**
-     * Role na úrovni autora (i vlastní role bez práva vydávat) smí stránky připravovat, ale ne zveřejnit, měnit zveřejněné ani mazat.
-     * Vrací odpověď s odmítnutím, nebo null, když smí.
+     * Roles at the author level (custom roles without the permission to publish too) can prepare pages, but not publish them,
+     * change published ones or delete them. Returns a response with the refusal, or null when allowed.
      */
     private function requirePublishPermission(?array $page = null): ?Response
     {
@@ -156,7 +156,7 @@ final class Pages extends Module
             return $refusal;
         }
         $language = \Kaleta\Core\Language::column($this->app->settings(), $r->post('jazyk'));
-        // nadřazená stránka: stejný jazyk, ne ona sama ani její podstránka (jinak by vznikl kruh)
+        // parent page: the same language, not the page itself nor its subpage (otherwise a cycle would form)
         $custom = $id > 0 ? (string) $this->db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$id]) : '';
         $parent = $r->postInt('nadrazena') > 0 ? $this->db->one('SELECT ids, seo_link FROM {stranky} WHERE ids = ? AND ids <> ? AND jazyk = ? AND smazano IS NULL', [$r->postInt('nadrazena'), $id, $language]) : null;
         if ($parent !== null && $custom !== '' && str_starts_with($parent['seo_link'] . '/', $custom . '/')) {
@@ -179,14 +179,14 @@ final class Pages extends Module
             'zmeneno' => date('Y-m-d H:i:s'),
             'jazyk' => $language,
         ];
-        // plánované zveřejnění: jen u skryté stránky s budoucím časem; prošlý čas stránku rovnou zveřejní
+        // scheduled publishing: only for a hidden page with a future time; a past time publishes the page right away
         $from = strtotime(str_replace('T', ' ', $r->post('zverejnit_od'))) ?: null;
         $data['zverejnit_od'] = !$data['zobrazit'] && $from !== null && $from > time() ? date('Y-m-d H:i:s', $from) : null;
         if (!$data['zobrazit'] && $from !== null && $from <= time()) {
             $data['zobrazit'] = 1;
         }
         if (!$this->app->auth()->canPublish()) {
-            $data['zobrazit'] = 0; // bez práva vydávat zůstává stránka skrytá, zveřejní ji editor
+            $data['zobrazit'] = 0; // without the permission to publish the page stays hidden, an editor publishes it
             $data['zverejnit_od'] = null;
         }
         $data['preklad_z'] = $data['jazyk'] === '' ? null : ($this->db->value("SELECT ids FROM {stranky} WHERE ids = ? AND jazyk = '' AND ids <> ?", [$r->postInt('preklad_z'), $id]) ?: null);
@@ -195,7 +195,7 @@ final class Pages extends Module
             $errors['titulek'] = 'Vyplňte název stránky.';
         }
         if ($r->post('seo_link') === '') {
-            // adresa z názvu: obsazená dostane číslo (o-nas-2), jako u novinek
+            // slug from the name: a taken one gets a number (o-nas-2), as with news
             $data['seo_link'] = $this->availableSlug($data['seo_link'], $id);
         }
         if ($parent === null && (in_array($data['seo_link'], self::RESERVED_SLUGS, true) || isset(\Kaleta\Core\Language::AVAILABLE[$data['seo_link']]))) {
@@ -224,7 +224,7 @@ final class Pages extends Module
             $id = $this->db->insert('stranky', $data);
             $template = \Kaleta\Builder\Library::PAGE_TEMPLATES[$r->post('sablona')] ?? null;
             if ($template !== null && $template[1] !== []) {
-                // nová stránka podle šablony: sekce z knihovny jako koncept a rovnou do builderu
+                // new page from a template: sections from the library as a draft and straight into the builder
                 $build = \Kaleta\Builder\Library::page($this->db, $template[1], $data['titulek'], $this->contentLanguage($language));
                 $this->db->update('stranky', ['stavba_koncept' => Build::toJson($build)], ['ids' => $id]);
                 \Kaleta\Core\Menu::setPage($this->db, $id, $language, (bool) $data['v_menu']);
@@ -237,7 +237,7 @@ final class Pages extends Module
                 return $this->back('Stránka je založená s kostrou zásad – doplňte údaje v hranatých závorkách.', 'edit', ['id' => $id]);
             }
         }
-        // sestavené menu (Vzhled → Menu): zaškrtávátko „v navigaci“ stránku do menu přidá nebo z něj odebere
+        // assembled menu (Vzhled → Menu, Appearance → Menu): the checkbox "v navigaci" (in navigation) adds the page to the menu or removes it
         \Kaleta\Core\Menu::setPage($this->db, $id, $data['jazyk'], (bool) $data['v_menu']);
         if ($r->post('po_ulozeni') === 'stavitel') {
             return \Kaleta\Core\Response::redirect($this->url('builder', ['id' => $id]));
@@ -246,9 +246,9 @@ final class Pages extends Module
         return $this->back('Stránka byla uložena.');
     }
 
-    /* ---------- builder (akce v Admin\StavitelAkce) ---------- */
+    /* ---------- builder (actions in Admin\BuilderActions) ---------- */
 
-    /** Editor; textová stránka se při prvním otevření převede na stavbu (úzká sekce s nadpisem a textem, text zůstane). */
+    /** Editor; a text page is converted to a build on first opening (a narrow section with a heading and the text, the text stays). */
     protected function actionBuilder(): Response
     {
         $page = $this->loadPage($this->request->getInt('id'));
@@ -292,13 +292,13 @@ final class Pages extends Module
         ];
     }
 
-    /** Publikuje koncept stránky (i z MCP). */
+    /** Publishes the page draft (from MCP too). */
     public static function publish(\Kaleta\Core\App $app, array $page): void
     {
         Publisher::page($app, $page);
     }
 
-    /** Stránka se vrátí k textu z editoru (stavba zůstane ve verzích). */
+    /** The page returns to the text from the editor (the build stays in the versions). */
     protected function actionBuildText(): Response
     {
         $page = $this->request->isPost() ? $this->loadPage($this->request->postInt('ids')) : null;
@@ -316,20 +316,20 @@ final class Pages extends Module
         return $this->db->one('SELECT * FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$id]);
     }
 
-    /** Předchozí podoba textu stránky do historie (posledních 30 verzí). */
+    /** The previous form of the page text to the history (the last 30 versions). */
     private function saveVersion(int $ids, string $title, string $text): void
     {
         self::version($this->db, $ids, $this->app->auth()->id(), $title, $text);
     }
 
-    /** Totéž pro MCP a jiné vstupy mimo modul. */
+    /** The same for MCP and other inputs outside the module. */
     public static function version(\Kaleta\Core\Db $db, int $ids, int $who, string $title, string $text): void
     {
         $db->insert('stranky_revize', ['ids' => $ids, 'datum' => date('Y-m-d H:i:s'), 'kdo' => $who, 'titulek' => $title, 'text' => $text]);
         $db->run('DELETE FROM {stranky_revize} WHERE ids = ? AND idr NOT IN (SELECT idr FROM (SELECT idr FROM {stranky_revize} WHERE ids = ? ORDER BY idr DESC LIMIT 30) t)', [$ids, $ids]);
     }
 
-    /** Stránka změnila adresu: podstránky se posunou s ní a staré adresy zobrazených stránek se přesměrují. */
+    /** The page changed its slug: subpages move with it and the old URLs of visible pages are redirected. */
     private function moveSubpages(string $old, string $newVersion, bool $visible): void
     {
         self::move($this->db, $old, $newVersion, $visible);
@@ -349,7 +349,7 @@ final class Pages extends Module
         }
     }
 
-    /** Obnovení starší verze textu stránky (současná podoba jde do historie). */
+    /** Restoring an older version of the page text (the current form goes to the history). */
     protected function actionRestoreVersion(): Response
     {
         $version = $this->request->isPost() ? $this->db->one('SELECT * FROM {stranky_revize} WHERE idr = ?', [$this->request->postInt('idr')]) : null;
@@ -366,7 +366,7 @@ final class Pages extends Module
         return $this->back(t('Obnovena verze z %s.', format_date($version['datum'], true)), 'edit', ['id' => (int) $page['ids']]);
     }
 
-    /** Stránka jako soubor JSON (název, popis a stavba) – pro přenos na jiný web s Kaletou. */
+    /** The page as a JSON file (name, description and build) – for transfer to another site running Kaleta. */
     protected function actionExport(): Response
     {
         $s = $this->loadPage($this->request->getInt('id'));
@@ -379,7 +379,7 @@ final class Pages extends Module
         return new Response($json, 200, ['Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="stranka-' . basename(str_replace('/', '-', $s['seo_link'])) . '.json"']);
     }
 
-    /** Import stránky z JSON exportu: vznikne skrytá stránka, stavba projde validátorem jako každá jiná. */
+    /** Import of a page from a JSON export: a hidden page is created, the build goes through the validator like any other. */
     protected function actionImport(): Response
     {
         $file = $_FILES['soubor']['tmp_name'] ?? '';
@@ -399,13 +399,13 @@ final class Pages extends Module
         return $this->back('Stránka je importovaná jako skrytá – zkontrolujte ji a zveřejněte.', 'edit', ['id' => $id]);
     }
 
-    /** Volná adresa odvozená z $zaklad: o-nas, o-nas-2, o-nas-3… */
+    /** A free slug derived from $base: o-nas, o-nas-2, o-nas-3… */
     private function availableSlug(string $base, int $id): string
     {
         return \Kaleta\Core\Slug::makeUnique($base, fn (string $a): bool => $this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$a, $id]) !== null, 120);
     }
 
-    /** Smazání = přesun do koše: stránka zmizí z webu, adresa zůstane rezervovaná a jde ji obnovit. */
+    /** Deleting = moving to the trash: the page disappears from the site, the slug stays reserved and the page can be restored. */
     protected function actionDelete(): Response
     {
         $ids = $this->request->postInt('ids');
@@ -423,7 +423,7 @@ final class Pages extends Module
         return $this->back(t('Stránka je v koši. Obnovit ji můžete %d dní.', self::TRASH_DAYS));
     }
 
-    /** Obnovení z koše: stránka se vrátí skrytá, zveřejní ji až uživatel. */
+    /** Restore from the trash: the page returns hidden, only the user publishes it. */
     protected function actionRestore(): Response
     {
         if ($this->request->isPost()) {
@@ -445,13 +445,13 @@ final class Pages extends Module
         return $this->back('Stránka byla smazána natrvalo.', '', ['stav' => 'kos']);
     }
 
-    /** Stránky v koši déle než DNY_V_KOSI se smažou natrvalo (volá Admin\Kernel). */
+    /** Pages in the trash longer than TRASH_DAYS are deleted permanently (called by Admin\Kernel). */
     public static function emptyTrash(\Kaleta\Core\Db $db): int
     {
         return $db->run('DELETE FROM {stranky} WHERE smazano < NOW() - INTERVAL ' . self::TRASH_DAYS . ' DAY')->rowCount();
     }
 
-    /** Kopie stránky i se stavbou a rozpracovaným konceptem – skrytá, s volnou adresou. */
+    /** Copy of the page including the build and the work-in-progress draft – hidden, with a free slug. */
     protected function actionDuplicate(): Response
     {
         $page = $this->request->isPost() ? $this->loadPage($this->request->postInt('ids')) : null;
@@ -462,7 +462,7 @@ final class Pages extends Module
         $copy['titulek'] = mb_substr(t('%s (kopie)', $page['titulek']), 0, 200);
         $copy['seo_link'] = $this->availableSlug(mb_substr($page['seo_link'] . '-kopie', 0, 110), 0);
         $copy['zobrazit'] = 0;
-        $copy['v_menu'] = 0; // kopie se do navigace nedostane, dokud ji tam někdo nezařadí
+        $copy['v_menu'] = 0; // the copy does not get into the navigation until someone adds it there
         $copy['preklad_z'] = null;
         $copy['zmeneno'] = date('Y-m-d H:i:s');
         $id = $this->db->insert('stranky', $copy);
@@ -481,7 +481,7 @@ final class Pages extends Module
 
         return $this->view('form', $page['ids'] ? 'Úprava stránky' : 'Nová stránka', [
             'page' => $page, 'errors' => $errors,
-            // možné nadřazené stránky: stejný jazyk, ne ona sama ani její podstránky
+            // possible parent pages: the same language, not the page itself nor its subpages
             'parents' => array_values(array_filter($this->db->all('SELECT ids, titulek, seo_link FROM {stranky} WHERE jazyk = ? AND smazano IS NULL AND ids <> ? ORDER BY seo_link', [$language, (int) $page['ids']]),
                 fn (array $s): bool => $custom === '' || !str_starts_with($s['seo_link'] . '/', $custom . '/'))),
             'versions' => $page['ids'] ? $this->db->all('SELECT r.idr, r.datum, r.titulek, IF(u.jmeno = \'\', u.user, u.jmeno) AS kdo FROM {stranky_revize} r LEFT JOIN {uzivatele} u ON u.idu = r.kdo WHERE r.ids = ? ORDER BY r.idr DESC LIMIT 30', [(int) $page['ids']]) : [],

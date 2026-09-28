@@ -10,12 +10,12 @@ use Kaleta\Core\Response;
 use Kaleta\Core\Extensions;
 
 /**
- * Administrace. Adresy: admin.php?module=<ident>&action=<akce>
+ * Administration. URLs: admin.php?module=<ident>&action=<action>
  */
 final class Kernel
 {
     /**
-     * Moduly v pořadí, v jakém jsou v menu (po skupinách Obsah, Vzhled, Správa).
+     * Modules in the order they appear in the menu (by the groups Obsah, Vzhled, Správa – Content, Appearance, Administration).
      *
      * @var list<class-string<Module>>
      */
@@ -52,7 +52,7 @@ final class Kernel
         $app = $this->app;
         $request = $app->request;
 
-        // jazyk administrace: volba uživatele (Můj účet); přihlašovací stránka se řídí jazykem webu. Nastavuje se jako první, aby i hláška o vypršelém formuláři byla přeložená
+        // admin language: the user's choice (My account); the sign-in page follows the site language. It is set first so that even the message about an expired form is translated
         $language = (string) ($app->auth()->user()['jazyk'] ?? '') ?: \Kaleta\Core\Language::defaults($app->settings());
         \Kaleta\Core\Language::set(isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$language]) ? $language : 'cs', 'admin-');
         if ($request->isPost() && !$app->session->csrfValid($request)) {
@@ -61,13 +61,13 @@ final class Kernel
             ]), 400);
         }
 
-        // každá změna v administraci zneplatní cache stránek webu; průběžné požadavky editorů (rozepsaný stav, asistent,
-        // koncept stavby) web nemění - kdyby cache mazaly, při práci by byla pořád studená
+        // every change in the admin invalidates the site page cache; the editors' ongoing requests (unsaved state, assistant,
+        // build draft) do not change the site - if they cleared the cache, it would be cold all the time during work
         if ($request->isPost() && !in_array($request->get('action'), ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text'], true)) {
             \Kaleta\Front\Cache::clear();
         }
         $action = $request->get('action');
-        // adresa webu: starší instalace ji ještě nemá - zapíše se podle adresy, na které pracuje přihlášený administrátor
+        // site URL: older installs do not have it yet - it is written from the URL the signed-in administrator works on
         if ($app->settings()->get('site_url') === '' && $app->auth()->isAdmin()) {
             $app->settings()->set('site_url', $request->origin());
         }
@@ -82,20 +82,20 @@ final class Kernel
             return Response::redirect($app->url('admin.php'));
         }
 
-        // po přechodu na novou verzi jednorázově uklidit známé zrušené soubory (viz Aktualizace::ZRUSENE)
+        // after moving to a new version, clean up the known removed files once (see Updater::REMOVED_FILES)
         if ($app->auth()->isAdmin() && $app->settings()->get('cleaned_version') !== KALETA_VERSION) {
             \Kaleta\Core\Updater::cleanUpRemoved(KALETA_ROOT, $app->settings()->get('layout'));
             $app->settings()->set('cleaned_version', KALETA_VERSION);
         }
 
-        // aktualizace struktury databáze po nahrání nové verze systému
+        // update of the database structure after a new system version is uploaded
         if ($app->auth()->isAdmin() && $app->settings()->int('db_version') < Migration::latest()) {
             try {
                 foreach (Migration::apply($app->db(), $app->settings()) as $migration) {
                     $app->session->flash('info', t('Databáze byla aktualizována: %s', $migration));
                 }
             } catch (\Throwable $e) {
-                // administrace musí zůstat použitelná, aby šla nainstalovat oprava (Nastavení → Zálohy a aktualizace)
+                // the admin must stay usable so that a fix can be installed (Nastavení → Zálohy a aktualizace, Settings → Backups and updates)
                 Migration::writeError($e);
                 $app->session->flash('chyba', t('Aktualizace databáze se nepovedla: %s. Web běží dál; nainstalujte opravu v Nastavení → Zálohy a aktualizace, nebo napište na info@kaletacms.com.', $e->getMessage()));
             }
@@ -105,19 +105,19 @@ final class Kernel
             \Kaleta\Core\Backup::createAutomatic($app->db(), $app->settings());
         }
         if ($app->auth()->user() !== null) {
-            Modules\News::emptyTrash($app->db()); // koš drží novinky i stránky 30 dní
+            Modules\News::emptyTrash($app->db()); // the trash keeps news and pages for 30 days
             Modules\Pages::emptyTrash($app->db());
         }
 
         $ident = $request->get('module');
-        // povinné dvoufázové přihlášení: kdo ho ještě nemá, smí jen do Můj účet (a odhlásit se), dokud ho nezapne
+        // mandatory two-factor sign-in: whoever does not have it yet can only go to My account (and sign out) until they enable it
         if ($app->auth()->isMissingRequired2fa($app->settings()) && !in_array($action, ['account', 'token'], true)) {
             $app->session->flash('chyba', t('Web vyžaduje dvoufázové přihlášení. Zapněte si ho prosím níže – do té doby je administrace zamčená.'));
 
             return Response::redirect($app->url('admin.php?action=account'));
         }
         if ($action === 'token') {
-            // editor po novém přihlášení v jiné záložce si tu vezme platný token formulářů a pokračuje v ukládání
+            // after a new sign-in in another tab, the editor takes the valid form token here and continues saving
             return Response::json(['csrf' => $app->session->csrfToken()]);
         }
         if ($action === 'account') {
@@ -134,7 +134,7 @@ final class Kernel
         if ($ident === '') {
             $newVersion = $app->auth()->isAdmin() ? (new \Kaleta\Core\Updater($app->settings()))->state()['nova'] : null;
             if ($newVersion !== null) {
-                // text se překládá tady (s číslem verze); cestu v nabídce promění v odkaz až vykreslení hlášky (Admin\Cesty)
+                // the text is translated here (with the version number); the menu path is turned into a link only when the message is rendered (Admin\MenuPaths)
                 $app->session->flash(!empty($newVersion['bezpecnostni']) ? 'chyba' : 'info', !empty($newVersion['bezpecnostni'])
                     ? t('Je k dispozici BEZPEČNOSTNÍ aktualizace %s – nainstalujete ji v Nastavení → Zálohy a aktualizace.', (string) $newVersion['verze'])
                     : t('Je k dispozici nová verze %s – nainstalujete ji v Nastavení → Zálohy a aktualizace.', (string) $newVersion['verze']));
@@ -149,7 +149,7 @@ final class Kernel
 
         $response = (new $class($this))->handle($action === '' ? 'list' : $action);
         if ($request->isPost() && $response->status === 302 && $action !== 'poradi') {
-            // každá provedená změna v administraci jde do protokolu
+            // every change made in the admin goes to the change log
             $description = $request->post('titulek') ?: ($request->post('nazev') ?: ($request->post('user') ?: $request->post('tab')));
             ChangeLog::write($app, $ident, $action, $description);
         }
@@ -158,9 +158,9 @@ final class Kernel
     }
 
     /**
-     * Moduly dostupné přihlášenému uživateli.
+     * Modules available to the signed-in user.
      *
-     * @return array<string, class-string<Module>> ident => třída
+     * @return array<string, class-string<Module>> ident => class
      */
     public function modules(): array
     {
@@ -179,7 +179,7 @@ final class Kernel
         return $modules;
     }
 
-    /** Obalí obsah společným rámcem administrace (menu, login proužek, hlášky). */
+    /** Wraps the content in the common admin frame (menu, sign-in bar, messages). */
     public function page(string $heading, string $content, int $status = 200): Response
     {
         $app = $this->app;
@@ -196,7 +196,7 @@ final class Kernel
     }
 
     /**
-     * Data úvodní obrazovky: přehled webu.
+     * Data of the start screen: site overview.
      *
      * @return array<string, mixed>
      */
@@ -204,8 +204,8 @@ final class Kernel
     {
         $data = ['app' => $this->app, 'modules' => $this->modules()];
         $db = $this->app->db();
-        $scope = ' AND smazano IS NULL' . $this->app->auth()->articleScope();      // pro dotazy bez aliasu (novinky v koši se nepočítají)
-        $aliasedScope = ' AND c.smazano IS NULL' . $this->app->auth()->articleScope('c.');  // pro dotazy s aliasem c
+        $scope = ' AND smazano IS NULL' . $this->app->auth()->articleScope();      // for queries without an alias (news in the trash are not counted)
+        $aliasedScope = ' AND c.smazano IS NULL' . $this->app->auth()->articleScope('c.');  // for queries with the alias c
 
         $modules = $this->modules();
         $warnings = [];
@@ -221,7 +221,7 @@ final class Kernel
                 $warnings[] = [$backup === 0 ? t('Web zatím nemá žádnou zálohu databáze.') : t('Poslední záloha databáze je z %s.', format_date(date('Y-m-d H:i:s', $backup))), $this->app->url('admin.php?module=settings&tab=backups')];
             }
         }
-        // naposledy upravený obsah: stránky i novinky dohromady
+        // recently edited content: pages and news together
         $edited = [];
         if (isset($modules['pages'])) {
             foreach ($db->all('SELECT ids, titulek, zmeneno, zobrazit, stavba_koncept IS NOT NULL AS koncept FROM {stranky} WHERE smazano IS NULL AND zmeneno IS NOT NULL ORDER BY zmeneno DESC LIMIT 6') as $r) {
@@ -240,11 +240,11 @@ final class Kernel
         return $data + [
             'firstSteps' => $this->firstSteps(),
             'warnings' => $warnings,
-            // návštěvnost za 14 dní (vlastní měření bez cookies)
+            // traffic for 14 days (own measurement without cookies)
             'traffic' => Extensions::isEnabled($this->app->settings(), 'statistika') && isset($modules['stats'])
                 ? $db->all('SELECT den, navstevy, zobrazeni FROM {stat_dny} WHERE den > CURDATE() - INTERVAL 14 DAY ORDER BY den') : [],
             'counts' => array_filter([
-                // koncepty autorů novinek čekají na editora – dlaždice jen, když nějaké jsou
+                // drafts of news authors wait for an editor – the tile only when there are some
                 'Novinky od autorů čekají na vydání' => isset($modules['news']) && ($pending = Modules\News::countAwaitingPublication($this->app)) > 0 ? [$pending, 'admin.php?module=news&stav=ke_vydani'] : null,
                 'Nové poptávky' => isset($modules['enquiries']) ? [(int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0'), 'admin.php?module=enquiries'] : null,
                 'Zveřejněné stránky' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL'), 'admin.php?module=pages'] : null,
@@ -258,7 +258,8 @@ final class Kernel
     }
 
     /**
-     * První kroky po instalaci: co už je hotové, se pozná z dat. Vidí je jen administrátor, dokud je neskryje nebo nesplní.
+     * First steps after installation: what is already done is recognized from the data. Only the administrator sees them,
+     * until they hide or complete them.
      *
      * @return list<array{nazev:string, popis:string, url:string, hotovo:bool}>
      */
@@ -271,13 +272,13 @@ final class Kernel
         }
         $db = $app->db();
         $steps = [
-            // hotovo až po vlastní volbě: vzhled a stránky ze startovacího webu se nepočítají
+            // done only after the user's own choice: appearance and pages from the starter site do not count
             ['Dejte webu tvář', 'Logo, hlavní barva a písmo.', 'admin.php?module=appearance', $s->get('logo') !== '' || $s->bool('appearance_saved') || $s->get('brand_accent') !== ''],
             ['Vyplňte údaje o firmě', 'Adresa, telefon a otevírací doba se ukážou na kontaktu, v patičce i vyhledávačům.', 'admin.php?module=settings&tab=company', $s->get('company_street') !== '' && ($s->get('company_phone') !== '' || $s->get('company_email') !== '' || $s->get('site_email') !== '')],
             ['Připravte stránky', 'O nás, Služby, Kontakt – a v Nastavení vyberte, která bude úvodní.', 'admin.php?module=pages', (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1') >= 3 && $s->int('home_page') > 0
                 && $db->value('SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND zmeneno IS NOT NULL LIMIT 1') !== null],
             ['Doplňte zásady ochrany osobních údajů', 'Formulář s poptávkou sbírá osobní údaje – návštěvník musí vědět, jak s nimi naložíte. Kostru stránky máte připravenou jako skrytou: doplňte údaje v hranatých závorkách a stránku zveřejněte.', 'admin.php?module=pages',
-                // hotovo, až stránka existuje a nemá v sobě hranaté závorky ke kostře z instalace ([NÁZEV FIRMY]…)
+                // done once the page exists and no longer contains the square brackets of the skeleton from the installation ([NÁZEV FIRMY]…)
                 $db->value("SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND (seo_link LIKE '%soukromi%' OR seo_link LIKE '%osobni%' OR seo_link LIKE '%gdpr%' OR seo_link LIKE '%privacy%') AND text NOT LIKE '%[%]%' LIMIT 1") !== null],
             ['Nastavte poštu', 'Odkud web odesílá e-maily (formuláře, obnova hesla).', 'admin.php?module=settings&tab=mail', $s->get('mail_mode') === 'smtp' || $s->get('mail_from') !== ''],
         ];
@@ -286,7 +287,7 @@ final class Kernel
         return array_filter($result, fn (array $k): bool => !$k['hotovo']) === [] ? [] : $result;
     }
 
-    /** Kam po přihlášení: čeká-li připojení aplikace přes OAuth (konektor Claude), rovnou na souhlas, jinak na přehled. */
+    /** Where to go after sign-in: if an app connection via OAuth (the Claude connector) is waiting, straight to the consent, otherwise to the overview. */
     private function resolveAfterSignIn(): string
     {
         return $this->app->url(is_array($this->app->session->get('oauth_ceka')) ? 'admin.php?action=oauth' : 'admin.php');
@@ -296,7 +297,7 @@ final class Kernel
     {
         $app = $this->app;
         $error = null;
-        // druhý krok přihlašovacím klíčem (otisk prstu, Face ID): skript image/klice.js si řekne o výzvu a pošle podpis zařízení
+        // second step with a passkey (fingerprint, Face ID): the script image/klice.js asks for a challenge and sends the device signature
         if ($app->request->isPost() && in_array($app->request->post('krok'), ['klic_moznosti', 'klic'], true)) {
             $url = $app->settings()->get('site_url') ?: $app->request->origin();
             if ($app->request->post('krok') === 'klic_moznosti') {
@@ -336,8 +337,9 @@ final class Kernel
     }
 
     /**
-     * Souhlas s připojením aplikace přes OAuth (konektor Claude): ukáže, kdo žádá a s jakými právy, a po potvrzení vrátí
-     * aplikaci jednorázový kód. Žádost čeká v relaci (Front\OAuth::autorizace) nejvýš 15 minut.
+     * Consent to connecting an app via OAuth (the Claude connector): shows who is asking and with which permissions, and
+     * after confirmation returns a one-time code to the app. The request waits in the session (Front\OAuth::authorize) for
+     * at most 15 minutes.
      */
     private function handleOAuthConsent(): Response
     {
@@ -363,7 +365,7 @@ final class Kernel
             'app' => $app, 'csrf' => $app->session->csrfField(), 'pending' => $pending, 'user' => $app->auth()->user(),
             'url' => (string) parse_url((string) $pending['redirect_uri'], PHP_URL_HOST),
         ]));
-        // odeslání souhlasu končí přesměrováním do aplikace – CSP form-action ho musí povolit (admin.php)
+        // sending the consent ends with a redirect to the app – CSP form-action must allow it (admin.php)
         $target = parse_url((string) $pending['redirect_uri']);
         $origin = ($target['scheme'] ?? '') . '://' . ($target['host'] ?? '') . (isset($target['port']) ? ':' . $target['port'] : '');
 

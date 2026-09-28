@@ -1,4 +1,4 @@
-<?php /** Záložka Měření. */ ?>
+<?php /** The "Měření" (Analytics) tab. */ ?>
 <fieldset>
 <legend><?= e(t('Návštěvnost')) ?></legend>
 <?php

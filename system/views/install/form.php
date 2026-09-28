@@ -4,9 +4,9 @@
  * @var list<array{nazev:string, ok:bool, info:string}> $requirements
  * @var array<string, string> $data
  * @var array<string, string> $errors
- * @var string $language  jazyk instalace (cs, en)
+ * @var string $language  installation language (cs, en)
  * @var array<string, string> $languages
- * @var list<string> $extensions  zaškrtnutá rozšíření
+ * @var list<string> $extensions  checked extensions
  */
 $error = fn (string $field): string => isset($errors[$field]) ? '<span class="chyba-pole" role="alert">' . e($errors[$field]) . '</span>' : '';
 $fulfilled = !in_array(false, array_column($requirements, 'ok'), true);

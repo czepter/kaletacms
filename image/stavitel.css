@@ -1,11 +1,11 @@
-/* Kaleta – builder stránek (admin.php?modul=stranky&akce=stavitel). Barvy z proměnných administrace (image/admin.css) – světlý i tmavý režim. */
+/* Kaleta – page builder (admin.php?modul=stranky&akce=stavitel). Colors from the admin variables (image/admin.css) – both light and dark mode. */
 
 body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; overflow: hidden; background: var(--podklad); font: 14px/1.45 var(--pismo); color: var(--text); }
 .st { display: grid; grid-template: "lista lista lista" auto "levy platno pravy" 1fr / 272px 1fr 320px; height: 100vh; height: 100dvh; }
 .st[hidden] { display: none; }
 .st button, .st input, .st select, .st textarea { font: inherit; color: inherit; }
 
-/* horní lišta */
+/* top bar */
 .st-lista { grid-area: lista; display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 6px 12px; border-bottom: 1px solid var(--linka); background: var(--plocha); }
 .st-lista .st-nazev { display: flex; flex-direction: column; min-width: 0; margin-right: auto; line-height: 1.2; }
 .st-lista .st-nazev h1 { margin: 0; overflow: hidden; font-size: inherit; font-weight: 700; letter-spacing: normal; white-space: nowrap; text-overflow: ellipsis; }
@@ -23,7 +23,7 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-tl-hlavni:hover { background: var(--akcent-tmavy); }
 .st-tl:disabled { opacity: 0.45; cursor: default; }
 
-/* levý a pravý panel */
+/* left and right panel */
 .st-levy, .st-pravy { display: flex; flex-direction: column; min-height: 0; background: var(--plocha); }
 .st-levy { grid-area: levy; border-right: 1px solid var(--linka); }
 .st-pravy { grid-area: pravy; border-left: 1px solid var(--linka); }
@@ -35,7 +35,7 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-panel h3:first-child { margin-top: 0; }
 .st-prazdno { padding: 24px 8px; color: var(--text-slaby); text-align: center; }
 
-/* Přidat */
+/* Add */
 .st-prvky { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .st-prvky button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; border: 1px solid var(--linka); border-radius: 8px; background: var(--podklad); font-size: 12px; cursor: pointer; }
 .st-prvky button:hover { border-color: var(--akcent); color: var(--akcent); }
@@ -45,7 +45,7 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-knihovna small { display: block; color: var(--text-slaby); }
 .st-hledat { width: 100%; margin-bottom: 10px; padding: 7px 10px; border: 1px solid var(--linka-pole); border-radius: 8px; background: var(--plocha); }
 
-/* Struktura */
+/* Structure */
 .st-strom, .st-strom ul { margin: 0; padding: 0; list-style: none; }
 .st-strom ul { padding-left: 14px; }
 .st-uzel { display: flex; align-items: center; gap: 6px; padding: 5px 6px; border: 1px solid transparent; border-radius: 6px; cursor: pointer; user-select: none; }
@@ -59,15 +59,15 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-uzel.cil-za { box-shadow: inset 0 -2px 0 var(--akcent); }
 .st-uzel.cil-dovnitr { background: var(--akcent-svetly); border-color: var(--akcent); border-style: dashed; }
 
-/* plátno */
+/* canvas */
 .st-platno { grid-area: platno; position: relative; display: flex; justify-content: center; min-width: 0; overflow: auto; padding: 16px; background: color-mix(in srgb, var(--podklad) 70%, var(--linka)); }
 .st-ramec { position: relative; width: 100%; height: 100%; overflow: hidden; }
-/* šířku a zmenšení iframe počítá stavitel.js: počítač se vykresluje v šířce 1280 px a zmenší se, aby platily skutečné breakpointy */
+/* the iframe width and scale are computed by stavitel.js: desktop renders at 1280 px wide and is scaled down so the real breakpoints apply */
 .st-ramec iframe { position: absolute; top: 0; left: 0; border: 0; border-radius: 8px; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / 0.1), 0 8px 30px rgb(0 0 0 / 0.08); transform-origin: 0 0; }
 .st-ramec iframe.st-nacita { visibility: hidden; }
 .st-meritko { position: absolute; right: 22px; bottom: 20px; z-index: 2; padding: 2px 8px; border-radius: 999px; background: rgb(15 17 21 / 0.7); color: #fff; font-size: 11px; pointer-events: none; }
 
-/* vlastnosti */
+/* properties */
 .st-hlava-prvku { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--linka); }
 .st-hlava-prvku strong { margin-right: auto; }
 .st-akce { display: flex; gap: 2px; }
@@ -76,7 +76,7 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-akce button.nebezpecne:hover { color: var(--chyba); }
 .st-akce { flex: none; }
 .st-hlava-prvku strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* nabídka Další akce (popover pod tlačítkem …) */
+/* the "Další akce" (More actions) menu (popover below the … button) */
 .st-vice { position: fixed; inset: auto; margin: 0; min-width: 220px; max-width: 300px; padding: 4px; border: 1px solid var(--linka); border-radius: 10px; background: var(--plocha); color: var(--text); box-shadow: 0 12px 32px rgb(0 0 0 / 0.18); }
 .st-akce .st-vice button { display: flex; align-items: center; gap: 10px; width: 100%; height: auto; padding: 8px 10px; text-align: left; font: inherit; font-size: 13px; color: inherit; }
 .st-vice .st-ikona { flex: none; }
@@ -93,7 +93,7 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-polozka-akce { display: flex; justify-content: flex-end; gap: 4px; }
 .st-obrazek-nahled { display: block; max-width: 100%; max-height: 120px; margin-top: 4px; border-radius: 6px; }
 
-/* styl */
+/* style */
 .st-stav-stylu { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 8px 10px; border-radius: 8px; background: var(--akcent-svetly); color: var(--akcent-tmavy); font-size: 12px; }
 .st-stav-stylu button { margin-left: auto; }
 .st-styl details { border-bottom: 1px solid var(--linka); }
@@ -140,12 +140,12 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 	.st { grid-template: "lista" auto "platno" 70vh "pravy" auto "levy" auto / 1fr; height: auto; }
 }
 
-/* nápověda zástupných značek kolekce */
+/* help for collection placeholders */
 .st-znacky { display: grid; gap: 6px; margin-bottom: 12px; padding: 8px 10px; border-radius: 8px; background: var(--akcent-svetly); color: var(--akcent-tmavy); font-size: 12px; }
 .st-znacky div { display: flex; flex-wrap: wrap; gap: 4px; }
 .st-znacky button { padding: 2px 6px; border: 1px solid currentColor; border-radius: 6px; background: var(--plocha); color: inherit; font: 12px ui-monospace, Menlo, Consolas, monospace; cursor: pointer; }
 
-/* AI asistent */
+/* AI assistant */
 .st-ai-sekce { width: 100%; justify-content: center; margin-bottom: 14px; border-style: dashed; }
 .st-ai { display: grid; gap: 6px; margin-bottom: 12px; font-size: 12px; color: var(--text-slaby); }
 .st-ai div { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -154,7 +154,7 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-ai button:disabled { opacity: .5; cursor: progress; }
 .st-dialog textarea { width: 100%; box-sizing: border-box; min-height: 110px; padding: 8px; border: 1px solid var(--linka-pole); border-radius: 8px; background: var(--plocha); color: var(--text); font: inherit; }
 
-/* živý náhled hotové sekce (vykreslí server v šířce 1280 px, zmenšeno) */
+/* live preview of a ready-made section (the server renders it 1280 px wide, scaled down) */
 .st-nahled-sekce { position: fixed; z-index: 50; width: 384px; height: 270px; overflow: hidden; border: 1px solid var(--linka); border-radius: 10px; background: #fff; box-shadow: 0 16px 40px rgb(0 0 0 / 0.18); pointer-events: none; }
 .st-nahled-sekce[hidden] { display: none; }
 .st-nahled-sekce iframe { width: 1280px; height: 900px; border: 0; transform: scale(0.3); transform-origin: 0 0; }
@@ -162,9 +162,9 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-vlastnost .st-chyba-pole { grid-column: 1 / -1; margin-top: -4px; }
 .st-kontrola { margin: 8px 0 0; padding-left: 18px; }
 .st-kontrola li { margin: 4px 0; }
-/* textový editor v panelu: lišta se lepí k horní hraně panelu, ne pod záhlaví administrace */
+/* text editor in the panel: the toolbar sticks to the top edge of the panel, not below the admin header */
 .st-pravy { --ed-lista-top: 0px; }
-/* Struktura: skrýt v editoru a zamknout */
+/* Structure: hide in the editor and lock */
 .st-uzel-akce { display: flex; gap: 2px; margin-inline-start: auto; opacity: 0; }
 .st-uzel:hover .st-uzel-akce, .st-uzel:focus-within .st-uzel-akce, .st-uzel-akce:has([aria-pressed="true"]) { opacity: 1; }
 .st-uzel-akce button { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--text-slaby); cursor: pointer; }
@@ -176,13 +176,13 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-moje-sekce > button:first-child { flex: 1; }
 .st-moje-sekce .st-odebrat { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: var(--podklad); color: var(--text-slaby); cursor: pointer; }
 
-/* skladač stínu a rámečku */
+/* shadow and border builder */
 .st-sklad { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; margin-top: 6px; padding: 8px; border: 1px solid var(--linka); border-radius: 6px; background: var(--podklad); }
 .st-sklad label { display: grid; gap: 2px; font-size: 12px; color: var(--text-slaby); }
 .st-sklad input[type="number"], .st-sklad input[type="text"], .st-sklad select { width: 100%; min-width: 0; }
 .st-sklad .st-zaskrt { display: flex; align-items: center; gap: 6px; }
 
-/* editor mřížky */
+/* grid editor */
 .st-mrizka { display: grid; gap: 8px; margin-bottom: 10px; padding: 8px; border: 1px dashed var(--linka); border-radius: 6px; }
 .st-mrizka-predvolby { display: flex; flex-wrap: wrap; gap: 4px; }
 .st-mrizka-radky { display: flex; align-items: center; gap: 6px; font-size: 12px; }
@@ -190,7 +190,7 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-mrizka-nahled input { min-width: 0; height: 30px; padding: 0 4px; border: 1px solid var(--linka); border-radius: 4px; background: color-mix(in oklch, #ff4f2e 8%, transparent); font: 11px/1 ui-monospace, monospace; text-align: center; }
 .st-mrizka small { font-size: 11px; color: var(--text-slaby); }
 
-/* přesun klepnutím a dotykové ovládání */
+/* move by tapping and touch controls */
 body.st-umistovani .st-uzel { cursor: copy; }
 @media (pointer: coarse) {
 	.st-akce button, .st-lista button, .st-zalozky button { min-width: 40px; min-height: 40px; }
@@ -198,7 +198,7 @@ body.st-umistovani .st-uzel { cursor: copy; }
 	.st-vlastnost select, .st-vlastnost input { min-height: 36px; }
 }
 
-/* velikost náhledu, nápověda, prohlídka */
+/* preview size, help, tour */
 .st-lupa { height: 32px; padding: 0 6px; border: 1px solid var(--linka); border-radius: 8px; background: var(--podklad); color: inherit; font: inherit; font-size: 12px; }
 .st-ramec.st-ramec-posun { overflow: auto; }
 .st-zkratky { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; }
@@ -210,7 +210,7 @@ body.st-umistovani .st-uzel { cursor: copy; }
 .st-prohlidka small { color: var(--text-slaby); }
 .st-styl-schranka { margin-bottom: 8px; }
 
-/* telefon: builder potřebuje šířku aspoň tabletu – místo rozbité lišty srozumitelné upozornění (stejnou šířku hlídá stavitel.js u prohlídky) */
+/* phone: the builder needs at least tablet width – a clear notice instead of a broken toolbar (stavitel.js checks the same width for the tour) */
 .st-uzky { display: none; }
 @media (max-width: 719px) {
 	.st-uzky { display: grid; gap: 12px; min-height: 100vh; min-height: 100dvh; place-content: center; padding: 24px; background: var(--podklad); color: var(--text); font: 16px/1.5 system-ui, sans-serif; text-align: center; }

@@ -1,12 +1,12 @@
 <?php
 /**
- * Prázdný stav výpisu: ikona, co tu bude, a zřetelná první akce.
- * Použití: <?= $app->view->render('admin/prazdno', ['ikona' => 'clanek', 'nadpis' => '…', 'text' => '…', 'akce' => [$url, 'Popisek']]) ?>
+ * Empty state of a list: an icon, what will be here, and a clear first action.
+ * Usage: <?= $app->view->render('admin/prazdno', ['ikona' => 'clanek', 'nadpis' => '…', 'text' => '…', 'akce' => [$url, 'Popisek']]) ?>
  *
- * @var string $icon    klíč do sady views/admin/icons.php
- * @var string $heading   už přeložený text
- * @var string $text     už přeložený text (nepovinný)
- * @var array{0:string,1:string}|null $action  [adresa, přeložený popisek] – nepovinné
+ * @var string $icon    key into the set in views/admin/icons.php
+ * @var string $heading   already translated text
+ * @var string $text     already translated text (optional)
+ * @var array{0:string,1:string}|null $action  [url, translated label] – optional
  */
 $svg = require __DIR__ . '/icons.php';
 ?>

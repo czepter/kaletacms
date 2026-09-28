@@ -7,10 +7,10 @@ namespace Kaleta\Admin\Modules;
 use Kaleta\Core\Response;
 
 /**
- * Rozšíření jako samostatná položka hlavní nabídky (dřív záložka Nastavení).
+ * Extensions as a separate item of the main menu (formerly a Settings tab).
  *
- * Obrazovka i ukládání jsou tytéž jako u záložek Nastavení - modul jen drží pevnou „záložku“ rozsireni,
- * vykresluje šablony ze složky config/ a vrací se na vlastní adresu (admin.php?module=extensions).
+ * The screen and saving are the same as for the Settings tabs - the module only keeps a fixed "tab" extensions,
+ * renders the templates from the config/ folder and returns to its own URL (admin.php?module=extensions).
  */
 final class Extensions extends Settings
 {

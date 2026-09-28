@@ -1,6 +1,6 @@
 <?php
 /**
- * Kaleta - veřejná část webu.
+ * Kaleta - public part of the site.
  */
 
 declare(strict_types=1);
@@ -10,6 +10,6 @@ require __DIR__ . '/system/bootstrap.php';
 $app = Kaleta\Core\App::boot();
 (new Kaleta\Front\Kernel($app))->handle()->send();
 
-// po odeslání stránky: oznámení o právě vydaných (i naplánovaných) článcích a kontrola bezpečnostních aktualizací (nejvýše jednou za 12 hodin)
+// after the page is sent: notifications about just-published (including scheduled) articles and a check for security updates (at most once per 12 hours)
 Kaleta\Core\Notifications::runInBackground($app);
 Kaleta\Core\Updater::runInBackground($app);

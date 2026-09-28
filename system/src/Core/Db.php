@@ -8,11 +8,11 @@ use PDO;
 use PDOStatement;
 
 /**
- * Tenká vrstva nad PDO.
+ * A thin layer over PDO.
  *
- * Názvy tabulek se v SQL píší ve složených závorkách bez předpony:
+ * Table names are written in SQL in curly braces without a prefix:
  *   SELECT * FROM {novinky} WHERE id = ?
- * a při spuštění se doplní předpona z konfigurace (výchozí "ka_").
+ * and on execution the prefix from the configuration is filled in (default "ka_").
  */
 final class Db
 {
@@ -46,16 +46,16 @@ final class Db
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]);
-            // Databáze musí počítat čas stejně jako PHP: data článků zapisuje PHP (date()), ale dotazy je porovnávají s NOW().
-            // Na serveru s databází v jiném pásmu (typicky UTC) by se právě vydaný článek ukázal až o hodiny později.
-            // Posun místo názvu pásma: pojmenovaná pásma vyžadují v MySQL nahrané tabulky, které na hostinzích často chybí.
+            // The database must count time the same way as PHP: PHP writes article dates (date()), but queries compare them with NOW().
+            // On a server with the database in a different zone (typically UTC) a just published article would show up hours later.
+            // An offset instead of a zone name: named zones need loaded tables in MySQL, which are often missing on hosting.
             $this->pdo->exec("SET time_zone = '" . date('P') . "'");
         }
 
         return $this->pdo;
     }
 
-    /** Doplní předponu tabulek: {novinky} -> `ka_novinky`. */
+    /** Fills in the table prefix: {novinky} -> `ka_novinky`. */
     public function sql(string $sql): string
     {
         return preg_replace_callback(
@@ -105,7 +105,7 @@ final class Db
         return $value === false ? null : $value;
     }
 
-    /** První sloupec jako klíč, druhý jako hodnota - hodí se pro <select>. */
+    /** First column as key, second as value - handy for <select>. */
     public function pairs(string $sql, array $params = []): array
     {
         return $this->run($sql, $params)->fetchAll(PDO::FETCH_KEY_PAIR);
@@ -128,7 +128,7 @@ final class Db
 
     /**
      * @param array<string, scalar|null> $data
-     * @param array<string, scalar|null> $where podmínky spojené přes AND
+     * @param array<string, scalar|null> $where conditions joined with AND
      */
     public function update(string $table, array $data, array $where): int
     {

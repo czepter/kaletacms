@@ -11,12 +11,12 @@ use Kaleta\Core\Mail;
 use Kaleta\Core\Response;
 
 /**
- * Obnova zapomenutého hesla do administrace odkazem z e-mailu (admin.php?action=password).
+ * Reset of a forgotten admin password with a link from an e-mail (admin.php?action=password).
  *
- * - Odpověď na žádost je vždy stejná, ať účet existuje nebo ne - stránka neprozradí, kdo web spravuje.
- * - V databázi je jen otisk tokenu; odkaz platí hodinu a jde použít jednou.
- * - Dvoufázové přihlášení obnova NEVYPÍNÁ: kdo získá přístup do e-mailu, bez kódu z aplikace se stejně nepřihlásí.
- * - Změna hesla ukončí všechna ostatní přihlášení účtu (otisk hesla v session přestane sedět).
+ * - The response to a request is always the same, whether the account exists or not - the page does not reveal who manages the site.
+ * - The database holds only a hash of the token; the link is valid for an hour and can be used once.
+ * - The reset does NOT DISABLE two-factor sign-in: whoever gains access to the e-mail still cannot sign in without the code from the app.
+ * - A password change ends all other sign-ins of the account (the password hash in the session stops matching).
  */
 final class PasswordReset
 {
@@ -59,8 +59,8 @@ final class PasswordReset
     }
 
     /**
-     * Odkaz na nastavení hesla e-mailem: na žádost uživatele (platí hodinu), nebo jako pozvánka nového uživatele
-     * či na pokyn správce (platí 3 dny – odkaz „platí“ tak, že čas obnovy leží v budoucnosti).
+     * Link to set the password by e-mail: at the user's request (valid for an hour), or as an invitation of a new user
+     * or on the administrator's instruction (valid for 3 days – the link is "valid" by the reset time lying in the future).
      *
      * @param array<string, mixed> $user
      */
@@ -109,7 +109,7 @@ final class PasswordReset
                 $app->db()->update('uzivatele', [
                     'password' => password_hash($password, PASSWORD_DEFAULT), 'obnova_otisk' => '', 'obnova_cas' => null, 'pocet_chyb' => 0, 'zamceno_do' => null,
                 ], ['idu' => $user['idu']]);
-                // kdo heslo obnovuje, mohl o účet přijít: tokeny napojení (MCP) přestanou platit
+                // whoever resets the password may have lost the account: connection tokens (MCP) stop being valid
                 $app->db()->delete('api_tokeny', ['idu' => $user['idu']]);
                 ChangeLog::write($app, 'prihlaseni', 'obnova-hesla', 'heslo změněno, tokeny napojení zrušeny, účet: ' . $user['user']);
                 return Response::redirect($app->url('admin.php?heslo=zmeneno'));

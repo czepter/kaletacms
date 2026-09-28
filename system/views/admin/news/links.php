@@ -1,6 +1,6 @@
 <?php
 /**
- * Nefunkční odkazy v novinkách.
+ * Broken links in news.
  *
  * @var Kaleta\Admin\Modules\News $module
  * @var string $csrf

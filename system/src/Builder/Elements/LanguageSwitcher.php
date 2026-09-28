@@ -8,8 +8,9 @@ use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
 /**
- * Přepínač jazykových verzí webu jako samostatný prvek – třeba v patičce, když ho prvek Navigace nemá (volba „Přepínač
- * jazyků“ vypnutá). Nabídka je Popover API bez skriptu; v patičce se otevírá nahoru. Web s jediným jazykem nic nevypíše.
+ * Switcher of the site's language versions as a separate element – e.g. in the footer, when the Navigation element does not have it
+ * (the „Přepínač jazyků“ (language switcher) option off). The menu is the Popover API without a script; in the footer it opens upwards.
+ * A site with a single language outputs nothing.
  */
 final class LanguageSwitcher extends Element
 {
@@ -32,7 +33,7 @@ final class LanguageSwitcher extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         if ($k->languageList === []) {
-            // jediný jazyk: na webu nic, v builderu jen upozornění, kde se jazyky zapínají
+            // a single language: nothing on the site, in the builder only a notice where languages are enabled
             return $k->editor ? '<span' . $a . ' style="display:inline-block;padding:.4rem .8rem;border:1px dashed currentColor;border-radius:999px;font-size:.85rem">'
                 . e(t('Přepínač jazyků – ukáže se, když má web víc jazykových verzí')) . '</span>' : '';
         }

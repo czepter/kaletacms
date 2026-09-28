@@ -4,7 +4,7 @@
  * @var string $csrf
  * @var array<string, mixed> $role
  * @var array<string, string> $errors
- * @var array<string, string> $section  ident => název
+ * @var array<string, string> $section  ident => name
  * @var list<string> $selected
  * @var list<array<string, mixed>> $members
  */

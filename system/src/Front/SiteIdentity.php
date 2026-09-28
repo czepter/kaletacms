@@ -7,15 +7,15 @@ namespace Kaleta\Front;
 use Kaleta\Core\Settings;
 
 /**
- * Identita webu (Vzhled → Identita webu): hlavní barva a písma, které se propisují do šablon.
+ * Site identity ("Vzhled → Identita webu", Appearance → Site identity): the main color and fonts that flow into layouts.
  *
- * Šablony s identitou počítají přes CSS proměnné --ka-akcent, --ka-pismo-titulky a --ka-pismo-text:
- * ve svém style.css je použijí s vlastní výchozí hodnotou, např. --akcent: var(--ka-akcent, #326891).
- * Písma jsou jen systémová (žádné stahování z cizích serverů - rychlost a GDPR).
+ * Layouts use the identity through the CSS custom properties --ka-akcent, --ka-pismo-titulky and --ka-pismo-text:
+ * in their style.css they use them with their own default value, e.g. --akcent: var(--ka-akcent, #326891).
+ * Fonts are system fonts only (no downloads from third-party servers - speed and GDPR).
  */
 final class SiteIdentity
 {
-    /** klíč => [název, popis, CSS font-family] */
+    /** key => [name, description, CSS font-family] */
     public const array TITLE_FONTS = [
         'vychozi' => ['Výchozí písmo', 'písmo výchozího vzhledu webu', ''],
         'elegantni' => ['Elegantní patkové', 'Bodoni, Didot – elegance a móda', '"Bodoni 72", Didot, "Bodoni MT", "Playfair Display", Georgia, serif'],
@@ -36,8 +36,8 @@ final class SiteIdentity
     ];
 
     /**
-     * Ikony webu, manifest a barva lišty prohlížeče do <head>. Barvy a písma webu vypisuje design systém (Stavitel\DesignSystem).
-     * PNG velikosti (media/ikona-<n>.png) připraví Vzhled při uložení ikony.
+     * Site icons, manifest and browser bar color for <head>. The site's colors and fonts are output by the design system
+     * (Builder\DesignSystem). The PNG sizes (media/ikona-<n>.png) are prepared by Appearance when the icon is saved.
      */
     public static function head(Settings $siteSettings, string $base): string
     {
@@ -59,7 +59,7 @@ final class SiteIdentity
         return $html;
     }
 
-    /** Manifest webu: název, barvy a ikony – telefon pak web připne na plochu s vlastní ikonou a názvem. */
+    /** Site manifest: name, colors and icons – a phone then pins the site to the home screen with its own icon and name. */
     public static function manifest(Settings $siteSettings, string $base): string
     {
         $colors = \Kaleta\Builder\DesignSystem::load($siteSettings)['barvy'];

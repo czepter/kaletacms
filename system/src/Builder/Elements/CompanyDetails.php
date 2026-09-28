@@ -8,8 +8,8 @@ use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
 /**
- * Údaj z Nastavení (adresa, telefon, IČO, otevírací doba, copyright, sociální sítě…) – vyplní se jednou a změní se všude.
- * Firma v Nastavení → Firma, web v Nastavení → Základní.
+ * A detail from Settings (address, phone, company ID, opening hours, copyright, social networks…) – filled in once and changed everywhere.
+ * The company in „Nastavení → Firma“ (Settings → Company), the site in „Nastavení → Základní“ (Settings → General).
  */
 final class CompanyDetails extends Element
 {
@@ -20,7 +20,7 @@ final class CompanyDetails extends Element
     public const string GROUP = 'Dynamické';
     public const array HTML_TAGS = ['p', 'div', 'span', 'address'];
 
-    /** Značka nevyplněné otevírací doby na webu: kontejner, ve kterém kromě ní zbude jen nadpis, se vynechá (Kontejner::vykresli). */
+    /** Marker of opening hours not filled in on the site: a container in which only a heading remains besides it is left out (Container::render). */
     public const string EMPTY_HOURS = '<!--ka-prazdne-hodiny-->';
 
     public static function properties(): array
@@ -56,7 +56,7 @@ final class CompanyDetails extends Element
             'popis' => $wrapper(e($siteSettings->get('site_description'))),
             'text_paticky' => $wrapper(e($siteSettings->get('footer_text'))),
             'email' => $wrapper(($mail = $siteSettings->get('company_email')) !== '' ? '<a href="mailto:' . e($mail) . '">' . e($mail) . '</a>' : ''),
-            'rss' => \Kaleta\Core\Extensions::isEnabled($siteSettings, 'novinky') ? $wrapper('<a href="' . e($k->url('rss.xml')) . '">RSS</a>') : '', // bez novinek RSS není
+            'rss' => \Kaleta\Core\Extensions::isEnabled($siteSettings, 'novinky') ? $wrapper('<a href="' . e($k->url('rss.xml')) . '">RSS</a>') : '', // no RSS without news
             'adresa' => $wrapper(implode('<br>', array_map(e(...), \Kaleta\Front\Company::address($siteSettings)))),
             'telefon' => $wrapper($siteSettings->get('company_phone') !== '' ? '<a href="tel:' . e((string) preg_replace('/[^\d+]/', '', $siteSettings->get('company_phone'))) . '">' . e($siteSettings->get('company_phone')) . '</a>' : ''),
             'mapa' => $wrapper($siteSettings->get('company_map') !== '' ? '<a href="' . e($siteSettings->get('company_map')) . '" target="_blank" rel="noopener">' . e(t('Zobrazit na mapě')) . '</a>' : ''),
@@ -74,8 +74,8 @@ final class CompanyDetails extends Element
     }
 
     /**
-     * Tiráž (Impressum): kdo web provozuje – obchodní firma, sídlo, identifikační čísla, zápis v rejstříku, zastoupení
-     * a kontakt. Vypíše jen vyplněné údaje z Nastavení → Firma.
+     * Imprint (Impressum): who operates the site – business name, registered office, identification numbers, registry entry,
+     * representation and contact. Outputs only the details filled in under „Nastavení → Firma“ (Settings → Company).
      */
     private static function imprint(\Kaleta\Core\Settings $siteSettings, string $a, Context $k): string
     {

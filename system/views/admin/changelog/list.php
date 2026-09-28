@@ -12,14 +12,14 @@
  * @var int $pageCount
  * @var int $total
  */
-// názvy modulů z administrace (i těch, které přibudou) a několik míst mimo moduly
+// names of the admin modules (including those added later) and a few places outside modules
 $names = array_map(fn (string $class): string => $class::NAME, array_combine(array_map(fn (string $class): string => $class::IDENT, Kaleta\Admin\Kernel::MODULES), Kaleta\Admin\Kernel::MODULES))
     + ['asistent' => 'AI asistent', 'mcp' => 'Claude (MCP)', 'claude' => 'Claude (MCP)', 'prihlaseni' => 'Přihlášení', 'ucet' => 'Můj účet'];
 $action = ['uloz' => 'uložení', 'smaz' => 'smazání', 'smaz_natrvalo' => 'smazání natrvalo', 'obnov' => 'obnovení z koše', 'duplikuj' => 'kopie',
     'vydat' => 'vydání', 'hromadne' => 'hromadná akce', 'nahraj' => 'nahrání', 'login' => 'přihlášení', 'neuspech' => 'neúspěšný pokus',
     'zalohuj' => 'záloha', 'aktualizuj' => 'aktualizace systému', 'slozka' => 'složka', 'automaticky' => 'automatické menu',
     'uloz_variantu' => 'uložení varianty', 'sablona' => 'návrat na výchozí podobu', 'stav' => 'změna stavu', 'import' => 'import', 'stavba_text' => 'návrat k textu',
-    // zápisy Clauda (MCP) podle nástroje
+    // Claude's (MCP) writes by tool
     'obnov_verzi' => 'obnovení verze', 'zahod_koncept' => 'zahození konceptu', 'vytvor_kolekci' => 'nová kolekce', 'uprav_kolekci' => 'úprava kolekce', 'uloz_polozku_kolekce' => 'uložení položky kolekce', 'uloz_popup' => 'uložení pop-up okna', 'stavba_z_html' => 'úprava stavby', 'stavba_uloz' => 'úprava stavby',
     'stavba_uprav' => 'úprava stavby', 'vloz_sekci' => 'úprava stavby', 'uloz_tridy' => 'úprava sdílených tříd', 'nahraj_soubor' => 'nahrání souboru', 'uprav_nastaveni' => 'úprava nastavení', 'uloz_presmerovani' => 'úprava přesměrování', 'smaz_stranku' => 'stránka do koše', 'publikuj_stavbu' => 'publikování',
     'uprav_design_system' => 'úprava design systemu', 'vytvor_stranku' => 'nová stránka', 'uprav_stranku' => 'úprava stránky', 'vytvor_novinku' => 'nová novinka', 'uprav_novinku' => 'úprava novinky', 'vytvor_kategorii' => 'nová kategorie', 'uloz_menu' => 'úprava menu'];

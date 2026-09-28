@@ -10,7 +10,7 @@ use Kaleta\Core\Auth;
 use Kaleta\Core\Response;
 
 /**
- * Uživatelé administrace: účty, role (správce, editor, autor novinek) a případně ruční přístup do sekcí.
+ * Admin users: accounts, roles (administrator, editor, news author) and optionally manual access to sections.
  */
 final class Users extends Module
 {
@@ -64,14 +64,14 @@ final class Users extends Module
             'role' => null,
             'blokovat' => (int) $r->postBool('blokovat'),
         ];
-        // vlastní role (hodnota „r<id>“): úroveň i sekce určuje role
+        // custom role (value "r<id>"): the role determines both the level and the sections
         $custom = preg_match('/^r(\d+)$/', $r->post('admin'), $m) ? $this->db->one('SELECT * FROM {role} WHERE idr = ?', [(int) $m[1]]) : null;
         if ($custom !== null) {
             $data['admin'] = (int) $custom['uroven'];
             $data['role'] = (int) $custom['idr'];
         }
         if ($isSelf) {
-            // admin si nesmí sám sobě vzít práva ani se zablokovat - zamkl by si administraci
+            // an administrator must not take away their own permissions or block themselves - they would lock themselves out of the admin
             $data['admin'] = Auth::ADMIN;
             $data['role'] = null;
             $data['blokovat'] = 0;
@@ -80,10 +80,10 @@ final class Users extends Module
             $data['pocet_chyb'] = 0;
         }
         if ($r->postBool('totp_reset')) {
-            // uživatel ztratil telefon i záložní kódy: administrátor mu dvoufázové přihlášení vypne
+            // the user lost both the phone and the backup codes: the administrator disables their two-factor sign-in
             $data['totp_tajemstvi'] = '';
             $data['totp_zalozni'] = null;
-            $this->app->db()->run('DELETE FROM {uzivatele_klice} WHERE idu = ?', [$id]); // přihlašovací klíče stojí na dvoufázovém přihlášení
+            $this->app->db()->run('DELETE FROM {uzivatele_klice} WHERE idu = ?', [$id]); // passkeys depend on two-factor sign-in
         }
 
         $errors = [];
@@ -101,7 +101,7 @@ final class Users extends Module
             $errors['email'] = 'Pozvánka potřebuje e-mail.';
         }
         if ($invite && $password === '') {
-            // pozvaný si heslo nastaví sám z odkazu v e-mailu; do té doby se nepřihlásí (náhodné heslo nikdo nezná)
+            // the invited user sets the password themselves from the link in the e-mail; until then they cannot sign in (nobody knows the random password)
             $data['password'] = password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT);
         } elseif ($password !== '' || $id === 0) {
             if (mb_strlen($password) < 10) {
@@ -114,7 +114,7 @@ final class Users extends Module
             return $this->form(['idu' => $id] + $data, $errors);
         }
 
-        // přístup do sekcí plyne z role; ruční výběr jen když o něj administrátor výslovně stojí
+        // access to sections follows from the role; a manual choice only when the administrator explicitly wants it
         $modules = match (true) {
             $data['role'] !== null => array_filter(explode(',', (string) $custom['moduly'])),
             $r->postBool('rucne') => array_intersect($r->postList('moduly'), array_map(fn (string $c): string => $c::IDENT, Kernel::MODULES)),
@@ -142,7 +142,7 @@ final class Users extends Module
         return $this->back('Uživatel byl uložen.');
     }
 
-    /** Správce pošle uživateli odkaz na nastavení nového hesla (platí 3 dny). */
+    /** The administrator sends the user a link to set a new password (valid for 3 days). */
     protected function actionPasswordLink(): Response
     {
         $user = $this->request->isPost() ? $this->db->one("SELECT * FROM {uzivatele} WHERE idu = ? AND email <> '' AND blokovat = 0", [$this->request->postInt('idu')]) : null;
@@ -155,9 +155,10 @@ final class Users extends Module
     }
 
     /**
-     * Oprávnění uživatele jednou větou - správce po uložení potřebuje vidět, co z role a sekcí dohromady vyšlo.
+     * The user's permissions in one sentence - after saving, the administrator needs to see what came out of the role and
+     * sections together.
      *
-     * @param list<string> $modules identifikátory modulů, ke kterým má přístup
+     * @param list<string> $modules identifiers of the modules they have access to
      */
     public static function summary(int $role, array $modules, bool $blocked = false): string
     {
@@ -190,7 +191,7 @@ final class Users extends Module
     }
 
     /**
-     * Sekce, do kterých má role přístup, když je správce nenastaví ručně: autor jen Novinky, editor veškerý obsah.
+     * Sections the role has access to when the administrator does not set them manually: author only News, editor all content.
      *
      * @return list<string>
      */
@@ -237,7 +238,7 @@ final class Users extends Module
             }
         }
 
-        // shrnutí platí pro uložený stav - nad formulářem říká, co uživatel smí TEĎ (u nového uživatele není co shrnovat)
+        // the summary applies to the saved state - above the form it says what the user can do NOW (for a new user there is nothing to summarize)
         $summary = $id > 0 && !$this->request->isPost() ? self::summary(
             (int) $author['admin'],
             array_column($this->db->all('SELECT ident_modulu FROM {uzivatele_prava} WHERE fk_id_user = ?', [$id]), 'ident_modulu'),

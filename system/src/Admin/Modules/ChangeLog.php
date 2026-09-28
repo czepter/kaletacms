@@ -7,7 +7,7 @@ namespace Kaleta\Admin\Modules;
 use Kaleta\Admin\Module;
 use Kaleta\Core\Response;
 
-/** Protokol změn - přehled akcí v administraci (jen pro administrátora). */
+/** Change log - overview of actions in the admin (administrator only). */
 final class ChangeLog extends Module
 {
     public const string IDENT = 'changelog';

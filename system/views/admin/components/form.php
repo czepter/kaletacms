@@ -1,6 +1,6 @@
 <?php
 /**
- * Název a vlastnosti komponenty.
+ * Name and properties of a component.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Components $module

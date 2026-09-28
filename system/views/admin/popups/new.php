@@ -1,6 +1,6 @@
 <?php
 /**
- * Nové pop-up okno z hotového vzoru.
+ * A new popup from a ready-made template.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Popups $module

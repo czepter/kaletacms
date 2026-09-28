@@ -1,4 +1,4 @@
-<?php /** Záložka SEO a GEO. */ ?>
+<?php /** The "SEO a GEO" (SEO and GEO) tab. */ ?>
 <p class="hlaska"><?= e(t('Většinu věcí dělá systém sám: adresy, popisy, sitemapu, strukturovaná data i podklady pro AI vyhledávače. Tady rozhodujete jen o tom hlavním.')) ?></p>
 <fieldset>
 <legend><?= e(t('Viditelnost webu')) ?></legend>

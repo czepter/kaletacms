@@ -1,5 +1,5 @@
-// Kaleta - přihlašovací klíče (passkeys / WebAuthn): registrace v Můj účet a druhý krok přihlášení.
-// Formulář s atributem data-klice nese adresu, kam se posílá; výzvu i ověření dělá server (Core\Passkey).
+// Kaleta - passkeys (WebAuthn): registration in "Můj účet" (My account) and the second sign-in step.
+// A form with the data-klice attribute carries the URL it posts to; the server creates the challenge and verifies it (Core\Passkey).
 (function () {
 	'use strict';
 
@@ -74,7 +74,7 @@
 			}).then(function (j) {
 				window.location.href = (j && j.kam) || window.location.href.split('#')[0];
 			}).catch(function (e) {
-				// zrušení dialogu uživatelem není chyba, kterou by bylo potřeba hlásit
+				// the user cancelling the dialog is not an error worth reporting
 				showError(e && e.name === 'NotAllowedError' ? '' : (e && e.message) || '');
 			});
 		});

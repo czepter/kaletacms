@@ -11,9 +11,9 @@ use Kaleta\Core\Db;
 use Kaleta\Core\Response;
 
 /**
- * Vlastní role (Uživatelé → Role): pojmenovaná sada sekcí administrace a úroveň – třeba „Obchodník“ jen s Poptávkami
- * nebo „Marketing“ se Stránkami, Médii a Novinkami. Uložení role přepíše práva všem jejím členům; smazání role
- * členům práva nechá, jen už nejsou svázaná.
+ * Custom roles (Uživatelé → Role, Users → Roles): a named set of admin sections and a level – e.g. "Obchodník" (Sales) with
+ * only Enquiries, or "Marketing" with Pages, Media and News. Saving a role overwrites the permissions of all its members;
+ * deleting a role leaves the members their permissions, they are just no longer linked.
  */
 final class Roles extends Module
 {
@@ -24,7 +24,7 @@ final class Roles extends Module
     public const bool ADMIN_ONLY = true;
     public const string PARENT = 'users';
 
-    /** Úrovně vlastní role (správce vlastní rolí být nemůže – to je vestavěná role Správce). */
+    /** Levels of a custom role (administrator cannot be a custom role – that is the built-in role Administrator). */
     public const array LEVELS = [
         Auth::AUTHOR => ['Píše vlastní obsah', 'Novinky jen své a bez vydávání – vydává editor.'],
         Auth::EDITOR => ['Spravuje obsah všech', 'Upravuje a vydává novinky všech autorů.'],
@@ -90,7 +90,7 @@ final class Roles extends Module
     protected function actionDelete(): Response
     {
         if ($this->request->isPost()) {
-            // členové si ponechají dosavadní práva, jen už je role při další změně nepřepíše
+            // members keep their current permissions, only the role no longer overwrites them on the next change
             $this->db->run('UPDATE {uzivatele} SET role = NULL WHERE role = ?', [$this->request->postInt('idr')]);
             $this->db->delete('role', ['idr' => $this->request->postInt('idr')]);
         }
@@ -98,7 +98,7 @@ final class Roles extends Module
         return $this->back('Role byla smazána. Její členové si ponechali dosavadní přístup.');
     }
 
-    /** Práva role přepíše všem jejím členům (úroveň i sekce). Správce se nemění – ten má vždy vše. */
+    /** Overwrites the role's permissions for all its members (level and sections). An administrator is not changed – they always have everything. */
     public static function applyToMembers(Db $db, int $idr): void
     {
         $role = $db->one('SELECT * FROM {role} WHERE idr = ?', [$idr]);
@@ -114,7 +114,7 @@ final class Roles extends Module
         }
     }
 
-    /** @return array<string, string> sekce, ke kterým se přístup nastavuje: ident => název */
+    /** @return array<string, string> sections for which access is set: ident => name */
     public static function configurable(): array
     {
         $section = [];

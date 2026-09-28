@@ -8,8 +8,8 @@ use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
 /**
- * Sociální sítě jako ikony. Adresy profilů se zadávají jednou v Nastavení → Firma; prvek je vypíše všude stejně.
- * Ikony jsou zjednodušené vlastní kresby (tah currentColor), žádné cizí skripty ani sledovací tlačítka.
+ * Social networks as icons. The profile urls are entered once in „Nastavení → Firma“ (Settings → Company); the element outputs them the same everywhere.
+ * The icons are simplified custom drawings (currentColor stroke), no third-party scripts or tracking buttons.
  */
 final class SocialLinks extends Element
 {
@@ -19,7 +19,7 @@ final class SocialLinks extends Element
     public const string ICON = 'socialni';
     public const array HTML_TAGS = ['ul'];
 
-    /** klíč nastavení => [název, vnitřek SVG 24×24] */
+    /** settings key => [name, inner SVG 24×24] */
     private const array SOCIAL_NETWORKS = [
         'social_facebook' => ['Facebook', '<path d="M14 8.5h2.5V5H14a4 4 0 0 0-4 4v2.5H7.5V15H10v6h3.5v-6H16l.5-3.5h-3V9a.5.5 0 0 1 .5-.5z"/>'],
         'social_instagram' => ['Instagram', '<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="0.6"/>'],

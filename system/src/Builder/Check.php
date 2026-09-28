@@ -5,17 +5,17 @@ declare(strict_types=1);
 namespace Kaleta\Builder;
 
 /**
- * Kontrola stavby před publikováním pro Clauda (MCP) – stejná pravidla jako v builderu (image/stavitel.js, kontrola()):
- * tlačítka bez odkazu, obrázky bez souboru či popisu a u stránek osnova nadpisů. Kontrast textu tu chybí, ten potřebuje
- * vykreslenou stránku a hlídá ho builder v prohlížeči.
+ * Pre-publish check of a build for Claude (MCP) – the same rules as in the builder (image/stavitel.js, check()):
+ * buttons without a link, images without a file or description and, for pages, the heading outline. Text contrast is
+ * missing here: it needs the rendered page, and the builder checks it in the browser.
  */
 final class Check
 {
     public const int MAX = 12;
 
     /**
-     * @param array<string, mixed> $build vyčištěná stavba
-     * @param bool $headings hlídat osnovu nadpisů (stránka má mít jeden h1 a nepřeskakovat úrovně)
+     * @param array<string, mixed> $build sanitized build
+     * @param bool $headings check the heading outline (a page should have one h1 and not skip levels)
      * @return list<array{id: ?string, zprava: string}>
      */
     public static function builds(array $build, bool $headings): array
@@ -39,7 +39,7 @@ final class Check
                 } elseif ($type === 'obrazek' && ($o['alt'] ?? '') === '' && !$tags($o['src'])) {
                     $findings[] = ['id' => $id, 'zprava' => t('Obrázek nemá popis pro nevidomé (alt).')];
                 }
-                // nadpis se značkou p (velké číslo, štítek) do osnovy nepatří
+                // a heading with the p tag (big number, label) does not belong in the outline
                 if ($type === 'nadpis' && preg_match('/^h([1-6])$/', (string) ($p['znacka'] ?? 'h2'), $m)) {
                     $outline[] = [$id, (int) $m[1], self::text($o['text'] ?? '')];
                 }

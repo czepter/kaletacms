@@ -15,13 +15,13 @@ use Kaleta\Builder\Elements\Form;
 use Kaleta\Builder\Build;
 
 /**
- * Odeslání formuláře z builderu (POST /formular). Pole a příjemce bere z PUBLIKOVANÉ stavby podle zdroje a id prvku –
- * návštěvník nemůže přidat pole ani změnit adresáta. Výsledek: poptávka v ka_poptavky, upozornění e-mailem a návrat
- * na stránku s kódem výsledku (?formular=<id>&vysledek=ok|pole|limit|rychle|overeni).
+ * Submission of a builder form (POST /formular). Fields and recipient are taken from the PUBLISHED build by source and
+ * element id – the visitor cannot add a field or change the recipient. Result: an enquiry in ka_poptavky, an e-mail
+ * notification and a return to the page with a result code (?formular=<id>&vysledek=ok|pole|limit|rychle|overeni).
  */
 final class Forms
 {
-    /** Kolik zpráv smí jedna IP adresa odeslat za 10 minut. */
+    /** How many messages one IP address can send in 10 minutes. */
     private const int LIMIT = 5;
 
     public function __construct(private readonly App $app)
@@ -46,10 +46,10 @@ final class Forms
         $antispam = new Antispam($this->app->db(), $this->app->settings());
         $reason = $antispam->reason($r, 'formular|' . $source . '|' . $element['id']);
         if ($reason === 'robot') {
-            return $redirectUri('ok'); // robot se nedozví, že neprošel
+            return $redirectUri('ok'); // the robot does not learn that it failed
         }
         if ($reason !== null) {
-            // příliš rychlé odeslání (automatické vyplnění) má vlastní hlášení: stačí chvilku počkat, obnovovat stránku netřeba
+            // a too-fast submission (autofill) has its own message: waiting a moment is enough, no need to reload the page
             return $redirectUri($reason === 'rychle' ? 'rychle' : 'overeni');
         }
         if ($antispam->count($r->ip(), 'formular', 0, 10) >= self::LIMIT) {
@@ -96,7 +96,8 @@ final class Forms
             $data[] = [$field['popisek'], $value];
         }
         $antispam->write($r->ip(), 'formular', 0);
-        // přílohy mimo veřejné složky (storage/ je z webu nepřístupné); stáhne je jen přihlášený v Poptávkách
+        // attachments outside public folders (storage/ is not reachable from the web); only a signed-in user can download
+        // them in Enquiries
         foreach ($attachments as $index => [$tmp, $extension]) {
             $path = date('Y/m') . '/' . bin2hex(random_bytes(12)) . '.' . $extension;
             $target = KALETA_ROOT . '/storage/prilohy/' . $path;
@@ -114,15 +115,17 @@ final class Forms
         $this->notify($idp, $element, $data, $email, $campaign);
         \Kaleta\Core\Webhook::enquiryReceived($this->app, $idp, (string) $element['obsah']['nazev'], $data, $email, $back, $campaign);
         if (!empty($element['obsah']['potvrzeni']) && $email !== '') {
-            // potvrzení odesílateli: jen poděkování a název formuláře – obsah zprávy ne, aby formulář nešel zneužít k rozesílání cizích textů
+            // confirmation to the sender: only the thank-you text and the form name – not the message content, so the form
+            // cannot be abused to send out other people's texts
             $siteSettings = $this->app->settings();
             Mail::send($siteSettings, $email, t('Potvrzení: %s', $siteSettings->get('site_name')), $element['obsah']['dekujeme'] . "\n\n—\n" . $siteSettings->get('site_name') . "\n" . rtrim($siteSettings->get('site_url') ?: $r->origin(), '/'), '');
         }
         $thankYouUrl = (string) ($element['obsah']['dekovna'] ?? '');
-        // „/\cizi.cz“ prohlížeč chápe jako //cizi.cz – zpětné lomítko v adrese děkovné stránky neprojde
+        // the browser reads „/\cizi.cz“ as //cizi.cz – a backslash in the thank-you page URL is rejected
         if ($thankYouUrl !== '' && !str_contains($thankYouUrl, '\\') && (str_starts_with($thankYouUrl, '/') && !str_starts_with($thankYouUrl, '//') || preg_match('#^https://#', $thankYouUrl))) {
-            // adresa na webu je celá cesta (i s jazykem, /en/…), jen se doplní složka instalace
-            // ?odeslano=<název> na děkovné stránce ohlásí konverzi měření (image/web.js), stejně jako poděkování na místě
+            // a URL on the site is the full path (including the language, /en/…), only the installation folder is added
+            // ?odeslano=<name> on the thank-you page reports the conversion to analytics (image/web.js), just like the
+            // in-place thank-you
             $thankYouUrl = (str_starts_with($thankYouUrl, '/') ? $r->basePath() . $thankYouUrl : $thankYouUrl);
             $thankYouUrl .= (str_contains($thankYouUrl, '?') ? '&' : '?') . 'odeslano=' . rawurlencode((string) $element['obsah']['nazev']);
 
@@ -132,7 +135,7 @@ final class Forms
         return $redirectUri('ok');
     }
 
-    /** Formulář z publikované stavby stránky nebo části webu. @return array<string, mixed>|null */
+    /** Form from the published build of a page or site part. @return array<string, mixed>|null */
     private function element(string $source, string $id): ?array
     {
         $db = $this->app->db();
@@ -143,7 +146,7 @@ final class Forms
             (bool) preg_match('/^popup:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT stavba FROM {popupy} WHERE idpp = ? AND aktivni = 1', [(int) $m[1]])),
             default => null,
         };
-        // formulář může být i uvnitř komponenty (její publikovaná stavba); hloubka jako při vykreslení
+        // the form can also be inside a component (its published build); depth as when rendering
         $find = function (array $children, array $nesting = []) use (&$find, $id, $db): ?array {
             foreach ($children as $p) {
                 if (($p['id'] ?? '') === $id) {
@@ -172,8 +175,9 @@ final class Forms
     public const array UTM = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
 
     /**
-     * Kampaň z adresy stránky s formulářem (hlavička Referer odeslání): jen parametry utm_*, jen z vlastního webu.
-     * Bez cookies a bez ukládání v prohlížeči – kampaň se zapíše, když je formulář přímo na stránce, na kterou reklama vede.
+     * Campaign from the URL of the page with the form (Referer header of the submission): only utm_* parameters, only
+     * from the own site. No cookies and no storage in the browser – the campaign is recorded when the form is directly on
+     * the page the ad leads to.
      */
     public static function campaign(string $referer, string $origin): string
     {
@@ -194,7 +198,7 @@ final class Forms
         return strlen($campaign) <= 255 ? $campaign : '';
     }
 
-    /** Kampaň pro člověka: „google / cpc / jarni-akce“ (zdroj / médium / kampaň, případně klíčové slovo a obsah). */
+    /** Human-readable campaign: „google / cpc / jarni-akce“ (source / medium / campaign, optionally keyword and content). */
     public static function campaignText(string $campaign): string
     {
         parse_str($campaign, $utm);
@@ -207,7 +211,7 @@ final class Forms
         $siteSettings = $this->app->settings();
         $recipient = filter_var($element['obsah']['prijemce'], FILTER_VALIDATE_EMAIL) !== false ? $element['obsah']['prijemce'] : $siteSettings->get('site_email');
         if ($recipient === '') {
-            return; // poptávka je uložená v administraci i bez e-mailu
+            return; // the enquiry is saved in the administration even without an e-mail
         }
         $url = rtrim($siteSettings->get('site_url') !== '' ? $siteSettings->get('site_url') : $this->app->request->origin(), '/');
         $text = implode("\n\n", array_map(fn (array $d): string => $d[0] . ":\n" . $d[1], $data))

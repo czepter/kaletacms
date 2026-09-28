@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Ověřování podpisů vydavatele (Ed25519). Soubor system/aktualizace.pub smí nést VÍC veřejných klíčů - na každém řádku jeden
- * (base64, za mezerou volitelný popis, řádky s # jsou poznámky). Podpis platí, když sedí na kterýkoli z nich.
+ * Verification of publisher signatures (Ed25519). The file system/aktualizace.pub may hold SEVERAL public keys - one per line
+ * (base64, an optional description after a space, lines with # are comments). A signature is valid when it matches any of them.
  *
- * Proč víc klíčů: vedle provozního klíče existuje záložní, který leží offline a nepoužívá se. Při ztrátě provozního klíče
- * se jím podepíše vydání s novým provozním klíčem; při úniku vydání, které kompromitovaný klíč ze souboru odstraní.
- * Postup je v docs/RELEASING.md.
+ * Why several keys: besides the operational key there is a backup key that is kept offline and not used. If the operational
+ * key is lost, it signs a release with a new operational key; if it leaks, a release that removes the compromised key from the file.
+ * The procedure is in docs/RELEASING.md.
  */
 final class Signature
 {
-    /** @return array<string, string> identifikátor klíče => veřejný klíč (binárně) */
+    /** @return array<string, string> key identifier => public key (binary) */
     public static function keys(string $file): array
     {
         $keys = [];
@@ -32,13 +32,13 @@ final class Signature
         return $keys;
     }
 
-    /** Krátký identifikátor klíče (prvních 8 znaků otisku) - do manifestu a do dokumentace, ať je jasné, čím se podepisovalo. */
+    /** Short key identifier (the first 8 characters of the fingerprint) - for the manifest and the docs, so it is clear what signed it. */
     public static function id(string $publicKey): string
     {
         return substr(hash('sha256', $publicKey), 0, 8);
     }
 
-    /** Platí podpis (base64) zprávy vůči některému z klíčů v souboru? */
+    /** Is the signature (base64) of the message valid against any of the keys in the file? */
     public static function isValid(string $message, string $signatureBase64, string $file): bool
     {
         $signature = base64_decode($signatureBase64, true);
@@ -54,7 +54,7 @@ final class Signature
         return false;
     }
 
-    /** Co přesně se u balíčku podepisuje: verze, otisk ZIPu i příznak bezpečnostního vydání (to se instaluje samo). */
+    /** What exactly is signed for a package: the version, the ZIP fingerprint and the security-release flag (that one installs itself). */
     public static function packageMessage(string $version, string $sha256, bool $securityRelease): string
     {
         return $version . '|' . strtolower($sha256) . '|' . ($securityRelease ? 'bezpecnostni' : 'bezne');

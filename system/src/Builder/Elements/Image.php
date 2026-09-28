@@ -8,7 +8,7 @@ use Kaleta\Core\Images;
 use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
-/** Obrázek z Médií: srcset z připravených variant, líné načítání (kromě hlavního obrázku stránky), volitelně popisek a odkaz. */
+/** Image from Media: srcset from the prepared variants, lazy loading (except for the page's main image), optionally a caption and a link. */
 final class Image extends Element
 {
     public const string TYPE = 'obrazek';

@@ -1,11 +1,11 @@
 <?php
 /**
- * Řádek formuláře "Jazyková verze" - jen když má web další jazyky (rozšíření Jazykové verze).
+ * Form row "Jazyková verze" (language version) - only when the site has other languages (the Language versions extension).
  *
  * @var Kaleta\Core\App $app
- * @var string $value  aktuální hodnota sloupce jazyk ('' = výchozí jazyk)
+ * @var string $value  current value of the jazyk column ('' = default language)
  * @var string $hint
- * @var array<int, string> $originals  položky ve výchozím jazyce, ze kterých jde vybrat originál překladu
+ * @var array<int, string> $originals  items in the default language from which the original of the translation can be chosen
  * @var int $translationOf
  */
 use Kaleta\Core\Language;

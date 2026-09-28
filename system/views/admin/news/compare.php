@@ -1,6 +1,6 @@
 <?php
 /**
- * Porovnání uložené verze novinky se současným zněním.
+ * Comparison of a saved version of a news item with its current wording.
  *
  * @var Kaleta\Admin\Modules\News $module
  * @var array<string, mixed> $newsItem

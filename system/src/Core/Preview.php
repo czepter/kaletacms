@@ -5,15 +5,16 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Podepsaný odkaz na náhled konceptu (stránka nebo část webu) bez přihlášení – pro Clauda přes MCP a pro sdílení s kolegou.
- * Klíč „platnost.podpis“ platí jen pro jeden cíl a do vypršení; podpis je HMAC tajným klíčem instalace (Antispam::klic).
- * Náhled nemá noindex jen v meta: stránka s parametrem se neukládá do mezipaměti a vyhledávače ji nedostanou do indexu.
+ * Signed link to a draft preview (page or site part) without login – for Claude over MCP and for sharing with a colleague.
+ * The key "expiry.signature" is valid only for one target and until it expires; the signature is an HMAC with the installation's
+ * secret key (Antispam::key).
+ * The preview has noindex not only in meta: a page with the parameter is not cached and search engines do not get it into their index.
  */
 final class Preview
 {
     public const int MAX_MINUTES = 7 * 24 * 60;
 
-    /** Klíč náhledu pro cíl „stranka:12“ nebo „cast:hlavicka:en“ platný zadaný počet minut. */
+    /** Preview key for the target "stranka:12" or "cast:hlavicka:en", valid for the given number of minutes. */
     public static function key(Db $db, Settings $settings, string $target, int $minutes): string
     {
         $to = time() + 60 * max(5, min(self::MAX_MINUTES, $minutes));

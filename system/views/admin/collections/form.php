@@ -1,6 +1,6 @@
 <?php
 /**
- * Definice kolekce: název, adresa, stránky položek a pole.
+ * Collection definition: name, slug, item pages and fields.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Collections $module

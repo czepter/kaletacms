@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Rozšíření - volitelné části systému, které administrátor zapíná a vypíná v Nastavení.
+ * Extensions - optional parts of the system that the administrator turns on and off in Settings.
  *
- * Systém je záměrně uzavřený: všechna rozšíření jsou součástí balíčku a vznikají v projektu Kaleta.
- * Cizí plug-iny se neinstalují. Vypnuté rozšíření zmizí z menu administrace i z webu, data zůstávají.
+ * The system is closed on purpose: all extensions are part of the package and are made in the Kaleta project.
+ * Third-party plug-ins are not installed. A disabled extension disappears from the administration menu and from the site, the data stays.
  */
 final class Extensions
 {
-    /** klíč => [název, popis, zapnuto ve výchozím stavu] */
+    /** key => [name, description, enabled by default] */
     public const array CATALOG = [
         'novinky' => ['Novinky', 'Aktuality a blog: výpis /novinky s kategoriemi a štítky, RSS, prvek Novinky v builderu a odkaz v automatickém menu.', true],
         'poptavky' => ['Formuláře a poptávky', 'Prvek Formulář v builderu a schránka Poptávky: odeslané dotazy se uloží, přijdou e-mailem a jdou předat kolegovi nebo do CRM.', true],
@@ -45,7 +45,7 @@ final class Extensions
     public static function save(Settings $settings, array $keys): void
     {
         $keys = array_values(array_intersect($keys, array_keys(self::CATALOG)));
-        // prázdný řetězec znamená "výchozí stav", proto se prázdný výběr ukládá jako "-"
+        // an empty string means "default state", so an empty selection is saved as "-"
         $settings->set('extensions', $keys === [] ? '-' : implode(',', $keys));
     }
 }

@@ -1,15 +1,15 @@
-/* Kaleta - pomocník editoru: kontrola přístupnosti obsahu a AI asistent. Bez knihoven.
+/* Kaleta - editor helper: accessibility check of the content and the AI assistant. No libraries.
  *
- *   <fieldset data-kontrola>          sem se vypisuje průběžná kontrola (alt texty, nadpisy, odkazy, tabulky)
- *   <form data-asistent="adresa">     u polí formuláře přibydou tlačítka "✦ Navrhnout" (jen se zapnutým rozšířením)
+ *   <fieldset data-kontrola>          the running check is listed here (alt texts, headings, links, tables)
+ *   <form data-asistent="adresa">     form fields get "✦ Navrhnout" (Suggest) buttons (only with the extension enabled)
  *
- * Asistent nic neukládá - návrh se jen vloží do pole formuláře a člověk ho může dál upravit.
+ * The assistant saves nothing - a suggestion is only inserted into the form field and the person can edit it further.
  */
-// skript je v obsahu stránky, tedy před admin.js se slovníkem překladů (window.T) – začne až po načtení všech skriptů
+// the script is in the page content, i.e. before admin.js with the translation dictionary (window.T) – it starts only after all scripts load
 document.addEventListener('DOMContentLoaded', function () {
 	'use strict';
 
-	var T = window.T || function (s) { return s; }; // překlad textů administrace (image/jazyky/admin-*.js)
+	var T = window.T || function (s) { return s; }; // translation of admin texts (image/jazyky/admin-*.js)
 
 	var form = document.querySelector('form.formular-clanek');
 	if (!form) { return; }
@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 	function element(tag, className, text) { var e = document.createElement(tag); if (className) { e.className = className; } if (text) { e.textContent = text; } return e; }
 
-	/* ---------- kontrola přístupnosti ---------- */
+	/* ---------- accessibility check ---------- */
 
 	var panel = form.querySelector('[data-kontrola]');
 	var assistantUrl = form.getAttribute('data-asistent') || '';
@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	form.addEventListener('input', function (e) { if (panel && panel.contains(e.target)) { return; } clearTimeout(timer); timer = setTimeout(check, 900); });
 	check();
 
-	/* ---------- AI asistent ---------- */
+	/* ---------- AI assistant ---------- */
 
 	if (!assistantUrl) { return; }
 
@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			.catch(function () { return { chyba: T('Spojení s asistentem selhalo. Zkuste to znovu.') }; });
 	}
 
-	/* úkol => [pole, popisek tlačítka, nadpis okna, jak návrh zapsat do pole] */
+	/* task => [field, button label, dialog heading, how to write the suggestion into the field] */
 	var TASKS = {
 		titulky: ['titulek', T('Navrhnout'), T('Návrhy titulku'), function (n) { set('titulek', n); }],
 		perex: ['uvod', T('Navrhnout'), T('Návrhy perexu'), function (n) { set('uvod', '<p>' + esc(n) + '</p>'); }],
@@ -162,7 +162,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		if (j.chyba) { content.appendChild(element('p', 'hlaska hlaska-chyba', j.chyba)); return; }
 		if (!j.opravy.length) { content.appendChild(element('p', 'kontrola-vporadku', T('✓ Asistent nenašel nic k opravě.'))); return; }
 		var items = j.opravy.map(function (o) {
-			// oprava jde provést jen tam, kde se původní úsek v poli najde přesně (a nejde přes formátování)
+			// a correction can be applied only where the original passage is found in the field exactly (and does not span formatting)
 			var whereParts = ['titulek', 'uvod', 'text'].filter(function (id) { return field(id).value.indexOf(id === 'titulek' ? o.puvodni : esc(o.puvodni)) !== -1; })[0];
 			var row = element('label', 'ai-navrh ai-oprava');
 			var box = element('input'); box.type = 'checkbox'; box.checked = !!whereParts; box.disabled = !whereParts;

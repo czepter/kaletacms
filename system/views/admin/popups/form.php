@@ -1,6 +1,6 @@
 <?php
 /**
- * Nastavení pop-up okna: typ, spouštěč, četnost a pravidla zobrazení.
+ * Popup settings: type, trigger, frequency and display rules.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Popups $module

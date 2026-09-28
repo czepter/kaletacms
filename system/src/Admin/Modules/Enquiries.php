@@ -8,8 +8,8 @@ use Kaleta\Admin\Module;
 use Kaleta\Core\Response;
 
 /**
- * Poptávky a zprávy z formulářů webu (prvek Formulář v builderu, Front\Formulare). Stav: 0 nová, 1 přečtená, 2 vyřízená.
- * Obsahují osobní údaje – po nastaveném počtu měsíců se samy mažou a jdou vyvézt do CSV.
+ * Enquiries and messages from the site's forms (the Form element in the builder, Front\Forms). Status: 0 new, 1 read, 2 handled.
+ * They contain personal data – they delete themselves after the set number of months and can be exported to CSV.
  */
 final class Enquiries extends Module
 {
@@ -36,7 +36,7 @@ final class Enquiries extends Module
         $search = mb_substr(trim($this->request->get('hledat')), 0, 100);
         if ($search !== '') {
             $conditions[] = '(email LIKE ? OR formular LIKE ? OR data LIKE ? OR poznamka LIKE ?)';
-            // data jsou JSON s \uXXXX místo diakritiky – hledá se i v té podobě
+            // the data is JSON with \uXXXX instead of diacritics – the search also looks in that form
             $pattern = '%' . addcslashes($search, '%_\\') . '%';
             $jsonPattern = '%' . addcslashes(substr((string) json_encode($search), 1, -1), '%_\\') . '%';
             array_push($params, $pattern, $pattern, $jsonPattern, $pattern);
@@ -69,8 +69,9 @@ final class Enquiries extends Module
     }
 
     /**
-     * Kdo může poptávku vyřizovat: aktivní správci a uživatelé s právem k Poptávkám (ne třeba autor novinek, který je nevidí).
-     * Už přiřazený uživatel v seznamu zůstane, i když právo mezitím ztratil – uložení poznámky ho potichu neodebere.
+     * Who can handle an enquiry: active administrators and users with the permission for Enquiries (not e.g. a news author,
+     * who does not see them). An already assigned user stays in the list even if they lost the permission in the meantime –
+     * saving the note does not silently remove them.
      *
      * @return array<int, string>
      */
@@ -82,7 +83,7 @@ final class Enquiries extends Module
         );
     }
 
-    /** Interní poznámka a kdo poptávku vyřizuje. */
+    /** Internal note and who handles the enquiry. */
     protected function actionNote(): Response
     {
         $idp = $this->request->postInt('idp');
@@ -95,7 +96,7 @@ final class Enquiries extends Module
         return $this->back('Poznámka byla uložena.', 'detail', ['id' => $idp]);
     }
 
-    /** Příloha z formuláře ke stažení (jen přihlášenému s přístupem k poptávkám). */
+    /** Form attachment for download (only for a signed-in user with access to enquiries). */
     protected function actionAttachment(): Response
     {
         $p = $this->db->one('SELECT data FROM {poptavky} WHERE idp = ?', [$this->request->getInt('id')]);
@@ -110,7 +111,7 @@ final class Enquiries extends Module
             'Content-Disposition' => "attachment; filename*=UTF-8''" . rawurlencode($displayName)]);
     }
 
-    /** Hromadně: označit jako vyřízené, nebo smazat (i s přílohami). */
+    /** In bulk: mark as handled, or delete (including attachments). */
     protected function actionBulk(): Response
     {
         $ids = array_map('intval', $this->request->postList('oznacene'));
@@ -161,7 +162,7 @@ final class Enquiries extends Module
         return $this->back('Poptávka byla smazána.');
     }
 
-    /** Uložení doby, po které se poptávky samy mažou (jen správce). */
+    /** Saving the period after which enquiries delete themselves (administrator only). */
     protected function actionSettings(): Response
     {
         if ($this->request->isPost() && $this->app->auth()->isAdmin()) {
@@ -171,7 +172,7 @@ final class Enquiries extends Module
         return $this->back('Nastavení poptávek bylo uloženo.');
     }
 
-    /** Všechny poptávky do CSV (UTF-8 s BOM, středník – otevře se rovnou v Excelu). */
+    /** All enquiries to CSV (UTF-8 with BOM, semicolon – opens directly in Excel). */
     protected function actionCsv(): Response
     {
         $f = fopen('php://temp', 'w+');
@@ -179,7 +180,7 @@ final class Enquiries extends Module
         fputcsv($f, [t('Číslo'), t('Datum'), t('Formulář'), t('Stav'), t('E-mail'), t('Stránka'), t('Kampaň'), t('Obsah')], ';', '"', '');
         foreach ($this->db->all('SELECT * FROM {poptavky} ORDER BY idp') as $p) {
             $content = implode("\n", array_map(fn (array $d): string => $d[0] . ': ' . $d[1], json_decode((string) $p['data'], true) ?: []));
-            // buňka začínající = + - @ by se v tabulkovém procesoru spustila jako vzorec
+            // a cell starting with = + - @ would run as a formula in a spreadsheet
             $row = array_map(fn (string $v): string => preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v,
                 [(string) $p['idp'], (string) $p['datum'], (string) $p['formular'], t(self::STATUSES[(int) $p['stav']] ?? ''), (string) $p['email'], (string) $p['stranka'], \Kaleta\Front\Forms::campaignText((string) ($p['kampan'] ?? '')), $content]);
             fputcsv($f, $row, ';', '"', '');
@@ -192,8 +193,8 @@ final class Enquiries extends Module
         return new Response($csv, 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="poptavky-' . date('Y-m-d') . '.csv"']);
     }
 
-    /** Smaže poptávky starší než nastavený počet měsíců. */
-    /** Smaže poptávky starší než nastavený počet měsíců i s přílohami (volá i úklid na pozadí, Core\Oznameni). */
+    /** Deletes enquiries older than the set number of months. */
+    /** Deletes enquiries older than the set number of months, including attachments (also called by the background cleanup, Core\Notifications). */
     public static function deleteExpired(\Kaleta\Core\Db $db, \Kaleta\Core\Settings $siteSettings): void
     {
         $months = $siteSettings->int('enquiries_months');

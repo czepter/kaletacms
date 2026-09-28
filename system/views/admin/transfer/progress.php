@@ -1,15 +1,15 @@
 <?php
 /**
- * Import z WordPressu, krok 3: průběh po dávkách (čtení souboru, import obsahu, stahování obrázků) a výsledek.
- * Dokud není hotovo, formulář se odesílá sám (data-auto-odeslat v image/admin.js) – každé odeslání je jedna dávka.
+ * WordPress import, step 3: progress in batches (reading the file, importing content, downloading images) and the result.
+ * Until it is done, the form submits itself (data-auto-odeslat in image/admin.js) – each submission is one batch.
  *
  * @var Kaleta\Admin\Modules\Transfer $module
  * @var Kaleta\Core\App $app
  * @var string $csrf
  * @var array<string, mixed> $state
- * @var string $error  už přeložená chyba poslední dávky (import se zastavil)
- * @var bool $canDownload  server umí stahovat (curl nebo allow_url_fopen) a má GD
- * @var string $domain  doména starého webu – jen z ní se obrázky stahují
+ * @var string $error  already translated error of the last batch (the import stopped)
+ * @var bool $canDownload  the server can download (curl or allow_url_fopen) and has GD
+ * @var string $domain  domain of the old site – images are downloaded only from it
  */
 $v = $state['vysledek'];
 $o = $state['obr'];

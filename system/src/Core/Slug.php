@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Volná adresa v URL (seo_link stránky, novinky, kategorie, položky kolekce, adresa pop-up okna): když je základ obsazený,
- * dostane pořadové číslo (o-nas, o-nas-2, o-nas-3…). Základ se zkrátí tak, aby se s číslem vešel do sloupce.
+ * A free slug in the URL (seo_link of a page, news item, category, collection item, popup slug): when the base is taken,
+ * it gets a sequence number (o-nas, o-nas-2, o-nas-3…). The base is shortened so that it fits in the column with the number.
  */
 final class Slug
 {

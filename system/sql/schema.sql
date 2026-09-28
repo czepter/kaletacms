@@ -1,54 +1,54 @@
--- Kaleta - struktura databáze
+-- Kaleta - database structure
 --
--- Názvy tabulek a sloupců jsou česky. Předpona "ka_" se při instalaci nahradí předponou z config.php.
--- Starší názvy sloupců zůstaly: idc = id novinky, tema/idt = kategorie, ido = médium, idu = uživatel.
--- InnoDB s cizími klíči, utf8mb4, hesla přes password_hash().
+-- Table and column names are Czech. The "ka_" prefix is replaced with the prefix from config.php during installation.
+-- Older column names remain: idc = news item id, tema/idt = category, ido = media item, idu = user.
+-- InnoDB with foreign keys, utf8mb4, passwords via password_hash().
 --
--- Tento soubor je vždy úplné aktuální schéma pro novou instalaci. Každá změna se zároveň zapisuje
--- jako migrace do system/sql/migrace/NNNN-popis.sql, aby se stávající weby aktualizovaly samy.
+-- This file is always the complete current schema for a new installation. Every change is also written
+-- as a migration to system/sql/migrace/NNNN-popis.sql, so existing sites update by themselves.
 
 SET NAMES utf8mb4;
 
 -- ---------------------------------------------------------------------------
--- Uživatelé administrace
+-- Admin users
 -- ---------------------------------------------------------------------------
 CREATE TABLE ka_uzivatele (
     idu            INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    user           VARCHAR(40)  NOT NULL,                 -- přihlašovací jméno
+    user           VARCHAR(40)  NOT NULL,                 -- sign-in name
     password       VARCHAR(255) NOT NULL,                 -- password_hash()
     jmeno          VARCHAR(100) NOT NULL DEFAULT '',
     email          VARCHAR(190) NOT NULL DEFAULT '',
     url            VARCHAR(255) NOT NULL DEFAULT '',
-    admin          TINYINT UNSIGNED NOT NULL DEFAULT 0,   -- role: 0 autor, 1 editor, 2 správce
-    role           INT UNSIGNED NULL,                     -- vlastní role (ka_role); NULL = jen úroveň z admin
+    admin          TINYINT UNSIGNED NOT NULL DEFAULT 0,   -- role: 0 author, 1 editor, 2 administrator
+    role           INT UNSIGNED NULL,                     -- custom role (ka_role); NULL = only the level from admin
     blokovat       BOOL NOT NULL DEFAULT 0,
-    pocet_chyb     SMALLINT UNSIGNED NOT NULL DEFAULT 0,  -- neúspěšná přihlášení v řadě
-    zamceno_do     DATETIME NULL,                         -- dočasný zámek po 10 chybných přihlášeních
-    obnova_otisk   CHAR(64)     NOT NULL DEFAULT '',      -- sha256 jednorázového tokenu pro obnovu hesla e-mailem; prázdné = nic nečeká
-    obnova_cas     DATETIME NULL,                         -- kdy byl odkaz pro obnovu hesla odeslán (platí hodinu)
-    totp_tajemstvi VARCHAR(64)  NOT NULL DEFAULT '',      -- dvoufázové přihlášení (TOTP); prázdné = vypnuté
-    totp_zalozni   TEXT NULL,                             -- JSON: otisky jednorázových záložních kódů
+    pocet_chyb     SMALLINT UNSIGNED NOT NULL DEFAULT 0,  -- failed sign-ins in a row
+    zamceno_do     DATETIME NULL,                         -- temporary lock after 10 failed sign-ins
+    obnova_otisk   CHAR(64)     NOT NULL DEFAULT '',      -- sha256 of the one-time token for a password reset by e-mail; empty = nothing pending
+    obnova_cas     DATETIME NULL,                         -- when the password reset link was sent (valid for an hour)
+    totp_tajemstvi VARCHAR(64)  NOT NULL DEFAULT '',      -- two-factor sign-in (TOTP); empty = off
+    totp_zalozni   TEXT NULL,                             -- JSON: hashes of one-time backup codes
     posledni_login DATETIME NULL,
-    jazyk          CHAR(2) NOT NULL DEFAULT '',            -- jazyk administrace; '' = čeština
-    pozice         VARCHAR(100) NOT NULL DEFAULT '',      -- pozice ve firmě (medailonek autora novinek)
+    jazyk          CHAR(2) NOT NULL DEFAULT '',            -- admin language; '' = Czech
+    pozice         VARCHAR(100) NOT NULL DEFAULT '',      -- position in the company (bio of the news author)
     foto           VARCHAR(255) NOT NULL DEFAULT '',
-    bio            TEXT NULL,                             -- pár vět o autorovi
+    bio            TEXT NULL,                             -- a few sentences about the author
     PRIMARY KEY (idu),
     UNIQUE KEY uq_user (user)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Vlastní role: pojmenovaná sada sekcí administrace a úroveň (0 = píše vlastní novinky, 1 = vydává a spravuje obsah všech).
+-- Custom roles: a named set of admin sections and a level (0 = writes own news items, 1 = publishes and manages everyone's content).
 CREATE TABLE ka_role (
     idr     INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev   VARCHAR(60)  NOT NULL,
     popis   VARCHAR(200) NOT NULL DEFAULT '',
     uroven  TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    moduly  VARCHAR(1000) NOT NULL DEFAULT '',            -- identifikátory sekcí oddělené čárkou
+    moduly  VARCHAR(1000) NOT NULL DEFAULT '',            -- comma-separated section identifiers
     PRIMARY KEY (idr),
     UNIQUE KEY uq_role_nazev (nazev)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Přístup uživatele k modulu administrace
+-- User access to an admin module
 CREATE TABLE ka_uzivatele_prava (
     fk_id_user   INT UNSIGNED NOT NULL,
     ident_modulu VARCHAR(30)  NOT NULL,
@@ -58,7 +58,7 @@ CREATE TABLE ka_uzivatele_prava (
 
 
 -- ---------------------------------------------------------------------------
--- Konfigurace
+-- Configuration
 -- ---------------------------------------------------------------------------
 CREATE TABLE ka_nastaveni (
     promenna VARCHAR(60) NOT NULL,
@@ -69,16 +69,16 @@ CREATE TABLE ka_nastaveni (
 
 
 -- ---------------------------------------------------------------------------
--- Kategorie a novinky
+-- Categories and news
 -- ---------------------------------------------------------------------------
 CREATE TABLE ka_kategorie (
     idt       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev     VARCHAR(100) NOT NULL,
     seo_link  VARCHAR(120) NOT NULL,
     popis     TEXT NOT NULL,
-    hodnost   SMALLINT UNSIGNED NOT NULL DEFAULT 100,     -- pořadí, vyšší = výš
-    jazyk     CHAR(2) NOT NULL DEFAULT '',                -- jazyková verze; '' = výchozí jazyk webu
-    preklad_z INT UNSIGNED NULL,                          -- protějšek ve výchozím jazyce (hreflang, přepínač jazyků)
+    hodnost   SMALLINT UNSIGNED NOT NULL DEFAULT 100,     -- order, higher = higher up
+    jazyk     CHAR(2) NOT NULL DEFAULT '',                -- language version; '' = the site's default language
+    preklad_z INT UNSIGNED NULL,                          -- counterpart in the default language (hreflang, language switcher)
     PRIMARY KEY (idt),
     UNIQUE KEY uq_topic_seo (seo_link)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
@@ -90,29 +90,29 @@ CREATE TABLE ka_novinky (
     idc            INT UNSIGNED NOT NULL AUTO_INCREMENT,
     seo_link       VARCHAR(160) NOT NULL,
     titulek        VARCHAR(255) NOT NULL,
-    uvod           MEDIUMTEXT NOT NULL,                   -- perex
+    uvod           MEDIUMTEXT NOT NULL,                   -- intro
     text           MEDIUMTEXT NOT NULL,
-    obrazek        VARCHAR(255) NOT NULL DEFAULT '',      -- hlavní obrázek
-    obrazek_popis  VARCHAR(300) NOT NULL DEFAULT '',      -- popisek hlavního obrázku (prázdné = popisek z knihovny médií)
-    obrazek_autor  VARCHAR(120) NOT NULL DEFAULT '',      -- autor hlavního obrázku (prázdné = autor z knihovny médií)
-    tema           INT UNSIGNED NOT NULL,                 -- kategorie
+    obrazek        VARCHAR(255) NOT NULL DEFAULT '',      -- featured image
+    obrazek_popis  VARCHAR(300) NOT NULL DEFAULT '',      -- caption of the featured image (empty = the caption from the media library)
+    obrazek_autor  VARCHAR(120) NOT NULL DEFAULT '',      -- author of the featured image (empty = the author from the media library)
+    tema           INT UNSIGNED NOT NULL,                 -- category
     autor          INT UNSIGNED NULL,
-    datum          DATETIME NOT NULL,                     -- datum vydání (i budoucí)
-    visible        BOOL NOT NULL DEFAULT 0,               -- vydaná novinka (jinak koncept)
-    t_slova        VARCHAR(500) NOT NULL DEFAULT '',      -- klíčová slova
-    seo_titulek    VARCHAR(255) NOT NULL DEFAULT '',      -- vlastní <title>, prázdné = titulek
-    seo_popis      VARCHAR(320) NOT NULL DEFAULT '',      -- vlastní meta description, prázdné = z perexu
+    datum          DATETIME NOT NULL,                     -- publish date (also a future one)
+    visible        BOOL NOT NULL DEFAULT 0,               -- published news item (otherwise a draft)
+    t_slova        VARCHAR(500) NOT NULL DEFAULT '',      -- keywords
+    seo_titulek    VARCHAR(255) NOT NULL DEFAULT '',      -- custom <title>, empty = the title
+    seo_popis      VARCHAR(320) NOT NULL DEFAULT '',      -- custom meta description, empty = from the intro
     noindex        BOOL NOT NULL DEFAULT 0,
-    faq            TEXT NULL,                             -- otázky a odpovědi: otázka, pod ní odpověď, prázdný řádek
-    visit          INT UNSIGNED NOT NULL DEFAULT 0,       -- počet zobrazení
+    faq            TEXT NULL,                             -- questions and answers: question, the answer below it, an empty line
+    visit          INT UNSIGNED NOT NULL DEFAULT 0,       -- view count
     zmeneno        DATETIME NULL,
-    aktualizovano  DATETIME NULL,                         -- kdy byla vydaná novinka podstatně doplněna
-    oznameno       DATETIME NULL,                         -- kdy systém vydání oznámil (webhook, IndexNow); NULL = ještě ne
-    jazyk          CHAR(2) NOT NULL DEFAULT '',           -- přebírá se z kategorie při uložení
-    preklad_z      INT UNSIGNED NULL,                     -- idc novinky, jejíž je tato překladem
-    hledani        MEDIUMTEXT NULL,                       -- text bez diakritiky pro hledání (Core\Hledani)
-    odkazy_cas     DATETIME NULL,                         -- kdy se odkazy naposledy kontrolovaly
-    smazano        DATETIME NULL,                         -- v koši od (po 30 dnech se smaže natrvalo); NULL = není v koši
+    aktualizovano  DATETIME NULL,                         -- when the published news item was substantially updated
+    oznameno       DATETIME NULL,                         -- when the system announced the publishing (webhook, IndexNow); NULL = not yet
+    jazyk          CHAR(2) NOT NULL DEFAULT '',           -- taken from the category on save
+    preklad_z      INT UNSIGNED NULL,                     -- idc of the news item this one is a translation of
+    hledani        MEDIUMTEXT NULL,                       -- text without diacritics for search (Core\Hledani)
+    odkazy_cas     DATETIME NULL,                         -- when the links were last checked
+    smazano        DATETIME NULL,                         -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
     PRIMARY KEY (idc),
     UNIQUE KEY uq_clanky_seo (seo_link),
     KEY ix_clanky_jazyk (jazyk, visible, datum),
@@ -129,7 +129,7 @@ CREATE TABLE ka_novinky (
 
 
 -- ---------------------------------------------------------------------------
--- Galerie obrázků
+-- Image gallery
 -- ---------------------------------------------------------------------------
 CREATE TABLE ka_media_slozky (
     ids   INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -140,19 +140,19 @@ CREATE TABLE ka_media_slozky (
 CREATE TABLE ka_media (
     ido         INT UNSIGNED NOT NULL AUTO_INCREMENT,
     vlastnik    INT UNSIGNED NULL,
-    sekce       INT UNSIGNED NULL,                         -- složka
-    nazev       VARCHAR(150) NOT NULL DEFAULT '',          -- slouží i jako alternativní text (alt)
-    popis       VARCHAR(500) NOT NULL DEFAULT '',          -- popisek pod obrázkem
-    autor       VARCHAR(120) NOT NULL DEFAULT '',          -- autor fotografie (uvádí se u hlavní fotky článku)
-    obr_poloha  VARCHAR(255) NOT NULL,                     -- cesta od kořene webu: media/2026/09/foto.jpg
+    sekce       INT UNSIGNED NULL,                         -- folder
+    nazev       VARCHAR(150) NOT NULL DEFAULT '',          -- also serves as the alternative text (alt)
+    popis       VARCHAR(500) NOT NULL DEFAULT '',          -- caption below the image
+    autor       VARCHAR(120) NOT NULL DEFAULT '',          -- photo author (shown with the article's featured photo)
+    obr_poloha  VARCHAR(255) NOT NULL,                     -- path from the web root: media/2026/09/foto.jpg
     obr_width   SMALLINT UNSIGNED NOT NULL DEFAULT 0,
     obr_height  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-    obr_vel     INT UNSIGNED NOT NULL DEFAULT 0,           -- velikost souboru v bajtech
+    obr_vel     INT UNSIGNED NOT NULL DEFAULT 0,           -- file size in bytes
     nahl_poloha VARCHAR(255) NOT NULL DEFAULT '',
     nahl_width  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
     nahl_height SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-    barva       CHAR(7) NOT NULL DEFAULT '',               -- převládající barva (#rrggbb) jako podklad před načtením; '' = nespočítáno, '-' = nejde zjistit
-    ohnisko     VARCHAR(12) NOT NULL DEFAULT '',           -- střed ořezu (object-position), např. „50% 30%“; '' = střed
+    barva       CHAR(7) NOT NULL DEFAULT '',               -- dominant color (#rrggbb) as a placeholder before loading; '' = not computed, '-' = cannot be determined
+    ohnisko     VARCHAR(12) NOT NULL DEFAULT '',           -- crop center (object-position), e.g. „50% 30%“; '' = center
     datum       DATETIME NOT NULL,
     PRIMARY KEY (ido),
     KEY ix_imggal_datum (datum),
@@ -164,7 +164,7 @@ CREATE TABLE ka_media (
 
 
 
--- Ochrana proti opakování akce ze stejné IP (přihlášení, hledání, formuláře)
+-- Protection against repeating an action from the same IP (sign-in, search, forms)
 CREATE TABLE ka_kontrola_ip (
     idk       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     ip_adresa VARCHAR(45) NOT NULL,
@@ -175,7 +175,7 @@ CREATE TABLE ka_kontrola_ip (
     KEY ix_kontrola (typ, cil, ip_adresa, cas)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Ve kterých novinkách je obrázek použitý (přepočítá se při uložení)
+-- Which news items an image is used in (recomputed on save)
 CREATE TABLE ka_media_pouziti (
     ido INT UNSIGNED NOT NULL,
     idc INT UNSIGNED NOT NULL,
@@ -186,12 +186,12 @@ CREATE TABLE ka_media_pouziti (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- ---------------------------------------------------------------------------
--- Štítky novinek, historie verzí novinky a stránky webu.
+-- News tags, news item version history and site pages.
 CREATE TABLE ka_stitky (
     ids      INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev    VARCHAR(80) NOT NULL,
     seo_link VARCHAR(100) NOT NULL,
-    popis    TEXT NULL,                                   -- úvod stránky tématu (HTML od redakce)
+    popis    TEXT NULL,                                   -- intro of the topic page (HTML from the editors)
     obrazek  VARCHAR(255) NOT NULL DEFAULT '',
     PRIMARY KEY (ids),
     UNIQUE KEY uq_stitky_seo (seo_link)
@@ -222,34 +222,34 @@ CREATE TABLE ka_stranky (
     seo_link VARCHAR(120) NOT NULL,
     titulek  VARCHAR(200) NOT NULL,
     popis    VARCHAR(300) NOT NULL DEFAULT '',           -- meta description
-    seo_titulek VARCHAR(200) NOT NULL DEFAULT '',        -- vlastní <title>, prázdné = titulek
-    obrazek  VARCHAR(255) NOT NULL DEFAULT '',           -- obrázek pro sdílení (og:image), prázdné = výchozí z Nastavení
+    seo_titulek VARCHAR(200) NOT NULL DEFAULT '',        -- custom <title>, empty = the title
+    obrazek  VARCHAR(255) NOT NULL DEFAULT '',           -- image for sharing (og:image), empty = the default from Settings
     noindex  BOOL NOT NULL DEFAULT 0,
     text     MEDIUMTEXT NOT NULL,
     zobrazit BOOL NOT NULL DEFAULT 1,
-    zverejnit_od DATETIME NULL,                          -- skrytá stránka se sama zveřejní v tuto chvíli
-    v_menu   BOOL NOT NULL DEFAULT 1,                     -- odkaz v patičce / navigaci webu
+    zverejnit_od DATETIME NULL,                          -- a hidden page publishes itself at this moment
+    v_menu   BOOL NOT NULL DEFAULT 1,                     -- link in the site footer / navigation
     poradi   SMALLINT UNSIGNED NOT NULL DEFAULT 100,
     zmeneno  DATETIME NULL,
-    jazyk          CHAR(2) NOT NULL DEFAULT '',            -- jazyková verze; '' = výchozí jazyk webu
-    preklad_z      INT UNSIGNED NULL,                      -- protějšek ve výchozím jazyce (hreflang, přepínač jazyků)
-    nadrazena      INT UNSIGNED NULL,                      -- nadřazená stránka: adresa je /nadrazena/stranka
-    stavba         MEDIUMTEXT NULL,                        -- publikovaná stavba (JSON strom prvků builderu); NULL = textová stránka
-    stavba_koncept MEDIUMTEXT NULL,                        -- rozpracovaná stavba z editoru; NULL = žádné neuložené změny
-    smazano        DATETIME NULL,                          -- v koši od (po 30 dnech se smaže natrvalo); NULL = není v koši
+    jazyk          CHAR(2) NOT NULL DEFAULT '',            -- language version; '' = the site's default language
+    preklad_z      INT UNSIGNED NULL,                      -- counterpart in the default language (hreflang, language switcher)
+    nadrazena      INT UNSIGNED NULL,                      -- parent page: the URL is /nadrazena/stranka
+    stavba         MEDIUMTEXT NULL,                        -- published build (JSON tree of builder elements); NULL = text page
+    stavba_koncept MEDIUMTEXT NULL,                        -- work-in-progress build from the editor; NULL = no unsaved changes
+    smazano        DATETIME NULL,                          -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
     PRIMARY KEY (ids),
     UNIQUE KEY uq_stranky_seo (seo_link),
     KEY ix_stranky_smazano (smazano),
     KEY ix_stranky_zverejnit (zverejnit_od)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Publikované verze staveb (posledních 20 na stránku)
--- Části webu z builderu: záhlaví a patička na všech stránkách, obálka detailu novinky, výpisu a stránky 404.
--- Bez řádku (nebo bez publikované stavby) platí část ze šablony (layout). Jazyk '' = výchozí jazyk webu.
+-- Published build versions (the last 20 per page)
+-- Site parts from the builder: header and footer on all pages, the envelope of the news item detail, the listing and the 404 page.
+-- Without a row (or without a published build) the part from the layout applies. Language '' = the site's default language.
 CREATE TABLE ka_casti (
     typ            VARCHAR(20) NOT NULL,
     jazyk          CHAR(2) NOT NULL DEFAULT '',
-    varianta       VARCHAR(40) NOT NULL DEFAULT '',   -- '' = výchozí; jinak podoba pro stránky v seznamu stranky (JSON čísel)
+    varianta       VARCHAR(40) NOT NULL DEFAULT '',   -- '' = default; otherwise the variant for the pages in the stranky list (JSON of numbers)
     nazev          VARCHAR(100) NOT NULL DEFAULT '',
     stranky        TEXT NULL,
     stavba         MEDIUMTEXT NULL,
@@ -258,7 +258,7 @@ CREATE TABLE ka_casti (
     PRIMARY KEY (typ, jazyk, varianta)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Publikované verze staveb: stránky (ids) i částí webu (cast = "typ:jazyk").
+-- Published build versions: of pages (ids) and of site parts (cast = "typ:jazyk").
 CREATE TABLE ka_stavba_revize (
     idr    INT UNSIGNED NOT NULL AUTO_INCREMENT,
     ids    INT UNSIGNED NULL,
@@ -273,46 +273,46 @@ CREATE TABLE ka_stavba_revize (
     CONSTRAINT fk_stavba_revize_kdo FOREIGN KEY (kdo) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Sdílené třídy builderu: styl po breakpointech a stavech (JSON jako styl prvku) + volitelné vlastní CSS
+-- Shared builder classes: style by breakpoints and states (JSON like an element's style) + optional custom CSS
 CREATE TABLE ka_tridy (
-    nazev  VARCHAR(60) NOT NULL,                          -- název třídy v HTML (malá písmena, číslice, pomlčky, __)
+    nazev  VARCHAR(60) NOT NULL,                          -- class name in HTML (lowercase letters, digits, hyphens, __)
     styl   TEXT NOT NULL,                                 -- {"zaklad": {...}, "tablet": {...}, "mobil": {...}, "hover": {...}}
-    css    TEXT NULL,                                     -- vlastní deklarace (jen bezpečné, viz Stavitel\Styl::vlastniCss)
+    css    TEXT NULL,                                     -- custom declarations (only safe ones, see Stavitel\Styl::vlastniCss)
     zmeneno DATETIME NULL,
     PRIMARY KEY (nazev)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- ---------------------------------------------------------------------------
--- Přesměrování a evidence souhlasů
+-- Redirects and consent records
 CREATE TABLE ka_presmerovani (
     idp       INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    z_adresy  VARCHAR(255) NOT NULL,                     -- cesta na webu bez úvodního lomítka: clanek/stara-adresa
-    na_adresu VARCHAR(255) NOT NULL,                     -- cesta na webu, nebo celá adresa https://...
-    typ       SMALLINT UNSIGNED NOT NULL DEFAULT 301,    -- 301 trvalé, 302 dočasné
-    pocet     INT UNSIGNED NOT NULL DEFAULT 0,           -- kolikrát bylo přesměrování použito
+    z_adresy  VARCHAR(255) NOT NULL,                     -- path on the site without the leading slash: clanek/stara-adresa
+    na_adresu VARCHAR(255) NOT NULL,                     -- path on the site, or a full URL https://...
+    typ       SMALLINT UNSIGNED NOT NULL DEFAULT 301,    -- 301 permanent, 302 temporary
+    pocet     INT UNSIGNED NOT NULL DEFAULT 0,           -- how many times the redirect was used
     vytvoreno DATETIME NOT NULL,
     PRIMARY KEY (idp),
     UNIQUE KEY uq_presmerovani (z_adresy)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 CREATE TABLE ka_souhlasy (
     ids         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    id_souhlasu CHAR(32) NOT NULL,                       -- náhodný identifikátor uložený v cookie návštěvníka
+    id_souhlasu CHAR(32) NOT NULL,                       -- a random identifier stored in the visitor's cookie
     cas         DATETIME NOT NULL,
-    kategorie   VARCHAR(60) NOT NULL,                    -- "analytika,marketing" nebo "nic"
+    kategorie   VARCHAR(60) NOT NULL,                    -- "analytika,marketing" or "nic"
     PRIMARY KEY (ids),
     KEY ix_souhlasy_cas (cas),
     KEY ix_souhlasy_id (id_souhlasu)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- ---------------------------------------------------------------------------
--- Statistika bez cookies
+-- Stats without cookies
 CREATE TABLE ka_stat_dny (
     den       DATE NOT NULL,
-    navstevy  INT UNSIGNED NOT NULL DEFAULT 0,            -- unikátní návštěvníci dne
-    zobrazeni INT UNSIGNED NOT NULL DEFAULT 0,            -- zobrazené stránky
+    navstevy  INT UNSIGNED NOT NULL DEFAULT 0,            -- unique visitors of the day
+    zobrazeni INT UNSIGNED NOT NULL DEFAULT 0,            -- page views
     PRIMARY KEY (den)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
--- Otisk návštěvníka = hash(IP + prohlížeč + denní sůl). Druhý den už nejde spojit s předchozím; starší řádky se mažou.
+-- Visitor hash = hash(IP + browser + daily salt). The next day it can no longer be linked to the previous one; older rows are deleted.
 CREATE TABLE ka_stat_navstevnici (
     den   DATE NOT NULL,
     otisk CHAR(32) NOT NULL,
@@ -335,19 +335,19 @@ CREATE TABLE ka_stat_stranky (
 
 CREATE TABLE ka_stat_zdroje (
     den   DATE NOT NULL,
-    zdroj VARCHAR(100) NOT NULL,                          -- doména, ze které návštěvník přišel
+    zdroj VARCHAR(100) NOT NULL,                          -- the domain the visitor came from
     pocet INT UNSIGNED NOT NULL DEFAULT 0,
     PRIMARY KEY (den, zdroj)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
 -- ---------------------------------------------------------------------------
--- Protokol změn v administraci
+-- Change log in the admin
 CREATE TABLE ka_protokol (
     idp   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     cas   DATETIME NOT NULL,
     kdo   INT UNSIGNED NULL,
-    jmeno VARCHAR(100) NOT NULL DEFAULT '',               -- jméno v okamžiku akce (účet může později zaniknout)
+    jmeno VARCHAR(100) NOT NULL DEFAULT '',               -- the name at the moment of the action (the account may be removed later)
     modul VARCHAR(30) NOT NULL,
     akce  VARCHAR(40) NOT NULL,
     popis VARCHAR(255) NOT NULL DEFAULT '',
@@ -357,15 +357,15 @@ CREATE TABLE ka_protokol (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- ---------------------------------------------------------------------------
--- Přístupové tokeny pro napojení na Claude (MCP). Ukládá se jen otisk tokenu.
+-- Access tokens for connecting to Claude (MCP). Only the token hash is stored.
 CREATE TABLE ka_api_tokeny (
     idt       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     idu       INT UNSIGNED NOT NULL,
     nazev     VARCHAR(100) NOT NULL,
-    klient    CHAR(32) NULL,                              -- OAuth client_id; NULL = osobní token z Můj účet
+    klient    CHAR(32) NULL,                              -- OAuth client_id; NULL = a personal token from "Můj účet" (My account)
     druh      VARCHAR(10) NOT NULL DEFAULT 'token',       -- token | pristup | obnova
     expirace  DATETIME NULL,
-    otisk     CHAR(64) NOT NULL,                          -- sha256 tokenu
+    otisk     CHAR(64) NOT NULL,                          -- sha256 of the token
     vytvoren  DATETIME NOT NULL,
     pouzit    DATETIME NULL,
     PRIMARY KEY (idt),
@@ -374,16 +374,16 @@ CREATE TABLE ka_api_tokeny (
     CONSTRAINT fk_tokeny_user FOREIGN KEY (idu) REFERENCES ka_uzivatele (idu) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Přihlašovací klíče (passkeys / WebAuthn) jako druhý krok přihlášení. Ukládá se jen veřejný klíč zařízení.
+-- Passkeys (WebAuthn) as the second sign-in step. Only the device's public key is stored.
 CREATE TABLE ka_uzivatele_klice (
     idk        INT UNSIGNED NOT NULL AUTO_INCREMENT,
     idu        INT UNSIGNED NOT NULL,
-    nazev      VARCHAR(80)  NOT NULL DEFAULT '',          -- pojmenování zařízení uživatelem („MacBook“, „telefon“)
-    otisk_id   CHAR(64)     NOT NULL,                     -- sha256 identifikátoru klíče (identifikátor může mít až 1023 bajtů)
-    id_klice   TEXT         NOT NULL,                     -- identifikátor klíče, base64url
-    verejny    TEXT         NOT NULL,                     -- veřejný klíč zařízení (PEM)
-    alg        SMALLINT     NOT NULL,                     -- algoritmus podpisu podle COSE: -7 ES256, -257 RS256
-    pocitadlo  INT UNSIGNED NOT NULL DEFAULT 0,           -- počitadlo podpisů; pokud ho zařízení vede, musí růst
+    nazev      VARCHAR(80)  NOT NULL DEFAULT '',          -- the device name given by the user („MacBook“, „telefon“)
+    otisk_id   CHAR(64)     NOT NULL,                     -- sha256 of the key identifier (the identifier can be up to 1023 bytes)
+    id_klice   TEXT         NOT NULL,                     -- key identifier, base64url
+    verejny    TEXT         NOT NULL,                     -- the device's public key (PEM)
+    alg        SMALLINT     NOT NULL,                     -- signature algorithm per COSE: -7 ES256, -257 RS256
+    pocitadlo  INT UNSIGNED NOT NULL DEFAULT 0,           -- signature counter; if the device keeps one, it must increase
     vytvoreno  DATETIME     NOT NULL,
     pouzito    DATETIME     NULL,
     PRIMARY KEY (idk),
@@ -398,13 +398,13 @@ CREATE TABLE ka_uzivatele_klice (
 
 
 -- ---------------------------------------------------------------------------
--- Fronta a protokol e-mailů (Core\Posta)
+-- E-mail queue and log (Core\Posta)
 -- ---------------------------------------------------------------------------
 CREATE TABLE ka_posta (
     idp         INT UNSIGNED NOT NULL AUTO_INCREMENT,
     komu        VARCHAR(190) NOT NULL,
     predmet     VARCHAR(255) NOT NULL,
-    telo        MEDIUMTEXT NULL,                          -- JSON {text, html, hlavicky}; po odeslání se maže
+    telo        MEDIUMTEXT NULL,                          -- JSON {text, html, hlavicky}; deleted after sending
     vytvoreno   DATETIME NOT NULL,
     odeslano    DATETIME NULL,
     pokusu      TINYINT UNSIGNED NOT NULL DEFAULT 0,
@@ -414,7 +414,7 @@ CREATE TABLE ka_posta (
     KEY ix_posta_fronta (odeslano, dalsi_pokus)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Adresy, které skončily chybou 404 (podklad pro přesměrování)
+-- URLs that ended with error 404 (a basis for redirects)
 CREATE TABLE ka_nenalezeno (
     cesta     VARCHAR(255) NOT NULL,
     pocet     INT UNSIGNED NOT NULL DEFAULT 1,
@@ -422,22 +422,22 @@ CREATE TABLE ka_nenalezeno (
     PRIMARY KEY (cesta)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Rozepsané novinky uložené na serveru (pokračování z jiného zařízení)
+-- Unsaved news item drafts stored on the server (continuing from another device)
 CREATE TABLE ka_novinky_koncepty (
     kdo  INT UNSIGNED NOT NULL,
     idc  INT UNSIGNED NOT NULL DEFAULT 0,
     cas  DATETIME NOT NULL,
-    data MEDIUMTEXT NOT NULL,                             -- JSON {název pole formuláře: hodnota}
+    data MEDIUMTEXT NOT NULL,                             -- JSON {form field name: value}
     PRIMARY KEY (kdo, idc)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
--- Nefunkční odkazy nalezené v novinkách (Core\Odkazy)
+-- Broken links found in news items (Core\Odkazy)
 CREATE TABLE ka_odkazy_vadne (
     ido  INT UNSIGNED NOT NULL AUTO_INCREMENT,
     idc  INT UNSIGNED NOT NULL,
     url  VARCHAR(500) NOT NULL,
-    stav SMALLINT UNSIGNED NOT NULL DEFAULT 0,             -- kód odpovědi; 0 = server neodpověděl, 404 u vlastního článku = neexistuje
+    stav SMALLINT UNSIGNED NOT NULL DEFAULT 0,             -- response code; 0 = the server did not respond, 404 for an own article = does not exist
     cas  DATETIME NOT NULL,
     PRIMARY KEY (ido),
     KEY ix_odkazy_clanek (idc),
@@ -446,18 +446,18 @@ CREATE TABLE ka_odkazy_vadne (
 
 
 
--- Import z jiných systémů (WordPress): co z cizího webu už bylo převedeno a na který náš záznam
+-- Import from other systems (WordPress): what from the foreign site has already been converted and into which of our records
 CREATE TABLE ka_import_mapa (
-    zdroj   VARCHAR(40) NOT NULL,                        -- odkud záznam pochází: wp:<doména starého webu>
+    zdroj   VARCHAR(40) NOT NULL,                        -- where the record comes from: wp:<domain of the old site>
     typ     VARCHAR(20) NOT NULL,                        -- clanek | stranka | rubrika | stitek | obrazek | komentar
-    cizi_id VARCHAR(190) NOT NULL,                       -- identifikátor ve zdroji (číslo příspěvku, adresa rubriky, otisk adresy obrázku)
-    nase_id INT UNSIGNED NOT NULL,                       -- číslo našeho záznamu; 0 u obrázku = stažení se nepovedlo
+    cizi_id VARCHAR(190) NOT NULL,                       -- identifier in the source (post number, category URL, hash of the image URL)
+    nase_id INT UNSIGNED NOT NULL,                       -- the number of our record; 0 for an image = the download failed
     PRIMARY KEY (zdroj, typ, cizi_id),
     KEY ix_import_mapa_nase (zdroj, typ, nase_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- stav: 0 = nová, 1 = přečtená, 2 = vyřízená
--- Poptávky a zprávy z formulářů webu (prvek Formulář v builderu). Data = JSON [[popisek, hodnota], …].
+-- stav: 0 = new, 1 = read, 2 = handled
+-- Enquiries and messages from site forms (the Form element in the builder). Data = JSON [[popisek, hodnota], …].
 CREATE TABLE ka_poptavky (
     idp      INT UNSIGNED NOT NULL AUTO_INCREMENT,
     datum    DATETIME NOT NULL,
@@ -465,18 +465,18 @@ CREATE TABLE ka_poptavky (
     zdroj    VARCHAR(40) NOT NULL DEFAULT '',
     prvek    VARCHAR(16) NOT NULL DEFAULT '',
     stranka  VARCHAR(255) NOT NULL DEFAULT '',
-    kampan   VARCHAR(255) NOT NULL DEFAULT '',          -- parametry utm_* stránky s formulářem
+    kampan   VARCHAR(255) NOT NULL DEFAULT '',          -- utm_* parameters of the page with the form
     email    VARCHAR(190) NOT NULL DEFAULT '',
     data     MEDIUMTEXT NOT NULL,
     stav     TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    poznamka TEXT NULL,                               -- interní poznámka (návštěvník ji nevidí)
-    prirazeno INT UNSIGNED NULL,                      -- kdo z uživatelů poptávku vyřizuje
+    poznamka TEXT NULL,                               -- internal note (the visitor does not see it)
+    prirazeno INT UNSIGNED NULL,                      -- which user handles the enquiry
     PRIMARY KEY (idp),
     KEY ix_poptavky_stav (stav, idp)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Kolekce: vlastní typy obsahu (reference, tým, produkty, pobočky…). pole = JSON [{klic, popisek, typ}], typ: text | radky | html | obrazek | odkaz | cislo | datum.
--- detail = položky mají vlastní stránku /<seo_link>/<seo položky> se šablonou z builderu (stavba, stavba_koncept).
+-- Collections: custom content types (references, team, products, branches…). pole = JSON [{klic, popisek, typ}], typ: text | radky | html | obrazek | odkaz | cislo | datum.
+-- detail = items have their own page /<seo_link>/<item seo> with an item template from the builder (stavba, stavba_koncept).
 CREATE TABLE ka_kolekce (
     idk            INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev          VARCHAR(100) NOT NULL,
@@ -507,7 +507,7 @@ CREATE TABLE ka_kolekce_polozky (
     CONSTRAINT fk_kolekce_polozky FOREIGN KEY (idk) REFERENCES ka_kolekce (idk) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Šablona detailu kolekce v dalších jazycích webu (výchozí jazyk je v ka_kolekce); bez řádku platí šablona výchozího jazyka.
+-- The collection's item template in other site languages (the default language is in ka_kolekce); without a row the default language's template applies.
 CREATE TABLE ka_kolekce_sablony (
     idk            INT UNSIGNED NOT NULL,
     jazyk          CHAR(2) NOT NULL,
@@ -518,10 +518,10 @@ CREATE TABLE ka_kolekce_sablony (
     CONSTRAINT fk_kolekce_sablony FOREIGN KEY (idk) REFERENCES ka_kolekce (idk) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Menu webu (Vzhled → Menu): hlavní a v patičce, pro každou jazykovou verzi. Bez řádku se hlavní menu skládá ze stránek „v menu“.
+-- Site menus ("Vzhled → Menu", Appearance → Menu): main and footer, for each language version. Without a row the main menu is composed of pages „v menu“ (in menu).
 CREATE TABLE ka_menu (
     umisteni VARCHAR(20) NOT NULL,                    -- hlavni | paticka
-    jazyk    CHAR(2) NOT NULL DEFAULT '',             -- '' = výchozí jazyk webu
+    jazyk    CHAR(2) NOT NULL DEFAULT '',             -- '' = the site's default language
     polozky  MEDIUMTEXT NOT NULL,                     -- JSON [{typ: stranka|odkaz|novinky|skupina, ids, url, text, nove_okno, deti: […]}]
     zmeneno  DATETIME NULL,
     PRIMARY KEY (umisteni, jazyk)
@@ -540,18 +540,18 @@ CREATE TABLE ka_stranky_revize (
     CONSTRAINT fk_stranky_revize_kdo FOREIGN KEY (kdo) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Sekce, které si web uložil z builderu do vlastní knihovny (panel Přidat → Moje sekce).
+-- Sections the site saved from the builder into its own library (panel "Přidat → Moje sekce", Add → My sections).
 CREATE TABLE ka_sekce (
     idx     INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev   VARCHAR(100) NOT NULL,
-    prvek   MEDIUMTEXT NOT NULL,                      -- JSON jednoho prvku (obvykle sekce) i s vnitřkem
+    prvek   MEDIUMTEXT NOT NULL,                      -- JSON of one element (usually a section) including its contents
     zmeneno DATETIME NULL,
     PRIMARY KEY (idx)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Komponenty: znovupoužitelné bloky builderu. vlastnosti = JSON [{klic, popisek, typ, vychozi}] – v komponentě jako {{klic}},
--- každé použití (prvek „komponenta“) jim dává vlastní hodnoty. Změna komponenty se projeví všude, kde je použitá.
--- Pop-up okna jako části webu: vlastní stavba v builderu, spouštěč, pravidla zobrazení (JSON), četnost a počitadla bez cookies.
+-- Components: reusable builder blocks. vlastnosti = JSON [{klic, popisek, typ, vychozi}] – in the component as {{klic}},
+-- every use (element „komponenta“) gives them its own values. A change to the component shows everywhere it is used.
+-- Popups as site parts: their own build in the builder, trigger, display rules (JSON), frequency and counters without cookies.
 CREATE TABLE ka_popupy (
     idpp           INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev          VARCHAR(100) NOT NULL,
@@ -584,49 +584,49 @@ CREATE TABLE ka_komponenty (
     PRIMARY KEY (idm)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Rozšíření Newsletter: odběratelé přihlášení prvkem Odběr novinek (double opt-in).
+-- Newsletter extension: subscribers signed up via the "Odběr novinek" (News subscription) element (double opt-in).
 CREATE TABLE ka_odberatele (
     ido       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     email     VARCHAR(190) NOT NULL,
-    stav      TINYINT UNSIGNED NOT NULL DEFAULT 0,       -- 0 čeká na potvrzení, 1 potvrzený
-    token     CHAR(32)     NOT NULL,                     -- potvrzení a odhlášení odkazem
-    zdroj     VARCHAR(255) NOT NULL DEFAULT '',          -- stránka, ze které se přihlásil
+    stav      TINYINT UNSIGNED NOT NULL DEFAULT 0,       -- 0 awaiting confirmation, 1 confirmed
+    token     CHAR(32)     NOT NULL,                     -- confirming and unsubscribing via a link
+    zdroj     VARCHAR(255) NOT NULL DEFAULT '',          -- the page they subscribed from
     datum     DATETIME     NOT NULL,
     potvrzeno DATETIME     NULL,
-    sync       VARCHAR(10)  NOT NULL DEFAULT '',          -- mailingová služba: '' nic, ceka, ok, chyba
+    sync       VARCHAR(10)  NOT NULL DEFAULT '',          -- mailing service: '' nothing, ceka, ok, chyba
     sync_chyba VARCHAR(255) NOT NULL DEFAULT '',
     PRIMARY KEY (ido),
     UNIQUE KEY uq_odberatel_email (email),
     UNIQUE KEY uq_odberatel_token (token)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Fronta přidání a odebrání odběratelů v mailingové službě (Core\Newsletter), odesílá ji úklid na pozadí.
+-- Queue of adding and removing subscribers in the mailing service (Core\Newsletter), sent by the background cleanup.
 CREATE TABLE ka_odber_fronta (
     idf       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     email     VARCHAR(190) NOT NULL,
     akce      VARCHAR(10)  NOT NULL,                      -- pridat | odebrat
     pokusy    TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    dalsi     DATETIME NULL,                             -- další pokus; NULL = vzdáno (vidět v Odběratelích)
+    dalsi     DATETIME NULL,                             -- next attempt; NULL = given up (visible in Subscribers)
     chyba     VARCHAR(255) NOT NULL DEFAULT '',
     vytvoreno DATETIME NOT NULL,
     PRIMARY KEY (idf),
     KEY ix_odber_fronta_dalsi (dalsi)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- OAuth 2.1 pro konektor Claude (MCP): registrovaní klienti a jednorázové autorizační kódy (tokeny jsou v ka_api_tokeny).
+-- OAuth 2.1 for the Claude connector (MCP): registered clients and one-time authorization codes (tokens are in ka_api_tokeny).
 CREATE TABLE ka_oauth_klienti (
     idk          INT UNSIGNED NOT NULL AUTO_INCREMENT,
     client_id    CHAR(32)     NOT NULL,
-    tajemstvi    CHAR(64)     NOT NULL DEFAULT '',   -- sha256 client_secret; prázdné = veřejný klient (jen PKCE)
+    tajemstvi    CHAR(64)     NOT NULL DEFAULT '',   -- sha256 client_secret; empty = public client (PKCE only)
     nazev        VARCHAR(100) NOT NULL DEFAULT '',
-    presmerovani TEXT         NOT NULL,              -- JSON seznam povolených redirect_uri
+    presmerovani TEXT         NOT NULL,              -- JSON list of allowed redirect_uri
     vytvoren     DATETIME     NOT NULL,
     PRIMARY KEY (idk),
     UNIQUE KEY uq_oauth_klient (client_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 CREATE TABLE ka_oauth_kody (
-    otisk        CHAR(64)     NOT NULL,              -- sha256 kódu
+    otisk        CHAR(64)     NOT NULL,              -- sha256 of the code
     client_id    CHAR(32)     NOT NULL,
     idu          INT UNSIGNED NOT NULL,
     presmerovani VARCHAR(500) NOT NULL,

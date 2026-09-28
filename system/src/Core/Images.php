@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Příjem nahraných obrázků: ověření, zmenšení na rozumnou velikost, náhled, uložení do media/RRRR/MM/.
- * Obrázek se vždy znovu zakóduje přes GD - tím zmizí EXIF (poloha z mobilu) i případný podstrčený kód.
+ * Receiving uploaded images: verification, shrinking to a reasonable size, thumbnail, saving to media/YYYY/MM/.
+ * The image is always re-encoded through GD - this removes EXIF (location from a phone) and any smuggled-in code.
  *
- * Ke každému obrázku vznikají varianty: <jmeno>-1200.<ext> (střední) a <jmeno>-nahled.<ext> (640 px) pro srcset
- * a ke každé z nich sourozenec <soubor>.webp, který server podá prohlížečům s podporou WebP (.htaccess).
+ * Every image gets variants: <name>-1200.<ext> (medium) and <name>-nahled.<ext> (640 px) for srcset,
+ * and each of them a sibling <file>.webp, which the server serves to browsers with WebP support (.htaccess).
  */
 final class Images
 {
@@ -22,9 +22,9 @@ final class Images
     private const array TYPES = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_WEBP => 'webp', IMAGETYPE_GIF => 'gif'];
 
     /**
-     * @param array<string, mixed> $file položka z $_FILES
+     * @param array<string, mixed> $file item from $_FILES
      * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string}
-     * @throws \RuntimeException s českou hláškou pro uživatele
+     * @throws \RuntimeException with a Czech message for the user
      */
     public static function save(array $file): array
     {
@@ -39,11 +39,11 @@ final class Images
     }
 
     /**
-     * Obrázek, který už na serveru leží (stažený při importu z WordPressu): projde stejnou cestou jako nahraný,
-     * takže je od něj k nerozeznání - překódování přes GD, zmenšení, náhled, WebP. Zdrojový soubor zůstává na místě.
+     * An image that already lies on the server (downloaded during an import from WordPress): it goes the same way as an uploaded one,
+     * so it is indistinguishable from it - re-encoding through GD, shrinking, thumbnail, WebP. The source file stays in place.
      *
      * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string}
-     * @throws \RuntimeException s českou hláškou pro uživatele
+     * @throws \RuntimeException with a Czech message for the user
      */
     public static function saveFile(string $path, string $name): array
     {
@@ -55,7 +55,7 @@ final class Images
     }
 
     /**
-     * @param bool $uploaded soubor přišel formulářem (přesouvá se přes move_uploaded_file); jinak se jen kopíruje
+     * @param bool $uploaded the file came through a form (it is moved with move_uploaded_file); otherwise it is only copied
      * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string}
      */
     private static function process(string $tmp, string $fileName, bool $uploaded): array
@@ -80,7 +80,7 @@ final class Images
         $base = $folder . '/' . slugify($name, 60) . '-' . bin2hex(random_bytes(3));
 
         if ($extension === 'gif') {
-            // GIF může být animovaný - ukládá se beze změny, náhled je první snímek
+            // a GIF can be animated - it is saved unchanged, the thumbnail is the first frame
             $target = $base . '.gif';
             if (!($uploaded ? move_uploaded_file($tmp, KALETA_ROOT . '/' . $target) : copy($tmp, KALETA_ROOT . '/' . $target))) {
                 throw new \RuntimeException('Soubor se nepodařilo uložit.');
@@ -120,10 +120,10 @@ final class Images
     }
 
     /**
-     * Náhrada obrázku se zachováním adresy: nový soubor projde stejným zpracováním a zapíše se na místo starého
-     * (i s variantami a WebP), ve formátu starého souboru – adresa se nemění, odkazy na webu platí dál.
+     * Replacing an image while keeping its URL: the new file goes through the same processing and is written in place of the old one
+     * (including variants and WebP), in the format of the old file – the URL does not change, links on the site keep working.
      *
-     * @param array<string, mixed> $file položka z $_FILES
+     * @param array<string, mixed> $file item from $_FILES
      * @return array{obr_width:int, obr_height:int, obr_vel:int, nahl_width:int, nahl_height:int}
      */
     public static function replace(string $old, array $file): array
@@ -131,7 +131,7 @@ final class Images
         if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp)$#', $old, $m)) {
             throw new \RuntimeException('Nahradit jde jen obrázek JPG, PNG nebo WebP.');
         }
-        $new = self::save($file); // ověří, zmenší a znovu zakóduje nahraný soubor
+        $new = self::save($file); // verifies, shrinks and re-encodes the uploaded file
         $image = @imagecreatefromstring((string) file_get_contents(KALETA_ROOT . '/' . $new['obr_poloha']));
         self::delete($new['obr_poloha'], $new['nahl_poloha']);
         if ($image === false) {
@@ -154,14 +154,14 @@ final class Images
             'nahl_width' => imagesx($preview), 'nahl_height' => imagesy($preview)];
     }
 
-    /** Smaže soubory obrázku; cesty mimo media/ ignoruje. */
+    /** Deletes the image's files; ignores paths outside media/. */
     public static function delete(string ...$paths): void
     {
         foreach ($paths as $path) {
             if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp|gif|svg)$#', $path, $m)) {
                 continue;
             }
-            // s obrázkem mizí i jeho varianty pro srcset a WebP
+            // together with the image its variants for srcset and WebP are removed too
             foreach ([$path, $path . '.webp', $path . '.avif', $m[1] . '-1200.' . $m[2], $m[1] . '-1200.' . $m[2] . '.webp', $m[1] . '-1200.' . $m[2] . '.avif'] as $file) {
                 if (is_file(KALETA_ROOT . '/' . $file)) {
                     unlink(KALETA_ROOT . '/' . $file);
@@ -171,8 +171,8 @@ final class Images
     }
 
     /**
-     * Poměr zmenšení na danou stranu. Běžný obrázek se vejde delší stranou; vysoký (výška přes dvojnásobek šířky – celostránkové
-     * snímky, infografiky) se měří šířkou a výška smí být až trojnásobek, jinak by z něj zbyl úzký rozmazaný proužek.
+     * Shrink ratio for the given side. A common image fits by its longer side; a tall one (height over twice the width – full-page
+     * screenshots, infographics) is measured by width and the height can be up to three times that, otherwise only a narrow blurry strip would remain.
      */
     public static function ratio(int $w, int $h, int $pageNumber): float
     {
@@ -215,8 +215,8 @@ final class Images
     }
 
     /**
-     * Menší sourozenci pro moderní prohlížeče: foto.jpg.webp (o 25–35 % menší) a foto.jpg.avif (o dalších ~20 %),
-     * když je PHP umí. Server podá ten, který prohlížeč přijme (.htaccess, nginx).
+     * Smaller siblings for modern browsers: foto.jpg.webp (25–35 % smaller) and foto.jpg.avif (another ~20 %),
+     * when PHP supports them. The server serves the one the browser accepts (.htaccess, nginx).
      */
     private static function webp(\GdImage $image, string $file, string $extension): void
     {
@@ -225,16 +225,16 @@ final class Images
             @imagewebp($image, $file . '.webp', 82);
         }
         if (function_exists('imageavif')) {
-            @imageavif($image, $file . '.avif', 55, 8); // rychlost 8: kódování nezdrží nahrávání
+            @imageavif($image, $file . '.avif', 55, 8); // speed 8: encoding does not slow down the upload
         }
     }
 
     /**
-     * Atribut srcset pro obrázek z media/ podle existujících variant; prázdný řetězec, když žádné nejsou.
+     * The srcset attribute for an image from media/ according to the existing variants; an empty string when there are none.
      *
-     * @param string $path cesta od kořene webu bez úvodního lomítka (media/2026/09/foto.jpg)
+     * @param string $path path from the site root without a leading slash (media/2026/09/foto.jpg)
      */
-    /** Převládající barva obrázku jako #rrggbb (průměr přes celou plochu); null, když soubor nejde načíst. */
+    /** The dominant color of the image as #rrggbb (average over the whole area); null when the file cannot be loaded. */
     public static function color(string $file): ?string
     {
         $type = is_file($file) ? @getimagesize($file) : false;
@@ -248,19 +248,19 @@ final class Images
             return null;
         }
         $pixel = imagecreatetruecolor(1, 1);
-        imagefill($pixel, 0, 0, imagecolorallocate($pixel, 255, 255, 255)); // průhledné PNG na bílém podkladu
+        imagefill($pixel, 0, 0, imagecolorallocate($pixel, 255, 255, 255)); // transparent PNG on a white background
         imagecopyresampled($pixel, $image, 0, 0, 0, 0, 1, 1, imagesx($image), imagesy($image));
         $rgb = imagecolorat($pixel, 0, 0);
 
         return sprintf('#%02x%02x%02x', ($rgb >> 16) & 0xFF, ($rgb >> 8) & 0xFF, $rgb & 0xFF);
     }
 
-    /** Velikosti ikony webu: karta prohlížeče, plocha iPhonu, Android a instalace webu. */
+    /** Sizes of the site icon: browser tab, iPhone home screen, Android and site installation. */
     public const array ICON_SIZES = [32, 180, 192, 512];
 
     /**
-     * Čtvercové PNG ikony webu (media/ikona-<n>.png) z obrázku z Médií: ořízne střed na čtverec a zmenší.
-     * Vrací false, když zdroj není rastrový obrázek (SVG ikona se pak použije jen jako rel=icon).
+     * Square PNG site icons (media/ikona-<n>.png) from an image in Media: crops the center to a square and shrinks it.
+     * Returns false when the source is not a raster image (an SVG icon is then used only as rel=icon).
      */
     public static function icons(string $source): bool
     {
@@ -290,7 +290,7 @@ final class Images
 
     public static function srcset(string $path, string $base): string
     {
-        // tentýž obrázek bývá na stránce víckrát (otvírák, výpis, blok): dotazy na disk stačí jednou za požadavek
+        // the same image is often on a page several times (lead image, list, block): disk lookups once per request are enough
         static $cache = [];
         if (isset($cache[$path . '|' . $base])) {
             return $cache[$path . '|' . $base];
@@ -302,7 +302,7 @@ final class Images
         $widths = [];
         foreach (['-nahled', '-1200', ''] as $extension) {
             $file = $m[1] . $extension . '.' . $m[3];
-            // skutečná šířka každé varianty: dřív se zmenšovalo podle delší strany, takže u vysokých obrázků „1200“ neznamenalo šířku
+            // the actual width of each variant: earlier images were shrunk by the longer side, so for tall images „1200“ did not mean the width
             $info = is_file(KALETA_ROOT . '/' . $file) ? @getimagesize(KALETA_ROOT . '/' . $file) : false;
             if ($info !== false && !isset($widths[$info[0]])) {
                 $widths[$info[0]] = true;
@@ -313,7 +313,7 @@ final class Images
         return $cache[$path . '|' . $base] = count($variants) > 1 ? implode(', ', $variants) : '';
     }
 
-    /** Fotky z mobilu bývají uložené naležato s příznakem otočení v EXIF. */
+    /** Photos from a phone are often stored lying sideways with a rotation flag in EXIF. */
     private static function rotateByExif(\GdImage $image, string $file, string $extension): \GdImage
     {
         if ($extension !== 'jpg' || !function_exists('exif_read_data')) {

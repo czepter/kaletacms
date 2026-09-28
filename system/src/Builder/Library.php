@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace Kaleta\Builder;
 
 /**
- * Knihovna sekcí pro firemní web: hotové stavby z tokenů design systému a pár sdílených tříd, takže po vložení hned sedí
- * do barev a písem webu. Editor vkládá kopii (nová id); třídy, které sekce používá, se založí, když na webu ještě nejsou.
+ * Section library for a company site: ready-made builds from design system tokens and a few shared classes, so that after
+ * insertion they fit the site's colors and fonts right away. The editor inserts a copy (new ids); the classes the section uses
+ * are created when the site does not have them yet.
  */
 final class Library
 {
-    /** Sdílené třídy knihovny (název => styl). Založí se při prvním vložení sekce, která je používá; pak patří webu. */
+    /** Shared classes of the library (name => style). Created on the first insertion of a section that uses them; then they belong to the site. */
     public const array CLASSES = [
         'karta' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 's', 'odsazeni_y' => 'l', 'odsazeni_x' => 'l', 'pozadi' => 'plocha', 'zaobleni' => 'm']],
         'nadpis-sekce' => ['zaklad' => ['max_radek' => 'var(--ka-sirka-textu)', 'okraj_dole' => 'l']],
@@ -21,10 +22,10 @@ final class Library
     private static function sections(): array
     {
         $n = Build::fresh(...);
-        $s = fn (array $p, array $style): array => ['styl' => $style] + $p;       // prvek s vlastním stylem
-        $t = fn (array $p, string ...$classes): array => ['tridy' => $classes] + $p; // prvek s třídami
+        $s = fn (array $p, array $style): array => ['styl' => $style] + $p;       // an element with its own style
+        $t = fn (array $p, string ...$classes): array => ['tridy' => $classes] + $p; // an element with classes
         $z = fn (array $p, string $htmlTag): array => ['znacka' => $htmlTag] + $p;
-        $url = fn (string $page): string => '/' . slugify(t($page)); // stránky zakládá instalátor pod přeloženým názvem
+        $url = fn (string $page): string => '/' . slugify(t($page)); // the installer creates the pages under a translated name
         $buttonRow = fn (array ...$buttons): array => $s($n('kontejner', [], $buttons), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'row', 'zalamovani' => 'wrap', 'mezera' => 's']]);
 
         return [
@@ -108,7 +109,7 @@ final class Library
 
             'kontakt' => ['nazev' => t('Kontakt'), 'popis' => t('Adresa a kontakty vlevo, otevírací doba vpravo.'), 'stavba' => fn (): array => $n('sekce', [], [
                 $s($n('mrizka', [], [
-                    // údaje z Nastavení → Firma: vyplní se jednou a platí i pro patičku a vyhledávače
+                    // details from „Nastavení → Firma“ (Settings → Company): filled in once, they also apply to the footer and search engines
                     $s($n('kontejner', [], [
                         $z($n('nadpis', ['text' => t('Kontaktní údaje')]), 'h2'),
                         $n('udaje', ['udaj' => 'firma']),
@@ -124,7 +125,7 @@ final class Library
                 ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '2', 'mezera' => 'xl'], 'tablet' => ['sloupce' => '1']]),
             ])],
 
-            /* ---------- úvod ---------- */
+            /* ---------- intro ---------- */
 
             'uvod-stred' => ['nazev' => t('Úvod na střed'), 'popis' => t('Krátký štítek, velký nadpis a tlačítko – vše na středu.'), 'stavba' => fn (): array => $s($n('sekce', [], [
                 $s($n('kontejner', [], [
@@ -164,7 +165,7 @@ final class Library
                 ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm', 'max_sirka' => '48rem']]),
             ]), ['zaklad' => ['odsazeni_y' => 'xl']])],
 
-            /* ---------- služby a obsah ---------- */
+            /* ---------- services and content ---------- */
 
             'vyhody-seznam' => ['nazev' => t('Výhody se seznamem'), 'popis' => t('Text vlevo, seznam s fajfkami vpravo.'), 'stavba' => fn (): array => $n('sekce', [], [
                 $s($n('mrizka', [], [
@@ -263,7 +264,7 @@ final class Library
                 $n('video', ['url' => '']),
             ])],
 
-            /* ---------- důvěra ---------- */
+            /* ---------- trust ---------- */
 
             'reference-jedna' => ['nazev' => t('Velký citát'), 'popis' => t('Jedna výrazná reference na středu.'), 'stavba' => fn (): array => $s($n('sekce', ['sirka' => 'uzka'], [
                 $s($n('citat', ['text' => t('Nejlepší firma, se kterou jsme kdy spolupracovali. Termíny drželi na den a výsledek předčil naše očekávání.'), 'autor' => t('Martina Horáková'), 'pozice' => t('majitelka kavárny')]),
@@ -304,7 +305,7 @@ final class Library
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '4', 'mezera' => 'l'], 'tablet' => ['sloupce' => '2']]),
             ]), ['zaklad' => ['odsazeni_y' => 'l', 'pozadi' => 'plocha']])],
 
-            /* ---------- o firmě ---------- */
+            /* ---------- about the company ---------- */
 
             'pribeh' => ['nazev' => t('Náš příběh'), 'popis' => t('Obrázek a text o tom, kdo jste a jak jste začínali.'), 'stavba' => fn (): array => $n('sekce', [], [
                 $s($n('mrizka', [], [
@@ -368,7 +369,7 @@ final class Library
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => 'auto:16rem', 'mezera' => 'l']]),
             ])],
 
-            /* ---------- kontakt a výzvy ---------- */
+            /* ---------- contact and calls to action ---------- */
 
             'vyzva-pruh' => ['nazev' => t('Výzva v pruhu'), 'popis' => t('Úzký pruh: věta vlevo, tlačítko vpravo.'), 'stavba' => fn (): array => $s($n('sekce', [], [
                 $s($n('kontejner', [], [
@@ -399,8 +400,8 @@ final class Library
     }
 
     /**
-     * Ukázkové weby pro instalaci: předvolba vzhledu (DesignSystem::PREDVOLBY) a sekce pro stránky Úvod, O nás, Služby, Kontakt.
-     * Stránka bez sekcí zůstane textová. Sekce „nadpis-stranky“ dostane název stránky.
+     * Starter sites for the installation: an appearance preset (DesignSystem::PRESETS) and sections for the pages Home, About us, Services, Contact.
+     * A page without sections stays a text page. The „nadpis-stranky“ section gets the page title.
      */
     public const array SITES = [
         'firemni' => ['nazev' => 'Firemní web', 'popis' => 'Univerzální web služeb: výhody, čísla, reference, novinky.', 'predvolba' => 'firemni', 'stranky' => [
@@ -416,7 +417,10 @@ final class Library
         ]],
     ];
 
-    /** Šablony nové stránky (Nová stránka → Začít podle šablony): klíč => [název, sekce]. Zásady mají vlastní text. */
+    /**
+     * Templates of a new page („Nová stránka → Začít podle šablony“, i.e. New page → Start from a template): key => [name, sections].
+     * The privacy policy has its own text.
+     */
     public const array PAGE_TEMPLATES = [
         'o-nas' => ['O nás', ['nadpis-stranky', 'pribeh', 'hodnoty', 'tym']],
         'sluzby' => ['Služby', ['nadpis-stranky', 'sluzby', 'proces', 'faq', 'vyzva']],
@@ -428,7 +432,7 @@ final class Library
         'tiraz' => ['Tiráž (Impressum)', ['nadpis-stranky', 'tiraz']],
     ];
 
-    /** Kostra zásad ochrany osobních údajů pro poptávkový formulář (HTML v jazyce webu); hranaté závorky doplní správce. */
+    /** Skeleton of a privacy policy for the enquiry form (HTML in the site language); the administrator fills in the square brackets. */
     public static function privacyPolicyText(): string
     {
         $o = fn (string $heading, string $text): string => '<h2>' . e(t($heading)) . '</h2><p>' . e(t($text)) . '</p>';
@@ -443,15 +447,15 @@ final class Library
             . $o('Kontakt', 'Napište nám na [E-MAIL] nebo zavolejte na [TELEFON].');
     }
 
-    /** Náhrada sekce s prvkem vypnutého rozšíření: kontakt bez formuláře má aspoň údaje firmy a otevírací dobu. */
+    /** Replacement of a section with an element of a disabled extension: contact without a form has at least the company details and opening hours. */
     private const array REPLACEMENTS = ['kontakt-formular' => 'kontakt'];
 
     /**
-     * Stavba stránky ukázkového webu ze sekcí (v jazyce instalace); použité třídy se založí.
+     * Build of a starter site page from sections (in the installation language); the used classes are created.
      *
      * @param list<string> $section
-     * @param list<string> $withoutTypes sekce s těmito prvky se vynechají nebo nahradí (vypnutá rozšíření)
-     * @param bool $withoutImages vynechat prázdné obrázky (ukázkový web z instalace fotky nemá, na webu by po nich zůstalo prázdné místo)
+     * @param list<string> $withoutTypes sections with these elements are left out or replaced (disabled extensions)
+     * @param bool $withoutImages leave out empty images (the starter site from the installation has no photos, they would leave an empty space on the site)
      */
     public static function page(\Kaleta\Core\Db $db, array $section, string $title, string $language, array $withoutTypes = [], bool $withoutImages = false): array
     {
@@ -462,7 +466,7 @@ final class Library
     }
 
     /**
-     * Stavba stránky ze sekcí a třídy, které používá (bez zápisu do databáze – viz stranka()).
+     * Build of a page from sections and the classes it uses (without writing to the database – see page()).
      *
      * @param list<string> $section
      * @param list<string> $withoutTypes
@@ -492,8 +496,8 @@ final class Library
     }
 
     /**
-     * Prvek bez prázdných obrázků: mřížka, ve které zbude jediný prvek (text vedle obrázku), se nahradí tímto prvkem;
-     * prvek, ve kterém zbudou jen nadpisy (loga klientů), se vynechá celý – null.
+     * An element without empty images: a grid in which a single element remains (text next to an image) is replaced by that element;
+     * an element in which only headings remain (client logos) is left out entirely – null.
      */
     private static function withoutImages(array $p): ?array
     {
@@ -517,10 +521,10 @@ final class Library
         return $p;
     }
 
-    /** Kategorie v panelu Hotové sekce (klíč => název). */
+    /** Categories in the „Hotové sekce“ (ready-made sections) panel (key => name). */
     public const array CATEGORIES = ['uvod' => 'Úvod', 'obsah' => 'Služby a obsah', 'duvera' => 'Důvěra', 'firma' => 'O firmě', 'akce' => 'Kontakt a výzvy'];
 
-    /** Kategorie sekcí (ostatní jsou „obsah“). */
+    /** Section categories (the others are „obsah“). */
     private const array SECTION_CATEGORIES = [
         'uvod' => 'uvod', 'uvod-obrazek' => 'uvod', 'uvod-stred' => 'uvod', 'uvod-tmavy' => 'uvod', 'uvod-video' => 'uvod', 'nadpis-stranky' => 'uvod', 'tiraz' => 'firma',
         'reference' => 'duvera', 'reference-jedna' => 'duvera', 'recenze' => 'duvera', 'loga' => 'duvera', 'cisla' => 'duvera', 'cisla-svetla' => 'duvera', 'zaruky' => 'duvera',
@@ -529,7 +533,7 @@ final class Library
     ];
 
     /**
-     * @param list<string>|null $extensions zapnutá rozšíření (null = všechna) – sekce s prvky vypnutých (novinky, formulář) se nenabízejí
+     * @param list<string>|null $extensions enabled extensions (null = all) – sections with elements of disabled ones (news, form) are not offered
      * @return list<array{klic:string, nazev:string, popis:string, kategorie:string}>
      */
     public static function listAll(?array $extensions = null): array
@@ -557,8 +561,8 @@ final class Library
     }
 
     /**
-     * Nová kopie sekce (nová id) a názvy tříd, které používá. Ukázkové texty jsou v jazyce stránky, do které sekce přijde
-     * (ne v jazyce administrace) – překlady ve slovníku webu system/jazyky/<kód>.php.
+     * A new copy of a section (new ids) and the names of the classes it uses. The sample texts are in the language of the page the
+     * section goes to (not in the admin language) – translations in the site dictionary system/jazyky/<code>.php.
      *
      * @return array{prvek: array<string, mixed>, tridy: list<string>}|null
      */
@@ -591,7 +595,7 @@ final class Library
         return ['prvek' => $element, 'tridy' => array_keys($classes)];
     }
 
-    /** Založí chybějící třídy knihovny (existující třídu webu nikdy nepřepíše). */
+    /** Creates the missing library classes (never overwrites an existing class of the site). */
     public static function createClasses(\Kaleta\Core\Db $db, array $names): void
     {
         foreach ($names as $name) {

@@ -4,9 +4,9 @@
  * @var Kaleta\Admin\Modules\Pages $module
  * @var string $csrf
  * @var list<array<string, mixed>> $pages
- * @var bool $trash     zobrazen koš
+ * @var bool $trash     the trash is shown
  * @var string $search
- * @var int $inTrash    počet stránek v koši
+ * @var int $inTrash    number of pages in the trash
  */
 $home = $app->settings()->int('home_page');
 $url = fn (array $s): string => ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '') . ((int) $s['ids'] === $home ? '' : $s['seo_link']);
@@ -14,7 +14,7 @@ $url = fn (array $s): string => ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '') . 
 <div class="navigace-radek"><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('Nová stránka')) ?></a>
 	<form class="vradku" method="post" action="<?= e($module->url('import')) ?>" enctype="multipart/form-data"><?= $csrf ?>
 		<label class="navigace"><?= e(t('Import stránky (JSON)')) ?> <input type="file" name="soubor" accept="application/json,.json" data-odeslat-pri-zmene></label></form></div>
-<?php if ($inTrash > 0 || $trash): // záložky jen s košem – samotné „Všechny“ nemají smysl ?>
+<?php if ($inTrash > 0 || $trash): // tabs only with the trash – "Všechny" (All) on its own makes no sense ?>
 <nav class="zalozky" aria-label="<?= e(t('Stránky')) ?>">
 	<a href="<?= e($module->url()) ?>"<?= $trash ? '' : ' class="aktivni" aria-current="true"' ?>><?= e(t('Všechny')) ?></a>
 	<a href="<?= e($module->url('', ['stav' => 'kos'])) ?>"<?= $trash ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Koš')) ?> (<?= $inTrash ?>)</a>

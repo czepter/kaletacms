@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Jednorázové kódy pro dvoufázové přihlášení (TOTP, RFC 6238) - kompatibilní s Google Authenticatorem,
- * Microsoft Authenticatorem, 1Password, Aegis a dalšími. Bez knihoven.
+ * One-time codes for two-factor login (TOTP, RFC 6238) - compatible with Google Authenticator,
+ * Microsoft Authenticator, 1Password, Aegis and others. No libraries.
  */
 final class Totp
 {
@@ -15,14 +15,14 @@ final class Totp
     public static function newSecret(): string
     {
         $secret = '';
-        foreach (str_split(random_bytes(32)) as $byte) { // 32 znaků = 160 bitů, jak doporučuje RFC 4226
+        foreach (str_split(random_bytes(32)) as $byte) { // 32 characters = 160 bits, as RFC 4226 recommends
             $secret .= self::ALPHABET[ord($byte) % 32];
         }
 
         return $secret;
     }
 
-    /** Ověří šestimístný kód; toleruje posun hodin o jeden 30vteřinový krok. */
+    /** Verifies a six-digit code; tolerates clock drift of one 30-second step. */
     public static function verify(string $secret, string $code, ?int $time = null): bool
     {
         $code = preg_replace('/\s+/', '', $code) ?? '';
@@ -48,16 +48,16 @@ final class Totp
         return str_pad((string) ($number % 1_000_000), 6, '0', STR_PAD_LEFT);
     }
 
-    /** Adresa pro aplikaci (většina ji umí otevřít přímo z odkazu v mobilu). */
+    /** URL for the app (most can open it directly from a link on the phone). */
     public static function uri(string $secret, string $account, string $siteSettings): string
     {
         return 'otpauth://totp/' . rawurlencode($siteSettings . ':' . $account) . '?secret=' . $secret . '&issuer=' . rawurlencode($siteSettings) . '&digits=6&period=30';
     }
 
     /**
-     * Osm jednorázových záložních kódů pro případ ztráty telefonu.
+     * Eight one-time backup codes in case the phone is lost.
      *
-     * @return array{0: list<string>, 1: string} čitelné kódy a JSON otisků k uložení
+     * @return array{0: list<string>, 1: string} readable codes and the JSON of hashes to store
      */
     public static function backupCodes(): array
     {
@@ -69,7 +69,7 @@ final class Totp
         return [$codes, (string) json_encode(array_map(fn (string $k): string => hash('sha256', $k), $codes))];
     }
 
-    /** Spotřebuje záložní kód; vrací nový JSON otisků, nebo null když kód neplatí. */
+    /** Consumes a backup code; returns the new JSON of hashes, or null when the code is not valid. */
     public static function useBackupCode(?string $json, string $code): ?string
     {
         $hashes = json_decode((string) $json, true);

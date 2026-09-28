@@ -10,12 +10,13 @@ use Kaleta\Core\Response;
 use Kaleta\Core\Extensions;
 
 /**
- * MCP server (Model Context Protocol, přenos "Streamable HTTP") na adrese /mcp.
- * Přes něj umí Claude pracovat s webem: číst a psát stránky a novinky, spravovat kategorie, kolekce, části webu a vzhled.
+ * MCP server (Model Context Protocol, "Streamable HTTP" transport) at /mcp.
+ * Through it Claude can work with the site: read and write pages and news, manage categories, collections, site parts
+ * and appearance.
  *
- * Přihlášení: hlavička "Authorization: Bearer <token>" – osobní token z nabídky Můj účet, nebo token aplikace připojené
- * přes OAuth (konektor v Claudu, Front\OAuth).
- * Claude pak jedná s právy tohoto uživatele (autor / redaktor / administrátor). Rozšíření je ve výchozím stavu vypnuté.
+ * Sign-in: the header "Authorization: Bearer <token>" – a personal token from the "Můj účet" (My account) menu, or the
+ * token of an application connected via OAuth (connector in Claude, Front\OAuth).
+ * Claude then acts with this user's permissions (author / editor / administrator). The extension is disabled by default.
  */
 final class Server
 {
@@ -40,7 +41,7 @@ final class Server
         }
         $user = $this->user();
         if ($user === null) {
-            // odkaz na metadata OAuth: podle nich se konektor Claude sám zaregistruje a požádá uživatele o souhlas
+            // link to the OAuth metadata: using them the Claude connector registers itself and asks the user for consent
             return new Response(json_encode(['chyba' => 'Neplatný nebo chybějící token.']), 401, ['Content-Type' => 'application/json',
                 'WWW-Authenticate' => 'Bearer resource_metadata="' . (new \Kaleta\Front\OAuth($this->app))->metadataUrl() . '"']);
         }
@@ -53,7 +54,7 @@ final class Server
         if (!is_array($message)) {
             return Response::json(['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32700, 'message' => 'Neplatný JSON.']], 400);
         }
-        // dávka zpráv i jediná zpráva
+        // a batch of messages as well as a single message
         $batch = array_is_list($message) ? $message : [$message];
         if (count($batch) > 50) {
             return Response::json(['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32600, 'message' => 'Dávka má nejvýš 50 zpráv.']], 400);
@@ -66,7 +67,7 @@ final class Server
         return Response::json(array_is_list($message) ? $responses : $responses[0]);
     }
 
-    /** @param array<string, mixed> $z @return array<string, mixed>|null null = oznámení bez odpovědi */
+    /** @param array<string, mixed> $z @return array<string, mixed>|null null = notification without a response */
     private function process(array $z): ?array
     {
         $id = $z['id'] ?? null;
@@ -85,15 +86,15 @@ final class Server
                 'instructions' => Translator::instructions(),
             ]),
             'ping' => $ok([]),
-            'tools/list' => $ok(['tools' => Translator::listAll($tools->listAll())]), // české názvy zůstávají skrytými aliasy
+            'tools/list' => $ok(['tools' => Translator::listAll($tools->listAll())]), // Czech names remain as hidden aliases
             'tools/call' => $ok($this->call($tools, (string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Neznámá metoda: ' . $method]],
         };
     }
 
     /**
-     * Volání nástroje. Anglický název (tools/list) se přeloží na český nástroj a zpět (Anglicky); český název je skrytý
-     * alias pro napojení z doby před 1.1 a chová se jako dřív.
+     * Tool call. The English name (tools/list) is translated to the Czech tool and back (Translator); the Czech name is a
+     * hidden alias for connections from before 1.1 and behaves as before.
      *
      * @param array<string, mixed> $arguments
      * @return array<string, mixed>
@@ -115,7 +116,7 @@ final class Server
                 \Kaleta\Front\Cache::clear();
             }
             if ($unknownParams !== [] && is_array($result) && !array_is_list($result)) {
-                // překlep v názvu parametru by se jinak ztratil beze stopy (nástroj ho nezná, a tak ho vynechá)
+                // a typo in a parameter name would otherwise get lost without a trace (the tool does not know it, so it skips it)
                 $result['nezname_parametry'] = $unknownParams;
             }
             if ($czech !== null) {
@@ -129,10 +130,10 @@ final class Server
     }
 
     /**
-     * Objekt nebo pole poslané jako text JSON (klient bez schématu nástroje, některé proxy) se rozbalí podle typu
-     * parametru ve schématu – jinak by ho nástroj nepoznal a hodnoty potichu vynechal.
+     * An object or array sent as JSON text (a client without the tool schema, some proxies) is decoded by the parameter
+     * type in the schema – otherwise the tool would not recognize it and would silently skip the values.
      *
-     * @param list<array<string, mixed>> $items definice nástrojů (tools/list)
+     * @param list<array<string, mixed>> $items tool definitions (tools/list)
      * @param array<string, mixed> $arguments
      * @return array<string, mixed>
      */
@@ -144,9 +145,9 @@ final class Server
             }
             $properties = (array) ($tool['inputSchema']['properties'] ?? []);
             foreach ($arguments as $key => $value) {
-                // typ může být i výčet, např. ["array", "null"] u položek menu
+                // the type can also be a list, e.g. ["array", "null"] for menu items
                 $types = (array) ($properties[$key]['type'] ?? []);
-                // logická hodnota poslaná jako text: „false“ by v PHP byla pravda (skrytá stránka by se zveřejnila)
+                // a boolean sent as text: „false“ would be true in PHP (a hidden page would get published)
                 if (is_string($value) && in_array('boolean', $types, true) && in_array(strtolower(trim($value)), ['true', 'false', '1', '0', ''], true)) {
                     $arguments[$key] = in_array(strtolower(trim($value)), ['true', '1'], true);
                     continue;
@@ -158,7 +159,7 @@ final class Server
                 if (!is_array($decoded)) {
                     continue;
                 }
-                $kind = $decoded === [] ? null : (array_is_list($decoded) ? 'array' : 'object'); // [] i {} sedí na oba typy
+                $kind = $decoded === [] ? null : (array_is_list($decoded) ? 'array' : 'object'); // both [] and {} match either type
                 if ($kind === null || in_array($kind, $types, true)) {
                     $arguments[$key] = $decoded;
                 }
@@ -170,7 +171,7 @@ final class Server
     }
 
     /**
-     * Parametry, které nástroj ve schématu nemá – vrátí se ve výsledku, ať volající ví, že se nepoužily.
+     * Parameters the tool does not have in its schema – returned in the result so the caller knows they were not used.
      *
      * @param list<array<string, mixed>> $items
      * @param array<string, mixed> $arguments
@@ -187,7 +188,7 @@ final class Server
         return [];
     }
 
-    /** @return array<string, mixed>|null uživatel podle tokenu */
+    /** @return array<string, mixed>|null user by token */
     private function user(): ?array
     {
         $header = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
@@ -196,7 +197,8 @@ final class Server
         if ((int) $db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'mcp' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [$ip]) >= 20) {
             return null;
         }
-        // osobní token z Můj účet (kaleta_…) nebo přístupový token aplikace připojené přes OAuth (kaleta_oa_…, platí hodinu)
+        // a personal token from "Můj účet" (kaleta_…) or the access token of an application connected via OAuth
+        // (kaleta_oa_…, valid for an hour)
         if (!preg_match('/^Bearer\s+(kaleta_(?:oa_)?[a-f0-9]{48})$/', $header, $m)) {
             return null;
         }

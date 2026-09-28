@@ -10,35 +10,35 @@ use Kaleta\Core\Request;
 use Kaleta\Core\Response;
 
 /**
- * Předek modulů administrace.
+ * Base class of admin modules.
  *
- * Akce z adresy (admin.php?module=news&action=edit) volá metodu akceEdit().
- * Výchozí akce je "vypis". Nový modul = jedna třída + šablony ve views/admin/<ident>/.
+ * The action from the URL (admin.php?module=news&action=edit) calls the method actionEdit().
+ * The default action is "list". A new module = one class + templates in views/admin/<ident>/.
  */
 abstract class Module
 {
-    /** Identifikátor v adrese a v tabulce práv. */
+    /** Identifier in the URL and in the permissions table. */
     public const string IDENT = '';
 
-    /** Titulek v menu. */
+    /** Title in the menu. */
     public const string NAME = '';
 
-    /** Skupina v menu: Obsah | Vzhled | Správa. */
+    /** Group in the menu: Obsah | Vzhled | Správa (Content | Appearance | Administration). */
     public const string GROUP = 'Obsah';
 
-    /** Ikona v menu (klíč do sady ve views/admin/icons.php). */
+    /** Icon in the menu (key into the set in views/admin/icons.php). */
     public const string ICON = 'clanek';
 
-    /** Klíč rozšíření (Core\Rozsireni), ke kterému modul patří; prázdné = jádro, nejde vypnout. */
+    /** Key of the extension (Core\Extensions) the module belongs to; empty = core, cannot be disabled. */
     public const string EXTENSION = '';
 
-    /** Modul vidí jen admin (autoři, konfigurace...). */
+    /** Only the administrator sees the module (authors, configuration...). */
     public const bool ADMIN_ONLY = false;
 
-    /** Modul patří pod jiný (ident): v menu se neukazuje samostatně, zvýrazní se nadřazený (Kategorie a Štítky pod Novinkami). */
+    /** The module belongs under another one (ident): it is not shown separately in the menu, the parent is highlighted (Categories and Tags under News). */
     public const string PARENT = '';
 
-    /** Modul je dostupný všem přihlášeným bez nastavování práv. */
+    /** The module is available to every signed-in user without setting permissions. */
     public const bool FOR_ALL_USERS = false;
 
     protected readonly App $app;
@@ -88,12 +88,12 @@ abstract class Module
         return $this->app->url('admin.php?' . http_build_query($query));
     }
 
-    /** Přesměrování zpět do modulu s hláškou (vzor Post/Redirect/Get). */
-    /** Návrat na stránku webu po úpravě „přímo na webu“: jen místní cesta pod kořenem webu, nikdy cizí adresa. */
+    /** Redirect back to the module with a message (Post/Redirect/Get pattern). */
+    /** Return to the site page after editing "directly on the site": only a local path under the site root, never a foreign URL. */
     /**
-     * Filtr jazykové verze ve výpisech (stránky, kategorie, položky kolekcí) podle ?jazyk=kód.
+     * Language version filter in lists (pages, categories, collection items) by ?jazyk=code.
      *
-     * @return array{0: list<string>, 1: string, 2: ?string} jazyky webu (prázdné = jediný jazyk), zvolený kód, hodnota sloupce jazyk (null = všechny)
+     * @return array{0: list<string>, 1: string, 2: ?string} site languages (empty = single language), selected code, value of the jazyk column (null = all)
      */
     protected function readLanguageFilter(): array
     {

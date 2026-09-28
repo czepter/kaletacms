@@ -7,7 +7,7 @@ namespace Kaleta\Builder\Elements;
 use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
-/** Tlačítko = odkaz vzhledu tlačítka. Varianty z design systému: hlavní, doplňkové, obrys, textový odkaz. */
+/** Button = a link that looks like a button. Variants from the design system: primary, secondary, outline, text link. */
 final class Button extends Element
 {
     public const string TYPE = 'tlacitko';

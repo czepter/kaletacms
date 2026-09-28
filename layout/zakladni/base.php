@@ -1,24 +1,24 @@
 <?php
 /**
- * Layout "zakladni" - šablona firemního webu: hlavička s logem a navigací, obsah, patička s kontakty.
- * Na telefonu se navigace otevírá přes Popover API (bez JavaScriptu). Vlastní layout = kopie této složky pod jiným názvem.
+ * Layout "zakladni" - a company website template: header with logo and navigation, content, footer with contacts.
+ * On a phone the navigation opens via the Popover API (no JavaScript). A custom layout = a copy of this folder under another name.
  *
  * @var Kaleta\Core\Settings $web
- * @var string $titulek  prázdný na úvodní stránce
- * @var array{hlavni:bool, popis:string, klicova_slova:string, obrazek:string, typ:string, noindex:bool, stavba?:bool} $meta  stavba = stránka z builderu (sekce přes celou šířku)
- * @var string $obsah  hotové HTML obsahu stránky (stránka, výpis novinek, novinka…)
+ * @var string $titulek  empty on the home page
+ * @var array{hlavni:bool, popis:string, klicova_slova:string, obrazek:string, typ:string, noindex:bool, stavba?:bool} $meta  stavba = a page from the builder (full-width sections)
+ * @var string $obsah  ready-made HTML of the page content (page, news list, news item…)
  * @var callable(string): string $url
  * @var string $kanonicka
- * @var string $hlava  značky do <head> z Nastavení: SEO, strukturovaná data, měřicí kódy (vždy vypsat před </head>)
- * @var string $pata   cookie lišta a kódy před </body> (vždy vypsat)
- * @var string $jazyk  kód jazyka zobrazené verze webu (cs, en…) pro <html lang>
- * @var string $jazyky_html  hotový přepínač jazykových verzí; prázdný, má-li web jediný jazyk
- * @var bool $sNovinkami  je zapnuté rozšíření Novinky (odkazy na RSS)
- * @var list<array{titulek:string, seo_link:string, uvod:bool}> $stranky  stránky „v menu“ (úvodní má prázdnou adresu) – jen pro starší šablony
- * @var list<array{text:string, url:string, nove_okno:bool, deti:list<array<string, mixed>>, novinky?:bool}> $menu  hlavní menu (Vzhled → Menu), položky mohou mít podmenu
- * @var list<array<string, mixed>> $menu_paticka  menu v patičce (prázdné, dokud ho správce nesestaví)
- * @var callable(list<array<string, mixed>>, string, string): string $menu_html  položky menu jako <li> (Core\Menu::html: položky, cesta stránky, adresa úvodu)
- * @var array{hlavicka: ?string, paticka: ?string} $casti  záhlaví a patička z builderu (Vzhled → Části webu); null = kreslí je layout
+ * @var string $hlava  tags for <head> from Settings: SEO, structured data, tracking codes (always output before </head>)
+ * @var string $pata   cookie bar and codes before </body> (always output)
+ * @var string $jazyk  language code of the displayed version of the site (cs, en…) for <html lang>
+ * @var string $jazyky_html  ready-made language version switcher; empty if the site has a single language
+ * @var bool $sNovinkami  the News extension is enabled (links to RSS)
+ * @var list<array{titulek:string, seo_link:string, uvod:bool}> $stranky  pages "in the menu" (the home page has an empty slug) – only for older templates
+ * @var list<array{text:string, url:string, nove_okno:bool, deti:list<array<string, mixed>>, novinky?:bool}> $menu  main menu (Vzhled → Menu), items may have a submenu
+ * @var list<array<string, mixed>> $menu_paticka  footer menu (empty until the administrator builds it)
+ * @var callable(list<array<string, mixed>>, string, string): string $menu_html  menu items as <li> (Core\Menu::html: items, page path, home page url)
+ * @var array{hlavicka: ?string, paticka: ?string} $casti  header and footer from the builder (Vzhled → Části webu, i.e. Appearance → Site parts); null = the layout draws them
  */
 $nazevWebu = $web->get('site_name');
 $cesta = (string) parse_url($kanonicka, PHP_URL_PATH);
@@ -96,7 +96,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 		</div>
 		<nav aria-label="<?= e(t('Odkazy v patičce')) ?>">
 			<ul>
-<?php $plocha = []; foreach ($menu_paticka as $p) { $plocha[] = ['deti' => []] + $p; array_push($plocha, ...$p['deti']); } // v patičce bez rozbalování ?>
+<?php $plocha = []; foreach ($menu_paticka as $p) { $plocha[] = ['deti' => []] + $p; array_push($plocha, ...$p['deti']); } // no expanding in the footer ?>
 				<?= $menu_html($plocha, $cesta, $url('')) ?>
 <?php foreach ($site as $nazevSite => $adresa): ?>
 				<li><a href="<?= e($adresa) ?>" rel="me noopener" target="_blank"><?= e($nazevSite) ?></a></li>

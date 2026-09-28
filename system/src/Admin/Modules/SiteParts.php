@@ -12,8 +12,8 @@ use Kaleta\Builder\SiteParts as CastiWebu;
 use Kaleta\Builder\Publisher;
 
 /**
- * Části webu v builderu: záhlaví, patička a obálky detailu novinky, výpisu a stránky 404. Bez publikované stavby
- * kreslí část šablona; „Vrátit na šablonu“ stavbu vypne (zůstane ve verzích).
+ * Site parts in the builder: header, footer and the wrappers of the news item detail, the list and the 404 page. Without a
+ * published build the layout draws the part; "Vrátit na šablonu" (Revert to layout) turns the build off (it stays in the versions).
  */
 final class SiteParts extends Module
 {
@@ -48,7 +48,7 @@ final class SiteParts extends Module
         ]);
     }
 
-    /** Editor; část, která ještě není, se založí s konceptem podle toho, co dosud kreslila šablona. */
+    /** Editor; a part that does not exist yet is created with a draft based on what the layout has drawn so far. */
     protected function actionBuilder(): Response
     {
         [$type, $language, $variant] = $this->readPartParams();
@@ -59,7 +59,7 @@ final class SiteParts extends Module
         return $this->openBuilder();
     }
 
-    /** Část se vrátí na šablonu (varianta se smaže): publikovaná stavba jde do verzí, na webu se kreslí část z layoutu. */
+    /** The part reverts to the layout (a variant is deleted): the published build goes to the versions, the site draws the part from the layout. */
     protected function actionTemplate(): Response
     {
         [$type, $language, $variant] = $this->readPartParams();
@@ -73,7 +73,7 @@ final class SiteParts extends Module
         return $this->back($variant !== '' ? 'Varianta byla smazána – vybrané stránky mají zase výchozí podobu.' : 'Část webu se vrátila na výchozí podobu. Předchozí podobu najdete ve verzích, když ji znovu otevřete v builderu.');
     }
 
-    /** Formulář varianty záhlaví nebo patičky: název a stránky, na kterých platí. */
+    /** Form of a header or footer variant: name and the pages it applies to. */
     protected function actionVariant(): Response
     {
         [$type, $language, $variant] = $this->readPartParams();
@@ -89,7 +89,7 @@ final class SiteParts extends Module
         ]);
     }
 
-    /** Uložení varianty; nová začíná kopií výchozí podoby (nebo podoby ze šablony) jako koncept. */
+    /** Saving a variant; a new one starts as a copy of the default form (or the form from the layout) as a draft. */
     protected function actionSaveVariant(): Response
     {
         [$type, $language] = $this->readPartParams();
@@ -132,8 +132,8 @@ final class SiteParts extends Module
     {
         $type = $target['radek']['typ'];
         $language = $target['radek']['jazyk'];
-        // náhled: stránka, na které se část ukáže (obálka novinky na nejnovější novince, 404 na neexistující adrese)
-        // varianta se ukazuje na první stránce, pro kterou platí
+        // preview: a page on which the part appears (the news item wrapper on the newest news item, 404 on a non-existent URL)
+        // a variant is shown on the first page it applies to
         $page = $target['radek']['varianta'] !== '' ? (json_decode((string) $target['radek']['stranky'], true) ?: [])[0] ?? null : null;
         $path = $page !== null ? (string) $this->db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [(int) $page]) : match ($type) {
             'novinka' => ($seo = $this->db->value('SELECT seo_link FROM {novinky} WHERE visible = 1 AND smazano IS NULL AND datum <= NOW() AND jazyk = ? ORDER BY datum DESC LIMIT 1', [$language])) !== null ? 'novinky/' . $seo : 'novinky',
@@ -150,7 +150,7 @@ final class SiteParts extends Module
         ];
     }
 
-    /** @return array{0: ?string, 1: string, 2: string} typ, jazyk a varianta části z adresy požadavku */
+    /** @return array{0: ?string, 1: string, 2: string} type, language and variant of the part from the request URL */
     private function readPartParams(): array
     {
         $type = $this->request->get('typ');

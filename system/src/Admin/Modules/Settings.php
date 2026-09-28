@@ -13,8 +13,8 @@ use Kaleta\Core\Backup;
 use Kaleta\Front\Layouts;
 
 /**
- * Nastavení webu (tabulka ka_nastaveni) rozdělené do záložek.
- * Každá záložka má šablonu views/admin/settings/<tab>.php a seznam polí s typem - podle něj se hodnoty čistí.
+ * Site settings (table ka_nastaveni) split into tabs.
+ * Each tab has a template views/admin/settings/<tab>.php and a list of fields with a type - the values are cleaned by it.
  */
 class Settings extends Module
 {
@@ -29,14 +29,14 @@ class Settings extends Module
         'analytics' => 'Měření', 'cookies' => 'Soukromí a cookies', 'mail' => 'Pošta', 'backups' => 'Zálohy a aktualizace', 'health' => 'Stav systému',
     ];
 
-    /** Typy firmy pro pole firma_typ (vyber:…). */
+    /** Company types for the field company_type (vyber:…). */
     private const string COMPANY_TYPES = 'Organization|LocalBusiness|HomeAndConstructionBusiness|ProfessionalService|LegalService|AccountingService|MedicalBusiness|AutomotiveBusiness|Store|FoodEstablishment|LodgingBusiness|SportsActivityLocation|EducationalOrganization';
 
     public const array SOCIAL_NETWORKS = ['social_facebook' => 'Facebook', 'social_instagram' => 'Instagram', 'social_x' => 'X (Twitter)', 'social_youtube' => 'YouTube', 'social_linkedin' => 'LinkedIn'];
 
     /**
-     * Pole jednotlivých záložek: klíč v ka_nastaveni => typ.
-     * text | tajne (klíč: nevypisuje se zpět, prázdné pole = beze změny; tajne:/regex/ navíc hlídá tvar) | radky (víceřádkový text) | kod (HTML/JS - zadává jen administrátor) | url | email | ano | cislo:min:max | vyber:a|b | seznam:a|b (zaškrtávací pole, ukládá se "a,b") | vzor:/regex/
+     * Fields of the individual tabs: key in ka_nastaveni => type.
+     * text | tajne (secret key: not printed back, empty field = no change; tajne:/regex/ also checks the format) | radky (multi-line text) | kod (HTML/JS - entered only by the administrator) | url | email | ano (yes/no) | cislo:min:max (number) | vyber:a|b (choice) | seznam:a|b (checkboxes, saved as "a,b") | vzor:/regex/ (pattern)
      */
     private const array FIELDS = [
         'general' => [
@@ -45,7 +45,7 @@ class Settings extends Module
             'home_page' => 'cislo:0:4294967295', 'news_per_page' => 'cislo:1:100', 'share_buttons' => 'ano', 'link_check' => 'ano', 'article_outline' => 'ano', 'related_news_auto' => 'ano', 'page_cache' => 'ano', 'maintenance' => 'ano', 'maintenance_text' => 'text', 'webhook_url' => 'url', 'webhook_enquiries' => 'url', 'require_2fa' => 'vyber:|spravci|vsichni',
             'time_zone' => 'pasmo', 'site_language' => 'vyber:' . \Kaleta\Core\Language::CODES, 'additional_languages' => 'seznam:' . \Kaleta\Core\Language::CODES,
         ],
-        // Vzhled webu ukládá modul Vzhled; tady jen typy pro kontrolu hodnot z napojení na Claude (není to záložka Nastavení)
+        // the site appearance is saved by the Appearance module; here only types for checking values from the Claude connection (it is not a Settings tab)
         'vzhled' => ['dark_mode' => 'vyber:vypnuto|auto|tmavy', 'theme_switcher' => 'ano'],
         'company' => [
             'company_name' => 'text', 'company_type' => 'vyber:' . self::COMPANY_TYPES, 'company_id' => 'vzor:/^((?=.*\d)[A-Za-z0-9 .\/-]{1,24})?$/', 'company_register' => 'text', 'company_representative' => 'text', 'company_vat_id' => 'vzor:/^([A-Z]{2}[A-Z0-9]{6,12})?$/',
@@ -72,8 +72,8 @@ class Settings extends Module
     ];
 
     /**
-     * Pole záložky. Základní záložka má navíc název a popis webu pro každou další jazykovou verzi
-     * (nazev_webu_en, popis_webu_de…) - prázdná hodnota znamená „stejné jako ve výchozím jazyce“.
+     * Fields of a tab. The general tab also has the site name and description for each additional language version
+     * (nazev_webu_en, popis_webu_de…) - an empty value means "the same as in the default language".
      *
      * @return array<string, string>
      */
@@ -89,7 +89,7 @@ class Settings extends Module
         return $field;
     }
 
-    /** Neplatné hodnoty: hláška s názvy polí, jak je vidí uživatel, a zadané hodnoty zpět do zvýrazněných polí. */
+    /** Invalid values: a message with the field names as the user sees them, and the entered values back into the highlighted fields. */
     private function rejectInvalid(string $tab, array $errors, array $given): Response
     {
         $template = (string) @file_get_contents(KALETA_SYSTEM . '/views/admin/settings/' . $tab . '.php');
@@ -102,7 +102,7 @@ class Settings extends Module
     protected function actionList(): Response
     {
         if (static::IDENT === 'settings' && $this->request->get('tab') === 'extensions') {
-            return Response::redirect($this->app->url('admin.php?module=extensions')); // Rozšíření mají vlastní položku v nabídce
+            return Response::redirect($this->app->url('admin.php?module=extensions')); // Extensions have their own menu item
         }
         $tab = $this->tab($this->request->get('tab'));
         $settings = $this->app->settings();
@@ -110,7 +110,7 @@ class Settings extends Module
         foreach ($this->fields($tab) as $key => $type) {
             $values[$key] = $settings->get($key);
             if (str_starts_with($type, 'tajne') && $values[$key] !== '') {
-                $values[$key] = '…' . substr($values[$key], -4); // do stránky jde jen konec klíče pro kontrolu
+                $values[$key] = '…' . substr($values[$key], -4); // only the end of the key goes to the page, for checking
             }
         }
 
@@ -147,7 +147,7 @@ class Settings extends Module
         $errors = [];
         $given = [];
         foreach ($this->fields($tab) as $key => $type) {
-            // "kod" se neořezává ani jinak neupravuje - je to HTML/JS vložené administrátorem
+            // "kod" is not trimmed or modified in any other way - it is HTML/JS inserted by the administrator
             $value = $type === 'kod' ? (string) ($_POST[$key] ?? '') : $this->request->post($key);
             if (str_starts_with($type, 'seznam:')) {
                 $settings->set($key, implode(',', array_intersect($this->request->postList($key), explode('|', substr($type, 7)))));
@@ -157,7 +157,7 @@ class Settings extends Module
                 if ($this->request->postBool($key . '_smazat')) {
                     $settings->set($key, '');
                 } elseif ($value !== '' && $type !== 'tajne' && !preg_match(substr($type, 6), $value)) {
-                    $errors[] = $key; // hodnota se do hlášky nikdy nevypisuje, jen název pole
+                    $errors[] = $key; // the value is never printed in the message, only the field name
                 } elseif ($value !== '') {
                     $settings->set($key, mb_substr($value, 0, 300));
                 }
@@ -166,7 +166,7 @@ class Settings extends Module
             $clean = self::sanitize($type, $value, $this->request->postBool($key));
             if ($clean === null) {
                 $errors[] = $key;
-                $given[$key] = mb_substr($value, 0, 2000); // vrátí se do formuláře k opravě (tajné klíče ne)
+                $given[$key] = mb_substr($value, 0, 2000); // returned to the form for correction (secret keys not)
                 continue;
             }
             $settings->set($key, $clean);
@@ -177,7 +177,7 @@ class Settings extends Module
         if ($tab === 'extensions') {
             Extensions::save($settings, $this->request->postList('rozsireni'));
             if (Extensions::isEnabled($settings, 'novinky')) {
-                Categories::createDefault($this->db, $settings); // novinky zapnuté po instalaci: rovnou s kategorií, jako z instalace
+                Categories::createDefault($this->db, $settings); // news enabled after installation: right away with a category, as from the installation
             }
             if (($this->request->post('ai_key') !== '' || $this->request->post('ai_provider') !== $this->request->post('ai_poskytovatel_puvodni')) && $settings->get('ai_key') !== '' && ($keyError = (new \Kaleta\Core\Assistant($settings))->verifyKey()) !== null) {
                 return $this->back(t('Nastavení je uložené, ale klíč asistenta nefunguje: %s', t($keyError)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'chyba');
@@ -237,7 +237,7 @@ class Settings extends Module
         return $this->back('Záloha byla smazána.', '', ['tab' => 'backups']);
     }
 
-    /** Vyprázdní záznam chyb aplikace. */
+    /** Empties the application error log. */
     protected function actionDeleteLog(): Response
     {
         if ($this->request->isPost() && is_file(KALETA_ROOT . '/storage/log/chyby.log')) {
@@ -248,7 +248,7 @@ class Settings extends Module
     }
 
     /**
-     * Posledních N řádků souboru bez načtení celého souboru do paměti.
+     * The last N lines of a file without loading the whole file into memory.
      *
      * @return list<string>
      */
@@ -265,7 +265,7 @@ class Settings extends Module
         return array_slice(array_values(array_filter(explode("\n", $end), fn (string $r): bool => trim($r) !== '')), -$lines);
     }
 
-    /** Obnova databáze ze zálohy; těsně před ní vznikne pojistná záloha současného stavu. */
+    /** Restoring the database from a backup; right before it, a safety backup of the current state is created. */
     protected function actionRestoreBackup(): Response
     {
         if (!$this->request->isPost()) {
@@ -277,12 +277,12 @@ class Settings extends Module
         } catch (\Throwable $e) {
             $reverted = false;
             if (isset($safetyBackup)) {
-                // selhání uprostřed obnovy: databáze se sama vrátí do stavu před obnovou
+                // failure in the middle of the restore: the database returns by itself to the state before the restore
                 try {
                     Backup::restore($this->db, $safetyBackup);
                     $reverted = true;
                 } catch (\Throwable) {
-                    // vrácení se nepovedlo – správce ho spustí ručně ze zálohy $pojistna
+                    // the revert failed – the administrator runs it manually from the backup $safetyBackup
                 }
             }
             \Kaleta\Front\Cache::clear();
@@ -294,7 +294,7 @@ class Settings extends Module
         return $this->back(t('Databáze byla obnovena ze zálohy (příkazů: %d). Stav před obnovou je uložený v záloze %s.', $statementCount, $safetyBackup), '', ['tab' => 'backups']);
     }
 
-    /** Znovu zjistí, zda je k dispozici novější verze. */
+    /** Checks again whether a newer version is available. */
     protected function actionCheck(): Response
     {
         if ($this->request->isPost()) {
@@ -304,7 +304,7 @@ class Settings extends Module
         return $this->back('', '', ['tab' => 'backups']);
     }
 
-    /** Stáhne, ověří a nainstaluje novou verzi. Před tím zazálohuje databázi. */
+    /** Downloads, verifies and installs the new version. Before that it backs up the database. */
     protected function actionUpdate(): Response
     {
         if (!$this->request->isPost()) {
@@ -320,7 +320,7 @@ class Settings extends Module
         return $this->back(t('Systém byl aktualizován na verzi %s. Databáze se upraví sama při příštím načtení administrace.', $version), '', ['tab' => 'backups']);
     }
 
-    /** Záloha nahraných médií: ZIP složky media/ ke stažení. */
+    /** Backup of uploaded media: a ZIP of the media/ folder for download. */
     protected function actionMediaBackup(): Response
     {
         if (!class_exists(\ZipArchive::class) || !is_dir(KALETA_ROOT . '/media')) {
@@ -330,8 +330,8 @@ class Settings extends Module
         $zip = new \ZipArchive();
         $zip->open($file, \ZipArchive::CREATE);
         foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(KALETA_ROOT . '/media', \FilesystemIterator::SKIP_DOTS)) as $item) {
-            // varianty pro srcset a sourozenci WebP/AVIF (foto.jpg.webp) se dají kdykoli vytvořit znovu - do zálohy jdou jen originály,
-            // i nahraný originál ve WebP (foto.webp, jedna přípona)
+            // variants for srcset and the WebP/AVIF siblings (foto.jpg.webp) can be recreated at any time - only originals go to the backup,
+            // including an original uploaded as WebP (foto.webp, one extension)
             if ($item->isFile() && !preg_match('/(-1200|-nahled)\.[a-z]+$|\.[a-z0-9]+\.(webp|avif)$/i', $item->getFilename()) && !str_starts_with($item->getFilename(), '.')) {
                 $zip->addFile($item->getPathname(), substr($item->getPathname(), strlen(KALETA_ROOT) + 1));
             }
@@ -348,7 +348,7 @@ class Settings extends Module
         exit;
     }
 
-    /** Zkušební e-mail na e-mail webu - ověří, že server umí odesílat poštu. */
+    /** Test e-mail to the site e-mail - verifies that the server can send mail. */
     protected function actionTestMail(): Response
     {
         $recipient = $this->app->settings()->get('site_email');
@@ -356,7 +356,7 @@ class Settings extends Module
             return $this->back('Nejprve vyplňte E-mail webu v záložce Základní.', '', ['tab' => $this->request->post('tab') === 'mail' ? 'mail' : 'health'], 'chyba');
         }
         $siteSettings = $this->app->settings()->get('site_name');
-        // e-mail webu nemá účet s jazykem: zpráva jde ve výchozím jazyce webu (stejně jako ostatní pošta webu)
+        // the site e-mail has no account with a language: the message goes in the site's default language (like the rest of the site's mail)
         [$subject, $text] = \Kaleta\Core\Language::runWith(\Kaleta\Core\Language::defaults($this->app->settings()), fn (): array => [
             t('Zkušební zpráva z %s', $siteSettings),
             t('Dobrý den,') . "\n\n" . t('tato zpráva potvrzuje, že web %s umí odesílat e-maily.', $siteSettings) . "\n\nKaleta " . KALETA_VERSION,
@@ -381,10 +381,10 @@ class Settings extends Module
         return isset(self::TABS[$tab]) ? $tab : 'general';
     }
 
-    /** @return string|null vyčištěná hodnota, null = neplatná */
+    /** @return string|null the cleaned value, null = invalid */
     /**
-     * Hodnota nastavení ověřená stejně jako ve formuláři administrace (pro MCP). null = neznámý klíč nebo neplatná hodnota.
-     * Přepínače (typ ano) berou 1/0, true/false.
+     * A settings value validated the same way as in the admin form (for MCP). null = unknown key or invalid value.
+     * Switches (type ano) take 1/0, true/false.
      */
     public static function verifyValue(string $key, string $value): ?string
     {

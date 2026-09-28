@@ -5,29 +5,29 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Čtení exportu z WordPressu (soubor WXR: Nástroje → Export → Veškerý obsah). Nic nezapisuje, jen čte.
+ * Reading a WordPress export (WXR file: Tools → Export → All content). It writes nothing, only reads.
  *
- * Bezpečnost a velikost:
- *  - čte se proudem přes XMLReader, takže ani export o stovkách MB nezabere paměť – v paměti je vždy jediný příspěvek;
- *  - soubor s DOCTYPE se odmítá celý. Export z WordPressu ho nikdy nemá a bez DOCTYPE nejde definovat žádná entita
- *    (ani vnější soubor či adresa – útok XXE, ani „miliarda smíchů“). Navíc se čte s LIBXML_NONET a bez LIBXML_NOENT;
- *  - z komentářů se e-mail ani IP adresa vůbec nečtou, takže se nemohou dostat dál.
+ * Security and size:
+ *  - it is read as a stream through XMLReader, so even an export of hundreds of MB takes no memory – only one post is in memory at a time;
+ *  - a file with a DOCTYPE is rejected entirely. A WordPress export never has one, and without a DOCTYPE no entity can be defined
+ *    (neither an external file or URL – an XXE attack – nor a "billion laughs"). In addition it is read with LIBXML_NONET and without LIBXML_NOENT;
+ *  - the e-mail and IP address of comments are not read at all, so they cannot get any further.
  */
 final class WpFile
 {
     public const string FOLDER = KALETA_ROOT . '/storage/import';
 
-    /** Horní mez velikosti souboru: větší export je lepší rozdělit (WordPress to umí podle data nebo autora). */
+    /** Upper limit of the file size: a larger export is better split (WordPress can do it by date or author). */
     public const int MAX_BYTES = 1024 * 1024 * 1024;
 
-    /** @param string $path úplná cesta k souboru na disku */
+    /** @param string $path full path to the file on disk */
     public function __construct(private readonly string $path)
     {
     }
 
-    /* ---------- složka storage/import ---------- */
+    /* ---------- folder storage/import ---------- */
 
-    /** Složka pro exporty; vznikne sama i se zákazem přístupu z webu. */
+    /** Folder for exports; it creates itself, including the denial of web access. */
     public static function folder(): string
     {
         if (!is_dir(self::FOLDER) && !@mkdir(self::FOLDER, 0775, true)) {
@@ -41,7 +41,7 @@ final class WpFile
     }
 
     /**
-     * Soubory *.xml, které ve složce leží (nahrané formulářem i přes FTP), nejnovější nahoře.
+     * The *.xml files in the folder (uploaded through the form or over FTP), newest on top.
      *
      * @return list<array{soubor:string, velikost:int, cas:int}>
      */
@@ -58,32 +58,32 @@ final class WpFile
         return $files;
     }
 
-    /** Název souboru z formuláře nesmí vést jinam než do složky importu. */
+    /** A file name from the form must not lead anywhere other than the import folder. */
     public static function isValidName(string $file): bool
     {
         return $file !== '' && strlen($file) <= 150 && basename($file) === $file && !str_starts_with($file, '.')
             && !preg_match('#[/\\\\\x00-\x1f]#', $file) && strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'xml';
     }
 
-    /** Cesta k existujícímu souboru podle názvu z formuláře; null = neplatný název nebo soubor není. */
+    /** Path to an existing file by the name from the form; null = invalid name or the file does not exist. */
     public static function path(string $file): ?string
     {
         return self::isValidName($file) && is_file(self::FOLDER . '/' . $file) ? self::FOLDER . '/' . $file : null;
     }
 
-    /** Bezpečný název pro nahraný soubor: bez diakritiky a mezer, vždy s příponou .xml. */
+    /** A safe name for an uploaded file: without diacritics and spaces, always with the .xml extension. */
     public static function uploadName(string $previous): string
     {
         return slugify(pathinfo($previous, PATHINFO_FILENAME), 80) . '.xml';
     }
 
-    /* ---------- ověření a čtení ---------- */
+    /* ---------- verification and reading ---------- */
 
     /**
-     * Rychlé ověření před přijetím souboru: přípona, velikost, správně utvořený začátek XML a jmenný prostor exportu WordPressu.
-     * Zbytek souboru se ověří při prvním průchodu (náhled) – chyba v XML ho zastaví s číslem řádku.
+     * Quick verification before accepting the file: extension, size, a well-formed start of the XML and the WordPress export namespace.
+     * The rest of the file is verified on the first pass (preview) – an XML error stops it with the line number.
      *
-     * @throws \RuntimeException s českou hláškou pro uživatele
+     * @throws \RuntimeException with a Czech message for the user
      */
     public function verify(): void
     {
@@ -94,7 +94,7 @@ final class WpFile
     }
 
     /**
-     * Totéž bez kontroly přípony – pro právě nahraný soubor, který ještě leží v dočasné složce pod náhodným jménem.
+     * The same without the extension check – for a just-uploaded file that still sits in the temporary folder under a random name.
      *
      * @throws \RuntimeException
      */
@@ -108,7 +108,7 @@ final class WpFile
     }
 
     /**
-     * Údaje ze začátku souboru (před prvním příspěvkem): starý web, autoři, rubriky, štítky.
+     * Data from the start of the file (before the first post): old site, authors, categories, tags.
      *
      * @return array{nazev:string, adresa:string, autori:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>}
      */
@@ -119,7 +119,7 @@ final class WpFile
         $reader = $this->open();
         try {
             $this->findChannel($reader);
-            // potomci <channel>: čtou se jeden po druhém až k prvnímu <item>
+            // children of <channel>: read one by one up to the first <item>
             $hasMore = $this->read($reader);
             while ($hasMore && !($reader->nodeType === \XMLReader::END_ELEMENT && $reader->depth === 1)) {
                 if ($reader->nodeType !== \XMLReader::ELEMENT || $reader->depth !== 2) {
@@ -144,7 +144,7 @@ final class WpFile
         } finally {
             $reader->close();
         }
-        // adresa starého webu: <link> kanálu je adresa, na které web opravdu běžel; base_site_url jen jako záloha
+        // URL of the old site: the channel's <link> is the URL the site really ran on; base_site_url only as a fallback
         $h['adresa'] = $link !== '' ? $link : $h['adresa'];
         unset($h['autori'][''], $h['rubriky'][''], $h['stitky']['']);
 
@@ -152,9 +152,9 @@ final class WpFile
     }
 
     /**
-     * Příspěvky souboru (články, stránky, přílohy…) jeden po druhém. Klíčem je pořadí od nuly – podle něj import ví, kde minule skončil.
+     * The file's posts (articles, pages, attachments…) one by one. The key is the order from zero – by it the import knows where it stopped last time.
      *
-     * @param int $skip kolik příspěvků od začátku přeskočit (přeskakuje se rychle, bez rozebírání obsahu)
+     * @param int $skip how many posts to skip from the start (skipping is fast, without parsing the content)
      * @return \Generator<int, array<string, mixed>>
      */
     public function items(int $skip = 0): \Generator
@@ -183,7 +183,7 @@ final class WpFile
     }
 
     /**
-     * Rozebere jeden <item>. Komentáře se nečtou – firemní web je nepřebírá.
+     * Parses one <item>. Comments are not read – a company site does not take them over.
      *
      * @return array<string, mixed>
      */
@@ -233,7 +233,7 @@ final class WpFile
         return $p;
     }
 
-    /* ---------- vnitřní pomůcky ---------- */
+    /* ---------- internal helpers ---------- */
 
     private function open(): \XMLReader
     {
@@ -242,7 +242,7 @@ final class WpFile
         }
         libxml_use_internal_errors(true);
         libxml_clear_errors();
-        // LIBXML_NONET: nic se nenačítá ze sítě. Záměrně BEZ LIBXML_NOENT (nahrazování entit) a BEZ LIBXML_DTDLOAD.
+        // LIBXML_NONET: nothing is loaded from the network. Deliberately WITHOUT LIBXML_NOENT (entity substitution) and WITHOUT LIBXML_DTDLOAD.
         $reader = new \XMLReader();
         if (!@$reader->open($this->path, null, LIBXML_NONET | LIBXML_COMPACT)) {
             throw new \RuntimeException('Soubor se nepodařilo otevřít.');
@@ -251,7 +251,7 @@ final class WpFile
         return $reader;
     }
 
-    /** Posune čtečku na <channel> a cestou ověří, že jde o export WordPressu bez DOCTYPE. */
+    /** Moves the reader to <channel> and on the way verifies that this is a WordPress export without a DOCTYPE. */
     private function findChannel(\XMLReader $reader): void
     {
         while ($this->read($reader)) {
@@ -270,13 +270,13 @@ final class WpFile
         throw new \RuntimeException('V souboru chybí obsah webu (značka channel).');
     }
 
-    /** Jeden krok čtečky; hlídá DOCTYPE a chyby v XML. */
+    /** One step of the reader; guards against DOCTYPE and XML errors. */
     private function read(\XMLReader $reader): bool
     {
         return $this->check($reader, @$reader->read());
     }
 
-    /** Přeskočí celý právě čtený prvek (i s potomky) na jeho dalšího sourozence. */
+    /** Skips the whole element being read (including children) to its next sibling. */
     private function additional(\XMLReader $reader): bool
     {
         return $this->check($reader, @$reader->next());
@@ -296,7 +296,7 @@ final class WpFile
         return $ok;
     }
 
-    /** Právě čtený prvek jako samostatný uzel DOM (jen tento jeden prvek – zbytek souboru v paměti není). */
+    /** The element being read as a standalone DOM node (only this one element – the rest of the file is not in memory). */
     private function node(\XMLReader $reader): \DOMElement
     {
         $node = @$reader->expand(new \DOMDocument());
@@ -317,7 +317,7 @@ final class WpFile
     }
 
     /**
-     * Přímí potomci prvku jako pole "název značky => text".
+     * Direct children of an element as an array "tag name => text".
      *
      * @return array<string, string>
      */
@@ -333,7 +333,7 @@ final class WpFile
         return $field;
     }
 
-    /** Titulky a jména: bez značek, entity převedené na znaky, bez okrajových mezer. */
+    /** Titles and names: without tags, entities converted to characters, without surrounding whitespace. */
     private static function plainText(string $text): string
     {
         return trim(html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8'));

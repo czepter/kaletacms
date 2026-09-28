@@ -8,8 +8,8 @@ use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
 /**
- * Drobečková navigace: Úvod › Novinky › Kategorie › Novinka. Cestu skládá web podle zobrazené stránky (Kontext::$drobecky),
- * do obálky novinky nebo šablony detailu kolekce ji tak stačí vložit jednou. Vyhledávače dostanou i BreadcrumbList.
+ * Breadcrumbs: Home › News › Category › News item. The site assembles the path from the displayed page (Context::$breadcrumbs),
+ * so it is enough to insert it once into the news item wrapper or the collection item template. Search engines also get a BreadcrumbList.
  */
 final class Breadcrumbs extends Element
 {
@@ -31,11 +31,11 @@ final class Breadcrumbs extends Element
     {
         $path = $k->breadcrumbs !== [] ? $k->breadcrumbs : ($k->editor ? [[t('Úvod'), '#'], [t('Tato stránka'), '']] : []);
         if (count($path) < 2) {
-            return ''; // na úvodní stránce drobečky nemají smysl
+            return ''; // breadcrumbs make no sense on the home page
         }
         $html = '';
         foreach ($path as $i => [$text, $url]) {
-            // aktuální je jen poslední článek; úroveň bez vlastní stránky (kolekce bez rozcestníku) je prostý text
+            // only the last link is current; a level without its own page (a collection without an overview page) is plain text
             $html .= match (true) {
                 $i === array_key_last($path) => '<li><span aria-current="page">' . e($text) . '</span></li>',
                 $url === '' => '<li><span>' . e($text) . '</span></li>',

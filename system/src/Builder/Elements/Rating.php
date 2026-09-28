@@ -8,8 +8,8 @@ use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
 /**
- * Hodnocení hvězdičkami („4,8 z 5 · 120 recenzí“). Hvězdy jsou jedno SVG s oříznutou výplní (i půl hvězdy),
- * čtečka přečte větu z aria-label. Nic se nepočítá – hodnotu zadává správce podle skutečných recenzí.
+ * Star rating ("4.8 out of 5 · 120 reviews"). The stars are one SVG with a clipped fill (half a star too),
+ * a screen reader reads the sentence from aria-label. Nothing is calculated – the administrator enters the value from real reviews.
  */
 final class Rating extends Element
 {
@@ -40,7 +40,7 @@ final class Rating extends Element
     {
         $o = $p['obsah'];
         $value = max(0.0, min(5.0, (float) str_replace(',', '.', (string) $o['hodnota'])));
-        // hvězdy vedle sebe po 26 jednotkách; výplň se ořízne na podíl hodnoty
+        // stars side by side every 26 units; the fill is clipped to the value's share
         $stars = '';
         for ($i = 0; $i < 5; $i++) {
             $x = $i * 26;

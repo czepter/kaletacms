@@ -5,24 +5,24 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * QR kód bez cizí knihovny: bajtový režim, oprava chyb úrovně M (zvládne ~15 % poškození), verze 1–40.
- * Stačí na adresu otpauth:// pro dvoufázové přihlášení (typicky verze 5–8). Výstup je matice modulů nebo SVG.
+ * QR code without a third-party library: byte mode, error correction level M (handles ~15 % damage), versions 1–40.
+ * Enough for an otpauth:// URL for two-factor login (typically versions 5–8). The output is a module matrix or SVG.
  *
- * Postup podle normy ISO/IEC 18004: data → bloky s kódy Reed–Solomon → proložení → rozmístění do matice
- * kolem pevných vzorů → vyzkoušení osmi masek a výběr té s nejnižší penalizací → formátové (a verzní) bity.
+ * Procedure per ISO/IEC 18004: data → blocks with Reed–Solomon codes → interleaving → placement into the matrix
+ * around the fixed patterns → trying eight masks and picking the one with the lowest penalty → format (and version) bits.
  */
 final class Qr
 {
-    /** Počet opravných kódových slov na blok a počet bloků pro úroveň M, index = verze (0 je výplň). */
+    /** Number of error correction codewords per block and number of blocks for level M, index = version (0 is padding). */
     private const array ECC_PER_BLOCK = [0, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26, 30, 22, 22, 24, 24, 28, 28, 26, 26, 26, 26, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28];
     private const array BLOCKS = [0, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5, 5, 8, 9, 9, 10, 10, 11, 13, 14, 16, 17, 17, 18, 20, 21, 23, 25, 26, 28, 29, 31, 33, 35, 37, 38, 40, 43, 45, 47, 49];
 
-    /** Formátové bity úrovně M (00) – maska se doplní. */
+    /** Format bits of level M (00) – the mask is added. */
     private const int LEVEL_M = 0;
 
-    /** @var list<list<bool>> tmavé moduly [y][x] */
+    /** @var list<list<bool>> dark modules [y][x] */
     private array $modules = [];
-    /** @var list<list<bool>> moduly pevných vzorů (maska ani data je nemění) */
+    /** @var list<list<bool>> modules of the fixed patterns (neither the mask nor the data changes them) */
     private array $fixed = [];
     private int $size;
 
@@ -35,11 +35,11 @@ final class Qr
     }
 
     /**
-     * Matice QR kódu: řádky shora, v každém moduly zleva, true = tmavý. Bez okraje (tichá zóna je na volajícím).
+     * QR code matrix: rows from the top, in each the modules from the left, true = dark. Without a margin (the quiet zone is up to the caller).
      *
-     * @param int|null $mask 0–7 vynutí masku (testy); null = vybere se podle penalizace jako ve čtečkách
+     * @param int|null $mask 0–7 forces a mask (tests); null = chosen by penalty as in readers
      * @return list<list<bool>>
-     * @throws \InvalidArgumentException když se data nevejdou ani do verze 40
+     * @throws \InvalidArgumentException when the data does not fit even into version 40
      */
     public static function matrix(string $data, ?int $mask = null): array
     {
@@ -62,7 +62,7 @@ final class Qr
                 if ($score < $best) {
                     [$best, $mask] = [$score, $m];
                 }
-                $qr->applyMask($m); // maska je XOR – druhé použití ji vrátí
+                $qr->applyMask($m); // the mask is XOR – applying it a second time reverts it
             }
         }
         $qr->applyMask((int) $mask);
@@ -72,8 +72,8 @@ final class Qr
     }
 
     /**
-     * QR kód jako samostatné SVG (jedna cesta, bez skriptů a odkazů ven) s tichou zónou 4 moduly.
-     * Barvy jsou pevné černá na bílé – čtečky telefonů s obráceným kontrastem v tmavém režimu nepočítají.
+     * QR code as a standalone SVG (one path, no scripts and no outgoing links) with a quiet zone of 4 modules.
+     * The colors are fixed black on white – phone readers do not expect inverted contrast in dark mode.
      */
     public static function svg(string $data, string $description, int $module = 5): string
     {
@@ -93,7 +93,7 @@ final class Qr
             . '" role="img" aria-label="' . htmlspecialchars($description, ENT_QUOTES) . '" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#fff"/><path fill="#000" d="' . $path . '"/></svg>';
     }
 
-    /** Kolik bajtů dat se vejde do verze při úrovni M. */
+    /** How many bytes of data fit into the version at level M. */
     private static function capacity(int $version): int
     {
         $bitCount = self::dataCodewordCount($version) * 8 - 4 - ($version < 10 ? 8 : 16);
@@ -101,13 +101,13 @@ final class Qr
         return intdiv($bitCount, 8);
     }
 
-    /** Počet datových kódových slov (bez opravných) ve verzi. */
+    /** Number of data codewords (without error correction ones) in the version. */
     private static function dataCodewordCount(int $version): int
     {
         return intdiv(self::rawModuleCount($version), 8) - self::ECC_PER_BLOCK[$version] * self::BLOCKS[$version];
     }
 
-    /** Moduly, které zbudou na data a opravné kódy po odečtení všech pevných vzorů. */
+    /** Modules left for data and error correction codes after subtracting all fixed patterns. */
     private static function rawModuleCount(int $version): int
     {
         $n = (16 * $version + 128) * $version + 64;
@@ -123,7 +123,7 @@ final class Qr
     }
 
     /**
-     * Datová kódová slova: režim 0100 (bajty), délka, data, zakončení a výplň 0xEC 0x11.
+     * Data codewords: mode 0100 (bytes), length, data, terminator and padding 0xEC 0x11.
      *
      * @return list<int>
      */
@@ -145,7 +145,7 @@ final class Qr
     }
 
     /**
-     * Rozdělí data do bloků, ke každému dopočítá opravná slova a bloky proloží (nejdřív data, pak opravy).
+     * Splits the data into blocks, computes the error correction words for each and interleaves the blocks (data first, then corrections).
      *
      * @param list<int> $data
      * @return list<int>
@@ -182,7 +182,7 @@ final class Qr
         return $result;
     }
 
-    /** Násobení v tělese GF(2^8) s polynomem x^8 + x^4 + x^3 + x^2 + 1. */
+    /** Multiplication in the field GF(2^8) with the polynomial x^8 + x^4 + x^3 + x^2 + 1. */
     private static function multiply(int $x, int $y): int
     {
         $z = 0;
@@ -195,7 +195,7 @@ final class Qr
     }
 
     /**
-     * Koeficienty generujícího polynomu Reed–Solomon daného stupně (bez vedoucí jedničky).
+     * Coefficients of the Reed–Solomon generator polynomial of the given degree (without the leading one).
      *
      * @return list<int>
      */
@@ -218,7 +218,7 @@ final class Qr
     }
 
     /**
-     * Opravná kódová slova: zbytek po dělení dat generujícím polynomem.
+     * Error correction codewords: the remainder after dividing the data by the generator polynomial.
      *
      * @param list<int> $data
      * @param list<int> $divisor
@@ -238,7 +238,7 @@ final class Qr
         return $z;
     }
 
-    /** Opravná slova pro blok dat (pro testy se známými vektory). @param list<int> $data @return list<int> */
+    /** Error correction words for a data block (for tests with known vectors). @param list<int> $data @return list<int> */
     public static function correctionCodes(array $data, int $count): array
     {
         return self::remainder($data, self::generator($count));
@@ -250,7 +250,7 @@ final class Qr
         $this->fixed[$y][$x] = true;
     }
 
-    /** Časovací linky, tři hledací vzory, zarovnávací vzory, rezervace formátu a u verze 7+ verzní bity. */
+    /** Timing lines, three finder patterns, alignment patterns, format reservation and, for version 7+, version bits. */
     private function drawFixedPatterns(): void
     {
         $n = $this->size;
@@ -275,7 +275,7 @@ final class Qr
         foreach ($position as $i => $x) {
             foreach ($position as $j => $y) {
                 if (($i === 0 && $j === 0) || ($i === 0 && $j === $count - 1) || ($i === $count - 1 && $j === 0)) {
-                    continue; // tam jsou hledací vzory
+                    continue; // the finder patterns are there
                 }
                 for ($dy = -2; $dy <= 2; $dy++) {
                     for ($dx = -2; $dx <= 2; $dx++) {
@@ -284,7 +284,7 @@ final class Qr
                 }
             }
         }
-        $this->drawFormat(0); // zatím jen rezervace míst, skutečné bity přijdou s maskou
+        $this->drawFormat(0); // only reserving the places for now, the real bits come with the mask
         if ($this->version >= 7) {
             $rest = $this->version;
             for ($i = 0; $i < 12; $i++) {
@@ -301,7 +301,7 @@ final class Qr
         }
     }
 
-    /** @return list<int> středy zarovnávacích vzorů (v obou osách stejné) */
+    /** @return list<int> centers of the alignment patterns (the same on both axes) */
     private function alignmentPositions(): array
     {
         if ($this->version === 1) {
@@ -317,7 +317,7 @@ final class Qr
         return $position;
     }
 
-    /** Formátové bity (úroveň M + maska, BCH kód, XOR 0x5412) na obě místa a tmavý modul. */
+    /** Format bits (level M + mask, BCH code, XOR 0x5412) in both places, and the dark module. */
     private function drawFormat(int $mask): void
     {
         $data = self::LEVEL_M << 3 | $mask;
@@ -346,7 +346,7 @@ final class Qr
         $this->set(8, $n - 8, true);
     }
 
-    /** Kódová slova po dvousloupcích zprava, střídavě nahoru a dolů, mimo pevné vzory. @param list<int> $slova */
+    /** Codewords in two-column strips from the right, alternately up and down, outside the fixed patterns. @param list<int> $words */
     private function drawData(array $words): void
     {
         $n = $this->size;
@@ -354,7 +354,7 @@ final class Qr
         $bitCount = count($words) * 8;
         for ($column = $n - 1; $column >= 1; $column -= 2) {
             if ($column === 6) {
-                $column = 5; // svislá časovací linka
+                $column = 5; // vertical timing line
             }
             for ($vertical = 0; $vertical < $n; $vertical++) {
                 for ($j = 0; $j < 2; $j++) {
@@ -391,7 +391,7 @@ final class Qr
         }
     }
 
-    /** Penalizace podle normy: dlouhé běhy, bloky 2×2, vzory podobné hledacím a nevyváženost tmavé a světlé. */
+    /** Penalty per the standard: long runs, 2×2 blocks, patterns resembling finder patterns and imbalance of dark and light. */
     private function penalty(): int
     {
         $n = $this->size;
@@ -404,7 +404,7 @@ final class Qr
                 for ($b = 0; $b < $n; $b++) {
                     $sequence[] = $axis === 0 ? $this->modules[$a][$b] : $this->modules[$b][$a];
                 }
-                // běhy pěti a více stejných modulů
+                // runs of five or more identical modules
                 $run = 1;
                 for ($b = 1; $b <= $n; $b++) {
                     if ($b < $n && $sequence[$b] === $sequence[$b - 1]) {
@@ -416,7 +416,7 @@ final class Qr
                     }
                     $run = 1;
                 }
-                // 1:1:3:1:1 se čtyřmi světlými moduly před nebo za (okraj matice se počítá jako světlý)
+                // 1:1:3:1:1 with four light modules before or after (the matrix edge counts as light)
                 for ($b = 0; $b + 7 <= $n; $b++) {
                     if (array_slice($sequence, $b, 7) !== $pattern) {
                         continue;
@@ -440,7 +440,7 @@ final class Qr
                 }
             }
         }
-        // každých 5 % odchylky od poloviny tmavých modulů = 10 bodů
+        // every 5 % of deviation from half dark modules = 10 points
         $body += (int) (ceil(abs($darkCount * 20 - $n * $n * 10) / ($n * $n)) - 1) * 10;
 
         return $body;

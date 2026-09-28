@@ -7,7 +7,7 @@ namespace Kaleta\Builder\Elements;
 use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
-/** Reference zákazníka nebo citát: text, jméno a pozice / firma. */
+/** A customer testimonial or a quote: text, name and position / company. */
 final class Quote extends Element
 {
     public const string TYPE = 'citat';

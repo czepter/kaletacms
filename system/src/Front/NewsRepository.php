@@ -9,7 +9,8 @@ use Kaleta\Core\Images;
 use Kaleta\Core\Settings;
 
 /**
- * Čtení novinek pro web (tabulka ka_novinky). Na webu je vidět jen novinka vydaná (visible = 1), jejíž datum vydání už nastalo.
+ * Reading news for the site (table ka_novinky). The site shows only a published news item (visible = 1) whose publish
+ * date has already come.
  */
 final class NewsRepository
 {
@@ -22,25 +23,25 @@ final class NewsRepository
         LEFT JOIN {uzivatele} u ON u.idu = c.autor";
 
     /**
-     * Sloupce pro výpisy: bez dlouhých textů (text, FAQ), které výpis netiskne. Klíče v poli zůstávají (prázdné),
-     * aby šablony nepadaly. Nový sloupec ka_novinky, který má být vidět ve výpisech, je potřeba doplnit i sem.
+     * Columns for listings: without the long texts (text, FAQ) that a listing does not print. The keys stay in the array
+     * (empty) so that templates do not break. A new ka_novinky column that should be visible in listings must be added here too.
      */
     private const string LIST_COLUMNS = "c.idc, c.seo_link, c.titulek, c.uvod, '' AS text, c.obrazek, c.tema, c.autor, c.datum, c.visible, c.t_slova, c.noindex, '' AS faq, c.visit,
         c.zmeneno, c.aktualizovano, c.jazyk, c.preklad_z";
 
     private const string PUBLISHED = 'c.visible = 1 AND c.datum <= NOW()';
 
-    /** Podmínka "vydaná novinka v jazyce právě zobrazené verze webu". */
+    /** Condition "published news item in the language of the currently shown site version". */
     private readonly string $published;
 
-    /** @param string $base cesta k instalaci ("" nebo "/web") - doplňuje se před adresy obrázků z media/ */
+    /** @param string $base path to the installation ("" or "/web") - prepended to URLs of images from media/ */
     public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly string $base = '')
     {
         $this->published = self::PUBLISHED . " AND c.jazyk = '" . \Kaleta\Core\Language::siteColumn() . "'";
     }
 
     /**
-     * Úprava novinky před předáním šabloně: adresa hlavního obrázku z media/ dostane cestu k instalaci.
+     * Adjusts a news item before it is passed to the template: the URL of the main image from media/ gets the installation path.
      *
      * @param array<string, mixed> $newsItem
      * @return array<string, mixed>
@@ -50,7 +51,7 @@ final class NewsRepository
         if ($newsItem['obrazek'] !== '' && !preg_match('#^(https?:)?/#', $newsItem['obrazek'])) {
             $newsItem['obrazek'] = $this->base . '/' . $newsItem['obrazek'];
         }
-        // responzivní obrázky: hlavní obrázek i obrázky v textu dostanou srcset z variant, které vznikly při nahrání
+        // responsive images: the main image and images in the text get a srcset from the variants created on upload
         $newsItem['obrazek_srcset'] = Images::srcset(ltrim(substr($newsItem['obrazek'], strlen($this->base)), '/'), $this->base);
         foreach (['uvod', 'text'] as $part) {
             if (str_contains($newsItem[$part], 'media/')) {
@@ -71,9 +72,9 @@ final class NewsRepository
     }
 
     /**
-     * Vydané novinky od nejnovější.
+     * Published news, newest first.
      *
-     * @return array{0: list<array<string, mixed>>, 1: int} novinky a jejich celkový počet
+     * @return array{0: list<array<string, mixed>>, 1: int} news and their total count
      */
     public function listPublished(int $pageNumber, ?int $limit = null, bool $withText = false): array
     {
@@ -95,8 +96,8 @@ final class NewsRepository
     /** @return array{0: list<array<string, mixed>>, 1: int} */
     public function search(string $q, int $pageNumber): array
     {
-        // index bez diakritiky (Core\Hledani): "nabrezi" najde "nábřeží"; krátká slova a části slov se hledají v titulku
-        \Kaleta\Core\Search::complete($this->db); // novinky z doby před indexem se doplní samy
+        // index without diacritics (Core\Search): "nabrezi" finds "nábřeží"; short words and parts of words are searched in the title
+        \Kaleta\Core\Search::complete($this->db); // news from before the index are filled in automatically
         $like = '%' . addcslashes($q, '%_\\') . '%';
         $query = \Kaleta\Core\Search::query($q);
         if ($query === '') {
@@ -118,7 +119,7 @@ final class NewsRepository
         if ($newsItem === null) {
             return null;
         }
-        // popisek, autor a alt hlavního obrázku: z novinky, jinak z knihovny médií
+        // caption, author and alt of the main image: from the news item, otherwise from the media library
         $library = $newsItem['obrazek'] !== '' && !preg_match('#^(https?:)?//#', $newsItem['obrazek'])
             ? $this->db->one('SELECT nazev, popis, autor FROM {media} WHERE obr_poloha = ? LIMIT 1', [ltrim($newsItem['obrazek'], '/')]) : null;
         $description = $newsItem['obrazek_popis'] !== '' ? $newsItem['obrazek_popis'] : (string) ($library['popis'] ?? '');
@@ -131,7 +132,7 @@ final class NewsRepository
     }
 
     /**
-     * Podobné novinky: nejdřív podle počtu společných štítků, potom novější ze stejné kategorie.
+     * Similar news: first by the number of shared tags, then newer ones from the same category.
      *
      * @param array<string, mixed> $newsItem
      * @return list<array<string, mixed>>
@@ -150,7 +151,7 @@ final class NewsRepository
     /** @return array{0: list<array<string, mixed>>, 1: int} */
     private function query(string $where, array $params, string $order, int $pageNumber, ?int $limit = null, bool $withText = false): array
     {
-        // pevný počet (RSS, kanály, API) = nikdo nestránkuje, celkový počet se nepočítá
+        // fixed count (RSS, feeds, API) = nobody paginates, the total count is not computed
         $total = $limit !== null ? 0 : (int) $this->db->value("SELECT COUNT(*) FROM {novinky} c WHERE {$where}", $params);
         $limit ??= $this->perPage();
         $pageNumber = max(1, min($pageNumber, 100000));

@@ -2,7 +2,7 @@
 /**
  * @var string $base
  * @var bool $alreadyInstalled
- * @var bool $deleted instalátor se po sobě smazal sám
+ * @var bool $deleted the installer deleted itself
  */
 ?>
 <!doctype html>

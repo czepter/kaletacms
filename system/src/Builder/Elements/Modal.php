@@ -9,9 +9,9 @@ use Kaleta\Builder\Element;
 use Kaleta\Builder\Build;
 
 /**
- * Vyskakovací okno (Popover API): otevře ho odkaz nebo tlačítko s adresou #<kotva okna> (Pokročilé → Kotva, jinak
- * #okno-<id prvku> – editor ji u okna ukáže), případně samo po zadané době
- * (jednou za návštěvu – image/web.js). Zavře ho křížek, Esc i klepnutí vedle. V editoru je vidět jako běžný blok.
+ * Modal (Popover API): a link or button with the url #<modal anchor> opens it (Pokročilé → Kotva, i.e. Advanced → Anchor, otherwise
+ * #okno-<element id> – the editor shows it next to the modal), or it opens by itself after a set time
+ * (once per visit – image/web.js). The cross, Esc and a click outside close it. In the editor it is visible as an ordinary block.
  */
 final class Modal extends Element
 {
@@ -42,7 +42,7 @@ final class Modal extends Element
 
     public static function baseCss(): string
     {
-        // rozložení obsahu dává okno samo: vlastní „display“ ze stylu by zavřené okno ukázalo (popover skrývá display: none)
+        // the modal lays out its content itself: a custom "display" from the style would show a closed modal (the popover hides with display: none)
         return '.ka-okno:popover-open, .ka-okno--editor { display: flex; flex-direction: column; align-items: flex-start; gap: var(--ka-mezera-m); }
 .ka-okno { inset: 0; margin: auto; width: min(36rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); overflow: auto; padding: var(--ka-mezera-xl) var(--ka-mezera-l) var(--ka-mezera-l); border: 0; border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-l); }
 .ka-okno::backdrop { background: rgb(0 0 0 / 0.45); }
@@ -54,7 +54,7 @@ final class Modal extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $o = $p['obsah'];
-        // id okna: kotva prvku, nebo id stylu; bez obojího okno-<id> (na id stojí i styl prvku, proto se nemění)
+        // modal id: the element's anchor, or the style id; without both okno-<id> (the element's style relies on the id too, so it does not change)
         $anchor = $p['kotva'] ?? 'okno-' . $p['id'];
         if (preg_match('/ id="([^"]*)"/', $a, $m)) {
             $anchor = $m[1];
@@ -63,7 +63,7 @@ final class Modal extends Element
         }
         $closeButton = '<button type="button" class="ka-okno-zavrit" popovertarget="' . e($anchor) . '" popovertargetaction="hide" aria-label="' . e(t('Zavřít')) . '">×</button>';
         if ($k->editor) {
-            // v editoru se okno ukáže na místě, aby šlo upravovat, i s adresou, kterou ho tlačítko otevře
+            // in the editor the modal shows in place so that it can be edited, together with the url a button opens it with
             return '<div' . Text::withClass($a, 'ka-okno ka-okno--editor') . '><small style="position:absolute;top:.6rem;left:1rem;color:var(--ka-barva-tlumeny)">'
                 . e(t('Otevře ho odkaz #%s', $anchor)) . '</small>' . $children . '</div>';
         }

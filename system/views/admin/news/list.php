@@ -9,9 +9,9 @@
  * @var int $pageCount
  * @var list<array<string, mixed>> $category
  * @var array{tema:int, jazyk:string, hledat:string, stav:string} $filter
- * @var list<string> $siteLanguages  jazykové verze webu (prázdné = web má jen jeden jazyk)
- * @var int $inTrash  počet novinek v koši (v rozsahu přihlášeného)
- * @var int $toPublish  koncepty autorů, které čekají na vydání (vidí editor a správce)
+ * @var list<string> $siteLanguages  language versions of the site (empty = the site has only one language)
+ * @var int $inTrash  number of news items in the trash (within the signed-in user's scope)
+ * @var int $toPublish  authors' drafts waiting to be published (seen by editors and administrators)
  */
 $trash = $filter['stav'] === 'kos';
 $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['strana' => $s]);
@@ -119,7 +119,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['str
 	<td><?= e($c['tema_jm']) ?></td>
 	<td><?= e($c['autor_jm'] ?: $c['autor_login']) ?></td>
 	<td class="cislo"><?= e(format_date($c['datum'], true)) ?></td>
-<?php if (!$c['visible'] && (int) $c['autor_uroven'] === 0 && $app->auth()->canPublish()): // koncept autora: čeká, až ho editor vydá ?>
+<?php if (!$c['visible'] && (int) $c['autor_uroven'] === 0 && $app->auth()->canPublish()): // an author's draft: waiting for an editor to publish it ?>
 	<td><span class="stitek stitek-ceka" title="<?= e(t('Autor novinek sám nevydává – novinku zkontrolujte a vydejte.')) ?>"><?= e(t('čeká na vydání')) ?></span></td>
 <?php else: ?>
 	<td><span class="stitek stitek-<?= !$c['visible'] ? 'koncept' : (strtotime($c['datum']) > time() ? 'plan' : 'vydano') ?>"><?= e(t(!$c['visible'] ? 'koncept' : (strtotime($c['datum']) > time() ? 'naplánováno' : 'vydáno'))) ?></span></td>

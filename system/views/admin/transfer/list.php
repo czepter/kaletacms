@@ -1,13 +1,13 @@
 <?php
 /**
- * Import a export: krok 1 importu z WordPressu (soubor) a export celého webu.
+ * Import and export: step 1 of the WordPress import (file) and export of the whole site.
  *
  * @var Kaleta\Admin\Modules\Transfer $module
  * @var Kaleta\Core\App $app
  * @var string $csrf
- * @var list<array{soubor:string, velikost:int, cas:int, stav:array<string,mixed>|null}> $files  exporty z WordPressu ve storage/import/
- * @var int $uploadLimit  kolik bajtů server dovolí nahrát formulářem
- * @var bool $missingXml  na serveru chybí rozšíření pro čtení XML
+ * @var list<array{soubor:string, velikost:int, cas:int, stav:array<string,mixed>|null}> $files  WordPress exports in storage/import/
+ * @var int $uploadLimit  how many bytes the server allows to upload through a form
+ * @var bool $missingXml  the server lacks the extension for reading XML
  * @var list<array{soubor:string, velikost:int, cas:int}> $exports
  * @var bool $hasZip
  */

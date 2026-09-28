@@ -1,19 +1,19 @@
 <?php
 /**
- * Můj účet.
+ * My account.
  *
  * @var Kaleta\Core\App $app
  * @var array<string, mixed> $user
  * @var string $csrf
- * @var list<array<string, mixed>> $keys přihlašovací klíče účtu (passkeys)
- * @var list<string> $backupCodes  právě vytvořené záložní kódy (zobrazí se jen jednou)
- * @var string $newSecret      rozpracované zapínání dvoufázového přihlášení
+ * @var list<array<string, mixed>> $keys the account's sign-in keys (passkeys)
+ * @var list<string> $backupCodes  backup codes just created (shown only once)
+ * @var string $newSecret      two-factor sign-in being turned on (in progress)
  * @var string $uri
  * @var int $codesLeft
- * @var bool $claude  je zapnuté rozšíření Napojení na Claude
- * @var list<array<string, mixed>> $tokens  osobní tokeny
- * @var list<array<string, mixed>> $apps  aplikace připojené přes OAuth (konektor Claude)
- * @var string $newToken  právě vytvořený token (zobrazí se jen jednou)
+ * @var bool $claude  the Claude connection extension is enabled
+ * @var list<array<string, mixed>> $tokens  personal tokens
+ * @var list<array<string, mixed>> $apps  apps connected via OAuth (Claude connector)
+ * @var string $newToken  token just created (shown only once)
  * @var string $mcpUrl
  */
 $action = e($app->url('admin.php?action=account'));
@@ -37,7 +37,7 @@ $action = e($app->url('admin.php?action=account'));
 <div class="radek"><label for="bio"><?= e(t('Pár vět o mně')) ?></label><div><textarea class="textbox nizky" id="bio" name="bio" rows="4" maxlength="1200"><?= e((string) $user['bio']) ?></textarea><span class="napoveda"><?= e(t('Zobrazí se jako medailonek pod vašimi novinkami. Čím se ve firmě zabýváte a co máte za sebou.')) ?></span></div></div>
 <div class="radek"><label for="jazyk"><?= e(t('Jazyk administrace')) ?></label><div><select id="jazyk" name="jazyk">
 <?php
-// vybraný je jazyk, ve kterém administrace opravdu běží (bez vlastní volby jazyk webu, když ho administrace umí)
+// the selected language is the one the admin actually runs in (without an own choice, the site language, if the admin supports it)
 $adminLanguage = $user['jazyk'] ?: Kaleta\Core\Language::defaults($app->settings());
 $adminLanguage = isset(Kaleta\Core\Language::ADMIN_LANGUAGES[$adminLanguage]) ? $adminLanguage : 'cs';
 foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName): ?>

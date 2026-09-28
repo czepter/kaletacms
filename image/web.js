@@ -1,29 +1,29 @@
-/* Kaleta - skript webu pro návštěvníky. Bez knihoven; vše je volitelné vylepšení, web funguje i bez JavaScriptu.
- * Menu na telefonu, dialogy a rozbalování řeší HTML a CSS (popover, <details>), ne tento skript. */
+/* Kaleta - site script for visitors. No libraries; everything is an optional enhancement, the site works without JavaScript too.
+ * The mobile menu, dialogs and expanding are handled by HTML and CSS (popover, <details>), not by this script. */
 (function () {
 	'use strict';
 
-	/* ---------- přechod mezi stránkami (View Transitions řídí jen CSS šablony): když ho prohlížeč přeruší nebo vynechá
-	   (rychlé proklikání, nová stránka přechod nepovolí), je to v pořádku – bez neošetřené chyby v konzoli ---------- */
+	/* ---------- transition between pages (View Transitions are driven only by the template CSS): when the browser interrupts
+	   or skips it (fast clicking through, the new page does not allow the transition), that is fine – no unhandled error in the console ---------- */
 
 	window.addEventListener('pagereveal', function (e) {
 		if (!e.viewTransition) { return; }
-		e.viewTransition.ready.catch(function () { /* přechod vynechán */ });
-		e.viewTransition.finished.catch(function () { /* přechod vynechán */ });
+		e.viewTransition.ready.catch(function () { /* transition skipped */ });
+		e.viewTransition.finished.catch(function () { /* transition skipped */ });
 	});
 
-	/* ---------- texty: česky v kódu, překlad jazykové verze posílá Front\Seo::hlava() v atributu data-texty značky <script> ---------- */
+	/* ---------- texts: Czech in the code, the translation for the language version is sent by Front\Seo::head() in the data-texty attribute of the <script> tag ---------- */
 
 	var texts = {};
 	try {
 		var htmlTag = document.currentScript || document.querySelector('script[data-texty]');
 		texts = JSON.parse((htmlTag && htmlTag.getAttribute('data-texty')) || '{}') || {};
 	} catch (e) { texts = {}; }
-	/* bez atributu (vlastní šablona načítá skript jinak) zůstanou texty česky */
+	/* without the attribute (a custom template loads the script differently) the texts stay Czech */
 	function T(czech) { return typeof texts[czech] === 'string' && texts[czech] !== '' ? texts[czech] : czech; }
 	function A(czech) { return T(czech).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
-	/* ---------- prohlížečka fotek: fotogalerie i jednotlivé obrázky v textu ---------- */
+	/* ---------- photo viewer: photo galleries and single images in the text ---------- */
 
 	var modal = null, photos = [], position = 0;
 
@@ -73,7 +73,7 @@
 		open(list, list.indexOf(img));
 	});
 
-	/* ---------- podmenu: Esc zavře panel otevřený fokusem nebo myší a vrátí fokus na položku menu (WCAG 1.4.13) ---------- */
+	/* ---------- submenu: Esc closes a panel opened by focus or mouse and returns focus to the menu item (WCAG 1.4.13) ---------- */
 
 	document.addEventListener('keydown', function (e) {
 		if (e.key !== 'Escape') { return; }
@@ -83,7 +83,7 @@
 			var top = li.querySelector(':scope > a, :scope > .menu-skupina');
 			if (top && top !== e.target) { top.focus(); }
 		}
-		// panel otevřený jen najetím myši
+		// a panel opened only by mouse hover
 		document.querySelectorAll('.ka-nav li.podmenu:hover').forEach(function (h) { h.classList.add('zavreno'); });
 	});
 	['focusout', 'mouseout'].forEach(function (event) {
@@ -93,13 +93,13 @@
 		});
 	});
 
-	/* ---------- sdílení novinky: systémové sdílení (telefon) a kopírování odkazu ---------- */
+	/* ---------- sharing a news item: system sharing (phone) and copying the link ---------- */
 
 	document.querySelectorAll('[data-sdilet]').forEach(function (tl) {
 		if (!navigator.share) { return; }
 		tl.hidden = false;
 		tl.addEventListener('click', function () {
-			navigator.share({ title: tl.getAttribute('data-titulek'), url: tl.getAttribute('data-adresa') }).catch(function () { /* návštěvník sdílení zavřel */ });
+			navigator.share({ title: tl.getAttribute('data-titulek'), url: tl.getAttribute('data-adresa') }).catch(function () { /* the visitor closed sharing */ });
 		});
 	});
 	document.addEventListener('click', function (e) {
@@ -112,7 +112,7 @@
 		});
 	});
 
-	/* ---------- záložky (ARIA tabs): bez skriptu jsou vidět všechny panely ---------- */
+	/* ---------- tabs (ARIA tabs): without the script all panels are visible ---------- */
 
 	document.querySelectorAll('[data-zalozky]').forEach(function (z) {
 		var cards = Array.prototype.slice.call(z.querySelectorAll('[role="tab"]'));
@@ -138,7 +138,7 @@
 		if (cards.length) { switchTo(cards[0], false); }
 	});
 
-	/* ---------- karusel: šipky posouvají pás o šířku viditelných snímků ---------- */
+	/* ---------- carousel: arrows scroll the strip by the width of the visible slides ---------- */
 
 	document.querySelectorAll('[data-karusel]').forEach(function (k) {
 		var strip = k.querySelector('.ka-karusel-pas');
@@ -155,9 +155,9 @@
 		state();
 	});
 
-	/* ---------- vyskakovací okno: odkaz #kotva ho otevře, případně samo jednou za návštěvu ---------- */
+	/* ---------- popup: an #anchor link opens it, or it opens by itself once per visit ---------- */
 
-	// otevřené okno dostane fokus (čtečka ho oznámí, klávesnice pokračuje uvnitř); po zavření se fokus vrátí, odkud přišel
+	// an opened popup gets focus (a screen reader announces it, the keyboard continues inside); on close, focus returns where it came from
 	var openModal = function (modal) {
 		if (!modal.showPopover || modal.matches(':popover-open')) { return; }
 		var fromUrl = document.activeElement;
@@ -177,14 +177,14 @@
 		e.preventDefault();
 		openModal(modal);
 	});
-	// adresa s kotvou okna nebo prvku v okně (návrat po odeslání formuláře či odběru) okno rovnou otevře, ať je potvrzení vidět
+	// a URL with the anchor of a popup or of an element in it (return after a form submit or subscription) opens the popup right away, so the confirmation is visible
 	if (location.hash.length > 1) {
 		var anchor = document.getElementById(decodeURIComponent(location.hash.slice(1)));
 		var inModal = anchor && anchor.closest('[popover]');
 		if (inModal) { openModal(inModal); }
 	}
-	// okno, které se otevře samo: po čase, po odrolování poloviny stránky nebo při odchodu (myš k liště prohlížeče);
-	// jednou za návštěvu (sessionStorage), jednou za týden nebo už nikdy (localStorage) – vždy jen v prohlížeči návštěvníka
+	// a popup that opens by itself: after a delay, after scrolling half the page or on exit (mouse towards the browser bar);
+	// once per visit (sessionStorage), once a week or never again (localStorage) – always only in the visitor's browser
 	document.querySelectorAll('[popover][data-samo]').forEach(function (modal) {
 		var key = 'ka-okno-' + modal.id;
 		var retry = modal.getAttribute('data-znovu') || 'relace';
@@ -192,13 +192,13 @@
 		try {
 			var was = storage() && storage().getItem(key);
 			if (was && (retry !== 'tyden' || Date.now() - parseInt(was, 10) < 7 * 864e5)) { return; }
-		} catch (error) { /* soukromý režim */ }
+		} catch (error) { /* private mode */ }
 		var done = false;
 		var open = function () {
 			if (done || !modal.showPopover || document.querySelector(':popover-open')) { return; }
 			done = true;
 			openModal(modal);
-			try { storage().setItem(key, String(Date.now())); } catch (error) { /* soukromý režim */ }
+			try { storage().setItem(key, String(Date.now())); } catch (error) { /* private mode */ }
 		};
 		var when = modal.getAttribute('data-samo');
 		if (when === 'posun') {
@@ -212,15 +212,15 @@
 		}
 	});
 
-	/* ---------- pop-up okna (Stavitel\Popupy): spouštěč, pravidla prohlížeče, četnost a počitadla – bez cookies ---------- */
+	/* ---------- popups (Builder\Popups): trigger, browser rules, frequency and counters – no cookies ---------- */
 
 	var popups = document.querySelectorAll('.ka-popup[data-popup]');
 	if (popups.length) {
 		var session = function () { try { return sessionStorage; } catch (error) { return null; } };
 		var persistent = function () { try { return localStorage; } catch (error) { return null; } };
 		var read = function (u, k) { try { return u ? u.getItem(k) : null; } catch (error) { return null; } };
-		var write = function (u, k, v) { try { if (u) { u.setItem(k, v); } } catch (error) { /* soukromý režim */ } };
-		// návštěva: počet stránek, kampaň a odkud přišla (první stránka návštěvy) – jen v sessionStorage návštěvníka
+		var write = function (u, k, v) { try { if (u) { u.setItem(k, v); } } catch (error) { /* private mode */ } };
+		// visit: page count, campaign and where it came from (the first page of the visit) – only in the visitor's sessionStorage
 		var pageCount = (parseInt(read(session(), 'ka-stranek'), 10) || 0) + 1;
 		write(session(), 'ka-stranek', String(pageCount));
 		if (read(session(), 'ka-kampan') === null) {
@@ -228,16 +228,16 @@
 			new URLSearchParams(location.search).forEach(function (v, k) { if (k.indexOf('utm_') === 0) { utm.push(v); } });
 			write(session(), 'ka-kampan', utm.join(' ').toLowerCase());
 			var fromUrl = '';
-			try { fromUrl = document.referrer && new URL(document.referrer).host !== location.host ? new URL(document.referrer).host : ''; } catch (error) { /* neplatná adresa */ }
+			try { fromUrl = document.referrer && new URL(document.referrer).host !== location.host ? new URL(document.referrer).host : ''; } catch (error) { /* invalid URL */ }
 			write(session(), 'ka-odkud', fromUrl.toLowerCase());
 		}
 		var phone = window.matchMedia('(max-width: 767px)').matches;
 		var report = function (modal, event) {
-			if (!modal.getAttribute('data-pocitadlo')) { return; } // přihlášený správce – nepočítá se
+			if (!modal.getAttribute('data-pocitadlo')) { return; } // signed-in administrator – not counted
 			var data = new FormData();
 			data.append('id', modal.getAttribute('data-popup'));
 			data.append('udalost', event);
-			try { navigator.sendBeacon(modal.getAttribute('data-pocitadlo'), data); } catch (error) { /* bez počitadla */ }
+			try { navigator.sendBeacon(modal.getAttribute('data-pocitadlo'), data); } catch (error) { /* no counter */ }
 		};
 		var cookiesSeen = function () { var l = document.getElementById('cookies-lista'); return l && !l.hidden; };
 
@@ -249,7 +249,7 @@
 			var conversion = false;
 			var openItems = false;
 
-			// konverze: návrat po odeslání formuláře nebo přihlášení k odběru v okně (kotva v adrese míří dovnitř okna)
+			// conversion: return after a form submit or a subscription in the popup (the anchor in the URL points inside the popup)
 			var target = location.hash.length > 1 && document.getElementById(decodeURIComponent(location.hash.slice(1)));
 			if (target && modal.contains(target) && (modal.querySelector('[data-odeslano]') || new URLSearchParams(location.search).get('odber') === 'ok')) {
 				conversion = true;
@@ -259,7 +259,7 @@
 			modal.addEventListener('toggle', function (e) {
 				if (e.newState === 'open') {
 					openItems = true;
-					if (!conversion) { report(modal, 'zobrazeni'); } // okno otevřené kvůli poděkování po odeslání se nepočítá znovu
+					if (!conversion) { report(modal, 'zobrazeni'); } // a popup opened for the thank-you after a submit is not counted again
 					if (frequency === 'relace' || frequency === 'odeslani') { write(session(), key, '1'); }
 					if (frequency === 'dni') { write(persistent(), key, String(Date.now())); }
 				} else if (openItems) {
@@ -269,14 +269,14 @@
 				}
 			});
 			var open = function () {
-				// přes otevřené okno se nic dalšího neotvírá; lišta nebo panel okno nezablokují
+				// nothing else opens over an open popup; a bar or a panel does not block the popup
 				if (!modal.showPopover || modal.matches(':popover-open') || document.querySelector('.ka-popup--okno:popover-open, .ka-popup--cela:popover-open, .ka-okno:popover-open, dialog[open]')) { return false; }
 				if (dialog) { openModal(modal); } else { modal.showPopover(); }
 				return true;
 			};
-			if (modal.hasAttribute('data-otevrit')) { open(); return; } // náhled konceptu
+			if (modal.hasAttribute('data-otevrit')) { open(); return; } // draft preview
 
-			// pravidla prohlížeče: zařízení, kampaň, odkud návštěvník přišel
+			// browser rules: device, campaign, where the visitor came from
 			var device = modal.getAttribute('data-zarizeni');
 			if ((device === 'telefon' && !phone) || (device === 'pocitac' && phone)) { return; }
 			var search = function (attribute, sessionKey) {
@@ -284,7 +284,7 @@
 				return wanted === '' || (read(session(), sessionKey) || '').indexOf(wanted) !== -1;
 			};
 			if (!search('data-utm', 'ka-kampan') || !search('data-odkud', 'ka-odkud')) { return; }
-			// četnost: kdy se okno samo znovu neukáže
+			// frequency: when the popup does not show by itself again
 			var was = read(persistent(), key);
 			if ((frequency === 'relace' && read(session(), key)) || (frequency === 'odeslani' && (read(session(), key) || read(persistent(), key + '-odeslano')))
 				|| (frequency === 'zavreni' && was === 'zavreno')
@@ -293,13 +293,13 @@
 			var done = false;
 			var run = function () {
 				if (done) { return; }
-				// okno nepřekryje lištu cookies: počká, až ji návštěvník vyřídí
+				// the popup does not cover the cookie bar: it waits until the visitor deals with it
 				if (cookiesSeen()) {
 					var l = document.getElementById('cookies-lista');
 					new MutationObserver(function (z, observer) { if (l.hidden) { observer.disconnect(); run(); } }).observe(l, { attributes: true, attributeFilter: ['hidden'] });
 					return;
 				}
-				// ani nezavře menu, se kterým návštěvník právě pracuje (na telefonu popover): počká, až ho zavře
+				// nor does it close a menu the visitor is using right now (a popover on a phone): it waits until they close it
 				var menu = document.querySelector('.ka-nav [popover]:popover-open');
 				if (menu) {
 					menu.addEventListener('toggle', function delay(e) {
@@ -335,21 +335,21 @@
 			case 'stranky':
 				if (pageCount >= Math.max(1, value)) { setTimeout(run, 1500); }
 				break;
-			default: // klik – otevře ho odkaz #popup-<adresa> (obsluha odkazů na okna výše)
+			default: // click – a #popup-<slug> link opens it (links to popups are handled above)
 			}
 		});
-		// Esc zavře i panel a lištu (popover="manual" se sám nezavírá)
+		// Esc also closes a panel and a bar (popover="manual" does not close by itself)
 		document.addEventListener('keydown', function (e) {
 			if (e.key !== 'Escape') { return; }
 			document.querySelectorAll('.ka-popup[popover="manual"]:popover-open').forEach(function (o) { o.hidePopover(); });
 		});
 	}
 
-	/* ---------- počítadlo a odpočet ---------- */
+	/* ---------- counter and countdown ---------- */
 
 	var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 	var numbers = new Intl.NumberFormat(document.documentElement.lang || 'cs');
-	// počítadlo: číslo je v HTML hotové (do objevení zůstává vidět), při prvním objevení na obrazovce se jednou napočítá od nuly
+	// counter: the number is final in the HTML (it stays visible until it appears), on first appearing on screen it counts up once from zero
 	document.querySelectorAll('[data-pocitadlo]').forEach(function (c) {
 		var target = parseInt(c.getAttribute('data-pocitadlo'), 10);
 		if (calm || !target || !('IntersectionObserver' in window)) { return; }
@@ -367,7 +367,7 @@
 		}, { threshold: 0.3 });
 		observer.observe(c);
 	});
-	// odpočet: server vypsal stav v okamžiku vykreslení (stránka může být z cache), tady se dopočítává každou sekundu
+	// countdown: the server printed the state at render time (the page may come from a cache), here it is recalculated every second
 	document.querySelectorAll('[data-odpocet]').forEach(function (o) {
 		var target = Date.parse(o.getAttribute('data-odpocet'));
 		var parts = {};
@@ -391,9 +391,9 @@
 		if (!isNaN(target) && parts.s) { tick(); }
 	});
 
-	/* ---------- formuláře: po chybě vrátit vyplněné hodnoty, po odeslání ohlásit konverzi ---------- */
+	/* ---------- forms: after an error restore the filled-in values, after a submit report a conversion ---------- */
 
-	// hodnoty drží jen prohlížeč návštěvníka (sessionStorage) a po úspěšném odeslání zmizí; do adresy se nic nepíše
+	// the values are kept only by the visitor's browser (sessionStorage) and disappear after a successful submit; nothing is written to the URL
 	document.querySelectorAll('form[data-formular]').forEach(function (f) {
 		var key = 'ka-formular-' + f.getAttribute('data-formular');
 		var wait = f.querySelector('input[data-cekat]');
@@ -403,10 +403,10 @@
 				if (!/^p\d+$/.test(p.name)) { return; }
 				if (p.type === 'checkbox' || p.type === 'radio') { if (p.checked) { values[p.name] = p.value; } } else { values[p.name] = p.value; }
 			});
-			try { sessionStorage.setItem(key, JSON.stringify(values)); } catch (error) { /* soukromý režim */ }
-			// ochrana proti robotům odmítne formulář odeslaný pár vteřin po načtení stránky (s automatickým vyplněním to zvládne
-			// i člověk) – místo chyby se odeslání o zbytek odloží
-			// počítá se od první odpovědi serveru (stránka vznikla ještě před ní), ne od kliknutí na odkaz
+			try { sessionStorage.setItem(key, JSON.stringify(values)); } catch (error) { /* private mode */ }
+			// the bot protection rejects a form submitted a few seconds after the page loads (with autofill even a person
+			// can manage that) – instead of an error, the submit is delayed by the remaining time
+			// counted from the server's first response (the page was created before it), not from clicking the link
 			var navigation = performance.getEntriesByType ? performance.getEntriesByType('navigation')[0] : null;
 			var remaining = wait ? parseInt(wait.getAttribute('data-cekat'), 10) * 1000 + 250 - (performance.now() - (navigation ? navigation.responseStart : 0)) : 0;
 			if (remaining > 0) {
@@ -418,7 +418,7 @@
 		});
 		if (!f.hasAttribute('data-obnovit')) { return; }
 		var storedForm = null;
-		try { storedForm = JSON.parse(sessionStorage.getItem(key) || 'null'); } catch (error) { /* nic */ }
+		try { storedForm = JSON.parse(sessionStorage.getItem(key) || 'null'); } catch (error) { /* nothing */ }
 		if (!storedForm) { return; }
 		Array.prototype.forEach.call(f.elements, function (p) {
 			if (!(p.name in storedForm)) { return; }
@@ -427,18 +427,18 @@
 	});
 	var sent = new URLSearchParams(location.search).get('odeslano');
 	Array.prototype.map.call(document.querySelectorAll('[data-odeslano]'), function (h) { return h.getAttribute('data-odeslano'); }).concat(sent ? [sent] : []).forEach(function (name) {
-		try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf('ka-formular-') === 0) { sessionStorage.removeItem(k); } }); } catch (error) { /* nic */ }
-		// měření konverzí: vlastní skript naslouchá události, Google Tag Manager dostane záznam do dataLayer
+		try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf('ka-formular-') === 0) { sessionStorage.removeItem(k); } }); } catch (error) { /* nothing */ }
+		// conversion tracking: a custom script listens for the event, Google Tag Manager gets an entry in dataLayer
 		window.dispatchEvent(new CustomEvent('kaleta:odeslano', { detail: { formular: name } }));
 		if (Array.isArray(window.dataLayer)) { window.dataLayer.push({ event: 'kaleta_formular_odeslan', formular: name }); }
 	});
 
-	/* ---------- přehrávač cizí služby se vloží až po kliknutí ---------- */
+	/* ---------- a third-party player is embedded only after a click ---------- */
 
 	document.addEventListener('click', function (e) {
 		var tl = e.target.closest && e.target.closest('[data-vlozit]');
 		if (!tl) { return; }
-		// jen služby, které web sám vkládá (YouTube bez cookies, Vimeo, mapa Google) – nikdy jiná adresa ani javascript:
+		// only services the site embeds itself (YouTube without cookies, Vimeo, Google map) – never another URL nor javascript:
 		var address = tl.getAttribute('data-vlozit') || '';
 		if (!/^https:\/\/(www\.youtube-nocookie\.com\/embed\/|player\.vimeo\.com\/video\/|maps\.google\.com\/maps\?)/.test(address)) { return; }
 		var border = document.createElement('iframe');
@@ -449,7 +449,7 @@
 		border.loading = 'lazy';
 		tl.replaceWith(border);
 	});
-	// přepínač vzhledu (views/front/tema.php): volba se pamatuje v prohlížeči, hlavička šablony ji použije před vykreslením
+	// color scheme switcher (views/front/tema.php): the choice is remembered in the browser, the template head applies it before rendering
 	(function () {
 		var options = document.querySelectorAll('[data-tema-volba]');
 		if (!options.length) { return; }
@@ -459,7 +459,7 @@
 			options.forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-tema-volba') === v)); });
 		}
 		var storedValue = null;
-		try { storedValue = localStorage.getItem('ka-tema'); } catch (e) { /* úložiště nedostupné */ }
+		try { storedValue = localStorage.getItem('ka-tema'); } catch (e) { /* storage unavailable */ }
 		var defaults = (document.querySelector('.ka-tema') || root).getAttribute('data-tema-vychozi') || 'auto';
 		mark(storedValue === 'auto' || storedValue === 'svetly' || storedValue === 'tmavy' ? storedValue : defaults);
 		document.addEventListener('click', function (e) {
@@ -467,7 +467,7 @@
 			if (!b) { return; }
 			var v = b.getAttribute('data-tema-volba');
 			if (v === 'auto') { root.removeAttribute('data-tema'); } else { root.setAttribute('data-tema', v); }
-			try { localStorage.setItem('ka-tema', v); } catch (err) { /* volba platí jen pro tuto stránku */ }
+			try { localStorage.setItem('ka-tema', v); } catch (err) { /* the choice applies to this page only */ }
 			mark(v);
 			var offer = b.closest('[popover]');
 			if (offer && offer.matches(':popover-open')) { offer.hidePopover(); }
@@ -475,13 +475,13 @@
 	})();
 })();
 
-/* ---------- jazykové verze: při první návštěvě verze v jazyce prohlížeče, pak vždy volba návštěvníka ----------
- * Bez cookies – volba je v localStorage. Přesměruje jen při vstupu na web (ne při procházení), jen na stránku, která má
- * v tom jazyce překlad (odkazy hreflang v hlavičce), a nikdy roboty vyhledávačů. Klik v přepínači jazyků volbu změní. */
+/* ---------- language versions: on the first visit the version in the browser's language, then always the visitor's choice ----------
+ * No cookies – the choice is in localStorage. Redirects only on entering the site (not while browsing), only to a page that has
+ * a translation in that language (hreflang links in the head), and never search engine bots. A click in the language switcher changes the choice. */
 (function () {
 	var alternatives = document.querySelectorAll('link[rel="alternate"][hreflang]:not([hreflang="x-default"])');
 	if (alternatives.length < 2 || navigator.webdriver || /bot|crawl|spider|slurp|facebookexternalhit|preview|lighthouse|headless/i.test(navigator.userAgent)) { return; }
-	var save = function (language) { try { localStorage.setItem('ka-jazyk', language); } catch (e) { /* úložiště nedostupné – nic */ } };
+	var save = function (language) { try { localStorage.setItem('ka-jazyk', language); } catch (e) { /* storage unavailable – nothing */ } };
 	document.addEventListener('click', function (e) {
 		var link = e.target.closest && e.target.closest('.ka-jazyky a[hreflang], .ka-jazyky-vyber a[hreflang]');
 		if (link) { save(link.getAttribute('hreflang')); }

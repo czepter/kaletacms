@@ -7,7 +7,7 @@ namespace Kaleta\Builder\Elements;
 use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
-/** Vlastní HTML (mapa, rezervační systém, vložený kód služby). Vkládá a mění jen správce; skripty se nepropustí. */
+/** Custom HTML (a map, a booking system, embed code of a service). Only an administrator inserts and changes it; scripts are not let through. */
 final class Html extends Element
 {
     public const string TYPE = 'html';

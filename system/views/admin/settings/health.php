@@ -1,5 +1,5 @@
 <?php
-/** Záložka Stav systému. */
+/** The "Stav systému" (System health) tab. */
 $icons = ['ok' => '✓', 'varovani' => '!', 'chyba' => '✕'];
 $summary = Kaleta\Core\Health::summary($checks);
 $group = '';

@@ -1,10 +1,10 @@
 <?php
 /**
- * Přepínač vzhledu pro návštěvníky: podle zařízení / světlý / tmavý. Volbu uloží image/web.js do prohlížeče (localStorage
- * „ka-tema“) a skript v hlavičce šablony ji použije ještě před vykreslením, takže stránka neblikne. Vzhled i chování
- * sdílí s přepínačem jazyků (třída ka-jazyky-vyber, tokeny design systému).
+ * Color scheme switcher for visitors: by device / light / dark. image/web.js stores the choice in the browser (localStorage
+ * "ka-tema") and a script in the template head applies it before rendering, so the page does not flash. It shares
+ * appearance and behaviour with the language switcher (class ka-jazyky-vyber, design system tokens).
  *
- * @var string $vychozi auto | tmavy – výchozí vzhled webu (Vzhled webu → Tmavý režim)
+ * @var string $vychozi auto | tmavy – default color scheme of the site (Vzhled webu → Tmavý režim, i.e. Site appearance → Dark mode)
  */
 $id = 'ka-tema-' . bin2hex(random_bytes(3));
 $ikony = [

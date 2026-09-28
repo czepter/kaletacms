@@ -1,6 +1,6 @@
-/* Kaleta – layout „Základní“: firemní web. Barvy, písma a škály bere z design systému (tokeny --ka-*, Stavitel\DesignSystem).
- * Celá šablona je ve vrstvě „sablona“: prvky builderu, třídy a jejich styl (pozdější vrstvy) ji přebijí bez ohledu na specifičnost.
- * Navigace na telefonu přes Popover API, plynulé přechody mezi stránkami (View Transitions) – bez JavaScriptu. */
+/* Kaleta – layout "Základní" (Basic): a company website. Colours, fonts and scales come from the design system (tokens --ka-*, Stavitel\DesignSystem).
+ * The whole template is in the layer "sablona": builder elements, classes and their style (later layers) override it regardless of specificity.
+ * Navigation on a phone via the Popover API, smooth transitions between pages (View Transitions) – no JavaScript. */
 
 @layer tokeny, spolecne, sablona, stavitel, tridy, prvky;
 @layer sablona.zaklad, sablona.rozvrzeni, sablona.prvky;
@@ -10,7 +10,7 @@
 @layer sablona.zaklad {
 	:root {
 		color-scheme: light;
-		/* krátká jména pro šablonu; hodnoty z design systému */
+		/* short names for the template; values from the design system */
 		--akcent: var(--ka-barva-primarni, #2b5be3);
 		--akcent-jemny: var(--ka-barva-primarni-jemna, #eef2fd);
 		--text: var(--ka-barva-text, #16181d);
@@ -61,7 +61,7 @@
 	.navigace a:hover { background: var(--plocha); }
 	.navigace a[aria-current] { background: var(--akcent-jemny); color: var(--akcent); }
 	.menu-tl { display: none; }
-	/* podmenu: na počítači rozbalí najetí myší i fokus klávesnice, na telefonu je vidět odsazené pod položkou */
+	/* submenu: on a computer it opens on mouse hover and on keyboard focus, on a phone it is shown indented under its item */
 	.navigace li { position: relative; }
 	.navigace li > .menu-skupina { display: block; border: 0; background: none; color: inherit; font: inherit; text-align: start; padding: 0.5rem 0.8rem; font-weight: 600; cursor: default; }
 	.navigace .podmenu > a::after, .navigace .podmenu > .menu-skupina::after { content: ""; display: inline-block; width: 0.4em; height: 0.4em; margin-inline-start: 0.45em; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-0.2em) rotate(45deg); }
@@ -70,7 +70,7 @@
 	.navigace .podmenu > ul a { border-radius: calc(var(--zaobleni) / 1.5); font-weight: 500; }
 	.navigace .podmenu:hover > ul, .navigace .podmenu:focus-within > ul { display: flex; }
 
-	/* telefon: navigace je popover – otevře ji tlačítko, zavře Esc nebo klepnutí mimo; bez skriptu */
+	/* phone: the navigation is a popover – the button opens it, Esc or a tap outside closes it; no script */
 	@media (max-width: 767px) {
 		.menu-tl { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--linka); border-radius: 50%; background: var(--podklad); color: var(--text); cursor: pointer; }
 		.menu-tl span, .menu-tl span::before, .menu-tl span::after { display: block; width: 1.1rem; height: 2px; background: currentColor; }
@@ -83,8 +83,8 @@
 		.navigace[popover] a { padding: 0.8rem 1rem; border-radius: calc(var(--zaobleni) / 1.5); }
 		.navigace[popover] .podmenu > ul { display: flex; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }
 		.navigace[popover] .podmenu > a::after, .navigace[popover] .podmenu > .menu-skupina::after { display: none; }
-		/* klávesnice: Tab za poslední položku – otevřené menu se schová, aby nezakrylo prvek s fokusem (WCAG 2.4.11), a vrátí se
-		   s fokusem zpět na tlačítko nebo do menu; Esc nebo klepnutí mimo ho zavře úplně */
+		/* keyboard: Tab past the last item – the open menu hides so it does not cover the focused element (WCAG 2.4.11), and comes back
+		   when focus returns to the button or into the menu; Esc or a tap outside closes it completely */
 		:root:has(:focus-visible):not(:has(.menu-tl:focus-visible, .navigace :focus-visible)) .navigace[popover]:popover-open { display: none; }
 	}
 	@media (min-width: 768px) {
@@ -102,7 +102,7 @@
 }
 
 @layer sablona.prvky {
-	/* stránka a novinka: text v pohodlné šířce řádku */
+	/* page and news item: text at a comfortable line width */
 	.stranka, .novinka { max-width: var(--sirka-textu); margin-inline: auto; }
 	.stranka-uvod { max-width: none; }
 	.stranka-uvod .text > h1:first-child { max-width: 18ch; font-size: clamp(2.5rem, 1.6rem + 4.5vw, 4.5rem); }
@@ -117,7 +117,7 @@
 	.souvisejici { margin-top: var(--mezera-velka); padding-top: var(--mezera); border-top: 1px solid var(--linka); }
 	.souvisejici ul { padding-left: 1.1em; }
 
-	/* výpis novinek: karty, které se přizpůsobí šířce kontejneru (container queries), ne oknu */
+	/* news list: cards that adapt to the width of the container (container queries), not the window */
 	.vypis-hlavicka { max-width: var(--sirka-textu); margin-bottom: var(--mezera); }
 	.novinky-mrizka { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); gap: var(--mezera); }
 	.novinka-karta { container-type: inline-size; display: flex; flex-direction: column; padding: 0 0 1rem; border-radius: var(--zaobleni); background: var(--podklad); border: 1px solid var(--linka); overflow: hidden; }

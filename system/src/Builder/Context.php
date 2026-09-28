@@ -7,69 +7,69 @@ namespace Kaleta\Builder;
 use Kaleta\Core\App;
 
 /**
- * Stav vykreslení jedné stránky webu: co se použilo (kvůli CSS jen toho potřebného) napříč stavbou stránky i částmi webu
- * (záhlaví, patička, obálka), aby stránka dostala jediný blok CSS. Režim editoru se přepíná podle právě vykreslované stavby.
+ * Render state of one page of the site: what was used (so that the CSS covers only what is needed) across the page build and
+ * the site parts (header, footer, wrapper), so that the page gets a single CSS block. Editor mode switches with the build being rendered.
  */
 final class Context
 {
-    /** Stránka má prvek s podmínkou zobrazení – nesmí do cache stránek. */
+    /** The page has an element with a display condition – it must not go into the page cache. */
     public bool $withoutCache = false;
 
-    /** @var array<string, true> typy prvků na stránce */
+    /** @var array<string, true> element types on the page */
     public array $types = [];
 
-    /** @var array<string, true> třídy na stránce */
+    /** @var array<string, true> classes on the page */
     public array $classes = [];
 
-    /** CSS prvků s vlastním stylem (vrstva „prvky“). */
+    /** CSS of elements with their own style (layer „prvky“). */
     public string $css = '';
 
-    /** @var list<array{0:string, 1:string}> otázky a odpovědi z prvků FAQ – pro strukturovaná data stránky */
+    /** @var list<array{0:string, 1:string}> questions and answers from FAQ elements – for the page's structured data */
     public array $faq = [];
 
-    /** @var list<array{titulek:string, seo_link:string}> stránky hlavní navigace (dodává web) */
+    /** @var list<array{titulek:string, seo_link:string}> pages of the main navigation (supplied by the site) */
     public array $menu = [];
 
-    /** Cesta zobrazené stránky (kvůli aria-current v navigaci). */
+    /** Path of the displayed page (for aria-current in the navigation). */
     public string $path = '';
 
-    /** Hotový přepínač jazykových verzí webu (prázdný u jednojazyčného webu). */
+    /** Finished switcher of the site's language versions (empty on a single-language site). */
     public string $languages = '';
 
-    /** @var array<string, array{nazev:string, url:string, aktivni:bool, preklad:bool}> jazykové verze pro prvek Přepínač jazyků */
+    /** @var array<string, array{nazev:string, url:string, aktivni:bool, preklad:bool}> language versions for the Language switcher element */
     public array $languageList = [];
 
-    /** Přepínač světlého a tmavého vzhledu pro návštěvníky (prázdný, když je vypnutý); prvek Navigace ho přidá za menu. */
+    /** Light and dark color scheme switcher for visitors (empty when disabled); the Navigation element adds it after the menu. */
     public string $colorScheme = '';
 
-    /** @var array<string, array{0: string, 1: string}>|null hodnoty položky kolekce pro {{značky}} (uvnitř Výpisu kolekce a na detailu) */
+    /** @var array<string, array{0: string, 1: string}>|null values of the collection item for {{tags}} (inside a Collection list and on the item page) */
     public ?array $item = null;
 
-    /** Hloubka Výpisu kolekce: prvky uvnitř se opakují, proto mají styl přes třídu, ne přes id. */
+    /** Collection list depth: the elements inside repeat, so they get their style through a class, not through the id. */
     public int $inLoop = 0;
 
-    /** @var array<int, array<string, mixed>|null> načtené komponenty (jedna komponenta bývá na stránce víckrát) */
+    /** @var array<int, array<string, mixed>|null> loaded components (one component is often on a page several times) */
     public array $components = [];
 
-    /** @var list<int> komponenty, které se právě vykreslují (ochrana proti komponentě v sobě samé) */
+    /** @var list<int> components being rendered right now (protection against a component inside itself) */
     public array $nesting = [];
 
-    /** @var array<string, array{pred: string, za: string}> ovládání kolem prvku (filtry a stránkování výpisu kolekce) podle id */
+    /** @var array<string, array{pred: string, za: string}> controls around an element (filters and pagination of a collection list) by id */
     public array $surroundings = [];
 
-    /** @var array<string, true> prvky, jejichž CSS už na stránce je */
+    /** @var array<string, true> elements whose CSS is already on the page */
     public array $styles = [];
 
-    /** Odkud právě vykreslovaná stavba je: „stranka:<id>“ nebo „cast:<typ>:<jazyk>“ (formulář podle něj najde svá pole). */
+    /** Where the build being rendered comes from: „stranka:<id>“ or „cast:<typ>:<jazyk>“ (the form finds its fields by it). */
     public string $source = '';
 
-    /** @var list<array{0: string, 1: string}> drobečková navigace zobrazené stránky: [text, adresa]; poslední je stránka sama (adresa '') */
+    /** @var list<array{0: string, 1: string}> breadcrumbs of the displayed page: [text, url]; the last one is the page itself (url '') */
     public array $breadcrumbs = [];
 
-    /** Obsah, který systém vkládá do obálky (prvek „Obsah stránky“): novinka, výpis, stránka 404. */
+    /** Content the system inserts into the wrapper (the „Obsah stránky“ (page content) element): news item, list, 404 page. */
     public string $content = '';
 
-    /** Kotvy nadpisů z textů na stránce (Prvky\Text) – ať se na jedné stránce neopakují. @var array<string, true> */
+    /** Heading anchors from texts on the page (Elements\Text) – so that they do not repeat on one page. @var array<string, true> */
     public array $anchors = [];
 
     public function __construct(public readonly App $app, public bool $editor = false)
@@ -81,7 +81,7 @@ final class Context
         return $this->app->url($path);
     }
 
-    /** Adresa obrázku z media/ doplněná o cestu k instalaci; cizí adresa zůstane. */
+    /** Image url from media/ completed with the installation path; a foreign url stays. */
     public function image(string $src): string
     {
         return preg_match('#^(https?:)?//|^/#', $src) ? $src : $this->app->request->basePath() . '/' . $src;

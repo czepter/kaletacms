@@ -1,6 +1,6 @@
 <?php
 /**
- * Editor novinky: vlevo text, vpravo nastavení (na úzké obrazovce pod sebou).
+ * News item editor: text on the left, settings on the right (one below the other on a narrow screen).
  *
  * @var Kaleta\Admin\Modules\News $module
  * @var string $csrf
@@ -9,13 +9,13 @@
  * @var list<array<string, mixed>> $category
  * @var array<int, string> $authors
  * @var bool $canPublish
- * @var bool $assistant  AI asistent je zapnutý a má klíč
- * @var list<string> $translationLanguages  jazyky, do kterých jde novinku přeložit (jen u uložené novinky ve výchozím jazyce)
- * @var array<string, int> $translations  existující překlady: jazyk => číslo novinky
- * @var array{cas:string, data:string}|null $draftOnServer  rozepsaný stav uložený na serveru (z jiného zařízení)
- * @var bool $siteLanguages  web má další jazykové verze
- * @var string $original  adresa novinky, jejímž je tato překladem
- * @var string $tags  štítky oddělené čárkou
+ * @var bool $assistant  the AI assistant is enabled and has a key
+ * @var list<string> $translationLanguages  languages the news item can be translated into (only for a saved news item in the default language)
+ * @var array<string, int> $translations  existing translations: language => news item number
+ * @var array{cas:string, data:string}|null $draftOnServer  unsaved work stored on the server (from another device)
+ * @var bool $siteLanguages  the site has other language versions
+ * @var string $original  url of the news item this one is a translation of
+ * @var string $tags  comma-separated tags
  * @var list<string> $allTags
  * @var list<array<string, mixed>> $versions
  */
@@ -72,7 +72,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <?php if ($newsItem['visible']): ?>
 <div class="radek"><span class="popisek"></span><div class="volby"><label><input type="checkbox" name="oznacit_aktualizaci" value="1"> <?= e(t('Označit jako aktualizovanou (s dnešním datem)')) ?></label></div></div>
 <?php endif ?>
-<?php $readOnly = $newsItem['visible'] && !$canPublish; /* vydanou novinku upravuje jen editor – autor ji vidí, ale neuloží */ ?>
+<?php $readOnly = $newsItem['visible'] && !$canPublish; /* a published news item is edited only by an editor – the author sees it but cannot save it */ ?>
 <?php if ($readOnly): ?>
 <p class="napoveda"><?= e(t('Novinka je vydaná – změny v ní uloží jen editor nebo správce. Požádejte je o úpravu.')) ?></p>
 <?php endif ?>

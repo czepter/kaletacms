@@ -7,8 +7,9 @@ namespace Kaleta\Front;
 use Kaleta\Core\App;
 
 /**
- * Doplňky textu novinky: video vložené adresou, osnova z mezititulků, medailonek autora a odkazy pro sdílení.
- * Hotové HTML se vkládá do textu, takže šablony webu o doplňcích nemusí nic vědět; vzhled je v image/web.css.
+ * Additions to the news item text: video embedded by URL, outline from subheadings, author bio and share links.
+ * The finished HTML is inserted into the text, so site templates need not know anything about the additions; the look
+ * is in image/web.css.
  */
 final class NewsText
 {
@@ -28,7 +29,8 @@ final class NewsText
     }
 
     /**
-     * Odstavec, ve kterém je jen adresa videa (YouTube, Vimeo), se na webu promění v přehrávač. Stačí vložit adresu na samostatný řádek.
+     * A paragraph containing only a video URL (YouTube, Vimeo) turns into a player on the site. Putting the URL on its own
+     * line is enough.
      */
     public function embedVideoUrls(string $html): string
     {
@@ -44,8 +46,8 @@ final class NewsText
     }
 
     /**
-     * Osnova delší novinky: od tří mezititulků H2 dostanou nadpisy kotvy a před text se vloží obsah.
-     * Kotvy se hodí i samy o sobě - jde odkázat na konkrétní část textu.
+     * Outline of a longer news item: from three H2 subheadings on, the headings get anchors and a table of contents is
+     * inserted before the text. The anchors are useful on their own too - you can link to a specific part of the text.
      */
     public function withOutline(string $html): string
     {
@@ -74,7 +76,7 @@ final class NewsText
     }
 
     /**
-     * Sdílení novinky: obyčejné odkazy bez cizích skriptů; na telefonu tlačítko systémového sdílení (image/web.js).
+     * Sharing a news item: plain links without third-party scripts; on a phone a system share button (image/web.js).
      *
      * @param array<string, mixed> $newsItem
      */
@@ -103,7 +105,7 @@ final class NewsText
     }
 
     /**
-     * Medailonek autora pod novinkou - jen když má autor vyplněných pár vět o sobě (Můj účet).
+     * Author bio below the news item - only when the author has filled in a few sentences about themselves ("Můj účet", My account).
      *
      * @param array<string, mixed> $newsItem
      */
@@ -122,7 +124,7 @@ final class NewsText
             . '<p>' . nl2br(e(trim((string) $newsItem['autor_bio']))) . '</p></div></aside>';
     }
 
-    /** Přehrávač podle adresy: soubor (audio/video), YouTube, Vimeo. Cizí přehrávače se načtou až po kliknutí. */
+    /** Player by URL: file (audio/video), YouTube, Vimeo. Third-party players load only after a click. */
     public static function player(string $url, string $base, string $title, bool $onlyKnown = false): string
     {
         if ($url === '') {
@@ -147,7 +149,7 @@ final class NewsText
         if ($embedUrl === '') {
             return '<div class="ka-medium-odkaz"><a class="ka-tl" href="' . e($mediaUrl) . '" rel="noopener">▶ ' . e(t('Přehrát')) . '</a></div>';
         }
-        // přehrávač cizí služby se vloží až po kliknutí: do té doby se k ní nic neposílá (soukromí, rychlost)
+        // a third-party player is embedded only after a click: until then nothing is sent to that service (privacy, speed)
         return '<figure class="ka-medium"><button type="button" class="ka-medium-spustit" data-vlozit="' . e($embedUrl) . '" data-titulek="' . e($title) . '">'
             . '<span aria-hidden="true">▶</span> ' . e(t('Přehrát video')) . '<small>' . e(t('Obsah se načte ze služby')) . ' ' . e((string) parse_url($embedUrl, PHP_URL_HOST)) . '</small></button></figure>';
     }

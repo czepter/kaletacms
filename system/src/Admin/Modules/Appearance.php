@@ -11,8 +11,8 @@ use Kaleta\Front\Layouts;
 use Kaleta\Builder\DesignSystem;
 
 /**
- * Vzhled webu: šablona, logo a design systém (barvy, písma, velikosti, šířka, zaoblení) s živým náhledem úvodní stránky.
- * Z design systému berou tokeny šablona i builder, takže změna tady přebarví celý web.
+ * Site appearance: layout, logo and design system (colors, fonts, sizes, width, rounding) with a live preview of the home page.
+ * Both the layout and the builder take tokens from the design system, so a change here recolors the whole site.
  */
 final class Appearance extends Module
 {
@@ -49,7 +49,7 @@ final class Appearance extends Module
         $siteSettings->set('logo', mb_substr($r->post('logo'), 0, 255));
         $icon = mb_substr($r->post('favicon'), 0, 255);
         if ($icon !== $siteSettings->get('favicon') || ($icon !== '' && !is_file(KALETA_ROOT . '/media/ikona-180.png'))) {
-            // ikony pro telefony a instalaci webu se připraví z ikony jednou při uložení
+            // icons for phones and for installing the site are prepared from the icon once, when saving
             $ok = $icon !== '' && preg_match('#^/?(?:[A-Za-z0-9_.-]+/){0,3}(media/[A-Za-z0-9/_.-]+)$#', $icon, $m) && !str_contains($m[1], '..') && Images::icons(KALETA_ROOT . '/' . $m[1]);
             if (!$ok) {
                 array_map(fn (int $n): bool => @unlink(KALETA_ROOT . '/media/ikona-' . $n . '.png'), Images::ICON_SIZES);
@@ -59,8 +59,8 @@ final class Appearance extends Module
         $siteSettings->set('dark_mode', in_array($r->post('dark_mode'), ['auto', 'tmavy'], true) ? $r->post('dark_mode') : 'vypnuto');
         $siteSettings->set('theme_switcher', $r->postBool('theme_switcher') ? '1' : '0');
         $siteSettings->set('design_system', (string) json_encode($this->parseForm(), JSON_UNESCAPED_SLASHES));
-        $siteSettings->set('appearance_saved', '1'); // první kroky: vzhled zvolil správce, ne startovací web
-        // starší klíče Identity: od uložení design systému se nečtou, ať nemate export ani jiné nástroje
+        $siteSettings->set('appearance_saved', '1'); // first steps: the appearance was chosen by the administrator, not by the starter site
+        // older Identity keys: they are not read once the design system is saved, so they do not confuse the export or other tools
         $siteSettings->set('brand_accent', '');
         $siteSettings->set('brand_heading_font', 'vychozi');
         $siteSettings->set('brand_text_font', 'vychozi');
@@ -69,7 +69,7 @@ final class Appearance extends Module
         return $this->back('Vzhled webu byl uložen.');
     }
 
-    /** Design tokeny ke stažení ve formátu DTCG (Figma, Tokens Studio, Style Dictionary). */
+    /** Design tokens for download in the DTCG format (Figma, Tokens Studio, Style Dictionary). */
     protected function actionTokens(): Response
     {
         $json = (string) json_encode(DesignSystem::toDtcg(DesignSystem::load($this->app->settings())), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -77,7 +77,7 @@ final class Appearance extends Module
         return new Response($json, 200, ['Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="tokeny-' . date('Y-m-d') . '.tokens.json"']);
     }
 
-    /** Import tokenů DTCG: z exportu Kalety celý vzhled, z jiného nástroje barvy. */
+    /** Import of DTCG tokens: the whole appearance from a Kaleta export, the colors from another tool. */
     protected function actionTokensImport(): Response
     {
         $file = $_FILES['tokeny'] ?? null;
@@ -95,7 +95,7 @@ final class Appearance extends Module
         return $this->back('Design tokeny byly načteny.');
     }
 
-    /** Živý náhled: CSS tokenů a kontrola čitelnosti pro rozpracovaný formulář (JSON). Nic neukládá. */
+    /** Live preview: token CSS and a readability check for the unsaved form (JSON). Saves nothing. */
     protected function actionPreview(): Response
     {
         $ds = $this->parseForm();
@@ -107,7 +107,7 @@ final class Appearance extends Module
     private function parseForm(): array
     {
         $ds = is_array($_POST['ds'] ?? null) ? $_POST['ds'] : [];
-        // velikosti se ve formuláři zadávají v pixelech, design systém je drží v rem
+        // sizes are entered in pixels in the form, the design system keeps them in rem
         foreach (['zaklad_min', 'zaklad_max', 'sirka', 'sirka_textu'] as $key) {
             if (isset($ds[$key]) && is_numeric($ds[$key])) {
                 $ds[$key] = (float) $ds[$key] / 16;

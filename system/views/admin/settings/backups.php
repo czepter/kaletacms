@@ -1,5 +1,5 @@
 <?php
-/** Záložka Zálohy a aktualizace. */
+/** The "Zálohy a aktualizace" (Backups and updates) tab. */
 ?>
 <fieldset>
 <legend><?= e(t('Aktualizace systému')) ?></legend>

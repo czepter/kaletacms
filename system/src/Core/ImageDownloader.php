@@ -5,18 +5,18 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Stahování obrázků ze starého webu při importu z WordPressu.
+ * Downloading images from the old site during an import from WordPress.
  *
- * Adresy obrázků pocházejí z importovaného souboru, tedy z nedůvěryhodného vstupu. Kdyby server stahoval cokoli, co soubor řekne,
- * šlo by ho zneužít k ohledávání vnitřní sítě hostingu (útok SSRF). Proto platí bez výjimky:
- *  1. jen http a https, jen doména starého webu (nebo její varianta s „www.“), jen výchozí port, žádné jméno a heslo v adrese;
- *  2. doména se přeloží na IP adresy a VŠECHNY musí být veřejné (ne 10.x, 192.168.x, 127.x, 169.254.x, 100.64.x, ::1, fc00::/7…);
- *     spojení se pak připne na ověřenou adresu, aby ji mezi kontrolou a stažením nešlo vyměnit (DNS rebinding);
- *  3. přesměrování nejvýš 3, nikdy automaticky – každý krok projde znovu body 1 a 2;
- *  4. spojení do 5 s, celé stažení do 20 s, nejvýš 15 MB (hlídá se už při čtení);
- *  5. přijme se jen JPEG, PNG, GIF a WebP – podle hlavičky odpovědi I podle skutečného obsahu. SVG nikdy;
- *  6. neposílají se cookies, přihlašovací údaje ani hlavičky z importu; prohlížeč se hlásí jako „Kaleta-import“.
- * Stažená data jdou dál jen přes Core\Obrazky, který obrázek znovu zakóduje.
+ * Image URLs come from the imported file, that is from untrusted input. If the server downloaded anything the file says,
+ * it could be abused to probe the hosting's internal network (an SSRF attack). Therefore, without exception:
+ *  1. only http and https, only the old site's domain (or its variant with „www.“), only the default port, no user name and password in the URL;
+ *  2. the domain is resolved to IP addresses and ALL of them must be public (not 10.x, 192.168.x, 127.x, 169.254.x, 100.64.x, ::1, fc00::/7…);
+ *     the connection is then pinned to the verified address, so that it cannot be swapped between the check and the download (DNS rebinding);
+ *  3. at most 3 redirects, never automatic – every step goes through points 1 and 2 again;
+ *  4. connection within 5 s, the whole download within 20 s, at most 15 MB (checked already while reading);
+ *  5. only JPEG, PNG, GIF and WebP are accepted – by the response header AND by the actual content. Never SVG;
+ *  6. no cookies, credentials or headers from the import are sent; the client identifies itself as „Kaleta-import“.
+ * The downloaded data goes on only through Core\Images, which re-encodes the image.
  */
 final class ImageDownloader
 {
@@ -28,8 +28,8 @@ final class ImageDownloader
     private const array TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
     /**
-     * Rozsahy, kam se server nikdy nepřipojí: vnitřní sítě, smyčka, link-local, CGNAT, multicast, vyhrazené a dokumentační adresy
-     * a také přechodové IPv6 rozsahy, do kterých jde zabalit vnitřní IPv4 adresa (::a.b.c.d, NAT64, Teredo, 6to4).
+     * Ranges the server never connects to: internal networks, loopback, link-local, CGNAT, multicast, reserved and documentation addresses
+     * and also IPv6 transition ranges that can wrap an internal IPv4 address (::a.b.c.d, NAT64, Teredo, 6to4).
      */
     private const array BLOCKED_NETWORKS = [
         '0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8', '169.254.0.0/16', '172.16.0.0/12', '192.0.0.0/24', '192.0.2.0/24',
@@ -37,22 +37,22 @@ final class ImageDownloader
         '::/96', '64:ff9b::/96', '100::/64', '2001::/32', '2001:db8::/32', '2002::/16', 'fc00::/7', 'fe80::/10', 'fec0::/10', 'ff00::/8',
     ];
 
-    /** Doména starého webu malými písmeny a bez „www.“. */
+    /** Domain of the old site in lowercase and without „www.“. */
     private readonly string $domain;
 
-    /** @param string $siteUrl adresa starého webu z importovaného souboru (<channel><link>) */
+    /** @param string $siteUrl URL of the old site from the imported file (<channel><link>) */
     public function __construct(string $siteUrl)
     {
         $this->domain = self::domainFromUrl($siteUrl);
     }
 
-    /** Umí server vůbec stahovat? Bez curl i bez allow_url_fopen je potřeba obrázky přenést ručně. */
+    /** Can the server download at all? Without both curl and allow_url_fopen the images have to be moved manually. */
     public static function isAvailable(): bool
     {
         return function_exists('curl_init') || filter_var(ini_get('allow_url_fopen'), FILTER_VALIDATE_BOOLEAN);
     }
 
-    /** Doména z adresy: malá písmena, bez „www.“ a bez tečky na konci; prázdný řetězec = adresa není http(s). */
+    /** Domain from a URL: lowercase, without „www.“ and without a trailing dot; empty string = the URL is not http(s). */
     public static function domainFromUrl(string $url): string
     {
         $c = parse_url(trim($url));
@@ -69,7 +69,7 @@ final class ImageDownloader
         return $this->domain;
     }
 
-    /** Bod 1: smí se tahle adresa vůbec zkusit? Čistá funkce – nic nepřekládá ani nestahuje. */
+    /** Point 1: can this URL be tried at all? A pure function – it neither resolves nor downloads anything. */
     public function isAllowedUrl(string $url): bool
     {
         if ($this->domain === '' || preg_match('/[\x00-\x20\\\\]/', $url)) {
@@ -87,7 +87,7 @@ final class ImageDownloader
         return self::domainFromUrl($url) === $this->domain;
     }
 
-    /** Bod 2: je IP adresa veřejná? IPv4 zabalená v IPv6 (::ffff:10.0.0.1) se posuzuje jako IPv4. */
+    /** Point 2: is the IP address public? IPv4 wrapped in IPv6 (::ffff:10.0.0.1) is judged as IPv4. */
     public static function isPublicIp(string $ip): bool
     {
         $binary = @inet_pton(trim($ip, '[]'));
@@ -109,8 +109,8 @@ final class ImageDownloader
     }
 
     /**
-     * Bod 5: typ obrázku podle hlavičky Content-Type A ZÁROVEŇ podle skutečných bajtů; null = odmítnuto.
-     * Obojí musí být na seznamu povolených (SVG, HTML ani nic jiného neprojde, ať se tváří jakkoli).
+     * Point 5: image type by the Content-Type header AND AT THE SAME TIME by the actual bytes; null = rejected.
+     * Both must be on the allowed list (neither SVG, HTML nor anything else gets through, whatever it pretends to be).
      */
     public static function imageType(string $contentTypeHeader, string $data): ?string
     {
@@ -121,7 +121,7 @@ final class ImageDownloader
         return in_array($fromHeader, self::TYPES, true) && in_array($fromContent, self::TYPES, true) ? $fromContent : null;
     }
 
-    /** Cíl přesměrování: hlavička Location smí být i relativní (/jinam/foto.jpg). */
+    /** Redirect target: the Location header can also be relative (/jinam/foto.jpg). */
     public static function redirectTarget(string $fromUrl, string $location): string
     {
         $location = trim($location);
@@ -138,7 +138,7 @@ final class ImageDownloader
     }
 
     /**
-     * Přeloží doménu a vrátí IP adresu, na kterou se smí připojit; null = doména neexistuje nebo některá z adres není veřejná.
+     * Resolves the domain and returns the IP address that may be connected to; null = the domain does not exist or one of the addresses is not public.
      */
     public function verifiedIp(string $host): ?string
     {
@@ -153,7 +153,7 @@ final class ImageDownloader
         $addresses = array_values(array_filter($addresses));
         foreach ($addresses as $ip) {
             if (!self::isPublicIp($ip)) {
-                return null; // stačí jediná vnitřní adresa a doména je podezřelá celá
+                return null; // a single internal address is enough for the whole domain to be suspicious
             }
         }
 
@@ -161,10 +161,10 @@ final class ImageDownloader
     }
 
     /**
-     * Stáhne obrázek a vrátí jeho obsah. S $jenObrazky = false i jiný soubor (písmo, PDF pro MCP) – jeho typ pak ověří
-     * až ukládání (Core\Soubory: povolené přípony a skutečný obsah, SVG vyčistí Core\Svg); ostatní pravidla platí stejně.
+     * Downloads an image and returns its content. With $imagesOnly = false also another file (a font, a PDF for MCP) – its type
+     * is then verified only on saving (Core\Files: allowed extensions and actual content, SVG is sanitized by Core\Svg); the other rules apply the same.
      *
-     * @throws \RuntimeException s důvodem, proč obrázek stáhnout nejde
+     * @throws \RuntimeException with the reason why the image cannot be downloaded
      */
     public function download(string $url, bool $imagesOnly = true): string
     {
@@ -182,7 +182,7 @@ final class ImageDownloader
                 continue;
             }
             if ($response['kod'] !== 200) {
-                throw new \RuntimeException('Starý web obrázek nevydal, odpověděl chybou', $response['kod']); // kód odpovědi nese getCode()
+                throw new \RuntimeException('Starý web obrázek nevydal, odpověděl chybou', $response['kod']); // getCode() carries the response code
             }
             if ($imagesOnly && self::imageType($response['typ'], $response['data']) === null) {
                 throw new \RuntimeException('Soubor není obrázek JPG, PNG, GIF ani WebP.');
@@ -194,7 +194,7 @@ final class ImageDownloader
     }
 
     /**
-     * Jeden požadavek přes curl; spojení je připnuté na ověřenou IP adresu (CURLOPT_RESOLVE).
+     * A single request via curl; the connection is pinned to the verified IP address (CURLOPT_RESOLVE).
      *
      * @return array{kod:int, typ:string, location:string, data:string}
      */
@@ -207,7 +207,7 @@ final class ImageDownloader
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RESOLVE => [$c['host'] . ':' . $port . ':' . (str_contains($ip, ':') ? '[' . $ip . ']' : $ip)],
-            CURLOPT_FOLLOWLOCATION => false, // přesměrování si hlídáme sami, krok po kroku
+            CURLOPT_FOLLOWLOCATION => false, // we handle redirects ourselves, step by step
             CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
             CURLOPT_CONNECTTIMEOUT => self::CONNECT_TIMEOUT,
             CURLOPT_TIMEOUT => self::TOTAL_TIMEOUT,
@@ -224,7 +224,7 @@ final class ImageDownloader
             CURLOPT_WRITEFUNCTION => function ($ch, string $chunk) use (&$data): int {
                 $data .= $chunk;
 
-                return strlen($data) > self::MAX_BYTES ? -1 : strlen($chunk); // jiná hodnota než délka = curl stahování ukončí
+                return strlen($data) > self::MAX_BYTES ? -1 : strlen($chunk); // a value other than the length = curl stops the download
             },
         ]);
         curl_exec($ch);
@@ -241,7 +241,7 @@ final class ImageDownloader
     }
 
     /**
-     * Totéž bez curl (allow_url_fopen). Připojuje se přímo na ověřenou IP adresu; doména jde v hlavičce Host a do ověření certifikátu.
+     * The same without curl (allow_url_fopen). Connects directly to the verified IP address; the domain goes in the Host header and into certificate verification.
      *
      * @return array{kod:int, typ:string, location:string, data:string}
      */
@@ -286,7 +286,7 @@ final class ImageDownloader
         return $response;
     }
 
-    /** Leží adresa v síti? Porovnává se prvních $maska bitů. */
+    /** Does the address lie in the network? The first $mask bits are compared. */
     private static function isInNetwork(string $ip, string $network, int $mask): bool
     {
         $byteCount = intdiv($mask, 8);

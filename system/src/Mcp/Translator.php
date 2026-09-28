@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace Kaleta\Mcp;
 
 /**
- * Anglické rozhraní MCP: názvy nástrojů, parametry, popisy, klíče výsledků, stavy a chybová hlášení v angličtině.
+ * English MCP interface: tool names, parameters, descriptions, result keys, statuses and error messages in English.
  *
- * Nástroje se implementují jednou (Nastroje, české názvy a parametry); tahle vrstva jen překládá na vstupu a výstupu.
- * České názvy zůstávají jako skryté aliasy (tools/list je nevypisuje) a chovají se jako dřív – napojení Clauda, která
- * si je pamatují, fungují dál. Datový model builderu (JSON stavby, schéma prvků, klíče design systému) zůstává, jak je.
+ * Tools are implemented once (Tools, Czech names and parameters); this layer only translates on input and output.
+ * Czech names remain as hidden aliases (tools/list does not list them) and behave as before – Claude connections that
+ * remember them keep working. The builder data model (build JSON, element schema, design system keys) stays as it is.
  */
 final class Translator
 {
-    /** Společný cíl nástrojů stavby: stránka, část webu (varianta) nebo šablona detailu kolekce. */
+    /** Shared target of the build tools: page, site part (variant) or collection item template. */
     private const array TARGET = [
         'id' => ['id', 'Page ID'],
         'part' => ['cast', 'Instead of a page, a site part (administrators only): header | footer | news_item | news_list | not_found – the header, the footer and the wrappers of a news item, the news list and the 404 page'],
@@ -57,7 +57,8 @@ final class Translator
     ];
 
     /**
-     * Anglický název => [český nástroj, popis, parametry [anglický => [český, popis]]]. Parametr '*cil' = společný cíl stavby.
+     * English name => [Czech tool, description, parameters [English => [Czech, description]]]. Parameter '*cil' = shared
+     * build target.
      *
      * @var array<string, array{0: string, 1: string, 2: array<string, mixed>}>
      */
@@ -162,7 +163,7 @@ final class Translator
         'trash_page' => ['smaz_stranku', 'Moves a page to the trash (only when the user explicitly asks; editors or administrators). It can be restored for 30 days in the admin. The home page cannot be deleted.', ['id' => ['id', 'Page ID']]],
     ];
 
-    /** Hodnoty parametrů v angličtině => česky (podle českého parametru; u některých nástrojů jen tam). */
+    /** Parameter values in English => Czech (by the Czech parameter; for some tools only there). */
     private const array INPUT_VALUES = [
         'cast' => ['header' => 'hlavicka', 'footer' => 'paticka', 'news_item' => 'novinka', 'news_list' => 'vypis', 'not_found' => 'nenalezeno'],
         'umisteni' => ['main' => 'hlavni', 'footer' => 'paticka'],
@@ -172,7 +173,7 @@ final class Translator
         'cetnost' => ['session' => 'relace', 'days' => 'dni', 'until_closed' => 'zavreni', 'until_submitted' => 'odeslani', 'always' => 'vzdy'],
         'vzor' => ['newsletter' => 'newsletter', 'lead_magnet' => 'magnet', 'announcement_bar' => 'lista', 'discount' => 'sleva', 'event' => 'udalost', 'blank' => 'prazdny'],
     ];
-    /** Pravidla pop-up okna: anglický klíč => český, a výčtové hodnoty. */
+    /** Popup rules: English key => Czech, and enum values. */
     private const array RULES = ['where' => 'kde', 'pages' => 'stranky', 'collections' => 'kolekce', 'news' => 'novinky', 'language' => 'jazyk', 'from' => 'od', 'to' => 'do',
         'device' => 'zarizeni', 'campaign' => 'utm', 'referrer' => 'odkud'];
     private const array RULE_VALUES = ['kde' => ['all' => 'vse', 'selected' => 'vybrane'], 'zarizeni' => ['all' => 'vse', 'desktop' => 'pocitac', 'phone' => 'telefon']];
@@ -186,7 +187,7 @@ final class Translator
         'into' => 'do', 'position' => 'pozice', 'after' => 'za', 'before' => 'pred'];
     private const array OPERATION_TYPES = ['update' => 'uprav', 'replace' => 'nahrad', 'delete' => 'smaz', 'insert' => 'vloz', 'move' => 'presun'];
 
-    /** Klíče nastavení v angličtině => česky; u názvu a popisu webu i s kódem jazyka (site_name_de => nazev_webu_de). */
+    /** Settings keys English => Czech; for site name and description also with a language code (site_name_de => nazev_webu_de). */
     private const array SETTINGS = [
         'site_name' => 'site_name', 'site_description' => 'site_description', 'footer_text' => 'footer_text', 'logo' => 'logo', 'favicon' => 'favicon', 'share_image' => 'share_image',
         'home_page' => 'home_page', 'social_facebook' => 'social_facebook', 'social_instagram' => 'social_instagram', 'social_x' => 'social_x', 'social_youtube' => 'social_youtube',
@@ -196,7 +197,7 @@ final class Translator
         'company_hours' => 'company_hours', 'company_map' => 'company_map', 'company_gps' => 'company_gps',
     ];
 
-    /** Klíče výsledků česky => anglicky. */
+    /** Result keys Czech => English. */
     private const array KEYS = [
         'nezname_parametry' => 'unknown_parameters', 'id' => 'id', 'ids' => 'page_id', 'idc' => 'id', 'idp' => 'id', 'idr' => 'version_id', 'nazev' => 'name', 'titulek' => 'title', 'adresa' => 'url', 'seo_link' => 'slug',
         'popis' => 'description', 'nahled' => 'preview', 'text' => 'content', 'stranka' => 'page', 'stranky' => 'pages', 'stav' => 'status', 'jazyk' => 'language', 'varianta' => 'variant',
@@ -215,10 +216,10 @@ final class Translator
         'vlastnosti' => 'properties', 'deti' => 'children', 'nove_okno' => 'new_window', 'popup' => 'popup', 'aktivni' => 'active',
     ];
 
-    /** Klíče, jejichž hodnoty se nepřekládají: JSON stavby, hodnoty polí položek, design system, hlášení převodu a kontrol. */
+    /** Keys whose values are not translated: build JSON, item field values, design system, conversion and check messages. */
     private const array UNTRANSLATED = ['stavba', 'data', 'design_system', 'chyby', 'hlaseni', 'citelnost', 'chyby_operaci', 'styl', 'css', 'vlastnosti'];
 
-    /** Výjimky z KLICE podle nástroje (anglický název => [český klíč => anglický]). */
+    /** Exceptions from KEYS per tool (English name => [Czech key => English]). */
     private const array TOOL_KEYS = [
         'list_media' => ['adresa' => 'path', 'obrazek' => 'is_image'],
         'upload_file' => ['adresa' => 'path', 'obrazek' => 'is_image'],
@@ -241,7 +242,7 @@ final class Translator
     ];
     private const array SITE_PARTS = ['hlavicka' => 'header', 'paticka' => 'footer', 'novinka' => 'news_item', 'vypis' => 'news_list', 'nenalezeno' => 'not_found'];
 
-    /** Chybová hlášení nástrojů česky => anglicky; hlášení s proměnnou částí jako vzor (regulární výraz => náhrada). */
+    /** Tool error messages Czech => English; messages with a variable part as a pattern (regular expression => replacement). */
     private const array MESSAGES = [
         'Chybí data souboru v base64 (parametr data), nebo url.' => 'The file data in base64 (the data parameter) or url is missing.',
         'Chybí kategorie.' => 'The category is missing.',
@@ -318,7 +319,7 @@ final class Translator
         '/^Varianty mají jen záhlaví a patička: .*$/su' => 'Only the header and the footer have variants: header, footer.',
     ];
 
-    /** Hlášení převodu HTML a tříd (Stavitel\ZHtml) – vzor => anglicky. */
+    /** Messages of the HTML and class conversion (Builder\HtmlConverter) – pattern => English. */
     private const array NOTICES = [
         '/^Třída \.(\S+) už na webu je – ponechána beze změny\.$/su' => 'The class .$1 already exists on the site – left unchanged.',
         '/^Třídy bez stylu vynechány: (.*)$/su' => 'Classes without a style were left out: $1',
@@ -360,13 +361,13 @@ final class Translator
     ];
     private const array PART_NAMES = ['Záhlaví' => 'Header', 'Patička' => 'Footer', 'Detail novinky' => 'News item', 'Výpis novinek' => 'News list', 'Stránka nenalezena (404)' => 'Page not found (404)'];
 
-    /** @return list<string> anglické názvy nástrojů */
+    /** @return list<string> English tool names */
     public static function names(): array
     {
         return array_keys(self::TOOLS);
     }
 
-    /** @return list<string> české nástroje, které mají anglický název */
+    /** @return list<string> Czech tools that have an English name */
     public static function czechTools(): array
     {
         return array_column(self::TOOLS, 0);
@@ -378,7 +379,7 @@ final class Translator
     }
 
     /**
-     * Anglické definice nástrojů z českých (typy a povinnost parametrů se převezmou, popisy jsou anglické).
+     * English tool definitions from the Czech ones (parameter types and required flags are taken over, descriptions are English).
      *
      * @param list<array{name: string, description: string, inputSchema: array<string, mixed>}> $czechTools
      * @return list<array<string, mixed>>
@@ -389,7 +390,7 @@ final class Translator
         $result = [];
         foreach (self::TOOLS as $en => [$cs, $description]) {
             if (!isset($byName[$cs])) {
-                continue; // nástroj vypnutého rozšíření
+                continue; // tool of a disabled extension
             }
             $schema = $byName[$cs]['inputSchema'];
             $properties = [];
@@ -411,7 +412,7 @@ final class Translator
         return $result;
     }
 
-    /** @return array<string, array{0: string, 1: string}> parametry nástroje s rozbalenými skupinami */
+    /** @return array<string, array{0: string, 1: string}> tool parameters with groups expanded */
     private static function parameters(string $name): array
     {
         $result = [];
@@ -431,7 +432,7 @@ final class Translator
     }
 
     /**
-     * Anglické argumenty na české (neznámé klíče zůstanou, jak jsou – české parametry tak fungují i u anglického názvu).
+     * English arguments to Czech (unknown keys stay as they are – so Czech parameters also work with the English name).
      *
      * @param array<string, mixed> $a
      * @return array<string, mixed>
@@ -500,7 +501,7 @@ final class Translator
         return $result;
     }
 
-    /** Pravidla pop-up okna mezi angličtinou a češtinou (klíče i výčtové hodnoty). @param array<string, mixed> $p */
+    /** Popup rules between English and Czech (keys and enum values). @param array<string, mixed> $p */
     private static function rules(array $p, bool $toCzech): array
     {
         $keys = $toCzech ? self::RULES : array_flip(self::RULES);
@@ -516,7 +517,7 @@ final class Translator
         return $result;
     }
 
-    /** Pop-up okno z výsledku seznam_popupu a uloz_popup anglicky. */
+    /** Popup from the result of seznam_popupu and uloz_popup in English. */
     private static function popupToEnglish(array $p): array
     {
         $result = [];
@@ -551,11 +552,11 @@ final class Translator
         return $result;
     }
 
-    /** Výsledek nástroje s anglickými klíči a stavy. */
+    /** Tool result with English keys and statuses. */
     public static function result(string $name, mixed $v): mixed
     {
         if ($name === 'builder_schema' || !is_array($v)) {
-            return $v; // schéma popisuje datový model builderu – zůstává, jak je
+            return $v; // the schema describes the builder data model – it stays as it is
         }
         if ($name === 'list_popups') {
             return array_map(fn (mixed $p): mixed => is_array($p) ? self::popupToEnglish($p) : $p, $v);
@@ -587,7 +588,7 @@ final class Translator
                 $k === 'nastaveni' && is_array($h) => self::settingsKeys($h, false),
                 in_array($k, ['hlaseni', 'chyby', 'chyby_operaci'], true) && is_array($h) => array_map(fn (mixed $z): mixed => is_string($z) ? self::messages($z) : $z, $h),
                 in_array($k, self::UNTRANSLATED, true) => $h,
-                // texty stavby pro překlad: vnitřek obsahu jsou vlastnosti prvků jako ve stavbě (text, odkaz, html…)
+                // build texts for translation: the inside of the content are element properties as in the build (text, odkaz, html…)
                 $k === 'texty' && is_array($h) => array_map(fn (mixed $t): mixed => is_array($t) ? ['id' => $t['id'] ?? '', 'type' => $t['typ'] ?? '']
                     + (isset($t['obsah']) ? ['content' => $t['obsah']] : []) + (isset($t['atributy']) ? ['attributes' => $t['atributy']] : []) : $t, $h),
                 $k === 'titulek' && is_string($h) && isset(self::PART_NAMES[$h]) => self::PART_NAMES[$h],
@@ -637,7 +638,7 @@ final class Translator
         return preg_match('/^skrytá, zveřejní se (.+)$/u', $h, $m) ? 'hidden, will be published ' . $m[1] : $h;
     }
 
-    /** Chybové hlášení nástroje anglicky; české názvy nástrojů v textu nahradí anglické. */
+    /** Tool error message in English; Czech tool names in the text are replaced by the English ones. */
     public static function message(string $message): string
     {
         if (isset(self::MESSAGES[$message])) {
@@ -652,7 +653,7 @@ final class Translator
         return self::messages($message);
     }
 
-    /** Pokyny serveru pro Clauda (odpověď na initialize) – anglicky, s anglickými názvy nástrojů. */
+    /** Server instructions for Claude (response to initialize) – in English, with English tool names. */
     public static function instructions(): string
     {
         return 'A business website on Kaleta. Write texts in the language of the site; pages and news as clean semantic HTML (p, h2, h3, ul, ol, blockquote, a, strong, em, figure/img, table). '

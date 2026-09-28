@@ -1,18 +1,18 @@
 <?php
 /**
- * Kaleta - příprava vydání (spouští vydavatel na svém počítači, na web se nenahrává).
+ * Kaleta - release preparation (run by the publisher on their own computer, not uploaded to the web).
  *
  *   php tools/release.php 1.0.1 --url=https://github.com/phprs-cms/kaletacms/releases/download/v1.0.1/kaleta-1.0.1.zip \
  *       --zmena="Oprava ..." --zmena="Nové ..." [--bezpecnostni]
  *
- * --bezpecnostni označí vydání jako bezpečnostní opravu: instalace se na ně aktualizují samy a správce dostane e-mail.
- * Soukromý klíč lze místo souboru předat proměnnou prostředí KALETA_KLIC (base64) - pro vydávání z GitHub Actions.
+ * --bezpecnostni marks the release as a security fix: installations update to it by themselves and the administrator gets an e-mail.
+ * Instead of a file, the private key can be passed in the KALETA_KLIC environment variable (base64) - for releasing from GitHub Actions.
  *
- * Vytvoří dist/kaleta-<verze>.zip (soubory sledované gitem) a dist/aktualizace.json podepsaný soukromým klíčem.
- * Klíče: tools/klice/vydavatel.key (provozní) a tools/klice/zalozni.key (záložní, má ležet offline) jsou SOUKROMÉ - nikdy do gitu.
- * system/aktualizace.pub nese veřejné klíče (na řádek jeden), je součástí systému. Výměna a odvolání klíče: docs/RELEASING.md.
- *   php tools/release.php --novy-klic=zalozni      založí pár klíčů a veřejný připíše do system/aktualizace.pub
- *   php tools/release.php 1.0.1 --klic=zalozni …   podepíše vydání záložním klíčem (ztráta nebo únik provozního)
+ * Creates dist/kaleta-<version>.zip (files tracked by git) and dist/aktualizace.json signed with the private key.
+ * Keys: tools/klice/vydavatel.key (primary) and tools/klice/zalozni.key (backup, should be kept offline) are PRIVATE - never into git.
+ * system/aktualizace.pub carries the public keys (one per line), it is part of the system. Key rotation and revocation: docs/RELEASING.md.
+ *   php tools/release.php --novy-klic=zalozni      creates a key pair and appends the public one to system/aktualizace.pub
+ *   php tools/release.php 1.0.1 --klic=zalozni …   signs the release with the backup key (the primary one lost or leaked)
  */
 
 declare(strict_types=1);
@@ -35,7 +35,7 @@ foreach (array_slice($argv, 2) as $arg) {
     }
 }
 if (str_starts_with($version, '--novy-klic=')) {
-    // nový pár klíčů: soukromý do tools/klice/ (nikdy do gitu), veřejný se PŘIPÍŠE do system/aktualizace.pub
+    // a new key pair: the private one into tools/klice/ (never into git), the public one is APPENDED to system/aktualizace.pub
     require_once $root . '/system/src/Core/Signature.php';
     $name = substr($version, 12);
     $target = ['provozni' => $root . '/tools/klice/vydavatel.key', 'zalozni' => $root . '/tools/klice/zalozni.key'][$name] ?? exit("Použití: --novy-klic=provozni nebo --novy-klic=zalozni\n");
@@ -61,7 +61,7 @@ if (!str_contains((string) file_get_contents($root . '/system/bootstrap.php'), "
     exit("V system/bootstrap.php není KALETA_VERSION = '{$version}'. Nejprve zvyšte verzi a změnu commitněte.\n");
 }
 
-// --- klíče: system/aktualizace.pub nese víc veřejných klíčů (provozní + záložní), podpis platí vůči kterémukoli - viz docs/RELEASING.md
+// --- keys: system/aktualizace.pub carries several public keys (primary + backup), a signature is valid against any of them - see docs/RELEASING.md
 require_once $root . '/system/src/Core/Signature.php';
 $publicKeyFile = $root . '/system/aktualizace.pub';
 $keyFiles = ['provozni' => $root . '/tools/klice/vydavatel.key', 'zalozni' => $root . '/tools/klice/zalozni.key'];
@@ -75,9 +75,9 @@ if (!isset(Kaleta\Core\Signature::keys($publicKeyFile)[$keyId])) {
     exit("Klíč {$keyId} není uveden v system/aktualizace.pub - instalace by jeho podpis odmítly.\n");
 }
 
-// --- balíček ze souborů sledovaných gitem
+// --- package from the files tracked by git
 $files = array_filter(explode("\n", (string) shell_exec('cd ' . escapeshellarg($root) . ' && git ls-files')));
-$exclude = ['tools/', 'docs/', '.github/', '.claude/', 'CLAUDE.md', '.gitignore', '.gitleaks.toml', '.git-blame-ignore-revs']; // kořenový CLAUDE.md je pro vývoj; layout/CLAUDE.md (pravidla šablon) do balíčku patří
+$exclude = ['tools/', 'docs/', '.github/', '.claude/', 'CLAUDE.md', '.gitignore', '.gitleaks.toml', '.git-blame-ignore-revs']; // the root CLAUDE.md is for development; layout/CLAUDE.md (layout rules) belongs in the package
 @mkdir($root . '/dist');
 $zipFile = $root . "/dist/kaleta-{$version}.zip";
 @unlink($zipFile);
@@ -91,15 +91,15 @@ foreach ($files as $file) {
         }
     }
     $zip->addFile($root . '/' . $file, $file);
-    // seznam souborů jádra s otisky: instalace podle něj pozná změněné, chybějící a přidané soubory (Core\Integrita)
-    // bez uživatelských složek a bez install.php (aktualizace ho nepřepisuje a správce ho po instalaci může smazat)
+    // the list of core files with hashes: by it an installation recognizes changed, missing and added files (Core\Integrity)
+    // without user folders and without install.php (an update does not overwrite it and the administrator may delete it after installation)
     if (!preg_match('#^(media|storage)/|^install\.php$#', $file)) {
         $hashes[$file] = hash_file('sha256', $root . '/' . $file);
     }
 }
 // classes of the previous release that this one renamed or removed ride along unchanged: the previous release installs
 // this package and, in the same request, may still load its own classes after its cleanup. The new version deletes them
-// on the first admin load (Aktualizace::uklidZrusene, 'legacy' list).
+// on the first admin load (Updater::cleanUpRemoved, 'legacy' list).
 $legacy = [];
 $previous = trim((string) shell_exec('cd ' . escapeshellarg($root) . ' && git describe --tags --abbrev=0 HEAD^ 2>/dev/null'));
 if ($previous !== '') {
@@ -123,7 +123,7 @@ $sha = hash_file('sha256', $zipFile);
 $manifest = [
     'verze' => $version, 'vydano' => date('Y-m-d'), 'url' => $options['url'], 'sha256' => $sha,
     'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage($version, $sha, $options['bezpecnostni']), $sk)),
-    'klic' => $keyId, // jen pro přehled, kterým klíčem se podepisovalo; instalace zkouší všechny klíče, které znají
+    'klic' => $keyId, // only for reference, which key signed it; installations try all keys they know
     'min_php' => '8.4', 'bezpecnostni' => $options['bezpecnostni'], 'zmeny' => $options['zmeny'],
 ];
 file_put_contents($root . '/dist/aktualizace.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");

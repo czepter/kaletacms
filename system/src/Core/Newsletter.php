@@ -5,18 +5,19 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Odběratelé do mailingové služby, kterou web už používá: po potvrzení odběru (double opt-in) se adresa přidá do seznamu
- * ve službě, po odhlášení se z něj odebere. Rozesílání, doručitelnost a odhlašování z e-mailů řeší služba.
+ * Subscribers into the mailing service the site already uses: after the subscription is confirmed (double opt-in) the
+ * address is added to the list in the service, after unsubscribing it is removed from it. Sending, deliverability and
+ * unsubscribing from e-mails are handled by the service.
  *
- * Potvrzení a odhlášení jen zapíšou úlohu do fronty (ka_odber_fronta); odešle ji úklid na pozadí (Oznameni::naPozadi),
- * aby návštěvník na službu nečekal. Nepovedený pokus se zopakuje později (5 min, 30 min, 2 h, 12 h), potom se vzdá –
- * odběratel má v administraci stav „chyba“ a jde zkusit znovu.
+ * Confirming and unsubscribing only write a task to the queue (ka_odber_fronta); the background cleanup sends it
+ * (Notifications::runInBackground), so the visitor does not wait for the service. A failed attempt is retried later
+ * (5 min, 30 min, 2 h, 12 h), then it gives up – the subscriber has the status "chyba" (error) in the admin and can be retried.
  *
- * Klíč API se ukládá jen na webu (Nastavení → Rozšíření) a přes MCP se neukazuje ani nemění.
+ * The API key is stored only on the site ("Nastavení → Rozšíření", Settings → Extensions) and is neither shown nor changed over MCP.
  */
 final class Newsletter
 {
-    /** služba => [název, potřebuje klíč a seznam] */
+    /** service => [name, needs a key and a list] */
     public const array SERVICES = [
         'brevo' => ['Brevo', true],
         'mailerlite' => ['MailerLite', true],
@@ -26,7 +27,7 @@ final class Newsletter
         'webhook' => ['Jiná služba přes webhook (Make, Zapier, n8n)', false],
     ];
 
-    /** Po kolika minutách další pokus (podle počtu nepovedených). */
+    /** After how many minutes the next attempt comes (by the number of failed ones). */
     private const array RETRY_DELAYS = [5, 30, 120, 720];
 
     public static function isEnabled(Settings $s): bool
@@ -39,20 +40,20 @@ final class Newsletter
         return self::SERVICES[$service][1] ? $s->get('newsletter_key') !== '' && $s->get('newsletter_list') !== '' : preg_match('#^https://#i', $s->get('newsletter_webhook')) === 1;
     }
 
-    /** Zařadí přidání (po potvrzení) nebo odebrání (po odhlášení) adresy; bez nastavené služby nic. */
+    /** Queues adding (after confirmation) or removing (after unsubscribing) an address; nothing without a configured service. */
     public static function enqueue(App $app, string $email, string $action): void
     {
         if (!self::isEnabled($app->settings()) || !in_array($action, ['pridat', 'odebrat'], true)) {
             return;
         }
         $db = $app->db();
-        // starší nevyřízená úloha pro tutéž adresu je přebytečná – platí poslední stav
+        // an older pending task for the same address is redundant – the latest state applies
         $db->run('DELETE FROM {odber_fronta} WHERE email = ?', [$email]);
         $db->insert('odber_fronta', ['email' => $email, 'akce' => $action, 'pokusy' => 0, 'dalsi' => date('Y-m-d H:i:s'), 'vytvoreno' => date('Y-m-d H:i:s')]);
         $db->run("UPDATE {odberatele} SET sync = 'ceka', sync_chyba = '' WHERE email = ?", [$email]);
     }
 
-    /** Všichni potvrzení odběratelé, kteří ve službě ještě nejsou (po napojení služby). @return int kolik jich čeká */
+    /** All confirmed subscribers who are not in the service yet (after connecting the service). @return int how many are waiting */
     public static function enqueueAll(App $app): int
     {
         if (!self::isEnabled($app->settings())) {
@@ -67,13 +68,13 @@ final class Newsletter
         return $count;
     }
 
-    /** Vzdané úlohy zkusit znovu hned. */
+    /** Retry abandoned tasks right away. */
     public static function retry(App $app): int
     {
         return $app->db()->run('UPDATE {odber_fronta} SET dalsi = NOW(), pokusy = 0 WHERE dalsi IS NULL')->rowCount();
     }
 
-    /** Odešle úlohy, na které přišla řada (volá úklid na pozadí). @return int vyřízených */
+    /** Sends the tasks whose turn has come (called by the background cleanup). @return int number processed */
     public static function processQueue(App $app, int $limit = 10): int
     {
         $s = $app->settings();
@@ -103,12 +104,12 @@ final class Newsletter
     }
 
     /**
-     * Jedno přidání nebo odebrání ve službě. Chyba služby = RuntimeException s kódem a začátkem odpovědi (bez klíče).
+     * One add or remove in the service. A service error = RuntimeException with the code and the start of the response (without the key).
      */
     public static function apply(Settings $s, string $email, string $action, string $source = ''): void
     {
         $service = $s->get('newsletter_service');
-        $key = str_replace(["\r", "\n"], '', $s->get('newsletter_key')); // klíč jde do hlavičky – bez zalomení řádku
+        $key = str_replace(["\r", "\n"], '', $s->get('newsletter_key')); // the key goes into a header – without line breaks
         $items = $s->get('newsletter_list');
         $toAdd = $action === 'pridat';
         [$method, $url, $headers, $body, $missingOk] = match ($service) {
@@ -128,30 +129,30 @@ final class Newsletter
                 'zdroj' => $source, 'cas' => date('c')], false],
             default => throw new \RuntimeException('Mailingová služba není nastavená.'),
         };
-        // testy: adresa služby se dá přesměrovat na místní falešný server (jen přes databázi, v administraci není)
+        // tests: the service URL can be redirected to a local fake server (only through the database, it is not in the admin)
         $test = $s->get('newsletter_test_url');
         if ($test !== '' && preg_match('#^http://127\.0\.0\.1:\d+$#', $test)) {
             $url = $test . '/' . $service . (string) parse_url($url, PHP_URL_PATH);
         }
         [$code, $response] = self::http($method, $url, $headers, $body);
         if (($code >= 200 && $code < 300) || ($missingOk && $code === 404)) {
-            return; // odebrání adresy, kterou služba nezná, je v pořádku
+            return; // removing an address the service does not know is fine
         }
-        // text chyby se ukládá k odběrateli; „Služba neodpověděla.“ přeloží administrace při zobrazení
+        // the error text is stored with the subscriber; the admin translates 'Služba neodpověděla.' when displaying it
         throw new \RuntimeException($code === 0 ? 'Služba neodpověděla.' : 'HTTP ' . $code . ($response !== '' ? ': ' . mb_substr(trim(strip_tags($response)), 0, 180) : ''));
     }
 
-    /** Mailchimp: datové centrum je za pomlčkou v klíči (…-us21). */
+    /** Mailchimp: the data center is after the dash in the key (…-us21). */
     private static function dataCenter(string $key): string
     {
         return preg_match('/-([a-z]{2}\d{1,3})$/', $key, $m) ? $m[1] : 'us1';
     }
 
-    /** @param list<string> $headers @return array{0: int, 1: string} kód odpovědi (0 = bez odpovědi) a tělo */
+    /** @param list<string> $headers @return array{0: int, 1: string} response code (0 = no response) and body */
     private static function http(string $method, string $url, array $headers, ?array $body): array
     {
         $response = @file_get_contents($url, false, stream_context_create(['http' => [
-            'method' => $method, 'timeout' => 6, 'ignore_errors' => true, 'follow_location' => 0, // služba nepřesměruje požadavek jinam
+            'method' => $method, 'timeout' => 6, 'ignore_errors' => true, 'follow_location' => 0, // the service does not redirect the request elsewhere
             'header' => implode("\r\n", array_merge(['Content-Type: application/json; charset=utf-8', 'Accept: application/json', 'User-Agent: Kaleta/' . KALETA_VERSION], $headers)) . "\r\n",
             'content' => $body === null ? '' : (string) json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ]]));

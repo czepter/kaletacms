@@ -1,14 +1,14 @@
 <?php
 /**
- * Kaleta - zavaděč systému.
- * Společný start pro index.php (web), admin.php (administrace) a install.php.
+ * Kaleta - system bootstrap.
+ * Common start for index.php (site), admin.php (admin) and install.php.
  */
 
 declare(strict_types=1);
 
 const KALETA_VERSION = '1.4.0';
 
-/** Číslo poslední migrace v system/sql/migrace - web podle něj pozná, že má po aktualizaci upravit databázi (hlídá tools/test.sh). */
+/** Number of the last migration in system/sql/migrace - the site uses it to tell that it must update the database after an update (checked by tools/test.sh). */
 const KALETA_DB_VERSION = 26;
 
 define('KALETA_ROOT', dirname(__DIR__));
@@ -23,8 +23,8 @@ if (PHP_VERSION_ID < 80400) {
 mb_internal_encoding('UTF-8');
 date_default_timezone_set('Europe/Prague');
 
-// Vlastní PSR-4 autoloader: system/src/Core/Db.php = Kaleta\Core\Db.
-// Composer není k běhu potřeba - web se dá nahrát přes FTP tak, jak je.
+// Custom PSR-4 autoloader: system/src/Core/Db.php = Kaleta\Core\Db.
+// Composer is not needed at runtime - the site can be uploaded over FTP as it is.
 spl_autoload_register(static function (string $class): void {
     if (!str_starts_with($class, 'Kaleta\\')) {
         return;

@@ -1,6 +1,6 @@
 <?php
 /**
- * Kaleta - instalace. Po úspěšné instalaci tento soubor ze serveru smažte.
+ * Kaleta - installation. Delete this file from the server after a successful installation.
  */
 
 declare(strict_types=1);

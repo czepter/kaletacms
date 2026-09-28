@@ -1,11 +1,11 @@
 <?php
 /**
- * Přihlášení do administrace.
+ * Sign-in to the admin.
  *
  * @var Kaleta\Core\App $app
  * @var string|null $error
  * @var string $login
- * @var bool $code  druhý krok: heslo už sedí, čeká se na kód z ověřovací aplikace
+ * @var bool $code  second step: the password is already correct, waiting for the code from the authenticator app
  */
 ?>
 <!doctype html>

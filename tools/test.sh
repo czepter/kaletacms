@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Kaleta - kouřový test: čistá instalace do dočasné kopie a průchod hlavními stránkami.
-# Spouští se lokálně i v GitHub Actions. Databázi bere z proměnných prostředí:
-#   DB_HOST (127.0.0.1) DB_PORT (3306) DB_NAME (kaleta_test) DB_USER (root) DB_PASS (prázdné) PORT (8099) WEB (firemni | remeslo | poradenstvi)
-# Databáze DB_NAME se při testu SMAŽE a vytvoří znovu.
+# Kaleta - smoke test: a clean install into a temporary copy and a pass through the main pages.
+# Runs locally and in GitHub Actions. Takes the database from environment variables:
+#   DB_HOST (127.0.0.1) DB_PORT (3306) DB_NAME (kaleta_test) DB_USER (root) DB_PASS (empty) PORT (8099) WEB (firemni | remeslo | poradenstvi)
+# The database DB_NAME is DROPPED during the test and created again.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -100,19 +100,19 @@ check "API: stránky" 200 /api/stranky '/kontakt"'
 check "anglická verze webu" 200 /en/ 'lang="en"'
 code=$(curl -s -o /dev/null -w '%{http_code}' "$B/en/novinky/vitejte-v-kalete"); expect "novinka jiné jazykové verze přesměruje" "$code" 301
 
-# neúspěšná validace novinky musí vrátit formulář s hláškou, ne chybu 500
+# a failed news item validation must return the form with a message, not error 500
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=news&action=new"
 TOKEN=$(csrf)
 code=$(curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=news&action=save" -d "_csrf=$TOKEN" -d idc=0 -d titulek= -d tema=1)
 [ "$code" = 200 ] && grep -q 'name="titulek"' "$WORK/response" && echo "  ok     chyba ve formuláři novinky vrátí formulář" || { echo "  CHYBA  validace novinky: kód $code"; ERRORS=$((ERRORS+1)); }
 
-# novinky bez kategorie (zapnuté až po instalaci): „Nová novinka“ není slepá ulička – vznikne výchozí kategorie v jazyce webu
+# news without a category (enabled only after installation): „Nová novinka“ (New news item) is not a dead end – a default category is created in the site language
 "${MYSQL[@]}" "$DB_NAME" -e "SET FOREIGN_KEY_CHECKS=0; DROP TABLE IF EXISTS kat_zaloha; CREATE TABLE kat_zaloha AS SELECT * FROM ka_kategorie; DELETE FROM ka_kategorie; UPDATE ka_nastaveni SET hodnota='en' WHERE promenna='site_language'"
 check "nová novinka bez kategorie otevře editor" 200 "/admin.php?module=news&action=new" 'name="titulek"'
 expect "výchozí kategorie založená v jazyce webu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(COUNT(*), ':', MAX(nazev)) FROM ka_kategorie")" "1:News"
 "${MYSQL[@]}" "$DB_NAME" -e "SET FOREIGN_KEY_CHECKS=0; DELETE FROM ka_kategorie; INSERT INTO ka_kategorie SELECT * FROM kat_zaloha; DROP TABLE kat_zaloha; UPDATE ka_nastaveni SET hodnota='cs' WHERE promenna='site_language'"
 
-# autor novinek: vidí jen své novinky a nevydává
+# news author: sees only their own news items and does not publish
 NEWS_ID=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idc FROM ka_novinky ORDER BY idc LIMIT 1")
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d idu=0 -d jmeno=Autor -d user=autor --data-urlencode "password=$PASSWORD" -d admin=0
 JAR2="$WORK/jar2"
@@ -209,7 +209,7 @@ curl -s -o "$WORK/response" "$B/o-nas"; grep -q "<h1>Druhá verze</h1>" "$WORK/r
 echo "== Claude (MCP): builder"
 API_TOKEN="kaleta_$(printf 'a%.0s' $(seq 1 48))"
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$API_TOKEN")', NOW() FROM ka_uzivatele WHERE user = 'admin'"
-# grep, který dočte celý vstup: „curl | grep -q“ s pipefail selže, když grep skončí dřív, než curl dopíše (SIGPIPE)
+# a grep that reads the whole input: „curl | grep -q“ with pipefail fails when grep exits before curl finishes writing (SIGPIPE)
 contains() { grep "$@" > /dev/null; }
 mcp() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2}}"; }
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$WORK/response"
@@ -322,7 +322,7 @@ grep -q 'class="ka-formular"' "$WORK/formular.html" && grep -q 'name="as_podpis"
 field_value() { grep -o "name=\"$1\" value=\"[^\"]*\"" "$WORK/formular.html" | head -1 | sed 's/.*value="//;s/"$//'; }
 FORM_SOURCE=$(field_value zdroj); FORM_ELEMENT=$(field_value prvek); FORM_TIME=$(field_value as_cas); FORM_SIGNATURE=$(field_value as_podpis)
 submit_form() { curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/kontakt -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" "$@"; }
-# příliš rychlé odeslání (automatické vyplnění): vlastní kód a hlášení „počkejte chvilku“, ne „nepodařilo se ověřit“
+# too fast a submit (autofill): its own code and the message „počkejte chvilku“ (wait a moment), not „nepodařilo se ověřit“ (could not verify)
 NOW=$(date +%s); FAST_SIGNATURE=$(php -r 'echo hash_hmac("sha256", $argv[1], $argv[2]);' "formular|$FORM_SOURCE|$FORM_ELEMENT|$NOW" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'secret_key'")")
 case "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/kontakt -d "as_cas=$NOW" -d "as_podpis=$FAST_SIGNATURE" -d p0=A -d p1=a@example.cz -d p3=x -d p4=1)" in *vysledek=rychle*) echo "  ok     příliš rychlé odeslání má vlastní výsledek";; *) echo "  CHYBA  příliš rychlé odeslání formuláře"; ERRORS=$((ERRORS+1));; esac
 check "hlášení po příliš rychlém odeslání radí počkat" 200 "/kontakt?formular=$FORM_ELEMENT&vysledek=rychle" "Počkejte prosím chvilku a odešlete ho znovu"
@@ -395,7 +395,7 @@ rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/tym/jana-novakova"
 grep -q 'Kolega: Zuzana Zelena' "$WORK/response" && ! grep -q 'Kolega: Jana' "$WORK/response" && ! grep -q 'Kolega: Petr' "$WORK/response" && ! curl -s "$B/tym/petr-svoboda" | contains 'Kolega: Zuzana' \
     && echo "  ok     související položky: filtr podle pole zobrazené položky, bez ní samotné" || { echo "  CHYBA  související položky kolekce"; ERRORS=$((ERRORS+1)); }
-# kolekce ve více jazycích: překlad položky má stejnou adresu, další jazyk vlastní šablonu detailu, drobečky vedou na překlad rozcestníku
+# a collection in several languages: an item's translation has the same slug, another language its own item template, breadcrumbs lead to the translation of the hub page
 mcp vytvor_stranku '{"titulek":"Náš tým","adresa":"tym","text":"<p>Tým</p>","zobrazit":true}' > /dev/null; IDTYM=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'tym'")
 mcp vytvor_stranku "{\"titulek\":\"Our team\",\"adresa\":\"team\",\"jazyk\":\"en\",\"preklad_z\":$IDTYM,\"text\":\"<p>Team</p>\",\"zobrazit\":true}" > /dev/null
 mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Zdenek Zeman EN","adresa":"zdenek","jazyk":"en","data":{"funkce":"Workshop lead"},"zobrazit":true}' > "$WORK/response"
@@ -414,7 +414,7 @@ grep -q 'class="logo"[^>]*><img src="/image/kaleta-logo.svg"' "$WORK/response" &
 expect "verze šablony jazyka zvlášť" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stavba_revize WHERE cast = 'kolekce:$IDK:en'")" 1
 mcp seznam_stranek '{}' | grep -q 'en\\/team' && echo "  ok     MCP: seznam stránek ukazuje adresu s předponou jazyka" || { echo "  CHYBA  MCP adresa stránky jazykové verze"; ERRORS=$((ERRORS+1)); }
 check "šablona detailu jazyka v builderu" 200 "/admin.php?module=collections&action=builder&id=$IDK&jazyk=en" 'en\/tym\/zdenek'
-# překlad přes MCP: stránka jako kopie stavby originálu, texty podle id, záhlaví a patička jazyka začínají kopií výchozího
+# translation via MCP: the page as a copy of the original's build, texts by id, the language's header and footer start as a copy of the default one
 mcp vytvor_stranku '{"titulek":"Bez originalu","adresa":"bez-originalu","kopie_stavby":true}' | grep -q 'potřebuje preklad_z' \
   && expect "kopie stavby bez originálu stránku nezaloží" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stranky WHERE seo_link = 'bez-originalu'")" 0 || { echo "  CHYBA  kopie stavby bez preklad_z"; ERRORS=$((ERRORS+1)); }
 mcp vytvor_stranku "{\"titulek\":\"From HTML\",\"adresa\":\"from-html\",\"jazyk\":\"en\",\"preklad_z\":$IDZ,\"kopie_stavby\":true}" > /dev/null
@@ -474,7 +474,7 @@ grep -q '<h3 class="s-kna1">První karta</h3>' "$WORK/response" && grep -q '<h3 
   && echo "  ok     komponenta dvakrát na stránce: styl jednou, bez duplicitního id" || { echo "  CHYBA  styl komponenty"; ERRORS=$((ERRORS+1)); }
 check "komponenty ukazují počet použití" 200 "/admin.php?module=components" "1×"
 grep -q 'data-potvrdit="Komponentu „Karta služby“ používá: stránka „' "$WORK/response" && echo "  ok     potvrzení smazání komponenty vyjmenuje, kde je použitá" || { echo "  CHYBA  potvrzení smazání komponenty"; ERRORS=$((ERRORS+1)); }
-# formulář uvnitř komponenty: odeslání ho musí najít (dřív se hledal jen ve stavbě stránky)
+# a form inside a component: the submit must find it (it used to be searched only in the page build)
 component_action stavba_uloz --data-urlencode 'stavba={"v":1,"deti":[{"id":"kse1","typ":"sekce","deti":[{"id":"kfo1","typ":"formular","obsah":{"nazev":"Poptávka z komponenty"}}]}]}' > /dev/null; component_action stavba_publikuj > /dev/null
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/formular.html" "$B/z-html"
@@ -500,7 +500,7 @@ curl -s -o "$WORK/response" "$B/kontakt"; grep -q 'header class="hlavicka"' "$WO
 check "varianta v seznamu částí" 200 "/admin.php?module=parts" "Landing page"
 
 echo "== Claude (MCP): varianty, verze, stránky a poptávky jako v administraci"
-# hodnota z odpovědi MCP: mcpv klíč [klíč…] (pole a objekty jako JSON)
+# a value from an MCP response: mcpv key [key…] (arrays and objects as JSON)
 mcp_value() { php -r '$v = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); foreach (array_slice($argv, 2) as $k) { $v = $v[$k] ?? null; } echo is_scalar($v) ? $v : json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);' "$WORK/response" "$@"; }
 mcp seznam_casti '{}' > "$WORK/response"; [[ "$(mcp_value)" == *'"varianta":"landing-page"'* ]] && echo "  ok     MCP: seznam částí webu s variantami" || { echo "  CHYBA  MCP seznam_casti"; ERRORS=$((ERRORS+1)); }
 mcp uloz_variantu "{\"cast\":\"paticka\",\"nazev\":\"Kampaň\",\"stranky\":[$IDZ]}" > "$WORK/response"; VARIANT=$(mcp_value varianta)
@@ -562,7 +562,7 @@ expect "poptávka z okna uložena" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CON
 mcp seznam_popupu '{}' > "$WORK/response"; expect "MCP: seznam oken s počitadly" "$(mcp_value 0 nazev)|$(mcp_value 0 zobrazeni)|$(mcp_value 0 konverze)" "Akce okno|1|1"
 mcp uloz_popup "{\"id\":$IDPP,\"aktivni\":false}" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html # další testy počítají se stránkami bez okna
 
-# úprava přímo na webu: odkaz a formulář jen pro přihlášené s právem
+# editing right on the site: the link and the form only for signed-in users with the permission
 check "úprava na místě – odkaz" 200 /novinky/vitejte-v-kalete "ka-upravit-zde"
 check "úprava na místě – formulář" 200 "/novinky/vitejte-v-kalete?upravit=text" "ka-upravit-text"
 check "úprava stránky na místě" 200 "/o-nas?upravit=text" "ka-upravit-text"
@@ -591,7 +591,7 @@ curl -s -o "$WORK/response" "$B/o-zpravodaji"; grep -q 'wp-block' "$WORK/respons
 curl -s -o "$WORK/response" "$B/novinky/lavka-pres-bystrinu"; grep -qE "podvrh|onclick|kontaktni-formular|posta\.example" "$WORK/response" && { echo "  CHYBA  importovaná novinka obsahuje skript, zkratku doplňku nebo e-mail komentujícího"; ERRORS=$((ERRORS+1)); } || echo "  ok     importovaný obsah je vyčištěný"
 code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/2026/05/lavka-pres-bystrinu/"); expect "stará adresa WordPressu přesměruje na novinku" "$code" "301 $B/novinky/lavka-pres-bystrinu"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$B/?p=102"); expect "stará adresa /?p=102 přesměruje" "$code" 301
-# druhý import téhož souboru nesmí nic zdvojit
+# a second import of the same file must not duplicate anything
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=select" -d "_csrf=$TOKEN" -d soubor=wordpress-sample.xml
 wp_import
 COUNTS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM ka_novinky WHERE seo_link LIKE 'lavka-pres-bystrinu%' OR seo_link LIKE 'slavnosti-syra%' OR seo_link LIKE 'rozpocet-obce%'), '/', (SELECT COUNT(*) FROM ka_stranky WHERE seo_link LIKE 'o-zpravodaji%'))")
@@ -652,9 +652,9 @@ IDU=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link 
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='$IDU' WHERE promenna='home_page'"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=delete" -d "_csrf=$TOKEN" -d "ids=$IDU"
 expect "úvodní stránku nejde smazat" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT smazano IS NULL FROM ka_stranky WHERE ids = $IDU")" "1"
-# rozpracovaná jazyková verze (bez zveřejněného překladu úvodu) se v přepínači, hreflang ani mapě webu nenabízí
+# a language version in progress (without a published translation of the home page) is not offered in the switcher, hreflang or the sitemap
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zobrazit = 1, smazano = NULL WHERE ids = $IDU"; rm -f "$WORK"/web/storage/cache/stranky/*.html
-# stránky se nejdřív uloží: „curl | grep -q“ s pipefail selže, když grep skončí dřív, než curl dopíše (SIGPIPE)
+# the pages are saved first: „curl | grep -q“ with pipefail fails when grep exits before curl finishes writing (SIGPIPE)
 curl -s -o "$WORK/response" "$B/"; curl -s -o "$WORK/mapa.xml" "$B/sitemap.xml"
 ! grep -q 'hreflang="en"' "$WORK/response" && ! grep -q '/en/</loc>' "$WORK/mapa.xml" \
   && echo "  ok     jazyk bez zveřejněného překladu úvodu se návštěvníkům nenabízí" || { echo "  CHYBA  rozpracovaný jazyk v přepínači nebo mapě webu"; ERRORS=$((ERRORS+1)); }
@@ -723,7 +723,7 @@ printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10" onload="aler
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=media&action=upload" -F "_csrf=$TOKEN" -F "soubory[]=@$WORK/foto.jpg;type=image/jpeg" -F "soubory[]=@$WORK/logo.svg;type=image/svg+xml"
 SVG=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obr_poloha FROM ka_media WHERE obr_poloha LIKE '%.svg' ORDER BY ido DESC LIMIT 1")
 [ -n "$SVG" ] && ! grep -q 'onload\|<script' "$WORK/web/$SVG" && grep -q '<rect' "$WORK/web/$SVG" && echo "  ok     SVG nahrané a vyčištěné" || { echo "  CHYBA  SVG v Médiích"; ERRORS=$((ERRORS+1)); }
-# soubor nad upload_max_filesize (ale pod post_max_size): srozumitelná hláška s limitem v MB, ne zkratka z php.ini
+# a file over upload_max_filesize (but under post_max_size): a clear message with the limit in MB, not the php.ini shorthand
 UPLOAD_LIMIT=$(php -r '$b = fn ($v) => (int) $v * (["k" => 1024, "m" => 1048576, "g" => 1073741824][strtolower(substr(trim($v), -1))] ?? 1); echo $b(ini_get("upload_max_filesize")), " ", $b(ini_get("post_max_size"));')
 if [ "${UPLOAD_LIMIT% *}" -gt 0 ] && [ $(( ${UPLOAD_LIMIT% *} + 4096 )) -lt "${UPLOAD_LIMIT#* }" ]; then
   head -c $(( ${UPLOAD_LIMIT% *} + 1024 )) /dev/zero > "$WORK/velky.zip"
@@ -1041,7 +1041,7 @@ $m = ['verze' => '9.9.9', 'url' => "http://127.0.0.1:$port/k.zip", 'sha256' => $
 file_put_contents(dirname($site) . '/kanal/ok.json', json_encode($m));
 file_put_contents(dirname($site) . '/kanal/zly.json', json_encode(['podpis' => base64_encode(random_bytes(64))] + $m));
 PHP
-# kanál na vlastním serveru: vestavěný server PHP obsluhuje jen jeden požadavek, sám od sebe by stahovat nemohl
+# the channel on its own server: the built-in PHP server handles only one request at a time, it could not download from itself
 CHANNEL_PORT=$((PORT + 1))
 php "$WORK/vydani-test.php" "$WORK/web" "$CHANNEL_PORT"
 (cd "$WORK/kanal" && exec php -S "127.0.0.1:$CHANNEL_PORT" > /dev/null 2>&1) & CHANNEL_PID=$!

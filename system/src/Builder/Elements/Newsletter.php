@@ -9,8 +9,8 @@ use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
 /**
- * Přihlášení k odběru novinek e-mailem (rozšíření Newsletter). Adresa se uloží až po potvrzení odkazem z e-mailu
- * (double opt-in); seznam odběratelů jde z administrace vyexportovat do rozesílacího nástroje.
+ * Subscription to news by e-mail (the Newsletter extension). The address is saved only after confirmation via the link in the e-mail
+ * (double opt-in); the subscriber list can be exported from the admin to a mailing tool.
  */
 final class Newsletter extends Element
 {
@@ -53,7 +53,7 @@ final class Newsletter extends Element
             default => '',
         };
         $antispam = new Antispam($k->app->db(), $k->app->settings());
-        // kotva pro návrat po odeslání: id prvku (kotva nebo styl), jinak vlastní
+        // anchor for the return after sending: the element id (anchor or style), otherwise its own
         $anchor = preg_match('/ id="([^"]*)"/', $a, $m) ? $m[1] : $id;
         if ($anchor === $id) {
             $a = ' id="' . e($id) . '"' . $a;

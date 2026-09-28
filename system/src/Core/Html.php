@@ -5,17 +5,17 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Bezpečné HTML od uživatelů bez práva správce (autor a editor novinek a stránek, MCP s jejich tokenem).
- * Na rozdíl od převodu z WordPressu (WpObsah) zachová strukturu i třídy z editoru a odstraní jen to, čím se dá spustit kód
- * nebo převzít účet: skripty, rámy, formuláře, obsluhy událostí, styly, háčky skriptů webu (data-…) a adresy javascript:/data:.
- * Správce smí vkládat vlastní HTML (prvek HTML, šablony), jeho text se proto nečistí.
+ * Safe HTML from users without administrator permission (author and editor of news and pages, MCP with their token).
+ * Unlike the conversion from WordPress (WpContent) it keeps the structure and the classes from the editor and removes only what can run code
+ * or take over an account: scripts, frames, forms, event handlers, styles, the site's script hooks (data-…) and javascript:/data: URLs.
+ * An administrator can insert custom HTML (the HTML element, layouts), so their text is not sanitized.
  */
 final class Html
 {
     private const array DISCARD = ['script', 'style', 'iframe', 'frame', 'frameset', 'object', 'embed', 'applet', 'form', 'input', 'button', 'select', 'textarea',
         'template', 'noscript', 'svg', 'math', 'link', 'meta', 'base', 'head', 'title', 'dialog', 'portal'];
 
-    /** Povolené atributy (mimo aria-*); ostatní – hlavně on…, style, data-…, formaction, srcdoc – zmizí. */
+    /** Allowed attributes (besides aria-*); the others – mainly on…, style, data-…, formaction, srcdoc – are removed. */
     private const array ATTRIBUTES = ['href', 'src', 'alt', 'title', 'class', 'id', 'width', 'height', 'colspan', 'rowspan', 'scope', 'target', 'rel', 'lang', 'dir',
         'loading', 'decoding', 'srcset', 'sizes', 'start', 'reversed', 'type', 'cite', 'datetime', 'controls', 'poster', 'preload', 'playsinline', 'muted', 'loop'];
 
@@ -38,7 +38,7 @@ final class Html
         return $output;
     }
 
-    /** Čistí jen pro uživatele bez práva správce. */
+    /** Sanitizes only for users without administrator permission. */
     public static function forUser(string $html, Auth $auth): string
     {
         return $auth->isAdmin() ? $html : self::safe($html);

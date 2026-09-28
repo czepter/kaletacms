@@ -9,8 +9,8 @@ use Kaleta\Core\Db;
 use Kaleta\Core\Response;
 
 /**
- * Přesměrování 301: stará adresa -> nová. Vzniká samo při změně adresy stránky, novinky nebo kategorie,
- * ručně se hodí po přechodu z jiného systému. Použije se, až když web pro adresu nic nenajde.
+ * 301 redirects: old URL -> new. Created automatically when the slug of a page, news item or category changes,
+ * manually useful after moving from another system. Used only when the site finds nothing for the URL.
  */
 final class Redirects extends Module
 {
@@ -27,7 +27,7 @@ final class Redirects extends Module
         if ($z === '' || $z === trim($commandName, '/ ')) {
             return;
         }
-        // nová cílová adresa přebírá i starší přesměrování, aby nevznikaly řetězy
+        // the new target URL also takes over older redirects, so that no chains form
         $db->run('UPDATE {presmerovani} SET na_adresu = ? WHERE na_adresu = ?', [$commandName, $z]);
         $db->run('DELETE FROM {presmerovani} WHERE z_adresy = ?', [trim($commandName, '/ ')]);
         $db->run(
@@ -68,7 +68,7 @@ final class Redirects extends Module
         $target = preg_match('#^https?://#i', $commandName) ? $commandName : trim($commandName, '/');
         $idp = $this->request->postInt('idp');
         if ($idp > 0) {
-            // úprava existujícího záznamu
+            // editing an existing record
             $this->db->update('presmerovani', ['z_adresy' => mb_substr(trim($z, '/ '), 0, 255), 'na_adresu' => mb_substr($target, 0, 255)], ['idp' => $idp]);
         } else {
             self::add($this->db, $z, $target);
@@ -79,7 +79,7 @@ final class Redirects extends Module
         return $this->back('Přesměrování bylo uloženo.');
     }
 
-    /** Vyprázdní přehled nenalezených adres. */
+    /** Empties the overview of not-found URLs. */
     protected function actionClear(): Response
     {
         if ($this->request->isPost()) {

@@ -1,6 +1,6 @@
 <?php
 /**
- * Router pro vestavěný vývojový server PHP (na hostingu jeho práci dělá .htaccess):
+ * Router for PHP's built-in development server (on hosting, .htaccess does its job):
  *   php -S localhost:8080 system/dev-router.php
  */
 
@@ -13,7 +13,7 @@ if (preg_match('#^/(system|storage|tools|docs|dist)(/|$)|^/layout/.+\.php$|^/con
     http_response_code(403);
     exit('403');
 }
-// stejně jako .htaccess: prohlížeči s podporou AVIF nebo WebP podat sourozenecký soubor foto.jpg.avif / .webp
+// same as .htaccess: serve a browser that supports AVIF or WebP the sibling file foto.jpg.avif / .webp
 if (preg_match('#^/media/.+\.(jpe?g|png)$#i', $path) && is_file($root . $path . '.avif') && str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'image/avif')) {
     header('Content-Type: image/avif');
     header('Vary: Accept');
@@ -36,7 +36,7 @@ if ($path !== '/' && is_file($root . $path)) {
         return true;
     }
 
-    return false; // statický soubor obslouží server sám
+    return false; // the server serves a static file itself
 }
 $_SERVER['SCRIPT_NAME'] = '/index.php';
 require $root . '/index.php';

@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Přihlášení do administrace a práva.
+ * Sign-in to the administration and permissions.
  *
- * Role: autor píše vlastní novinky (vydat je smí jen s "právem vydávat"), editor spravuje
- * obsah a vydává novinky všech, administrátor navíc uživatele a nastavení. Přístup k modulům se
- * u autorů a redaktorů nastavuje jednotlivě; autor může mít nadřízeného editora.
+ * Roles: an author writes their own news items (can publish them only with the "permission to publish"), an editor manages
+ * content and publishes everyone's news items, an administrator also users and settings. Access to modules is
+ * set individually for authors and editors; an author can have a supervising editor.
  */
 final class Auth
 {
@@ -19,10 +19,10 @@ final class Auth
 
     public const array TYPES = [self::AUTHOR => 'autor', self::EDITOR => 'editor', self::ADMIN => 'správce'];
 
-    /** Po tolika chybných heslech nebo kódech v řadě se účet na 15 minut zamkne (sám se zase odemkne). */
+    /** After this many wrong passwords or codes in a row the account is locked for 15 minutes (it unlocks itself again). */
     private const int MAX_ERRORS = 10;
 
-    /** @var array<string, mixed>|null|false false = ještě nenačteno */
+    /** @var array<string, mixed>|null|false false = not loaded yet */
     private array|null|false $user = false;
 
     /** @var list<string>|null */
@@ -32,10 +32,10 @@ final class Auth
     {
     }
 
-    /** @return string|null text chyby, null = přihlášeno */
+    /** @return string|null error text, null = signed in */
     public function login(string $login, string $password, string $ip): ?string
     {
-        // Zpomalení hádání hesel: nejvýše 10 pokusů z jedné IP za 15 minut
+        // Slowing down password guessing: at most 10 attempts from one IP per 15 minutes
         $attempts = (int) $this->db->value(
             "SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE",
             [Antispam::hash($ip)],
@@ -45,14 +45,14 @@ final class Auth
         }
 
         $user = $this->db->one('SELECT * FROM {uzivatele} WHERE user = ?', [$login]);
-        // Hash se ověřuje i pro neexistujícího uživatele, aby se z doby odezvy nedalo poznat, že účet neexistuje
+        // The hash is verified even for a nonexistent user, so that the response time does not reveal that the account does not exist
         $hash = $user['password'] ?? '$2y$12$6C4TPEcYRJ/rRw6iWsrlxu0aH1i91pzK/8KiwqEW3Pa6sTj89Q3Zu';
         $ok = password_verify($password, $hash) && $user !== null;
 
         if (!$ok) {
             $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::hash($ip), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
-                // po 10 chybách v řadě se účet zamkne na 15 minut - ne natrvalo, jinak by kdokoli mohl správce webu vyřadit z provozu
+                // after 10 errors in a row the account is locked for 15 minutes - not permanently, otherwise anyone could lock the site administrator out
                 $errorCount = (int) $user['pocet_chyb'] + 1;
                 $this->db->update('uzivatele', $errorCount >= self::MAX_ERRORS
                     ? ['pocet_chyb' => 0, 'zamceno_do' => date('Y-m-d H:i:s', time() + 900)]
@@ -75,7 +75,7 @@ final class Auth
 
         $this->session->regenerate();
         if ($user['totp_tajemstvi'] !== '') {
-            // heslo sedí, ale účet má dvoufázové přihlášení: přihlášení dokončí až kód z aplikace
+            // the password matches, but the account has two-factor sign-in: only the code from the app completes the sign-in
             $this->session->set('idu_ceka', ['idu' => (int) $user['idu'], 'cas' => time()]);
 
             return null;
@@ -88,15 +88,15 @@ final class Auth
     }
 
     /**
-     * Otisk hesla uložený v session: po změně hesla přestanou platit všechna ostatní přihlášení téhož účtu
-     * (ukradená session, zapomenutý počítač). Sám o sobě nic neprozrazuje - je to zkrácený hash už hashovaného hesla.
+     * Password hash stored in the session: after a password change all other sign-ins of the same account stop being valid
+     * (a stolen session, a forgotten computer). By itself it reveals nothing - it is a shortened hash of an already hashed password.
      */
     public static function passwordHash(string $hash): string
     {
         return substr(hash('sha256', 'kaleta-session|' . $hash), 0, 24);
     }
 
-    /** Po změně vlastního hesla: tohle přihlášení zůstává platné, ostatní ne. */
+    /** After changing one's own password: this sign-in stays valid, the others do not. */
     public function refreshAfterPasswordChange(string $newHash): void
     {
         $this->session->regenerate();
@@ -104,7 +104,7 @@ final class Auth
         $this->user = false;
     }
 
-    /** Heslo bylo zadáno správně a čeká se na kód z ověřovací aplikace (nejdéle 5 minut). */
+    /** The password was entered correctly and a code from the authenticator app is awaited (at most 5 minutes). */
     public function isAwaitingCode(): bool
     {
         $pending = $this->session->get('idu_ceka');
@@ -112,7 +112,7 @@ final class Auth
         return is_array($pending) && time() - (int) $pending['cas'] < 300;
     }
 
-    /** Druhý krok přihlášení: kód z aplikace, nebo jednorázový záložní kód. @return string|null text chyby */
+    /** Second step of the sign-in: a code from the app, or a one-time backup code. @return string|null error text */
     public function verifyCode(string $code, string $ip): ?string
     {
         if (!$this->isAwaitingCode()) {
@@ -132,7 +132,7 @@ final class Auth
         if ($user === null || (!Totp::verify($user['totp_tajemstvi'], $code) && $backupCodes === null)) {
             $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::hash($ip), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
-                // chybné kódy se počítají na účet, ne jen na IP adresu: kdo zná heslo, nesmí kódy zkoušet z mnoha adres
+                // wrong codes are counted per account, not only per IP address: whoever knows the password must not try codes from many addresses
                 $errorCount = (int) $user['pocet_chyb'] + 1;
                 $this->db->update('uzivatele', $errorCount >= self::MAX_ERRORS
                     ? ['pocet_chyb' => 0, 'zamceno_do' => date('Y-m-d H:i:s', time() + 900)]
@@ -154,22 +154,22 @@ final class Auth
         return null;
     }
 
-    /** Má účet, který čeká na druhý krok, zaregistrované přihlašovací klíče? */
+    /** Does the account waiting for the second step have registered passkeys? */
     public function isAwaitingKey(): bool
     {
         return $this->isAwaitingCode() && $this->accountKeys((int) $this->session->get('idu_ceka')['idu']) !== [];
     }
 
-    /** @return list<array<string, mixed>> přihlašovací klíče účtu */
+    /** @return list<array<string, mixed>> passkeys of the account */
     public function accountKeys(int $idu): array
     {
         return $this->db->all('SELECT * FROM {uzivatele_klice} WHERE idu = ? ORDER BY idk', [$idu]);
     }
 
     /**
-     * Druhý krok přihlášení klíčem, 1. část: výzva pro zařízení. Platí jen pro účet, který právě zadal správné heslo.
+     * Second step of the sign-in with a passkey, part 1: a challenge for the device. Valid only for the account that has just entered the correct password.
      *
-     * @return array<string, mixed>|null nastavení pro navigator.credentials.get(), null = není na co čekat
+     * @return array<string, mixed>|null options for navigator.credentials.get(), null = nothing to wait for
      */
     public function keyChallenge(string $siteUrl): ?array
     {
@@ -183,10 +183,10 @@ final class Auth
     }
 
     /**
-     * Druhý krok přihlášení klíčem, 2. část: ověření podpisu. Neúspěch se počítá stejně jako chybný kód.
+     * Second step of the sign-in with a passkey, part 2: verifying the signature. A failure counts the same as a wrong code.
      *
      * @param array<string, mixed> $response
-     * @return string|null text chyby, null = přihlášeno
+     * @return string|null error text, null = signed in
      */
     public function verifyKey(array $response, string $siteUrl, string $ip): ?string
     {
@@ -198,7 +198,7 @@ final class Auth
             return t('Příliš mnoho pokusů. Zkuste to znovu za 15 minut.');
         }
         $challenge = (string) $this->session->get('klic_vyzva', '');
-        $this->session->remove('klic_vyzva'); // výzva platí na jeden pokus
+        $this->session->remove('klic_vyzva'); // the challenge is valid for one attempt
         $user = $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [(int) $this->session->get('idu_ceka')['idu']]);
         if ($user !== null && $user['zamceno_do'] !== null && strtotime($user['zamceno_do']) > time()) {
             $this->session->remove('idu_ceka');
@@ -243,7 +243,7 @@ final class Auth
     public function user(): ?array
     {
         if ($this->user === false) {
-            // bez cookie session není kdo by byl přihlášený - a session se kvůli dotazu nezakládá (web zůstává cachovatelný)
+            // without a session cookie there is nobody who could be signed in - and no session is started for the check (the site stays cacheable)
             if (!isset($_COOKIE['kaleta'])) {
                 return $this->user = null;
             }
@@ -254,9 +254,9 @@ final class Auth
             if ($this->user !== null) {
                 $hash = $this->session->get('otisk');
                 if ($hash === null) {
-                    $this->session->set('otisk', self::passwordHash((string) $this->user['password'])); // přihlášení z doby před touto kontrolou
+                    $this->session->set('otisk', self::passwordHash((string) $this->user['password'])); // a sign-in from before this check existed
                 } elseif (!hash_equals(self::passwordHash((string) $this->user['password']), (string) $hash)) {
-                    $this->session->remove('idu'); // heslo se od přihlášení změnilo
+                    $this->session->remove('idu'); // the password has changed since the sign-in
                     $this->user = null;
                 }
             }
@@ -265,7 +265,7 @@ final class Auth
         return $this->user;
     }
 
-    /** Přihlášení bez session - pro požadavky ověřené tokenem (MCP). */
+    /** Sign-in without a session - for requests authenticated by a token (MCP). */
     public function signInAs(array $user): void
     {
         $this->user = $user;
@@ -287,7 +287,7 @@ final class Auth
         return (int) ($this->user()['admin'] ?? -1) === self::EDITOR;
     }
 
-    /** Web vyžaduje dvoufázové přihlášení a tento uživatel ho ještě nemá (smí jen do Můj účet si ho zapnout). */
+    /** The site requires two-factor sign-in and this user does not have it yet (can only go to "Můj účet" (My account) to turn it on). */
     public function isMissingRequired2fa(Settings $siteSettings): bool
     {
         $required = $siteSettings->get('require_2fa');
@@ -301,7 +301,7 @@ final class Auth
         return $this->isAdmin() || $this->isEditor();
     }
 
-    /** Má přihlášený uživatel přístup k modulu? Admin vždy; ostatní podle ka_uzivatele_prava. */
+    /** Does the signed-in user have access to the module? Admin always; others according to ka_uzivatele_prava. */
     public function hasModule(string $ident, bool $forEveryone = false): bool
     {
         if ($this->user() === null) {
@@ -319,10 +319,10 @@ final class Auth
     }
 
     /**
-     * Smí přihlášený upravit tuto novinku? Stejná pravidla jako v administraci: modul Novinky, autor smí jen své
-     * a vydanou novinku jen ten, kdo smí vydávat.
+     * Can the signed-in user edit this news item? The same rules as in the administration: the News module, an author only their own,
+     * and a published news item only someone who can publish.
      *
-     * @param array<string, mixed> $newsItem řádek ka_novinky
+     * @param array<string, mixed> $newsItem row of ka_novinky
      */
     public function canEditArticle(array $newsItem): bool
     {
@@ -335,8 +335,8 @@ final class Auth
     }
 
     /**
-     * Část podmínky WHERE (začíná „ AND“, nebo je prázdná), která výpis novinek omezí na to, co přihlášený smí vidět:
-     * autor jen své novinky, editor a správce všechny.
+     * Part of the WHERE condition (starts with „ AND“, or is empty) that limits the news list to what the signed-in user can see:
+     * an author only their own news items, an editor and an administrator all of them.
      */
     public function articleScope(string $alias = ''): string
     {
@@ -346,7 +346,7 @@ final class Auth
     }
 
     /**
-     * ID autorů, jejichž novinky smí uživatel spravovat: autor jen sebe, editor a správce všechny (null = bez omezení).
+     * IDs of authors whose news items the user can manage: an author only themselves, an editor and an administrator all (null = no limit).
      *
      * @return list<int>|null
      */

@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Kaleta\Builder;
 
 /**
- * Sada čárových ikon pro prvek Ikona: 24×24, tah currentColor – barvu a velikost řídí styl prvku.
- * Kreslené pro Kaletu jednoduchými tvary, bez cizí knihovny a bez načítání písma s ikonami.
+ * Set of line icons for the Icon element: 24×24, currentColor stroke – the element's style controls color and size.
+ * Drawn for Kaleta with simple shapes, without a third-party library and without loading an icon font.
  */
 final class Icons
 {
-    /** @var array<string, array{0: string, 1: string}> klíč => [název, vnitřek SVG] */
+    /** @var array<string, array{0: string, 1: string}> key => [name, inner SVG] */
     public const array SET = [
         'fajfka' => ['Fajfka', '<path d="m5 12.5 4.5 4.5L19 7.5"/>'],
         'fajfka-kruh' => ['Fajfka v kruhu', '<circle cx="12" cy="12" r="9"/><path d="m8 12.5 3 3 5-6"/>'],
@@ -62,7 +62,7 @@ final class Icons
         'nastaveni' => ['Nastavení', '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>'],
     ];
 
-    /** Možnosti pro výběr v editoru (klíč => název). */
+    /** Options for the select in the editor (key => name). */
     public static function options(): array
     {
         return array_map(fn (array $i): string => $i[0], self::SET);

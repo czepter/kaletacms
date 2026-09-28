@@ -1,5 +1,5 @@
 <?php
-/** Záložka Firma: údaje pro web (prvek Údaje firmy) a pro vyhledávače (schema.org Organization / LocalBusiness). */
+/** The "Firma" (Company) tab: details for the site (the Company details element) and for search engines (schema.org Organization / LocalBusiness). */
 use Kaleta\Front\Company;
 
 ?>

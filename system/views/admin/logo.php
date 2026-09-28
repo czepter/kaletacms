@@ -1,10 +1,10 @@
 <?php
 /**
- * Logo Kaleta (slovní značka „kaleta.“ se signální tečkou) pro administraci, přihlášení a instalátor – podle manuálu značky.
- * Písmena mají barvu textu (světlý i tmavý režim), tečka je vždy Signal #FF4F2E. Jen značka = ikona „k.“.
+ * The Kaleta logo (the wordmark "kaleta." with the signal dot) for the admin, sign-in and installer – per the brand manual.
+ * The letters have the text colour (light and dark mode), the dot is always Signal #FF4F2E. Mark only = the icon "k.".
  *
- * @var int $height     výška v px (výchozí 28)
- * @var bool $markOnly  jen čtvercová ikona „k.“
+ * @var int $height     height in px (default 28)
+ * @var bool $markOnly  only the square icon "k."
  */
 $height = (int) ($height ?? 28);
 $markOnly = !empty($markOnly);

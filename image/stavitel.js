@@ -1,8 +1,8 @@
-/* Kaleta – builder stránek. Bez knihoven a bez build kroku.
+/* Kaleta – page builder. No libraries and no build step.
  *
- * Stav je strom prvků (stejný tvar, jaký čistí a vykresluje PHP: Stavitel\Stavba). Každá změna jde do historie (zpět/znovu),
- * za chvíli se uloží jako koncept (akce stavba_uloz) a plátno – skutečná stránka webu v iframe – se překreslí.
- * Druhé vykreslování v JavaScriptu záměrně není: co je na plátně, je přesně to, co uvidí návštěvník.
+ * The state is a tree of elements (the same shape PHP cleans and renders: Builder\Build). Every change goes into the history (undo/redo),
+ * shortly afterwards it is saved as a draft (action stavba_uloz) and the canvas – the real site page in an iframe – is re-rendered.
+ * There is deliberately no second rendering in JavaScript: what is on the canvas is exactly what the visitor will see.
  */
 (function () {
 	'use strict';
@@ -74,7 +74,7 @@
 		zmeny: !!D.zmeny, uklada: false, skryte: {}, casovac: null, verze: D.verze || '', ulozeno: '', pokusy: 0, prihlaseni: false, konflikt: false, vycistena: null, chyby: {}, sbalene: {}, trida: null, tazeny: null, tazeno: null, upravaNaPlatne: false, umistovani: null, lupa: '',
 	};
 
-	/* ---------- drobné pomůcky ---------- */
+	/* ---------- small helpers ---------- */
 
 	function el(tag, attributes, ...children) {
 		const e = document.createElement(tag);
@@ -91,8 +91,8 @@
 	const text = (html) => { const d = document.createElement('div'); d.innerHTML = html || ''; return d.textContent.trim(); };
 
 	/**
-	 * Požadavek na administraci. Nikdy neskončí výjimkou: vrací JSON odpovědi, nebo {ok: false, chyba, …} –
-	 * sit (spojení selhalo), prihlaseni (místo JSON přišla přihlašovací stránka nebo vypršel token formulářů).
+	 * A request to the admin. Never ends with an exception: returns the response JSON, or {ok: false, chyba, …} –
+	 * sit (the connection failed), prihlaseni (a sign-in page came instead of JSON, or the form token expired).
 	 */
 	function query(address, data) {
 		const f = new FormData();
@@ -100,7 +100,7 @@
 		for (const [k, v] of Object.entries(data || {})) { f.append(k, v); }
 		return fetch(address, { method: data ? 'POST' : 'GET', body: data ? f : undefined, credentials: 'same-origin' })
 			.then((r) => r.text().then((body) => {
-				try { const j = JSON.parse(body); if (j && typeof j === 'object') { j.status = r.status; return j; } } catch (e) { /* není JSON */ }
+				try { const j = JSON.parse(body); if (j && typeof j === 'object') { j.status = r.status; return j; } } catch (e) { /* not JSON */ }
 				if (r.status < 500 && /<form/i.test(body)) {
 					return { ok: false, prihlaseni: true, status: r.status, chyba: T('Přihlášení vypršelo. Přihlaste se znovu v nové záložce – rozpracované změny zůstávají tady a uloží se samy.') };
 				}
@@ -108,7 +108,7 @@
 			}))
 			.catch(() => ({ ok: false, sit: true, chyba: T('Spojení se serverem selhalo.') }));
 	}
-	/** Po novém přihlášení (jiná záložka) má relace nový token formulářů – editor si ho vyzvedne. */
+	/** After a new sign-in (another tab) the session has a new form token – the editor fetches it. */
 	function refreshToken() {
 		return fetch(D.adresy.admin + '?action=token', { credentials: 'same-origin' }).then((r) => r.json()).then((j) => { if (j.csrf) { csrf = j.csrf; return true; } return false; }).catch(() => false);
 	}
@@ -125,7 +125,7 @@
 		});
 	}
 
-	/* ---------- strom ---------- */
+	/* ---------- tree ---------- */
 
 	function find(id, children = state.stavba.deti, parent = null) {
 		for (let i = 0; i < children.length; i++) {
@@ -134,7 +134,7 @@
 		}
 		return null;
 	}
-	/** Pozice prvku ve stromu tak, jak ji píše validátor v klíčích chyb: deti[0].deti[2]. */
+	/** The element's position in the tree as the validator writes it in error keys: deti[0].deti[2]. */
 	function elementPath(id, children = state.stavba.deti, path = 'deti') {
 		for (let i = 0; i < children.length; i++) {
 			const c = path + '[' + i + ']';
@@ -143,7 +143,7 @@
 		}
 		return null;
 	}
-	/** Prvek podle pozice z klíče chyby (nejhlubší prvek, který v cestě je). */
+	/** The element by the position from an error key (the deepest element present on the path). */
 	function elementByPath(key) {
 		let children = state.stavba.deti;
 		let found = null;
@@ -156,7 +156,7 @@
 		return found;
 	}
 	function contains(p, id) { return (p.deti || []).some((d) => d.id === id || contains(d, id)); }
-	// kopie dostane nová id a žádné kotvy – dvě stejné kotvy by na stránce rozbily odkazy #… i okna
+	// a copy gets new ids and no anchors – two identical anchors on a page would break #… links and popups
 	function withNewIds(p) { const k = clone(p); (function walk(x) { x.id = newId(); delete x.kotva; (x.deti || []).forEach(walk); })(k); return k; }
 
 	function newElement(type) {
@@ -164,7 +164,7 @@
 		const content = {};
 		for (const [k, def] of Object.entries(s.vlastnosti || {})) { content[k] = clone(def.vychozi ?? ''); }
 		const style = s.vychozi_styl && Object.keys(s.vychozi_styl).length ? clone(s.vychozi_styl) : {};
-		// kontejner může mít výchozí vnitřek (Výpis kolekce: vzor karty s {{nazev}} a {{url}})
+		// a container can have default contents ("Výpis kolekce", Collection list: a card template with {{nazev}} and {{url}})
 		return Object.assign({ id: newId(), type, znacka: s.znacky[0], content, style }, s.kontejner ? { deti: (s.vychozi_deti || []).map(withNewIds) } : {});
 	}
 
@@ -175,11 +175,11 @@
 		return excerpt ? s.nazev + ': ' + excerpt.slice(0, 40) : s.nazev;
 	}
 
-	/* ---------- změny, historie, ukládání ---------- */
+	/* ---------- changes, history, saving ---------- */
 
 	function applyChange(fn, key) {
 		const now = Date.now();
-		// psaní do jednoho pole se v historii slučuje (jinak by Zpět vracelo po písmenech)
+		// typing into one field is merged in the history (otherwise Undo would go back letter by letter)
 		if (!key || key !== state.posledniKlic || now - state.posledniCas > 1500) {
 			state.zpet.push(JSON.stringify(state.stavba));
 			if (state.zpet.length > 150) { state.zpet.shift(); }
@@ -203,15 +203,15 @@
 	const rejectInvalid = () => JSON.stringify(state.stavba) !== state.ulozeno;
 
 	/*
-	 * Ukládání jde přes frontu: nikdy neběží dvě naráz a každé volání uloz() vrátí slib, který se splní, až je uložený
-	 * stav stavby z okamžiku volání (true), nebo uložení selhalo (false). Na tom stojí Publikovat – publikuje jen to,
-	 * co server opravdu má. Neúspěšné uložení se samo zkouší znovu; konflikt s cizí změnou řeší dialog.
+	 * Saving goes through a queue: two never run at once and every call of save() returns a promise that resolves when the
+	 * build state from the moment of the call is saved (true), or saving failed (false). Publish relies on this – it publishes
+	 * only what the server really has. A failed save retries by itself; a conflict with someone else's change is handled by a dialog.
 	 */
 	let queue = Promise.resolve(true), pending = null;
 	function save() {
 		clearTimeout(state.casovac);
 		state.casovac = null;
-		if (pending) { return pending; } // ve frontě už je uložení, které vezme aktuální stav
+		if (pending) { return pending; } // a save that will take the current state is already queued
 		pending = queue.then(() => { pending = null; return saveNow(); });
 		queue = pending;
 		return pending;
@@ -220,7 +220,7 @@
 		if (state.konflikt) { return Promise.resolve(false); }
 		const sent = JSON.stringify(state.stavba);
 		if (sent === state.ulozeno) {
-			if (!state.pokusy) { setState(T('Koncept uložen')); } // změna, která nic nezměnila (např. opuštění pole)
+			if (!state.pokusy) { setState(T('Koncept uložen')); } // a change that changed nothing (e.g. leaving a field)
 			return Promise.resolve(true);
 		}
 		state.uklada = true;
@@ -233,7 +233,7 @@
 			state.ulozeno = sent;
 			state.verze = j.verze || state.verze;
 			state.chyby = j.chyby || {};
-			// server strom vyčistil (neplatné hodnoty zahodil) – převezme se, jen když se mezitím nic nezměnilo a uživatel zrovna nepíše
+			// the server cleaned the tree (dropped invalid values) – it is taken over only when nothing changed meanwhile and the user is not typing
 			state.vycistena = JSON.stringify(j.stavba) !== sent ? { sent, stavba: j.stavba } : null;
 			adoptSanitized();
 			state.zmeny = j.zmeny;
@@ -247,7 +247,7 @@
 	function saveError(j) {
 		if (j.konflikt) { state.konflikt = true; conflictDialog(j); return false; }
 		if (j.status === 400 || j.status === 403 || j.status === 404) { setState(j.chyba || T('Uložení se nepovedlo.'), true); return false; }
-		// síť, vypršené přihlášení, chyba serveru: změny zůstávají v editoru a uložení se zkusí znovu
+		// network, expired sign-in, server error: the changes stay in the editor and the save is retried
 		state.pokusy++;
 		state.prihlaseni = !!j.prihlaseni;
 		const after = Math.min(30, 3 * state.pokusy);
@@ -260,7 +260,7 @@
 		const v = state.vycistena;
 		if (!v || state.upravaNaPlatne) { return; }
 		const a = document.activeElement;
-		if (a && root.contains(a) && a.matches('input, textarea, select, [contenteditable]')) { return; } // až po opuštění pole (focusout)
+		if (a && root.contains(a) && a.matches('input, textarea, select, [contenteditable]')) { return; } // only after leaving the field (focusout)
 		state.vycistena = null;
 		if (JSON.stringify(state.stavba) !== v.odeslano) { return; }
 		state.stavba = v.stavba;
@@ -281,7 +281,7 @@
 				} }, T('Načíst novější')),
 				el('button', { type: 'button', class: 'st-tl st-tl-hlavni', onclick: () => {
 					d.close();
-					state.konflikt = false; state.verze = j.verze; // další uložení vychází z verze na serveru, tedy ji přepíše
+					state.konflikt = false; state.verze = j.verze; // the next save is based on the version on the server, so it overwrites it
 					save();
 				} }, T('Přepsat mou verzí'))));
 		d.addEventListener('cancel', (e) => e.preventDefault());
@@ -290,17 +290,17 @@
 		d.showModal();
 	}
 
-	/* ---------- plátno: skutečná stránka v iframe, přepínaná bez blikání ---------- */
+	/* ---------- canvas: the real page in an iframe, swapped without flicker ---------- */
 
 	let frame2, preview, previewPending = false, scale;
 	const WIDTHS = { zaklad: 1280, tablet: 820, mobil: 390 };
 
-	/** Iframe má šířku zařízení (počítač 1280 px) a zmenší se, aby se vešel – na plátně pak platí skutečné breakpointy webu. */
+	/** The iframe has the device width (desktop 1280 px) and is scaled down to fit – so the site's real breakpoints apply on the canvas. */
 	function previewSize(frame) {
 		if (!frame || !frame2) { return; }
 		const w = frame2.clientWidth;
 		const h = frame2.clientHeight;
-		// náhled: široký monitor (1920 px) jen u počítače; přiblížení pevně, jinak se plátno vejde do okna
+		// preview: a wide monitor (1920 px) only for desktop; zoom is fixed, otherwise the canvas fits the window
 		const width = state.bp === 'zaklad' ? (state.lupa === '1920' ? 1920 : Math.max(w, WIDTHS.zaklad)) : WIDTHS[state.bp];
 		const m = /^\d+$/.test(state.lupa) && state.lupa !== '1920' ? Number(state.lupa) / 100 : Math.min(1, w / width);
 		frame2.classList.toggle('st-ramec-posun', m * width > w + 1);
@@ -318,7 +318,7 @@
 		previewSize(fresh);
 		fresh.addEventListener('load', () => {
 			const offset = preview && preview.contentWindow ? preview.contentWindow.scrollY : 0;
-			try { fresh.contentWindow.scrollTo(0, offset); } catch (e) { /* nic */ }
+			try { fresh.contentWindow.scrollTo(0, offset); } catch (e) { /* nothing */ }
 			preparePreview(fresh);
 			if (preview) { preview.remove(); }
 			fresh.classList.remove('st-nacita');
@@ -340,9 +340,9 @@
 		doc.addEventListener('click', (e) => {
 			if (e.target.closest('[contenteditable]') || e.target.id === 'ka-st-uchyt') { return; }
 			e.preventDefault();
-			e.stopPropagation(); // na plátně se nespouští skripty stránky (přehrávač, okna, sdílení) – klepnutí jen vybírá
+			e.stopPropagation(); // page scripts do not run on the canvas (player, popups, sharing) – a click only selects
 			if (state.umistovani) {
-				// přesun klepnutím (dotyk i myš): prvek dopadne před, za nebo dovnitř klepnutého prvku podle místa klepnutí
+				// move by tapping (touch and mouse): the element lands before, after or inside the tapped element depending on where it was tapped
 				state.tazeno = state.umistovani;
 				const place = canvasSpot(doc, e);
 				state.tazeno = null;
@@ -350,7 +350,7 @@
 				if (place) { const what = state.umistovani; endPlacing(); dropAt(what, place); }
 				return;
 			}
-			// zamčený prvek (Struktura → zámek) na plátně nejde vybrat: výběr dostane nejbližší nezamčený předek
+			// a locked element ("Struktura → zámek", Structure → lock) cannot be selected on the canvas: the nearest unlocked ancestor gets the selection
 			let t = e.target.closest('[data-ka-id]');
 			while (t && t.hasAttribute('data-ka-zamek')) { t = t.parentElement && t.parentElement.closest('[data-ka-id]'); }
 			selection(t ? t.getAttribute('data-ka-id') : null);
@@ -386,7 +386,7 @@
 		});
 	}
 
-	/** Prvky skryté jen v editoru (oko ve Struktuře) – na webu zůstávají; stav se neukládá. */
+	/** Elements hidden only in the editor (the eye in Structure) – they stay on the site; the state is not saved. */
 	function hiddenOnCanvas(doc) {
 		doc = doc || (preview && preview.contentDocument);
 		if (!doc) { return; }
@@ -395,7 +395,7 @@
 		st.textContent = Object.keys(state.skryte).filter((id) => state.skryte[id]).map((id) => '[data-ka-id="' + id + '"]{display:none!important}').join('');
 	}
 
-	/* ---------- přetahování na plátně: nový prvek, hotová sekce nebo přesun vybraného prvku ---------- */
+	/* ---------- dragging on the canvas: a new element, a ready-made section or moving the selected element ---------- */
 
 	function startDrag(e, what) {
 		hideSectionPreview();
@@ -404,7 +404,7 @@
 		e.dataTransfer.setData('text/plain', 'kaleta');
 	}
 
-	/** Přesun klepnutím – náhrada přetahování na dotykových zařízeních: vyberete prvek, klepnete na „Přesunout“ a pak na místo. */
+	/** Move by tapping – a replacement for dragging on touch devices: select an element, tap „Přesunout“ (Move) and then the place. */
 	function startPlacing(id) {
 		if (!id) { return; }
 		state.umistovani = { presun: id };
@@ -425,8 +425,8 @@
 	}
 
 	/**
-	 * Kam by prvek dopadl: {cil: id, kam: 'pred' | 'za' | 'dovnitr'}, nebo {koren: true} na prázdné stránce. Sekce jen mezi sekce;
-	 * do kontejneru dovnitř, když je ukazatel v jeho prostřední části (nebo je prázdný); přesun nikdy do sebe sama.
+	 * Where the element would land: {cil: id, kam: 'pred' | 'za' | 'dovnitr'}, or {koren: true} on an empty page. Sections only between sections;
+	 * inside a container when the pointer is in its middle part (or it is empty); never a move into itself.
 	 */
 	function canvasSpot(doc, e) {
 		const type = state.tazeno.novy || (state.tazeno.sekce ? 'sekce' : (find(state.tazeno.presun) || { p: {} }).p.typ);
@@ -446,7 +446,7 @@
 		return { cil: n.p.id, kam: inside ? 'dovnitr' : (y < 0.5 ? 'pred' : 'za'), node };
 	}
 
-	/** Modrá čára (před / za) nebo rámeček (dovnitř) na plátně. */
+	/** A blue line (before / after) or a frame (inside) on the canvas. */
 	function showSpot(doc, place) {
 		let htmlTag = doc.getElementById('ka-st-misto');
 		if (!place || !place.uzel) { if (htmlTag) { htmlTag.hidden = true; } return; }
@@ -470,7 +470,7 @@
 			const target = !place.koren && find(place.cil);
 			if (!n || !target) { return; }
 			if (place.kam !== 'dovnitr' && !target.rodic && n.p.typ !== 'sekce' && n.p.typ !== 'obsah') {
-				// prvek přesunutý mezi sekce dostane vlastní sekci
+				// an element moved between sections gets its own section
 				applyChange(() => {
 					n.pole.splice(n.i, 1);
 					const c = find(place.cil);
@@ -484,7 +484,7 @@
 			return;
 		}
 		const embedUrl = (element) => {
-			// samotný prvek mezi sekcemi dostane vlastní sekci (jako při vložení klepnutím)
+			// a lone element between sections gets its own section (as when inserted by tapping)
 			const target = place.koren ? null : find(place.cil);
 			const sectionGap = place.koren || (place.kam !== 'dovnitr' && !target.rodic);
 			const inserting = sectionGap && element.typ !== 'sekce' && element.typ !== 'obsah' ? Object.assign(newElement('sekce'), { deti: [element] }) : element;
@@ -514,7 +514,7 @@
 		if (t) {
 			t.classList.add('ka-st-vybrany');
 			if (shift) { t.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
-			// úchyt vlevo nahoře: přetažením se vybraný prvek přesune jinam na stránce
+			// handle at the top left: dragging it moves the selected element elsewhere on the page
 			if (!handle) {
 				handle = Object.assign(doc.createElement('div'), { id: 'ka-st-uchyt', draggable: true, title: T('Přetažením nebo klepnutím přesunete') });
 				handle.textContent = '⠿';
@@ -524,8 +524,8 @@
 				handle.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); startPlacing(state.vybrane); }, true);
 				doc.body.append(handle);
 			}
-			// komponenta bez vlastního obalu má display: contents – nemá rámeček, obrys se kreslí kolem jejího obsahu
-			handle.style.display = t.hasAttribute('data-ka-zamek') ? 'none' : ''; // zamčený prvek se nepřetahuje
+			// a component without its own wrapper has display: contents – it has no box, the outline is drawn around its content
+			handle.style.display = t.hasAttribute('data-ka-zamek') ? 'none' : ''; // a locked element is not dragged
 			let r = t.getBoundingClientRect();
 			let outline = doc.getElementById('ka-st-obrys');
 			if (doc.defaultView.getComputedStyle(t).display === 'contents') {
@@ -552,11 +552,11 @@
 		}
 	}
 
-	/** Dvojklik na nadpis, text, tlačítko nebo referenci: psaní přímo na plátně. */
+	/** Double-click on a heading, text, button or reference: typing right on the canvas. */
 	function editOnCanvas(node) {
 		const n = find(node.getAttribute('data-ka-id'));
 		if (!n || !['nadpis', 'text', 'tlacitko', 'citat'].includes(n.p.typ)) { return; }
-		// v kolekci je na plátně dosazená hodnota položky – úprava by přepsala {{značku}}; text se mění v panelu Obsah
+		// in a collection the canvas shows the item's substituted value – editing would overwrite the {{placeholder}}; the text is changed in the Content panel
 		if (elementCollection(n.p.id) && JSON.stringify(n.p.obsah).includes('{{')) { selection(n.p.id); setState(T('Text s {{značkami}} kolekce upravte v panelu Obsah.')); return; }
 		const target = n.p.typ === 'citat' ? node.querySelector('p') : node;
 		if (!target) { return; }
@@ -575,7 +575,7 @@
 		target.addEventListener('keydown', (e) => { if (e.key === 'Escape' || (e.key === 'Enter' && n.p.typ !== 'text' && !e.shiftKey)) { e.preventDefault(); target.blur(); } });
 	}
 
-	/* ---------- výběr a úpravy stromu ---------- */
+	/* ---------- selection and tree edits ---------- */
 
 	function selection(id) {
 		state.vybrane = id && find(id) ? id : null;
@@ -589,7 +589,7 @@
 		const v = state.vybrane && find(state.vybrane);
 		applyChange(() => {
 			if (!v && element.typ !== 'sekce' && element.typ !== 'obsah') {
-				// na nejvyšší úrovni jsou sekce: samotný prvek dostane vlastní sekci (obsah stránky v obálce má vlastní obal)
+				// sections are at the top level: a lone element gets its own section (page content in an envelope has its own wrapper)
 				const section = newElement('sekce');
 				section.deti.push(element);
 				state.stavba.deti.push(section);
@@ -597,7 +597,7 @@
 				v.p.deti.push(element);
 			} else if (v) {
 				if (element.typ === 'sekce' || element.typ === 'obsah') {
-					// sekce patří na nejvyšší úroveň – za sekci, ve které je vybraný prvek
+					// a section belongs at the top level – after the section containing the selected element
 					let upper = v; while (upper.rodic) { upper = find(upper.rodic.id); }
 					upper.pole.splice(upper.i + 1, 0, element);
 				} else { v.pole.splice(v.i + 1, 0, element); }
@@ -635,24 +635,24 @@
 		});
 	}
 
-	/* ---------- schránka (i mezi stránkami) ---------- */
+	/* ---------- clipboard (also between pages) ---------- */
 
-	function copy() { const n = state.vybrane && find(state.vybrane); if (n) { try { localStorage.setItem('ka-stavitel-schranka', JSON.stringify(n.p)); setState(T('Zkopírováno')); } catch (e) { /* nic */ } } }
+	function copy() { const n = state.vybrane && find(state.vybrane); if (n) { try { localStorage.setItem('ka-stavitel-schranka', JSON.stringify(n.p)); setState(T('Zkopírováno')); } catch (e) { /* nothing */ } } }
 	function pasteFromClipboard() {
 		let p = null;
 		try { p = JSON.parse(localStorage.getItem('ka-stavitel-schranka') || 'null'); } catch (e) { p = null; }
 		if (p && TYPY[p.typ]) { insert(withNewIds(p)); }
 	}
 
-	/* ---------- klávesy ---------- */
+	/* ---------- keys ---------- */
 
 	function keys(e) {
 		const v = e.target;
 		const typing = v.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(v.tagName);
 		const mod = e.ctrlKey || e.metaKey;
 		if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save(); return; }
-		if (typing || document.querySelector('dialog[open], .st-vice:popover-open')) { return; } // v otevřeném dialogu a nabídce patří klávesy (Esc) jim
-		// označený text se kopíruje jako text, ne jako prvek
+		if (typing || document.querySelector('dialog[open], .st-vice:popover-open')) { return; } // in an open dialog or menu the keys (Esc) belong to them
+		// selected text is copied as text, not as an element
 		const marked = String(window.getSelection() || '') || (preview && preview.contentWindow ? String(preview.contentWindow.getSelection() || '') : '');
 		if (mod && e.key.toLowerCase() === 'c' && marked) { return; }
 		if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) { forward(); } else { back(); } }
@@ -666,7 +666,7 @@
 		else if (e.key === 'Escape' && state.vybrane) { const n = find(state.vybrane); selection(n && n.rodic ? n.rodic.id : null); }
 	}
 
-	/* ---------- horní lišta ---------- */
+	/* ---------- top bar ---------- */
 
 	let tabList, stateText;
 	function setState(message, error, link) {
@@ -683,7 +683,7 @@
 	}
 	let barLook = '';
 	function redrawBar() {
-		// lišta se staví znovu jen při změně toho, co ukazuje – překreslení pod kurzorem by „spolklo“ rozpracované klepnutí
+		// the bar is rebuilt only when what it shows changes – re-rendering under the cursor would "swallow" a click in progress
 		const look = [state.zmeny, state.bp, state.lupa, state.zpet.length > 0, state.vpred.length > 0, D.stranka.publikovana].join();
 		if (look === barLook && tabList.childElementCount) { return; }
 		barLook = look;
@@ -709,7 +709,7 @@
 		].filter(Boolean));
 	}
 
-	/** Co návštěvníkovi nebo vyhledávači na stránce chybí: tlačítka bez odkazu, obrázky bez souboru či popisu, osnova nadpisů. */
+	/** What the page lacks for a visitor or a search engine: buttons without a link, images without a file or description, the heading outline. */
 	function check() {
 		const findings = [];
 		const headings = [];
@@ -720,7 +720,7 @@
 				if (p.typ === 'tlacitko' && (!o.odkaz || o.odkaz === '#')) { findings.push([p.id, T('Tlačítko „%s“ nikam nevede – doplňte odkaz.').replace('%s', o.text || '')]); }
 				if (p.typ === 'obrazek' && !o.src) { findings.push([p.id, T('Obrázek není vybraný – na webu se nezobrazí.')]); }
 				if (p.typ === 'obrazek' && o.src && !o.alt && !tags(o.src)) { findings.push([p.id, T('Obrázek nemá popis pro nevidomé (alt).')]); }
-				const level = p.typ === 'nadpis' && /^h([1-6])$/.exec(p.znacka || 'h2'); // nadpis se značkou p (velké číslo, štítek) není v osnově
+				const level = p.typ === 'nadpis' && /^h([1-6])$/.exec(p.znacka || 'h2'); // a heading with the p tag (big number, label) is not in the outline
 				if (level) { headings.push([p.id, Number(level[1]), text(o.text)]); }
 				if (p.deti) { walk(p.deti, inComponent); }
 			});
@@ -735,8 +735,8 @@
 		return findings;
 	}
 	/**
-	 * Kontrast textu na plátně (WCAG AA: 4,5 : 1, velký text 3 : 1): barva textu proti první neprůhledné ploše pod ním.
-	 * Barvy převádí prohlížeč (i oklch a color-mix) přes kreslicí plátno; prvek na obrázku pozadí se nehodnotí.
+	 * Text contrast on the canvas (WCAG AA: 4.5 : 1, large text 3 : 1): the text color against the first opaque surface below it.
+	 * The browser converts colors (oklch and color-mix too) via a drawing canvas; an element on a background image is not evaluated.
 	 */
 	function contrastCheck() {
 		const doc = preview && preview.contentDocument;
@@ -773,7 +773,7 @@
 		return findings.slice(0, 6);
 	}
 
-	/** Nápověda: klávesové zkratky a spuštění prohlídky editoru. */
+	/** Help: keyboard shortcuts and starting the editor tour. */
 	function hint() {
 		const mod = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
 		const shortcuts = [[mod + '+S', T('Uložit koncept')], [mod + '+Z / ' + mod + '+Shift+Z', T('Zpět / znovu')], [mod + '+D', T('Duplikovat vybraný prvek')],
@@ -789,7 +789,7 @@
 		d.showModal();
 	}
 
-	/** Úvodní prohlídka: čtyři zastávky se zvýrazněním části editoru. Poprvé se spustí sama, pak z nápovědy. */
+	/** Intro tour: four stops, each highlighting a part of the editor. The first time it starts by itself, then from the help. */
 	function tour(step) {
 		const stops = [
 			[left, T('Prvky a hotové sekce'), T('Vlevo vyberete prvek nebo celou hotovou sekci. Klepnutím ho vložíte za vybraný prvek, přetažením kamkoli na stránku. Záložka Struktura ukáže stavbu stránky jako strom.')],
@@ -798,7 +798,7 @@
 			[tabList, T('Ukládání a publikování'), T('Změny se ukládají samy jako koncept. Návštěvníci je uvidí až po Publikovat – předtím vás upozorníme na chybějící odkazy, popisky a slabý kontrast.')],
 		];
 		document.querySelectorAll('.st-zvyraznene').forEach((x) => x.classList.remove('st-zvyraznene'));
-		try { localStorage.setItem('ka-st-prohlidka', '1'); } catch (e) { /* soukromý režim */ }
+		try { localStorage.setItem('ka-st-prohlidka', '1'); } catch (e) { /* private mode */ }
 		if (step >= stops.length) { return; }
 		const [target, heading, text] = stops[step];
 		target.classList.add('st-zvyraznene');
@@ -811,7 +811,7 @@
 		d.show();
 	}
 
-	/** Před publikováním ukáže nálezy kontroly; publikovat jde i tak (jen upozornění). */
+	/** Before publishing shows the check findings; publishing is possible anyway (warnings only). */
 	function publishAfterCheck() {
 		const findings = check();
 		if (!findings.length) { publish(); return; }
@@ -826,7 +826,7 @@
 	}
 	function publish() {
 		save().then((ok) => {
-			if (!ok) { return null; } // hlášku už ukázalo ukládání; nepublikuje se nic staršího
+			if (!ok) { return null; } // saving has already shown the message; nothing older gets published
 			setState(T('Publikuji…'));
 			return query(D.adresy.publikuj, { ok: 1, verze: state.verze });
 		}).then((j) => {
@@ -841,7 +841,7 @@
 	function discard() {
 		confirmAction(T('Zahodit všechny změny od posledního publikování? Nejde to vrátit.'), T('Zahodit')).then((yes) => {
 			if (!yes) { return; }
-			// naplánované uložení by koncept po zahození znovu vytvořilo; běžící se nechá doběhnout
+			// a scheduled save would recreate the draft after discarding; a running one is left to finish
 			stopSaving().then(() => query(D.adresy.zahod, { ok: 1 })).then((j) => {
 				if (!j.ok) { setState(j.chyba, true); return; }
 				state.stavba = j.stavba; state.ulozeno = JSON.stringify(j.stavba); state.verze = j.verze; state.konflikt = false;
@@ -850,7 +850,7 @@
 			});
 		});
 	}
-	/** Zruší naplánované uložení a počká, až doběhne to, které už běží (vrací slib). */
+	/** Cancels a scheduled save and waits until the one already running finishes (returns a promise). */
 	function stopSaving() {
 		clearTimeout(state.casovac);
 		state.casovac = null;
@@ -875,14 +875,14 @@
 		});
 	}
 
-	/** Odkaz na náhled konceptu pro kolegu nebo klienta: otevře ho kdokoli bez přihlášení, platí 1–7 dní. */
+	/** A draft preview link for a colleague or client: anyone can open it without signing in, valid for 1–7 days. */
 	function shareDialog() {
 		const days = el('select', { 'aria-label': T('Platnost odkazu') },
 			[['1', T('1 den')], ['3', T('3 dny')], ['7', T('7 dní')]].map(([k, n]) => el('option', { value: k, selected: k === '7' }, n)));
 		const result = el('div', { class: 'st-sdilet', 'aria-live': 'polite' });
 		const create = el('button', { type: 'button', class: 'st-tl st-tl-hlavni', onclick: () => {
 			create.disabled = true;
-			// odkaz ukazuje, co má server – rozpracované změny se nejdřív uloží
+			// the link shows what the server has – unsaved changes are saved first
 			save().then((ok) => ok ? query(D.adresy.sdilet, { dni: days.value }) : { ok: false, chyba: T('Koncept se nepodařilo uložit.') }).then((j) => {
 				create.disabled = false;
 				if (!j.ok) { result.replaceChildren(el('p', { class: 'st-sdilet-chyba' }, j.chyba || T('Odkaz se nepodařilo vytvořit.'))); return; }
@@ -906,7 +906,7 @@
 		d.showModal();
 	}
 
-	/* ---------- levý panel: Přidat a Struktura ---------- */
+	/* ---------- left panel: Add and Structure ---------- */
 
 	let left, leftContent, right;
 	function redrawLeft() {
@@ -916,7 +916,7 @@
 		if (state.levo === 'pridat') { addPanel(); } else { redrawTree(); }
 	}
 
-	/** AI: nová sekce podle popisu – vloží se za vybranou sekci (nebo na konec) jako běžná změna, jde vrátit. */
+	/** AI: a new section from a description – inserted after the selected section (or at the end) as a normal change, can be undone. */
 	function aiSection() {
 		const field = el('textarea', { rows: 5, placeholder: T('Např.: Tři karty s našimi službami – kuchyně, skříně, schodiště. Ke každé krátký popis a odkaz na kontakt.') });
 		const d = el('dialog', { class: 'st-dialog' }, el('div', {}, el('h2', {}, T('Vytvořit sekci s AI')),
@@ -945,7 +945,7 @@
 		field.focus();
 	}
 
-	/** AI: přepis textu prvku (kratší, delší…) – výsledek je běžná změna, Zpět ji vrátí. */
+	/** AI: rewriting an element's text (shorter, longer…) – the result is a normal change, Undo reverts it. */
 	function aiRewrites(p) {
 		const key = { nadpis: 'text', text: 'html', tlacitko: 'text', citat: 'text' }[p.typ];
 		if (!D.ai || !key || !(p.obsah[key] || '').trim() || String(p.obsah[key]).includes('{{')) { return null; }
@@ -965,7 +965,7 @@
 
 	function addPanel() {
 		if (D.ai) { leftContent.append(el('button', { type: 'button', class: 'st-tl st-ai-sekce', onclick: aiSection }, '✨ ' + T('Vytvořit sekci s AI'))); }
-		// jedno hledání pro prvky, moje sekce i hotové sekce
+		// one search for elements, my sections and ready-made sections
 		const searchBox = el('input', { type: 'search', class: 'st-hledat', placeholder: T('Hledat prvek nebo sekci…'), 'aria-label': T('Hledat prvek nebo sekci'), oninput: (e) => render(e.target.value) });
 		const content = el('div', {});
 		leftContent.append(searchBox, content);
@@ -994,7 +994,7 @@
 		};
 		const library = el('div', {});
 		let libraryFilter = () => {};
-		// hotové sekce po kategoriích; hledání filtruje podle názvu i popisu
+		// ready-made sections by category; search filters by name and description
 		libraryFilter = (q) => {
 			const blocks = Object.entries(D.kategorieKnihovny || { obsah: '' }).map(([category, categoryName]) => {
 				const section = D.knihovna.filter((s) => (s.kategorie || 'obsah') === category && (!q || (s.nazev + ' ' + s.popis).toLowerCase().includes(q)));
@@ -1007,7 +1007,7 @@
 		render('');
 	}
 
-	/** Živý náhled hotové sekce vedle panelu (vykreslí ji server ve vzhledu webu, zmenšenou). */
+	/** A live preview of a ready-made section next to the panel (the server renders it in the site design, scaled down). */
 	let previewSection = null;
 	let sectionPreviewTimer = null;
 	function showSectionPreview(button, key) {
@@ -1051,7 +1051,7 @@
 				onclick: () => {
 					const u = state.umistovani && find(state.umistovani.presun);
 					if (!u) { selection(p.id); return; }
-					// přesun klepnutím ve Struktuře: do prázdného kontejneru dovnitř, jinak za klepnutý prvek
+					// move by tapping in Structure: inside an empty container, otherwise after the tapped element
 					if (u.p.id === p.id || contains(u.p, p.id)) { return; }
 					const what = state.umistovani;
 					endPlacing();
@@ -1088,7 +1088,7 @@
 			: el('p', { class: 'st-prazdno' }, T('Stránka je prázdná. Přidejte sekci z panelu Přidat.')));
 	}
 
-	/** Strom z klávesnice (vzor ARIA tree): šipky nahoru/dolů mezi viditelnými uzly, doprava/doleva rozbalí, sbalí nebo skočí na rodiče. */
+	/** The tree from the keyboard (ARIA tree pattern): up/down arrows between visible nodes, right/left expand, collapse or jump to the parent. */
 	function treeKeys(e, p, hasChildren) {
 		const nodes = Array.from(leftContent.querySelectorAll('.st-uzel'));
 		const i = nodes.indexOf(e.currentTarget);
@@ -1107,7 +1107,7 @@
 		} else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selection(p.id); }
 	}
 
-	/* ---------- pravý panel: vlastnosti vybraného prvku, nebo úprava třídy ---------- */
+	/* ---------- right panel: properties of the selected element, or class editing ---------- */
 
 	function redrawPanels() { redrawTree(); redrawRight(); }
 	function redraw() { redrawBar(); redrawLeft(); redrawRight(); }
@@ -1124,7 +1124,7 @@
 		const s = TYPY[p.typ];
 		const tabItem = (key, name) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(state.pravo === key), onclick: () => { state.pravo = key; redrawRight(); } }, name);
 		const panel = el('div', { class: 'st-panel' });
-		// chyby ze serveru: u vybraného prvku (i u konkrétního pole), u ostatních jen počet s odkazem
+		// errors from the server: at the selected element (at the specific field too), for the others only a count with a link
 		const path = state.cestaVybraneho = elementPath(p.id);
 		const all = Object.entries(state.chyby);
 		const custom = all.filter(([k]) => k === path || k.startsWith(path + '.obsah') || k.startsWith(path + '.styl'));
@@ -1133,7 +1133,7 @@
 			panel.append(el('ul', { class: 'st-chyby' }, custom.slice(0, 6).map(([, t]) => el('li', {}, t)),
 				elsewhere.length ? el('li', {}, T('Upozornění u jiných prvků: ') + elsewhere.length + ' ', el('button', { type: 'button', class: 'st-odkaz', onclick: () => { const x = elementByPath(elsewhere[0][0]); if (x) { selection(x.id); } } }, T('ukázat'))) : null));
 		}
-		// méně častá akce jsou v nabídce „Další akce“ (s popisem), aby se lišta vešla do panelu i na notebooku
+		// less frequent actions are in the „Další akce“ (More actions) menu (with a description), so the bar fits the panel even on a laptop
 		const more = [
 			p.zamek ? null : [icon('presun'), state.umistovani ? T('Zrušit přesun klepnutím') : T('Přesunout klepnutím na místo (i na dotykové obrazovce)'), () => (state.umistovani ? endPlacing() : startPlacing(p.id))],
 			D.adresy.komponenta && p.typ !== 'komponenta' ? [icon('komponenta'), T('Uložit jako komponentu'), () => saveAsComponent(p.id)] : null,
@@ -1143,7 +1143,7 @@
 			more.map(([ik, description, action]) => el('button', { type: 'button', onclick: () => { offer.hidePopover(); action(); } }, ik, el('span', {}, description)))) : null;
 		const moreButton = offer ? el('button', { type: 'button', title: T('Další akce'), 'aria-label': T('Další akce'), popovertarget: 'st-vice' }, icon('vice')) : null;
 		if (offer) {
-			// nabídka pod tlačítkem, zarovnaná k jeho pravému okraji (popover se jinak kreslí uprostřed okna)
+			// the menu below the button, aligned to its right edge (a popover is otherwise drawn in the middle of the window)
 			offer.addEventListener('toggle', (e) => {
 				if (e.newState !== 'open') { return; }
 				const r = moreButton.getBoundingClientRect();
@@ -1165,7 +1165,7 @@
 		if (state.pravo === 'obsah') { contentPanel(panel, p, s); } else if (state.pravo === 'styl') { stylePanel(panel, p, 'prvek:' + p.id); } else { advancedPanel(panel, p, s); }
 	}
 
-	/** Kolekce, jejíž položky prvek dostává: nejbližší nadřazený Výpis kolekce, jinak kolekce šablony detailu. */
+	/** The collection whose items the element receives: the nearest parent "Výpis kolekce" (Collection list), otherwise the collection of the detail template. */
 	function elementCollection(id) {
 		let n = find(id);
 		while (n) {
@@ -1175,7 +1175,7 @@
 		return D.kolekceDetailu || null;
 	}
 
-	/** Nápověda zástupných značek {{pole}} – klepnutím se značka zkopíruje. */
+	/** Help for {{pole}} placeholders – a click copies the placeholder. */
 	function placeholderHint(collection) {
 		const tags = (collection.vestavene === false ? [] : [['nazev', T('Název')], ['url', T('Adresa detailu')], ['datum', T('Datum')]]).concat(collection.pole.map((p) => [p.klic, p.popisek]));
 		if (!tags.length) { return null; }
@@ -1189,8 +1189,8 @@
 	}
 
 	/**
-	 * Dialog s jedním pojmenovaným polem místo window.prompt() (ten nejde nastylovat ani přeložit a prohlížeče ho potlačují).
-	 * Enter uloží, Esc zruší; vrací zadaný text, nebo null.
+	 * A dialog with one named field instead of window.prompt() (that cannot be styled or translated and browsers suppress it).
+	 * Enter saves, Esc cancels; returns the entered text, or null.
 	 */
 	function askName(heading, fieldLabel, value, hint) {
 		return new Promise((done) => {
@@ -1214,7 +1214,7 @@
 		});
 	}
 
-	/** Kopie vybraného prvku do vlastní knihovny (Moje sekce) – na rozdíl od komponenty se po vložení upravuje samostatně. */
+	/** A copy of the selected element into the own library ("Moje sekce", My sections) – unlike a component, it is edited independently after inserting. */
 	function saveToMySections(id) {
 		const n = find(id);
 		if (!n) { return; }
@@ -1230,7 +1230,7 @@
 		});
 	}
 
-	/** Vybraný prvek se uloží jako komponenta (správce) a na jeho místě zůstane její použití. */
+	/** The selected element is saved as a component (administrator) and a use of the component remains in its place. */
 	function saveAsComponent(id) {
 		const n = find(id);
 		if (!n) { return; }
@@ -1254,7 +1254,7 @@
 		});
 	}
 
-	/** Hodnoty vlastností u použití komponenty: pole podle vybrané komponenty, prázdné = výchozí hodnota. */
+	/** Property values of a component use: fields according to the selected component, empty = default value. */
 	function valueField(p) {
 		const component = (D.komponenty || []).find((k) => String(k.id) === String(p.obsah.komponenta));
 		if (!component) { return null; }
@@ -1292,7 +1292,7 @@
 			{ chyba: state.chyby[state.cestaVybraneho + '.obsah.' + key], prvek: p })));
 	}
 
-	/** Ovládací prvek pro pole obsahu podle typu ze schématu. */
+	/** A control for a content field according to the type from the schema. */
 	function field(def, value, change, options) {
 		const description = T(def.popisek || '');
 		const error = options && options.chyba;
@@ -1323,7 +1323,7 @@
 				inputEl = el('input', { type: 'text', value: value || '', placeholder: 'media/…', oninput: (e) => { change(e.target.value); imagePreview.src = e.target.value; imagePreview.hidden = !e.target.value; } });
 				const tl = el('button', { type: 'button', class: 'st-tl', onclick: () => window.kaletaVyberObrazek && window.kaletaVyberObrazek((o) => {
 					inputEl.value = o.url; imagePreview.src = o.url; imagePreview.hidden = false; change(o.url);
-					// popis pro nevidomé z knihovny Médií, když ho prvek ještě nemá (dá se přepsat)
+					// the description for blind users from the Media library, when the element has none yet (can be overwritten)
 					const p = options && options.prvek;
 					if (p && 'alt' in p.obsah && !p.obsah.alt && o.nazev) { applyChange(() => { p.obsah.alt = o.nazev; }); redrawRight(); }
 				}) }, T('Média'));
@@ -1333,7 +1333,7 @@
 			case 'polozky':
 				return itemField(def, Array.isArray(value) ? value : [], change);
 			default:
-				if (def.media === 'video') { // soubor videa z Médií (pozadí sekce): ne nabídka odkazů, ale výběr souboru
+				if (def.media === 'video') { // a video file from Media (section background): not a link menu, but a file picker
 					inputEl = el('input', { type: 'text', value: value ?? '', placeholder: 'media/…/video.mp4', oninput: (e) => change(e.target.value) });
 					wrapper.append(el('span', { class: 'st-pole-radek' }, inputEl, el('button', { type: 'button', class: 'st-tl', onclick: () => window.kaletaVyberObrazek && window.kaletaVyberObrazek((o) => {
 						if (!/\.(mp4|webm)$/i.test(o.url || '')) { setState(T('Vyberte video ve formátu MP4 nebo WebM.'), true); return; }
@@ -1350,12 +1350,12 @@
 
 	function itemField(def, previous, change) {
 		const wrapper = el('div', { class: 'st-pole' }, el('span', {}, T(def.popisek)));
-		// pracuje se s kopií: každá změna (i přidání, odebrání a přesun) pak projde přes zmena → historie, uložení, překreslení plátna
+		// works on a copy: every change (adding, removing and moving too) then goes through zmena → history, save, canvas re-render
 		const items = clone(Array.isArray(previous) ? previous : []);
 		const save = () => change(clone(items));
 		items.forEach((item, i) => {
 			const box = el('div', { class: 'st-polozka' });
-			// pole s podmínkou „kdyz“ ({pole: hodnota}) se ukáže, jen když má jiné pole položky danou hodnotu (možnosti jen u výběru)
+			// a field with the condition „kdyz“ ({pole: hodnota}) shows only when another field of the item has the given value (options only for a select)
 			const visible = (d) => !d.kdyz || Object.entries(d.kdyz).every(([pk, pv]) => item[pk] === pv);
 			Object.entries(def.pole).forEach(([k, d]) => {
 				if (!visible(d)) { return; }
@@ -1380,7 +1380,7 @@
 		return wrapper;
 	}
 
-	/* ---------- styl (prvku i třídy) ---------- */
+	/* ---------- style (of an element and a class) ---------- */
 
 	const HINTS = {
 		mezera: ['2xs', 'xs', 's', 'm', 'l', 'xl', '2xl', '3xl', '0'], krok: ['-1', '0', '1', '2', '3', '4', '5'], zaobleni: ['0', 's', 'm', 'l', 'plne'], stin: ['s', 'm', 'l', 'none'],
@@ -1391,14 +1391,14 @@
 	};
 	const datalists = el('div', { hidden: true }, Object.entries(HINTS).map(([type, values]) => el('datalist', { id: 'st-dl-' + type }, values.map((h) => el('option', { value: h })))),
 		el('datalist', { id: 'st-dl-odkazy' }));
-	/** Nabídka pole odkazu: stránky webu, novinky a kotvy prvků na této stránce (aktuální při každém otevření). */
+	/** The link field menu: site pages, news and element anchors on this page (up to date on every opening). */
 	function refreshLinks() {
 		const anchors = [];
 		(function walk(children) { children.forEach((p) => { if (p.kotva) { anchors.push(['#' + p.kotva, labelText(p)]); } if (p.deti) { walk(p.deti); } }); })(state.stavba.deti);
 		datalists.querySelector('#st-dl-odkazy').replaceChildren(...(D.odkazy || []).concat(anchors).map(([url, name]) => el('option', { value: url, label: name })));
 	}
 
-	/** Barva tokenu přibližně (pro vzorek v panelu) – odvozené odstíny se míchají stejně jako na webu. */
+	/** An approximate token color (for the swatch in the panel) – derived shades are mixed the same way as on the site. */
 	function tokenColor(h) {
 		const b = D.barvy;
 		const mapping = { primarni: b.primarni, sekundarni: b.sekundarni, text: b.text, pozadi: b.pozadi, plocha: b.plocha, bila: '#fff', cerna: '#000',
@@ -1407,7 +1407,7 @@
 		return mapping[h] || h;
 	}
 
-	/** Upravovaný stav stylu: breakpoint, nebo najetí/stisk – na tabletu a mobilu zvlášť (hover_tablet…). */
+	/** The edited style state: a breakpoint, or hover/press – separately on tablet and mobile (hover_tablet…). */
 	function currentState() { return state.stavPrvku ? state.stavPrvku + (state.bp === 'zaklad' ? '' : '_' + state.bp) : state.bp; }
 	const INHERITANCE = { zaklad: [], tablet: ['zaklad'], mobil: ['tablet', 'zaklad'], hover: ['zaklad'], hover_tablet: ['hover', 'tablet', 'zaklad'],
 		hover_mobil: ['hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'], aktivni: ['hover', 'zaklad'], aktivni_tablet: ['aktivni', 'hover_tablet', 'hover', 'tablet', 'zaklad'],
@@ -1417,7 +1417,7 @@
 		return '';
 	}
 
-	/** Panel stylu: $cil je prvek ({styl}) nebo záznam třídy; změna jde přes zmen (prvek) nebo ulozTridu (třída). */
+	/** Style panel: $cil is an element ({styl}) or a class record; a change goes through zmen (element) or ulozTridu (class). */
 	function stylePanel(panel, target, changeKey, shouldSave) {
 		target.styl = target.styl && !Array.isArray(target.styl) ? target.styl : {};
 		const s = currentState();
@@ -1425,10 +1425,10 @@
 			el('span', {}, T('Upravujete: '), el('strong', {}, [{ hover: T('najetí myší a fokus'), aktivni: T('stisknutí') }[state.stavPrvku], state.stavPrvku && state.bp === 'zaklad' ? '' : BP[state.bp]].filter(Boolean).join(' · '))),
 			el('span', { class: 'st-skupina', role: 'group', 'aria-label': T('Stav prvku') }, [['', T('Běžný')], ['hover', T('Najetí')], ['aktivni', T('Stisk')]].map(([k, n]) =>
 				el('button', { type: 'button', class: 'st-tl', 'aria-pressed': String(state.stavPrvku === k), title: k === 'hover' ? T('Najetí myší – platí i pro fokus z klávesnice') : null, onclick: () => { state.stavPrvku = k; redrawRight(); } }, n)))));
-		// kopírování jen stylu (bez obsahu) mezi prvky i stránkami – drží ho prohlížeč
+		// copying only the style (without content) between elements and pages – the browser keeps it
 		const clipboard = () => { try { return JSON.parse(localStorage.getItem('ka-st-styl') || 'null'); } catch (e) { return null; } };
 		panel.append(el('div', { class: 'st-pole-radek st-styl-schranka' },
-			el('button', { type: 'button', class: 'st-tl', onclick: () => { try { localStorage.setItem('ka-st-styl', JSON.stringify({ styl: target.styl, tridy: target.tridy || [] })); setState(T('Styl zkopírován.')); redrawRight(); } catch (e) { /* soukromý režim */ } } }, T('Kopírovat styl')),
+			el('button', { type: 'button', class: 'st-tl', onclick: () => { try { localStorage.setItem('ka-st-styl', JSON.stringify({ styl: target.styl, tridy: target.tridy || [] })); setState(T('Styl zkopírován.')); redrawRight(); } catch (e) { /* private mode */ } } }, T('Kopírovat styl')),
 			el('button', { type: 'button', class: 'st-tl', disabled: !clipboard() || shouldSave, onclick: () => {
 				const v = clipboard();
 				if (!v) { return; }
@@ -1436,7 +1436,7 @@
 				redrawRight();
 			} }, T('Vložit styl'))));
 		if (s !== 'zaklad') { panel.append(el('p', { class: 'napoveda', style: 'margin:0 0 8px;font-size:12px;color:var(--text-slaby)' }, T('Prázdné pole = stejná hodnota jako na větší obrazovce (šedě).'))); }
-		// první (otevřená) skupina podle druhu prvku: u textu Typografie, u obrázku Rozměry, jinak Rozložení
+		// the first (open) group by element kind: Typography for text, Size for an image, otherwise Layout
 		const first = { nadpis: 'typografie', text: 'typografie', tlacitko: 'typografie', seznam: 'typografie', citat: 'typografie', drobecky: 'typografie',
 			pocitadlo: 'typografie', obrazek: 'rozmery', video: 'rozmery', mapa: 'rozmery' }[target.typ];
 		const groups = first ? { [first]: [] } : {};
@@ -1472,7 +1472,7 @@
 		} else {
 			const field = el('input', { type: 'text', value: value, placeholder: inheritedFrom, list: HINTS[def.typ] ? 'st-dl-' + def.typ : null,
 				onchange: (e) => change(e.target.value.trim()), oninput: (e) => { if (sample) { sample.style.background = tokenColor(e.target.value || inheritedFrom || 'transparent'); } } });
-			// barva: vzorek je zároveň výběr barvy (vlastní odstín jako #hex); tokeny webu nabízí seznam v poli
+			// color: the swatch is also the color picker (a custom shade as #hex); the site tokens are offered by the list in the field
 			const sample = def.typ === 'barva' ? el('label', { class: 'st-vzorek', title: T('Vybrat vlastní barvu'), style: 'background:' + tokenColor(value || inheritedFrom || 'transparent') },
 				el('input', { type: 'color', 'aria-label': T('Vybrat vlastní barvu'), value: /^#[0-9a-f]{6}$/i.test(value) ? value : '#000000',
 					oninput: (e) => { sample.style.background = e.target.value; }, onchange: (e) => { field.value = e.target.value; change(e.target.value); } })) : null;
@@ -1494,7 +1494,7 @@
 			error ? el('small', { class: 'st-chyba-pole', role: 'alert' }, error) : null);
 	}
 
-	/** Skladač stínu: posun, rozostření, roztažení, barva a průhlednost → „0 8px 24px color-mix(…)“; tokeny barev fungují. */
+	/** Shadow builder: offset, blur, spread, color and opacity → „0 8px 24px color-mix(…)“; color tokens work. */
 	function shadowStack(value, change) {
 		const m = /^(inset\s+)?(-?[\d.]+)(?:px)?\s+(-?[\d.]+)(?:px)?\s+(-?[\d.]+)?(?:px)?\s*(-?[\d.]+)?(?:px)?\s*(\S+)?/.exec(/^[slm]$|^none$/.test(value) ? '' : value) || [];
 		const v = { inset: !!m[1], x: m[2] || '0', y: m[3] || '8', blur: m[4] || '24', spread: m[5] || '0', barva: m[6] && m[6][0] === '#' ? m[6].slice(0, 7) : '#000000', sila: 15 };
@@ -1506,7 +1506,7 @@
 			el('label', { class: 'st-zaskrt' }, el('input', { type: 'checkbox', checked: v.inset, onchange: (e) => { v.inset = e.target.checked; collapse(); } }), T('Dovnitř')));
 	}
 
-	/** Skladač rámečku: šířka, čára a barva (token nebo vlastní) → „2px dashed primarni“. */
+	/** Border builder: width, line and color (a token or custom) → „2px dashed primarni“. */
 	function borderStack(value, change) {
 		const m = /^(\d+(?:\.\d)?)px\s+(solid|dashed|dotted|double)\s+(\S+)$/.exec(value) || [];
 		const v = { sirka: m[1] || '1', cara: m[2] || 'solid', barva: m[3] || 'linka' };
@@ -1519,8 +1519,8 @@
 	}
 
 	/**
-	 * Editor mřížky: náhled sloupců a řádků, rychlé předvolby a pojmenování oblastí klepnutím do buněk
-	 * (vnořené prvky pak dostanou „Oblast v mřížce“). Zapisuje do vlastností sloupce, radky a oblasti.
+	 * Grid editor: a preview of columns and rows, quick presets and naming areas by clicking into cells
+	 * (nested elements then get „Oblast v mřížce“ (Grid area)). Writes to the properties sloupce, radky and oblasti.
 	 */
 	function gridEditor(target, s, set) {
 		const value = (k) => (target.styl[s] || {})[k] || inherited(target.styl, k);
@@ -1553,7 +1553,7 @@
 			el('small', {}, T('Do buněk napište názvy oblastí (stejný název přes víc buněk = prvek se roztáhne). Vnořenému prvku pak zadejte „Oblast v mřížce“.')));
 	}
 
-	/* ---------- pokročilé: značka, třídy, kotva ---------- */
+	/* ---------- advanced: tag, classes, anchor ---------- */
 
 	function advancedPanel(panel, p, s) {
 		if (s.znacky.length > 1) {
@@ -1610,7 +1610,7 @@
 			}) }), T('Skrýt na tabletu i mobilu')));
 	}
 
-	/* ---------- úprava sdílené třídy ---------- */
+	/* ---------- editing a shared class ---------- */
 
 	const classTimer = {};
 	function classesPanel() {
@@ -1619,7 +1619,7 @@
 		if (Array.isArray(record.styl)) { record.styl = {}; }
 		const saveClass = () => {
 			setState(T('Neuloženo…'));
-			clearTimeout(classTimer[name]); // časovač pro každou třídu zvlášť – přepnutí na jinou třídu nezruší uložení té předchozí
+			clearTimeout(classTimer[name]); // a timer for each class separately – switching to another class does not cancel saving the previous one
 			classTimer[name] = setTimeout(() => query(D.adresy.trida, { name, styl: JSON.stringify(record.styl), css: record.css }).then((j) => {
 				if (!j.ok) { setState(j.chyba, true); return; }
 				D.tridy = j.tridy;
@@ -1632,7 +1632,7 @@
 			el('div', { class: 'st-akce' }, el('button', { type: 'button', title: T('Zpět na prvek'), onclick: () => { state.trida = null; redrawRight(); } }, icon('zavrit')))), panel);
 		panel.append(el('p', { style: 'margin:0 0 10px;font-size:12px;color:var(--text-slaby)' }, T('Změny třídy se projeví u všech prvků s touto třídou na celém webu – hned po uložení, bez publikování.')));
 		if (!D.adresy.smazSekci) {
-			// sdílené třídy upravuje jen správce (server to hlídá také)
+			// shared classes are edited only by an administrator (the server enforces it too)
 			panel.append(el('p', { class: 'st-prazdno', style: 'text-align:left;padding:0' }, T('Sdílenou třídu upravuje jen správce – změna se hned projeví na celém webu. Vzhled jednoho prvku nastavíte v jeho stylu.')));
 			return;
 		}
@@ -1646,11 +1646,11 @@
 		const newName = el('input', { type: 'text', value: name, 'aria-label': T('Nový název třídy') });
 		panel.append(el('h3', {}, T('Vlastní CSS')), el('label', { class: 'st-pole' }, el('span', {}, T('Deklarace navíc (vlastnost: hodnota;)')), css),
 			el('h3', {}, T('Kde je použitá')), whereParts);
-		if (D.adresy.smazSekci) { // přejmenovat a smazat smí správce (změna se projeví na celém webu)
+		if (D.adresy.smazSekci) { // renaming and deleting is allowed to an administrator (the change affects the whole site)
 			panel.append(el('h3', {}, T('Přejmenovat')), el('span', { class: 'st-pole-radek' }, newName, el('button', { type: 'button', class: 'st-tl', onclick: () => {
 				const fresh = newName.value.trim().toLowerCase();
 				if (!fresh || fresh === name) { return; }
-				// nejdřív uložit rozpracované změny, pak přejmenovat ve všech stavbách a načíst editor znovu
+				// first save unsaved changes, then rename in all builds and reload the editor
 				save().then((ok) => (ok ? query(D.adresy.trida, { name, novy_nazev: fresh }) : null)).then((j) => {
 					if (!j) { return; }
 					if (!j.ok) { setState(j.chyba, true); return; }
@@ -1678,19 +1678,19 @@
 	redraw();
 	refreshPreview();
 	document.addEventListener('keydown', keys);
-	// prohlídka ne na telefonu: tam builder místo sebe ukazuje jen „potřebuje větší obrazovku“ (stavitel.css, stejná šířka);
-	// neoznačí se jako viděná, takže se spustí při prvním otevření na počítači nebo tabletu
+	// no tour on a phone: there the builder shows only "needs a bigger screen" instead of itself (stavitel.css, same width);
+	// it is not marked as seen, so it starts on the first opening on a desktop or tablet
 	const narrow = window.matchMedia('(max-width: 719px)').matches;
-	try { if (!narrow && !localStorage.getItem('ka-st-prohlidka')) { setTimeout(() => tour(0), 800); } } catch (e) { /* soukromý režim */ }
+	try { if (!narrow && !localStorage.getItem('ka-st-prohlidka')) { setTimeout(() => tour(0), 800); } } catch (e) { /* private mode */ }
 	state.ulozeno = JSON.stringify(state.stavba);
 	root.addEventListener('focusout', () => setTimeout(adoptSanitized, 0));
 	window.addEventListener('focus', () => { if (state.pokusy && rejectInvalid()) { (state.prihlaseni ? refreshToken() : Promise.resolve()).then(save); } });
-	// neuložené změny: prohlížeč se zeptá, jestli stránku opravdu opustit; když ano, pošlou se ještě jednou na pozadí (keepalive)
+	// unsaved changes: the browser asks whether to really leave the page; if so, they are sent once more in the background (keepalive)
 	window.addEventListener('beforeunload', (e) => { if (rejectInvalid() || state.uklada) { save(); e.preventDefault(); e.returnValue = ''; } });
 	window.addEventListener('pagehide', () => {
 		if (!rejectInvalid() || state.konflikt) { return; }
 		const f = new FormData();
 		f.append('_csrf', csrf); f.append('stavba', JSON.stringify(state.stavba)); f.append('verze', state.verze);
-		try { fetch(D.adresy.uloz, { method: 'POST', body: f, credentials: 'same-origin', keepalive: true }); } catch (e) { /* nad limit keepalive – varování už padlo */ }
+		try { fetch(D.adresy.uloz, { method: 'POST', body: f, credentials: 'same-origin', keepalive: true }); } catch (e) { /* over the keepalive limit – the warning has already been shown */ }
 	});
 })();

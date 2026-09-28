@@ -5,20 +5,20 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Menu webu (Vzhled → Menu): hlavní navigace a menu v patičce, zvlášť pro každou jazykovou verzi.
- * Položky: stránka (s vlastním textem nebo názvem stránky), vlastní odkaz, novinky, skupina (jen text) –
- * a pod každou z nich jedna úroveň podmenu. Dokud hlavní menu nikdo neuloží, skládá se samo ze stránek „v menu“.
+ * Site menu ("Vzhled → Menu", Appearance → Menu): main navigation and footer menu, separately for each language version.
+ * Items: page (with custom text or the page title), custom link, news, group (text only) –
+ * and under each of them one level of submenu. Until someone saves the main menu, it builds itself from pages "in menu" (v_menu).
  */
 final class Menu
 {
-    /** @var array<string, string> umístění => popisek */
+    /** @var array<string, string> location => label */
     public const array LOCATIONS = ['hlavni' => 'Hlavní menu', 'paticka' => 'Menu v patičce'];
 
     public const array TYPES = ['stranka', 'odkaz', 'novinky', 'skupina'];
 
     public const int MAX_ITEMS = 80;
 
-    /** @return list<array<string, mixed>>|null uložené položky, null = menu se skládá automaticky */
+    /** @return list<array<string, mixed>>|null saved items, null = the menu is built automatically */
     public static function load(Db $db, string $location, string $language): ?array
     {
         $json = $db->value('SELECT polozky FROM {menu} WHERE umisteni = ? AND jazyk = ?', [$location, $language]);
@@ -26,7 +26,7 @@ final class Menu
         return $json === null ? null : self::sanitize(json_decode((string) $json, true));
     }
 
-    /** Uloží položky; null vrátí menu do automatického režimu. */
+    /** Saves the items; null returns the menu to automatic mode. */
     public static function save(Db $db, string $location, string $language, ?array $items): void
     {
         if ($items === null) {
@@ -39,7 +39,7 @@ final class Menu
     }
 
     /**
-     * Jediný validátor položek (administrace i MCP): známé typy, platné adresy, nejvýš jedna úroveň podmenu.
+     * The single item validator (admin and MCP): known types, valid URLs, at most one level of submenu.
      *
      * @return list<array<string, mixed>>
      */
@@ -78,16 +78,16 @@ final class Menu
         return $result;
     }
 
-    /** Adresa vlastního odkazu: https, cesta na webu (/…), kotva, e-mail nebo telefon. */
+    /** URL of a custom link: https, a path on the site (/…), an anchor, an e-mail or a phone number. */
     public static function isValidUrl(string $url): bool
     {
         return (bool) preg_match('#^(https?://[^\s<>"]{1,500}|/[^\s<>"]{0,500}|\#[A-Za-z0-9_-]{1,80}|mailto:[^\s<>"]{3,200}|tel:[+\d ()-]{3,40})$#', $url);
     }
 
     /**
-     * Položky k vykreslení; skryté a smazané stránky (i s podmenu) vypadnou, skupina bez podmenu taky.
+     * Items to render; hidden and deleted pages (including their submenu) drop out, and so does a group without a submenu.
      *
-     * @return list<array{text: string, url: string, nove_okno: bool, deti: list<array<string, mixed>>, novinky?: bool, auto?: bool}>  auto = odkaz na novinky přidaný automatickým menu
+     * @return list<array{text: string, url: string, nove_okno: bool, deti: list<array<string, mixed>>, novinky?: bool, auto?: bool}>  auto = link to news added by the automatic menu
      */
     public static function items(App $app, string $location, string $language, int $home): array
     {
@@ -102,7 +102,7 @@ final class Menu
             if ($location !== 'hlavni') {
                 return [];
             }
-            // automaticky: stránky „v menu“ podle pořadí a na konci novinky (prvek Navigace je může vypnout)
+            // automatic: pages "in menu" by their order and news at the end (the Navigation element can turn it off)
             $auto = array_map(fn (array $s): array => ['text' => $s['titulek'], 'url' => $url($s), 'nove_okno' => false, 'deti' => []],
                 array_values(array_filter($pages, fn (array $s): bool => (bool) $s['v_menu'])));
             if (Extensions::isEnabled($app->settings(), 'novinky')) {
@@ -130,12 +130,12 @@ final class Menu
     }
 
     /**
-     * Seznam <li> (bez obalového <ul>) pro šablonu i prvek Navigace. Položka s podmenu má třídu „podmenu“ a vnořený <ul>;
-     * aktivní odkaz dostane aria-current, jeho nadřazená položka třídu „aktivni“.
+     * List of <li> (without the wrapping <ul>) for the template and the Navigation element. An item with a submenu has the
+     * class "podmenu" and a nested <ul>; the active link gets aria-current, its parent item the class "aktivni".
      *
-     * @param list<array<string, mixed>> $items z polozky()
-     * @param string $path  cesta zobrazené stránky (např. /web/en/sluzby)
-     * @param string $root  adresa úvodu ($app->url('')) – úvod je aktivní jen přesnou shodou
+     * @param list<array<string, mixed>> $items from items()
+     * @param string $path  path of the displayed page (e.g. /web/en/sluzby)
+     * @param string $root  URL of the home page ($app->url('')) – the home page is active only on an exact match
      */
     public static function html(array $items, string $path, string $root): string
     {
@@ -150,7 +150,7 @@ final class Menu
         $li = function (array $p) use (&$li, $active): string {
             $isEnabled = $active($p['url']);
             $link = $p['url'] === ''
-                ? '<button type="button" class="menu-skupina">' . e($p['text']) . '</button>' // skupina bez odkazu: tlačítko jde zaměřit klávesnicí a otevřít podmenu
+                ? '<button type="button" class="menu-skupina">' . e($p['text']) . '</button>' // a group without a link: the button can be focused with the keyboard and opens the submenu
                 : '<a href="' . e($p['url']) . '"' . ($isEnabled ? ' aria-current="page"' : '') . ($p['nove_okno'] ? ' target="_blank" rel="noopener"' : '') . '>' . e($p['text']) . '</a>';
             if ($p['deti'] === []) {
                 return '<li>' . $link . '</li>';
@@ -165,8 +165,8 @@ final class Menu
     }
 
     /**
-     * Zařazení stránky do menu z jejího formuláře (zaškrtávátko „v navigaci“): v automatickém režimu stačí sloupec v_menu,
-     * v uloženém menu se stránka přidá na konec, nebo se odebere (její podmenu se posune o úroveň výš).
+     * Adding a page to the menu from its form (checkbox "v navigaci", in navigation): in automatic mode the v_menu column is
+     * enough, in a saved menu the page is added at the end or removed (its submenu moves one level up).
      */
     public static function setPage(Db $db, int $ids, string $language, bool $inMenu): void
     {
@@ -208,8 +208,8 @@ final class Menu
     }
 
     /**
-     * Je stránka v uloženém hlavním menu – jako stránka, nebo odkazem na její adresu (/sluzby, /de/leistungen)?
-     * null = menu je automatické (platí sloupec v_menu).
+     * Is the page in the saved main menu – as a page, or as a link to its URL (/sluzby, /de/leistungen)?
+     * null = the menu is automatic (the v_menu column applies).
      */
     public static function hasPage(Db $db, int $ids, string $language, ?string $seo = null): ?bool
     {

@@ -1,4 +1,4 @@
-<?php /** Záložka Pošta: odkud a jak web odesílá e-maily. Proměnné a funkce $field viz vypis.php. */ ?>
+<?php /** The "Pošta" (Mail) tab: from where and how the site sends e-mails. For the variables and the $field function see vypis.php. */ ?>
 <p class="hlaska"><?= e(t('Web posílá odkazy pro obnovu hesla a upozornění systému; s formuláři přibudou i poptávky. Přes vlastní SMTP server zprávy odcházejí z ověřené schránky a nekončí ve spamu.')) ?></p>
 <fieldset>
 <legend><?= e(t('Způsob odesílání')) ?></legend>

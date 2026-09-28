@@ -8,14 +8,14 @@ use Kaleta\Core\App;
 use Kaleta\Core\Db;
 
 /**
- * Publikování konceptu stavby (stránka, část webu, kolekce, komponenta nebo pop-up) – z editoru i z MCP. Předchozí publikovaná verze jde do historie
- * (ka_stavba_revize, 20 posledních pro každý cíl), cache webu se vymaže.
+ * Publishing a build draft (page, site part, collection, component or popup) – from the editor and from MCP. The previous published version goes to the history
+ * (ka_stavba_revize, the last 20 for each target), the site cache is cleared.
  */
 final class Publisher
 {
     public const int VERSIONS_KEPT = 20;
 
-    /** Stránka: do textu se uloží obsah bez rozložení – z něj čerpá hledání, llms.txt, API i návrat k textu. */
+    /** Page: the content without the layout is saved into the text – search, llms.txt, the API and the return to text draw on it. */
     public static function page(App $app, array $page): void
     {
         $new = $page['stavba_koncept'] ?? $page['stavba'];
@@ -34,7 +34,10 @@ final class Publisher
         \Kaleta\Front\Cache::clear();
     }
 
-    /** Šablona detailu položek kolekce v jazyce z Kolekce::vJazyce (verze pod klíčem „kolekce:<idk>“, u dalšího jazyka „kolekce:<idk>:<jazyk>“). */
+    /**
+     * Item template of a collection in the language from Collections::inLanguage (versions under the key „kolekce:<idk>“,
+     * for another language „kolekce:<idk>:<jazyk>“).
+     */
     public static function collection(App $app, array $collection): void
     {
         $new = $collection['stavba_koncept'] ?? $collection['stavba'];
@@ -43,7 +46,7 @@ final class Publisher
         \Kaleta\Front\Cache::clear();
     }
 
-    /** Pop-up okno (verze pod klíčem „popup:<idpp>“). */
+    /** Popup (versions under the key „popup:<idpp>“). */
     public static function popup(App $app, array $popup): void
     {
         $new = $popup['stavba_koncept'] ?? $popup['stavba'];
@@ -52,7 +55,7 @@ final class Publisher
         \Kaleta\Front\Cache::clear();
     }
 
-    /** Komponenta (verze pod klíčem „komponenta:<idm>“) – změna se projeví na všech stránkách, kde je použitá. */
+    /** Component (versions under the key „komponenta:<idm>“) – the change shows on all pages where it is used. */
     public static function component(App $app, array $component): void
     {
         $new = $component['stavba_koncept'] ?? $component['stavba'];
@@ -61,7 +64,7 @@ final class Publisher
         \Kaleta\Front\Cache::clear();
     }
 
-    /** Uloží předchozí publikovanou verzi do historie. @param array{ids?: int|string, cast?: string} $cil */
+    /** Saves the previous published version to the history. @param array{ids?: int|string, cast?: string} $target */
     public static function version(App $app, array $target, ?string $old, ?string $newVersion, ?string $date): void
     {
         if ($old === null || $old === $newVersion) {

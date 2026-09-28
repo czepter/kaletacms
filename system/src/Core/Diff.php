@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Porovnání dvou verzí textu: po odstavcích, ve změněných odstavcích po slovech.
- * Výstup je bezpečné HTML (<ins>, <del>) - vstupní HTML se převádí na prostý text.
+ * Comparison of two versions of a text: by paragraphs, in changed paragraphs by words.
+ * The output is safe HTML (<ins>, <del>) - the input HTML is converted to plain text.
  */
 final class Diff
 {
@@ -23,7 +23,7 @@ final class Diff
             if ($type === '=') {
                 $html .= '<p>' . e($text) . '</p>';
             } elseif ($type === '-' && ($steps[$i + 1][0] ?? '') === '+') {
-                // smazaný a hned přidaný odstavec = upravený odstavec: rozdíl po slovech
+                // a deleted and immediately added paragraph = an edited paragraph: difference by words
                 $words = self::steps(self::words($text), self::words($steps[$i + 1][1]));
                 $html .= '<p>';
                 foreach ($words as [$t, $s]) {
@@ -51,14 +51,14 @@ final class Diff
         return array_values(array_filter(array_map(fn (string $r): string => trim((string) preg_replace('/\s+/u', ' ', $r)), explode("\n", $text)), fn (string $r): bool => $r !== ''));
     }
 
-    /** Slova i s mezerami za nimi, aby šel text složit zpět. @return list<string> */
+    /** Words including the whitespace after them, so that the text can be put back together. @return list<string> */
     private static function words(string $text): array
     {
         return preg_split('/(?<=\s)/u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
     }
 
     /**
-     * Nejdelší společná podposloupnost -> kroky [typ, text]: "=" beze změny, "-" jen ve staré, "+" jen v nové verzi.
+     * Longest common subsequence -> steps [type, text]: "=" unchanged, "-" only in the old, "+" only in the new version.
      *
      * @param list<string> $a
      * @param list<string> $b
@@ -68,7 +68,7 @@ final class Diff
     {
         $n = count($a);
         $m = count($b);
-        if ($n * $m > 4_000_000) { // příliš dlouhé na přesné porovnání: celé smazáno, celé přidáno
+        if ($n * $m > 4_000_000) { // too long for an exact comparison: all deleted, all added
             return [...array_map(fn (string $s): array => ['-', $s], $a), ...array_map(fn (string $s): array => ['+', $s], $b)];
         }
         $d = array_fill(0, $n + 1, array_fill(0, $m + 1, 0));

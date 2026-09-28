@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Zálohy databáze do storage/zalohy/ (z webu nepřístupné). Bez mysqldump - funguje i na sdíleném hostingu.
+ * Database backups to storage/zalohy/ (not accessible from the web). Without mysqldump - works on shared hosting too.
  */
 final class Backup
 {
     public const string FOLDER = KALETA_ROOT . '/storage/zalohy';
     private const int KEEP = 10;
 
-    /** @return string název vytvořeného souboru */
+    /** @return string name of the created file */
     public static function create(Db $db, string $reason = 'rucni'): string
     {
         if (!is_dir(self::FOLDER) && !mkdir(self::FOLDER, 0775, true)) {
@@ -28,7 +28,7 @@ final class Backup
         $write("-- Kaleta " . KALETA_VERSION . " - záloha databáze " . date('c') . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS = 0;\n\n");
         $tables = $db->run('SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ? ORDER BY table_name', [addcslashes($db->prefix, '_%') . '%'])->fetchAll(\PDO::FETCH_COLUMN);
         foreach ($tables as $table) {
-            // dočasná data se nezálohují
+            // temporary data is not backed up
             $structureOnly = in_array(substr($table, strlen($db->prefix)), ['stat_navstevnici', 'kontrola_ip'], true);
             $create = $pdo->query('SHOW CREATE TABLE `' . $table . '`')->fetch(\PDO::FETCH_NUM)[1];
             $write("DROP TABLE IF EXISTS `{$table}`;\n{$create};\n\n");
@@ -60,11 +60,11 @@ final class Backup
     }
 
     /**
-     * Obnoví databázi ze zálohy vytvořené touto třídou. Příkaz v záloze vždy končí středníkem na konci řádku
-     * (hodnoty zapisuje PDO::quote, konce řádků v textech jsou v nich zakódované), takže ji lze číst po řádcích
-     * bez načtení celého souboru do paměti.
+     * Restores the database from a backup created by this class. A statement in the backup always ends with a semicolon at
+     * the end of a line (values are written by PDO::quote, line breaks in texts are encoded in them), so it can be read line
+     * by line without loading the whole file into memory.
      *
-     * @return int počet provedených příkazů
+     * @return int number of executed statements
      * @throws \RuntimeException
      */
     public static function restore(Db $db, string $file): int
@@ -77,8 +77,8 @@ final class Backup
         if ($gz && !function_exists('gzopen')) {
             throw new \RuntimeException('Server neumí číst komprimované zálohy (chybí zlib).');
         }
-        // první průchod jen kontroluje (hlavička, jen tabulky této instalace, úplný poslední příkaz) – do databáze se sahá,
-        // až když je celý soubor v pořádku; poškozená nebo cizí záloha tak nenechá databázi napůl obnovenou
+        // the first pass only checks (header, only tables of this installation, a complete last statement) – the database is
+        // touched only when the whole file is OK; a damaged or foreign backup thus does not leave the database half restored
         $count = self::walk($path, $gz, $db->prefix, null);
         @set_time_limit(300);
         $pdo = $db->pdo();
@@ -88,7 +88,7 @@ final class Backup
         return $count;
     }
 
-    /** @param (callable(string): mixed)|null $apply null = jen kontrola */
+    /** @param (callable(string): mixed)|null $apply null = check only */
     private static function walk(string $path, bool $gz, string $prefix, ?callable $apply): int
     {
         $f = $gz ? gzopen($path, 'rb') : fopen($path, 'rb');
@@ -104,7 +104,7 @@ final class Backup
             }
             $statement .= $row;
             if (str_ends_with(rtrim($row), ';')) {
-                // záloha smí obsahovat jen tabulky této instalace
+                // a backup can contain only tables of this installation
                 if (preg_match('/^(DROP TABLE IF EXISTS|CREATE TABLE|INSERT INTO) `([^`]+)`/', $statement, $m) && !str_starts_with($m[2], $prefix)) {
                     throw new \RuntimeException('Záloha obsahuje cizí tabulku ' . $m[2] . ' – obnova byla zastavena.');
                 }
@@ -123,7 +123,7 @@ final class Backup
         return $count;
     }
 
-    /** @return list<array{soubor:string, velikost:int, cas:int}> od nejnovější */
+    /** @return list<array{soubor:string, velikost:int, cas:int}> newest first */
     public static function listAll(): array
     {
         $backups = [];
@@ -135,13 +135,13 @@ final class Backup
         return $backups;
     }
 
-    /** Cesta k existující záloze podle názvu z adresy; null = neplatný název. */
+    /** Path to an existing backup by the name from the URL; null = invalid name. */
     public static function path(string $file): ?string
     {
         return preg_match('/^kaleta-[0-9a-z-]+\.sql(\.gz)?$/', $file) && is_file(self::FOLDER . '/' . $file) ? self::FOLDER . '/' . $file : null;
     }
 
-    /** Automatická týdenní záloha - volá se při vstupu administrátora do administrace. */
+    /** Automatic weekly backup - called when an administrator enters the administration. */
     public static function createAutomatic(Db $db, Settings $settings): void
     {
         if (!$settings->bool('auto_backups')) {
@@ -151,9 +151,9 @@ final class Backup
         if (time() - $last > 7 * 86400) {
             try {
                 $file = self::create($db, 'auto');
-                RemoteBackup::upload($settings, (string) self::path($file)); // výsledek ukáže Stav systému a záložka Zálohy
+                RemoteBackup::upload($settings, (string) self::path($file)); // the result is shown by the system health page and the Backups tab
             } catch (\Throwable) {
-                // záloha nesmí shodit administraci; na chybějící zálohu upozorní Stav systému
+                // a backup must not bring down the administration; the system health page warns about a missing backup
             }
         }
     }

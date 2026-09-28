@@ -2,7 +2,7 @@
 /**
  * @var Kaleta\Core\Settings $web
  * @var list<array<string, mixed>> $novinky
- * @var string $adresa  absolutní adresa webu s koncovým lomítkem
+ * @var string $adresa  absolute url of the site with a trailing slash
  */
 echo '<?xml version="1.0" encoding="utf-8"?>' . "\n";
 ?>

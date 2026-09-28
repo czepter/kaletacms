@@ -1,9 +1,9 @@
 <?php
 /**
- * Vzhled webu: styly (hotové sady barev, písem a zaoblení – DesignSystem::PREDVOLBY) a design systém v záložkách
- * (barvy, tmavý režim, písmo a velikosti, tvary, značka, import a export) s živým náhledem skutečné úvodní stránky.
- * Záložky přepíná image/admin.js (data-zalozky); bez skriptu je vidět celý formulář najednou.
- * Náhled obstarává image/admin.js (data-vzhled): po každé změně si vyžádá CSS tokenů (akce nahled) a vloží ho do iframe.
+ * Site appearance: styles (ready-made sets of colours, fonts and corner rounding – DesignSystem::PRESETS) and the design system
+ * in tabs (colours, dark mode, font and sizes, shapes, brand, import and export) with a live preview of the real home page.
+ * Tabs are switched by image/admin.js (data-zalozky); without the script the whole form is visible at once.
+ * The preview is handled by image/admin.js (data-vzhled): after every change it requests the token CSS (action nahled) and puts it into the iframe.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Appearance $module
@@ -26,7 +26,7 @@ $contrastsHtml = function (array $contrasts): string {
 
     return $html;
 };
-// styl, ze kterého současný vzhled vychází (barvy a písmo titulků jako u stylu)
+// the style the current appearance is based on (colours and heading font as in the style)
 $current = null;
 foreach ($presets as $key => $p) {
     if ($p['ds']['barvy']['primarni'] === $ds['barvy']['primarni'] && $p['ds']['barvy']['sekundarni'] === $ds['barvy']['sekundarni'] && $p['ds']['pismo_titulky'] === $ds['pismo_titulky']) {

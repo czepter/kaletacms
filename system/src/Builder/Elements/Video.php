@@ -8,7 +8,7 @@ use Kaleta\Front\NewsText;
 use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
-/** Video z YouTube či Vimea nebo soubor z Médií. Cizí přehrávač se načte až po kliknutí (soukromí, rychlost). */
+/** Video from YouTube or Vimeo, or a file from Media. The third-party player loads only after a click (privacy, speed). */
 final class Video extends Element
 {
     public const string TYPE = 'video';
@@ -41,17 +41,17 @@ final class Video extends Element
 
         $poster = self::image((string) ($p['obsah']['plakat'] ?? ''), $k);
         if ($poster !== '') {
-            // soubor z Médií: poster; YouTube a Vimeo: vlastní obrázek za tlačítkem (náhled od služby by se musel stahovat z jejích serverů)
+            // a file from Media: poster; YouTube and Vimeo: a custom image behind the button (the service's thumbnail would have to be downloaded from its servers)
             $html = str_contains($html, '<video ')
                 ? str_replace('<video ', '<video poster="' . e($poster) . '" ', $html)
                 : (string) preg_replace('/(<button type="button" class="ka-medium-spustit"[^>]*>)/', '$1<img class="ka-medium-plakat" src="' . e($poster) . '" alt="" loading="lazy">', $html, 1);
         }
 
-        // atributy prvku (id, třídy) se přidají do první značky přehrávače
+        // the element's attributes (id, classes) are added to the player's first tag
         return (string) preg_replace_callback('/^<(figure|div) class="([^"]*)"/', fn (array $m): string => '<' . $m[1] . Text::withClass($a, $m[2]), $html, 1);
     }
 
-    /** Adresa obrázku z Médií (od kořene instalace) nebo https. */
+    /** Image url from Media (from the installation root) or https. */
     private static function image(string $url, Context $k): string
     {
         if (preg_match('#^https://#i', $url)) {

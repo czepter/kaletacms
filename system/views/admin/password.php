@@ -1,6 +1,6 @@
 <?php
 /**
- * Obnova zapomenutého hesla do administrace (Admin\ObnovaHesla).
+ * Reset of a forgotten admin password (Admin\PasswordReset).
  *
  * @var Kaleta\Core\App $app
  * @var string $step zadost | heslo | neplatny

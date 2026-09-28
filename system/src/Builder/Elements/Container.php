@@ -7,7 +7,7 @@ namespace Kaleta\Builder\Elements;
 use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
-/** Skupina prvků (flex): karta, řada tlačítek, sloupec textu. S odkazem se celá stane odkazem. */
+/** A group of elements (flex): a card, a row of buttons, a column of text. With a link, the whole group becomes a link. */
 final class Container extends Element
 {
     public const string TYPE = 'kontejner';
@@ -30,7 +30,7 @@ final class Container extends Element
 
     public static function baseCss(): string
     {
-        // karta jako odkaz: text zůstane v barvách karty, ne v barvě odkazu; najetí myší ji jemně zvedne
+        // card as a link: the text keeps the card's colors, not the link color; hovering lifts it slightly
         return '.ka-karta-odkaz { display: block; color: inherit; text-decoration: none; transition: transform .15s ease, box-shadow .15s ease; }
 .ka-karta-odkaz:hover { transform: translateY(-2px); box-shadow: var(--ka-stin-m); }
 .ka-karta-odkaz:focus-visible { outline: 2px solid var(--ka-barva-primarni); outline-offset: 2px; }
@@ -40,7 +40,7 @@ final class Container extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         if (str_contains($children, CompanyDetails::EMPTY_HOURS)) {
-            // karta „Otevírací doba“ bez vyplněné doby: na webu by zůstal jen nadpis v prázdném rámečku
+            // an „Otevírací doba“ (opening hours) card without hours filled in: only a heading in an empty frame would remain on the site
             $children = str_replace(CompanyDetails::EMPTY_HOURS, '', $children);
             if (trim(strip_tags((string) preg_replace('#<(h[1-6])\b.*?</\1>#s', '', $children))) === '') {
                 return '';
@@ -48,7 +48,7 @@ final class Container extends Element
         }
         $link = (string) ($p['obsah']['odkaz'] ?? '');
         if ($link !== '') {
-            // odkaz v odkazu HTML nedovoluje (prohlížeč by kartu rozlomil): tlačítka a odkazy uvnitř zůstanou jen vzhledem
+            // HTML does not allow a link inside a link (the browser would break the card apart): buttons and links inside stay only as a look
             $children = (string) preg_replace_callback('#<a\b([^>]*)>#', fn (array $m): string => '<span' . preg_replace('#\s(?:href|target|rel|download|hreflang|aria-current)="[^"]*"#', '', $m[1]) . '>', $children);
             $children = str_replace('</a>', '</span>', $children);
 

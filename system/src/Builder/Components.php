@@ -7,15 +7,15 @@ namespace Kaleta\Builder;
 use Kaleta\Core\Db;
 
 /**
- * Komponenty – znovupoužitelné bloky builderu (tabulka ka_komponenty). Uvnitř komponenty jsou {{vlastnosti}} – stejné
- * značky jako u kolekcí (Kolekce::dosad) – a každé použití na stránce (prvek „komponenta“) jim dá vlastní hodnoty.
+ * Components – reusable blocks of the builder (table ka_komponenty). Inside a component there are {{properties}} – the same
+ * tags as in collections (Collections::fill) – and each use on a page (the „komponenta“ element) gives them its own values.
  */
 final class Components
 {
-    /** Typy vlastností (podmnožina polí kolekcí). */
+    /** Property types (a subset of collection fields). */
     public const array TYPES = ['text' => 'krátký text', 'radky' => 'delší text', 'html' => 'formátovaný text', 'obrazek' => 'obrázek', 'odkaz' => 'odkaz'];
 
-    /** Nejvyšší zanoření komponent do sebe (komponenta v komponentě…). */
+    /** Maximum nesting of components (a component in a component…). */
     public const int MAX_NESTING = 4;
 
     /** @return list<array<string, mixed>> */
@@ -40,13 +40,13 @@ final class Components
     }
 
     /**
-     * Definice vlastností z formuláře nebo od AI: klíč, popisek, typ a výchozí hodnota (zkontrolovaná podle typu).
+     * Property definitions from the form or from AI: key, label, type and default value (checked by type).
      *
      * @return list<array{klic: string, popisek: string, typ: string, vychozi: string}>
      */
     public static function sanitizeProperties(mixed $input): array
     {
-        // jen řádky s popiskem; výchozí hodnota jde ruku v ruce s polem, pořadí se nesmí rozejít
+        // only rows with a label; the default value goes hand in hand with the field, the order must not diverge
         $rows = array_values(array_filter(is_array($input) ? $input : [], fn (mixed $v): bool => is_array($v) && trim(strip_tags((string) ($v['popisek'] ?? ''))) !== ''));
         $rows = array_slice($rows, 0, 30);
         $field = Collections::sanitizeFields(array_map(fn (array $v): array => ['typ' => isset(self::TYPES[$v['typ'] ?? '']) ? $v['typ'] : 'text'] + $v, $rows));
@@ -56,7 +56,7 @@ final class Components
     }
 
     /**
-     * Hodnoty pro {{značky}}: zadané u použití, jinak výchozí. Zkontrolují se podle typu vlastnosti (obrázek, odkaz, HTML).
+     * Values for {{tags}}: those given at the use, otherwise the defaults. They are checked by property type (image, link, HTML).
      *
      * @return array<string, array{0: string, 1: string}>
      */

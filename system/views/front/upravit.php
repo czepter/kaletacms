@@ -1,14 +1,14 @@
 <?php
 /**
- * Úprava stránky nebo novinky přímo na webu: stejný editor jako v administraci, vsazený do šablony webu.
- * Ukládá se běžným formulářem do administrace (akce uloz_text), takže platí stejná oprávnění i revize.
+ * Editing a page or news item directly on the site: the same editor as in the admin, embedded in the site template.
+ * It is saved with a normal form to the admin (action uloz_text), so the same permissions and versions apply.
  *
  * @var Kaleta\Core\App $app
  * @var string $typ       novinka | stranka
  * @var array<string, mixed> $zaznam
- * @var string $akce      adresa pro uložení
- * @var string $zpet      adresa, na kterou se po uložení nebo zrušení vrací
- * @var bool $chyba       uložení se nepovedlo (prázdný titulek)
+ * @var string $akce      url for saving
+ * @var string $zpet      url to return to after saving or cancelling
+ * @var bool $chyba       saving failed (empty title)
  */
 ?>
 <link rel="stylesheet" href="<?= e($app->url('image/editor.css')) ?>?v=<?= e(KALETA_VERSION) ?>">

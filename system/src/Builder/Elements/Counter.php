@@ -8,8 +8,8 @@ use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
 /**
- * Animované počítadlo („1 200 spokojených zákazníků“): číslo je v HTML celé (vyhledávače, čtečky, web bez skriptu),
- * web.js ho při objevení na obrazovce jednou napočítá od nuly. Kdo nechce pohyb (nastavení systému), vidí rovnou výsledek.
+ * Animated counter ("1,200 happy customers"): the number is complete in the HTML (search engines, screen readers, site without a script),
+ * web.js counts it up from zero once when it appears on screen. Whoever does not want motion (system setting) sees the result right away.
  */
 final class Counter extends Element
 {
@@ -40,7 +40,7 @@ final class Counter extends Element
     {
         $o = $p['obsah'];
         $number = (int) $o['cislo'];
-        $format = format_count($number); // 1 200 česky, 1,200 anglicky (jako Intl.NumberFormat v image/web.js)
+        $format = format_count($number); // 1 200 in Czech, 1,200 in English (like Intl.NumberFormat in image/web.js)
 
         return '<div' . Text::withClass($a, 'ka-pocitadlo') . '><span class="ka-pocitadlo-cislo">' . e($o['pred'])
             . '<span data-pocitadlo="' . $number . '">' . $format . '</span>' . e($o['za']) . '</span>'

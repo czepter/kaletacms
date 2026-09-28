@@ -7,7 +7,7 @@ namespace Kaleta\Builder\Elements;
 use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
-/** Pás stránky přes celou šířku; obsah drží vnitřní obal v šířce webu (nebo úzký pro text, nebo žádný). */
+/** A full-width band of the page; an inner wrapper keeps the content at the site width (or narrow for text, or none). */
 final class Section extends Element
 {
     public const string TYPE = 'sekce';
@@ -22,7 +22,7 @@ final class Section extends Element
     {
         return [
             'sirka' => ['typ' => 'vyber', 'popisek' => 'Šířka obsahu', 'vychozi' => 'obsah', 'moznosti' => ['obsah' => 'šířka webu', 'uzka' => 'úzká (text)', 'plna' => 'celá šířka']],
-            'video' => ['typ' => 'odkaz', 'popisek' => 'Video na pozadí (MP4 nebo WebM z Médií, bez zvuku)', 'vychozi' => '', 'media' => 'video'], // editor: výběr z Médií, ne odkaz
+            'video' => ['typ' => 'odkaz', 'popisek' => 'Video na pozadí (MP4 nebo WebM z Médií, bez zvuku)', 'vychozi' => '', 'media' => 'video'], // editor: a pick from Media, not a link
         ];
     }
 
@@ -47,7 +47,7 @@ final class Section extends Element
         $width = $p['obsah']['sirka'] ?? 'obsah';
         $content = $width === 'plna' ? $children : '<div class="ka-obal' . ($width === 'uzka' ? ' ka-obal--uzka' : '') . '">' . $children . '</div>';
 
-        // video na pozadí: jen soubor z Médií (cizí přehrávač by bez souhlasu posílal data); ztlumené, ve smyčce, pro čtečky skryté
+        // background video: only a file from Media (a third-party player would send data without consent); muted, looped, hidden from screen readers
         $video = (string) ($p['obsah']['video'] ?? '');
         if (preg_match('#^/?(media/[A-Za-z0-9/_.-]{1,300}\.(mp4|webm))$#i', $video, $m) && !str_contains($m[1], '..')) {
             $content = '<video class="ka-video-pozadi" src="' . e($k->app->request->basePath() . '/' . $m[1]) . '" autoplay muted loop playsinline preload="metadata" aria-hidden="true"></video>' . $content;

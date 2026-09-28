@@ -8,17 +8,17 @@ use Kaleta\Core\Db;
 use Kaleta\Core\WpContent;
 
 /**
- * Kolekce – vlastní typy obsahu (reference, tým, produkty, pobočky…): definice polí, položky a hodnoty pro builder.
+ * Collections – custom content types (references, team, products, branches…): field definitions, items and values for the builder.
  *
- * V builderu je vypisuje prvek Výpis kolekce: jeho vnitřek se zopakuje pro každou položku a zástupné značky {{pole}}
- * v textech, obrázcích a odkazech se nahradí hodnotami položky. Vždy jsou k dispozici {{nazev}}, {{url}} (detail) a {{datum}}.
+ * In the builder the Collection list element lists them: its inside repeats for each item and the {{field}} placeholders
+ * in texts, images and links are replaced by the item's values. {{nazev}}, {{url}} (item page) and {{datum}} are always available.
  */
 final class Collections
 {
-    /** Typy polí (klíč => popisek). */
+    /** Field types (key => label). */
     public const array FIELD_TYPES = ['text' => 'krátký text', 'radky' => 'delší text', 'html' => 'formátovaný text', 'obrazek' => 'obrázek', 'odkaz' => 'odkaz', 'cislo' => 'číslo', 'datum' => 'datum'];
 
-    /** Vestavěné hodnoty každé položky – vlastní pole je mít nesmí. */
+    /** Built-in values of every item – custom fields must not use them. */
     public const array BUILT_IN = ['nazev', 'url', 'datum', 'seo'];
 
     public const string PLACEHOLDER_PATTERN = '/\{\{([a-z][a-z0-9_]{0,30})\}\}/';
@@ -48,8 +48,9 @@ final class Collections
     }
 
     /**
-     * Šablona detailu v jazykové verzi: kolekce, jejíž stavba a koncept patří jazyku (sablona_jazyk). Výchozí jazyk ('')
-     * má šablonu v ka_kolekce, další jazyky v ka_kolekce_sablony; jazyk bez vlastní šablony má stavbu i koncept null.
+     * Item template in a language version: the collection whose build and draft belong to the language (sablona_jazyk). The default
+     * language ('') has its template in ka_kolekce, other languages in ka_kolekce_sablony; a language without its own template has
+     * both build and draft null.
      *
      * @param array<string, mixed> $collection @return array<string, mixed>
      */
@@ -64,7 +65,11 @@ final class Collections
         return ['stavba' => $r['stavba'] ?? null, 'stavba_koncept' => $r['stavba_koncept'] ?? null, 'zmeneno' => $r['zmeneno'] ?? null] + $collection;
     }
 
-    /** Zapíše sloupce šablony jazyka, kterou vrátil vJazyce (výchozí do ka_kolekce, další jazyk založí řádek). @param array<string, mixed> $sloupce */
+    /**
+     * Writes the columns of the language template returned by inLanguage (the default into ka_kolekce, another language creates a row).
+     *
+     * @param array<string, mixed> $columns
+     */
     public static function writeTemplate(Db $db, array $collection, array $columns): void
     {
         $language = (string) ($collection['sablona_jazyk'] ?? '');
@@ -77,7 +82,7 @@ final class Collections
         }
     }
 
-    /** Klíč verzí a podepsaného náhledu šablony: kolekce:<idk>, u dalšího jazyka kolekce:<idk>:<jazyk>. */
+    /** Key of the template's versions and signed preview: kolekce:<idk>, for another language kolekce:<idk>:<jazyk>. */
     public static function templateKey(array $collection): string
     {
         $language = (string) ($collection['sablona_jazyk'] ?? '');
@@ -86,8 +91,8 @@ final class Collections
     }
 
     /**
-     * Koncept, se kterým builder šablonu jazyka otevře, dokud ji nikdo neuložil: další jazyk začíná kopií šablony
-     * výchozího jazyka, výchozí jazyk šablonou poskládanou z polí kolekce.
+     * The draft the builder opens a language's template with until anyone saves it: another language starts with a copy of the
+     * default language's template, the default language with a template assembled from the collection fields.
      */
     public static function initialTemplateDraft(Db $db, array $collection): string
     {
@@ -109,7 +114,7 @@ final class Collections
     }
 
     /**
-     * Definice polí z formuláře nebo od AI: klíč jen malá písmena, číslice a podtržítko (vznikne z popisku), známý typ.
+     * Field definitions from the form or from AI: the key only lowercase letters, digits and underscore (made from the label), a known type.
      *
      * @return list<array{klic: string, popisek: string, typ: string}>
      */
@@ -138,7 +143,7 @@ final class Collections
     }
 
     /**
-     * Hodnoty položky podle definice polí. Neplatná hodnota se zahodí a nahlásí.
+     * Item values by the field definitions. An invalid value is discarded and reported.
      *
      * @param list<array{klic: string, popisek: string, typ: string}> $field
      * @param array<string, string> $errors
@@ -170,14 +175,14 @@ final class Collections
     }
 
     /**
-     * Viditelné položky kolekce v jazyce webu: filtr podle hodnoty pole, řazení (i podle vlastního pole) a stránkování.
+     * Visible items of a collection in the site language: filter by field value, sorting (also by a custom field) and pagination.
      *
-     * @param array{0: string, 1: string}|null $filter [klíč pole, hodnota]
-     * @return array{0: list<array<string, mixed>>, 1: int} [položky, celkem]
+     * @param array{0: string, 1: string}|null $filter [field key, value]
+     * @return array{0: list<array<string, mixed>>, 1: int} [items, total]
      */
     public static function items(Db $db, int $idk, string $language, int $count, string $sort = 'poradi', ?array $filter = null, int $pageNumber = 1, string $sortField = ''): array
     {
-        $field = fn (string $key): string => "JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $key . "'))"; // klíč prošel VZOR_KLICE
+        $field = fn (string $key): string => "JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $key . "'))"; // the key passed KEY_PATTERN
         $whereParts = 'idk = ? AND zobrazit = 1 AND jazyk = ?';
         $params = [$idk, $language];
         if ($filter !== null && preg_match(self::KEY_PATTERN, $filter[0]) && $filter[1] !== '') {
@@ -188,7 +193,7 @@ final class Collections
         $order = match (true) {
             $sort === 'nazev' => 'nazev',
             $sort === 'nejnovejsi' => 'datum DESC, idp DESC',
-            // čísla se řadí jako čísla, ostatní jako text
+            // numbers sort as numbers, everything else as text
             $sort === 'pole' && $byField => '(' . $field($sortField) . ' + 0) ASC, ' . $field($sortField) . ' ASC, nazev',
             $sort === 'pole_sestupne' && $byField => '(' . $field($sortField) . ' + 0) DESC, ' . $field($sortField) . ' DESC, nazev',
             default => 'poradi, nazev',
@@ -204,7 +209,7 @@ final class Collections
         return [$items, $total];
     }
 
-    /** Různé hodnoty pole mezi viditelnými položkami (tlačítka filtru ve výpisu). @return list<string> */
+    /** Distinct values of a field among the visible items (filter buttons in the list). @return list<string> */
     public static function fieldValues(Db $db, int $idk, string $language, string $key): array
     {
         if (!preg_match(self::KEY_PATTERN, $key)) {
@@ -218,9 +223,9 @@ final class Collections
     }
 
     /**
-     * Hodnoty pro zástupné značky: klíč => [hodnota, typ].
+     * Values for the placeholders: key => [value, type].
      *
-     * @param callable(string): string $url adresa uvnitř webu
+     * @param callable(string): string $url url within the site
      * @return array<string, array{0: string, 1: string}>
      */
     public static function values(array $collection, array $item, callable $url): array
@@ -238,7 +243,7 @@ final class Collections
         return $h;
     }
 
-    /** Ukázkové hodnoty pro editor, když kolekce ještě nemá položky: popisky polí v hranatých závorkách. */
+    /** Sample values for the editor when the collection has no items yet: field labels in square brackets. */
     public static function sample(array $collection): array
     {
         $h = ['nazev' => ['[' . t('Název') . ']', 'text'], 'url' => ['#', 'odkaz'], 'datum' => [format_date(date('Y-m-d H:i:s')), 'text'], 'seo' => ['', 'text']];
@@ -250,7 +255,7 @@ final class Collections
     }
 
     /**
-     * Dosadí hodnoty do pole obsahu prvku podle typu cílového pole (text se escapuje až při vykreslení, inline a html hned).
+     * Fills values into an element's content field by the type of the target field (text is escaped only when rendering, inline and html right away).
      *
      * @param array<string, array{0: string, 1: string}> $values
      */
@@ -259,14 +264,14 @@ final class Collections
         if (!str_contains($text, '{{')) {
             return $text;
         }
-        // jeden průchod: dosazená hodnota se už znovu neprochází (značky {{…}} napsané v textu pole zůstanou textem)
+        // one pass: a filled-in value is not scanned again ({{…}} tags written in a field's text stay text)
         $htmlTag = substr(self::PLACEHOLDER_PATTERN, 1, -1);
         $pattern = $target === 'html' ? '#<p>\s*' . $htmlTag . '\s*</p>|' . $htmlTag . '#' : self::PLACEHOLDER_PATTERN;
         $result = (string) preg_replace_callback($pattern, function (array $m) use ($target, $values): string {
             $key = ($m[1] ?? '') !== '' ? $m[1] : $m[2];
             [$h, $type] = $values[$key] ?? ['', 'text'];
             if ($target === 'html' && ($m[1] ?? '') !== '') {
-                // odstavec jen se značkou formátovaného nebo delšího textu se nahradí celý (jinak by vzniklo <p><p>…</p></p>)
+                // a paragraph with only a tag of formatted or longer text is replaced whole (otherwise <p><p>…</p></p> would result)
                 return match ($type) {
                     'html' => $h,
                     'radky' => $h === '' ? '' : '<p>' . nl2br(e($h), false) . '</p>',
@@ -278,7 +283,7 @@ final class Collections
             return match ($target) {
                 'html' => $type === 'html' ? $h : ($type === 'radky' ? nl2br(e($h), false) : e($h)),
                 'inline' => $type === 'radky' ? nl2br(e($h), false) : e($plain),
-                // Vlastní HTML se vypisuje, jak je (filtr kódu proběhl při uložení, dosazení až teď): hodnota nesmí přinést značky
+                // Custom HTML is output as it is (the code filter ran on save, the filling only now): the value must not bring tags
                 'kod' => $type === 'html' ? \Kaleta\Core\Html::safe($h) : ($type === 'radky' ? nl2br(e($h), false) : e($h)),
                 default => $plain,
             };
@@ -293,7 +298,7 @@ final class Collections
         return $result;
     }
 
-    /** Šablona detailu položky, dokud ji správce neupraví v builderu: nadpis, obrázek a všechna pole pod sebou. */
+    /** Item template until the administrator edits it in the builder: heading, image and all fields one below another. */
     public static function defaultTemplate(array $collection): array
     {
         $n = Build::fresh(...);

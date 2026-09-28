@@ -4,8 +4,8 @@
  * @var Kaleta\Admin\Modules\Menu $module
  * @var string $csrf
  * @var string $location  hlavni | paticka
- * @var string $language     sloupec jazyka ('' = výchozí)
- * @var bool $automatic hlavní menu se zatím skládá samo
+ * @var string $language     the language column ('' = default)
+ * @var bool $automatic the main menu is still built automatically
  * @var list<array<string, mixed>> $items
  * @var list<array{ids:int, titulek:string, skryta:bool}> $pages
  * @var array<string, string> $languages

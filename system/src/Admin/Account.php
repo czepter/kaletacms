@@ -10,7 +10,7 @@ use Kaleta\Core\Extensions;
 use Kaleta\Core\Totp;
 
 /**
- * Můj účet: vlastní jméno a e-mail, změna hesla, dvoufázové přihlášení. Dostupné každému přihlášenému.
+ * My account: own name and e-mail, password change, two-factor sign-in. Available to every signed-in user.
  */
 final class Account
 {
@@ -35,7 +35,7 @@ final class Account
                         break;
                     }
                     $db->update('uzivatele', ['jmeno' => mb_substr($r->post('jmeno'), 0, 100), 'email' => mb_substr($r->post('email'), 0, 190), 'url' => mb_substr($r->post('url'), 0, 255), 'pozice' => mb_substr($r->post('pozice'), 0, 100), 'foto' => mb_substr($r->post('foto'), 0, 255), 'bio' => mb_substr($r->post('bio'), 0, 1200),
-                        // jazyk administrace i čeština výslovně – prázdná hodnota by znamenala jazyk webu
+                        // admin language, Czech explicitly too – an empty value would mean the site language
                         'jazyk' => isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$r->post('jazyk')]) ? $r->post('jazyk') : ''], ['idu' => $user['idu']]);
                     $message = ['ok', 'Údaje byly uloženy.'];
                     break;
@@ -50,7 +50,7 @@ final class Account
                     if ($message === null) {
                         $newHash = password_hash($newItems, PASSWORD_DEFAULT);
                         $db->update('uzivatele', ['password' => $newHash], ['idu' => $user['idu']]);
-                        $app->auth()->refreshAfterPasswordChange($newHash); // ostatní přihlášení tohoto účtu tím končí
+                        $app->auth()->refreshAfterPasswordChange($newHash); // this ends the other sign-ins of this account
                         $revoked = $r->postBool('zrusit_tokeny') ? $db->delete('api_tokeny', ['idu' => $user['idu']]) : 0;
                         ChangeLog::write($app, 'ucet', 'změna hesla' . ($revoked > 0 ? ', zrušeny tokeny napojení (' . $revoked . ')' : ''));
                         $message = ['ok', $revoked > 0 ? 'Heslo bylo změněno, ostatní přihlášení ukončena a tokeny napojení zrušeny.' : 'Heslo bylo změněno a ostatní přihlášení tohoto účtu ukončena.'];
@@ -67,7 +67,7 @@ final class Account
                     $token = 'kaleta_' . bin2hex(random_bytes(24));
                     $db->insert('api_tokeny', ['idu' => $user['idu'], 'nazev' => mb_substr($r->post('nazev') ?: 'Claude', 0, 100), 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s')]);
                     ChangeLog::write($app, 'ucet', 'vytvořen token pro Claude');
-                    // token se ukazuje jen teď - proto bez přesměrování
+                    // the token is shown only now - hence no redirect
                     return $this->page(['newToken' => $token] + $data);
                 case 'token_smaz':
                     $db->delete('api_tokeny', ['idt' => $r->postInt('smaz_token'), 'idu' => $user['idu']]);
@@ -91,7 +91,7 @@ final class Account
                     $db->update('uzivatele', ['totp_tajemstvi' => $secret, 'totp_zalozni' => $json], ['idu' => $user['idu']]);
                     $app->session->remove('totp_nove');
                     ChangeLog::write($app, 'ucet', 'zapnuto dvoufázové přihlášení');
-                    // záložní kódy se ukazují jen teď - proto bez přesměrování
+                    // the backup codes are shown only now - hence no redirect
                     return $this->page(['backupCodes' => $codes] + $data);
                 case 'klic_moznosti':
                 case 'klic_uloz':
@@ -107,7 +107,7 @@ final class Account
                         break;
                     }
                     $db->update('uzivatele', ['totp_tajemstvi' => '', 'totp_zalozni' => null], ['idu' => $user['idu']]);
-                    $db->run('DELETE FROM {uzivatele_klice} WHERE idu = ?', [$user['idu']]); // klíče jsou náhrada kódu z aplikace - bez něj nemají smysl
+                    $db->run('DELETE FROM {uzivatele_klice} WHERE idu = ?', [$user['idu']]); // keys replace the code from the app - without it they make no sense
                     ChangeLog::write($app, 'ucet', 'vypnuto dvoufázové přihlášení');
                     $message = ['ok', 'Dvoufázové přihlášení je vypnuté.'];
                     break;
@@ -123,9 +123,9 @@ final class Account
     }
 
     /**
-     * Registrace přihlašovacího klíče (otisk prstu, Face ID, bezpečnostní klíč) - volá ji skript image/klice.js.
-     * Klíč jde přidat jen k účtu se zapnutým dvoufázovým přihlášením: je to pohodlnější náhrada kódu z aplikace,
-     * kód a záložní kódy zůstávají jako záloha pro případ ztráty zařízení.
+     * Registration of a passkey (fingerprint, Face ID, security key) - called by the script image/klice.js.
+     * A key can be added only to an account with two-factor sign-in enabled: it is a more convenient replacement of the
+     * code from the app, the code and the backup codes remain as a fallback in case the device is lost.
      */
     private function key(bool $save): Response
     {
@@ -181,7 +181,7 @@ final class Account
             'claude' => Extensions::isEnabled($app->settings(), 'claude'),
             'keys' => $app->auth()->accountKeys((int) $user['idu']),
             'tokens' => $app->db()->all("SELECT * FROM {api_tokeny} WHERE idu = ? AND druh = 'token' ORDER BY idt DESC", [$user['idu']]),
-            // aplikace připojené přes OAuth (konektor Claude): jedna položka na klienta, platí dokud má obnovovací token
+            // apps connected via OAuth (the Claude connector): one item per client, valid while it has a refresh token
             'apps' => $app->db()->all("SELECT klient, MAX(nazev) AS nazev, MIN(vytvoren) AS vytvoren, MAX(pouzit) AS pouzit FROM {api_tokeny} WHERE idu = ? AND klient IS NOT NULL AND expirace > ? GROUP BY klient ORDER BY MIN(vytvoren) DESC",
                 [$user['idu'], date('Y-m-d H:i:s')]),
             'mcpUrl' => $app->request->origin() . $app->url('mcp'),

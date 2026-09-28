@@ -1,10 +1,10 @@
 <?php
 /**
- * Stránka webu (O nás, Služby, Kontakt…). Na úvodní stránce se nadpis nevypisuje – úvod si nese vlastní obsah.
+ * A page of the site (About us, Services, Contact…). On the home page the heading is not output – the home page carries its own content.
  *
  * @var array<string, mixed> $stranka
- * @var bool $uvod  stránka je úvodem webu
- * @var string|null $stavba  hotové HTML stránky z builderu (sekce jdou přes celou šířku, bez obalu)
+ * @var bool $uvod  the page is the home page of the site
+ * @var string|null $stavba  ready-made HTML of the page from the builder (sections run full width, without a wrapper)
  */
 if ($stavba !== null) {
     echo $stavba;

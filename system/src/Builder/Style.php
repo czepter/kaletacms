@@ -5,27 +5,27 @@ declare(strict_types=1);
 namespace Kaleta\Builder;
 
 /**
- * Styl prvku nebo třídy: {"zaklad": {...}, "tablet": {...}, "mobil": {...}, "hover": {...}}.
- * Vlastnosti jsou kurátorované (VLASTNOSTI) a berou přednostně tokeny design systému (mezera „l“, barva „primarni“, krok „2“),
- * volná hodnota jde taky, ale jen v bezpečném tvaru. Úprava jednoho breakpointu nikdy nesahá na jiný.
+ * Style of an element or class: {"zaklad": {...}, "tablet": {...}, "mobil": {...}, "hover": {...}}.
+ * The properties are curated (PROPERTIES) and prefer design system tokens (spacing „l“, color „primarni“, step „2“);
+ * a free value works too, but only in a safe form. Editing one breakpoint never touches another.
  */
 final class Style
 {
-    /** Breakpointy a stavy: klíč => media query nebo pseudotřída (prázdné = základ). */
+    /** Breakpoints and states: key => media query or pseudo-class (empty = base). */
     public const array STATUSES = [
         'zaklad' => '',
         'tablet' => '@media (max-width: 1023px)',
         'mobil' => '@media (max-width: 767px)',
-        'hover' => ':hover',     // platí i pro fokus z klávesnice (:focus-visible) – kdo nepoužívá myš, uvidí totéž
-        'aktivni' => ':active',  // stisknutí (tlačítko, karta-odkaz)
-        // stav na menší obrazovce: najetí a stisk se dají doladit zvlášť pro tablet a mobil
+        'hover' => ':hover',     // also applies to keyboard focus (:focus-visible) – whoever does not use a mouse sees the same
+        'aktivni' => ':active',  // press (button, card link)
+        // state on a smaller screen: hover and press can be fine-tuned separately for tablet and mobile
         'hover_tablet' => '@media (max-width: 1023px)',
         'hover_mobil' => '@media (max-width: 767px)',
         'aktivni_tablet' => '@media (max-width: 1023px)',
         'aktivni_mobil' => '@media (max-width: 767px)',
     ];
 
-    /** Odkud stav dědí hodnotu, kterou sám nemá (editor ji ukáže šedě): nejbližší nejdřív. */
+    /** Where a state inherits a value it does not have itself (the editor shows it in grey): the nearest first. */
     public const array INHERITANCE = [
         'zaklad' => [], 'tablet' => ['zaklad'], 'mobil' => ['tablet', 'zaklad'],
         'hover' => ['zaklad'], 'hover_tablet' => ['hover', 'tablet', 'zaklad'], 'hover_mobil' => ['hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'],
@@ -34,11 +34,11 @@ final class Style
     ];
 
     /**
-     * klíč => [CSS vlastnost, typ, skupina, popisek, možnosti výčtu]
-     * Typy: mezera | delka | barva | krok | zaobleni | stin | ramecek | vyber | cislo | obrazek | sloupce | radky | oblasti | oblast | text
+     * key => [CSS property, type, group, label, enumeration options]
+     * Types: mezera | delka | barva | krok | zaobleni | stin | ramecek | vyber | cislo | obrazek | sloupce | radky | oblasti | oblast | text
      */
     public const array PROPERTIES = [
-        // rozložení
+        // layout
         'zobrazeni' => ['display', 'vyber', 'rozlozeni', 'Zobrazení', ['block' => 'blok', 'flex' => 'flex (řada / sloupec)', 'grid' => 'mřížka', 'none' => 'skrýt']],
         'smer' => ['flex-direction', 'vyber', 'rozlozeni', 'Směr', ['row' => 'vedle sebe', 'column' => 'pod sebou', 'row-reverse' => 'vedle sebe obráceně', 'column-reverse' => 'pod sebou obráceně']],
         'zalamovani' => ['flex-wrap', 'vyber', 'rozlozeni', 'Zalamování', ['wrap' => 'zalamovat', 'nowrap' => 'nezalamovat']],
@@ -54,7 +54,7 @@ final class Style
         'vlastni_zarovnani' => ['align-self', 'vyber', 'rozlozeni', 'Vlastní zarovnání', ['start' => 'začátek', 'center' => 'střed', 'end' => 'konec', 'stretch' => 'roztáhnout']],
         'poradi' => ['order', 'cislo', 'rozlozeni', 'Pořadí', null],
         'rust' => ['flex', 'vyber', 'rozlozeni', 'Roztažení ve flexu', ['1 1 0%' => 'vyplnit místo', '0 0 auto' => 'podle obsahu']],
-        // rozměry
+        // dimensions
         'sirka' => ['width', 'delka', 'rozmery', 'Šířka', null],
         'max_sirka' => ['max-width', 'delka', 'rozmery', 'Max. šířka', null],
         'vyska' => ['height', 'delka', 'rozmery', 'Výška', null],
@@ -62,14 +62,14 @@ final class Style
         'pomer_stran' => ['aspect-ratio', 'vyber', 'rozmery', 'Poměr stran', ['1' => '1 : 1', '4/3' => '4 : 3', '3/2' => '3 : 2', '16/9' => '16 : 9', '21/9' => '21 : 9', '3/4' => '3 : 4']],
         'prizpusobeni' => ['object-fit', 'vyber', 'rozmery', 'Přizpůsobení obrázku', ['cover' => 'vyplnit (oříznout)', 'contain' => 'celý obrázek']],
         'na_stred' => ['margin-inline', 'vyber', 'rozmery', 'Na střed', ['auto' => 'ano']],
-        // mezery
+        // spacing
         'odsazeni_y' => ['padding-block', 'mezera', 'mezery', 'Vnitřní odsazení nahoře a dole', null],
         'odsazeni_x' => ['padding-inline', 'mezera', 'mezery', 'Vnitřní odsazení vlevo a vpravo', null],
         'okraj_nahore' => ['margin-block-start', 'mezera', 'mezery', 'Vnější okraj nahoře', null],
         'okraj_dole' => ['margin-block-end', 'mezera', 'mezery', 'Vnější okraj dole', null],
         'okraj_vlevo' => ['margin-inline-start', 'mezera', 'mezery', 'Vnější okraj vlevo', null],
         'okraj_vpravo' => ['margin-inline-end', 'mezera', 'mezery', 'Vnější okraj vpravo', null],
-        // typografie: nejdřív pojmenovaný styl z Vzhledu, jednotlivé vlastnosti pod ním ho doladí
+        // typography: first the named style from Appearance, the individual properties below it fine-tune it
         'typ_styl' => ['font', 'vyber', 'typografie', 'Typografický styl', [
             'titulek' => 'Hlavní titulek', 'nadpis-sekce' => 'Nadpis sekce', 'podnadpis' => 'Podnadpis', 'perex' => 'Perex',
             'text' => 'Běžný text', 'drobny' => 'Drobný text', 'nadtitulek' => 'Nadtitulek',
@@ -83,7 +83,7 @@ final class Style
         'proklad' => ['letter-spacing', 'vyber', 'typografie', 'Proklad písmen', ['-0.02em' => 'užší', '0' => 'normální', '0.06em' => 'širší', '0.12em' => 'široký']],
         'max_radek' => ['max-width', 'vyber', 'typografie', 'Délka řádku', ['var(--ka-sirka-textu)' => 'pohodlná pro čtení', '20ch' => 'krátká (titulek)', '60ch' => '60 znaků']],
         'barva' => ['color', 'barva', 'typografie', 'Barva textu', null],
-        // pozadí a rámeček
+        // background and border
         'pozadi' => ['background-color', 'barva', 'pozadi', 'Barva pozadí', null],
         'obrazek_pozadi' => ['background-image', 'obrazek', 'pozadi', 'Obrázek pozadí', null],
         'prechod' => ['background-image', 'vyber', 'pozadi', 'Barevný přechod', [
@@ -113,20 +113,20 @@ final class Style
         'otoceni' => ['rotate', 'vyber', 'pokrocile', 'Otočení', ['-3deg' => '−3°', '3deg' => '3°', '-90deg' => '−90°', '90deg' => '90°', '180deg' => '180°']],
         'plynule' => ['transition', 'vyber', 'pokrocile', 'Plynulá změna (u najetí)', ['all 0.2s ease' => 'rychlá', 'all 0.4s ease' => 'pomalejší', 'none' => 'žádná']],
         'vrstva' => ['z-index', 'cislo', 'pokrocile', 'Vrstva (nad ostatním obsahem)', null],
-        // objevení při rolování: animace řízená posunem stránky (CSS scroll-driven), bez JavaScriptu; kde to prohlížeč neumí, prvek je rovnou vidět
+        // reveal on scroll: an animation driven by page scrolling (CSS scroll-driven), without JavaScript; where the browser cannot do it, the element is visible right away
         'animace' => ['animation', 'vyber', 'pokrocile', 'Objevení při rolování', ['ka-objevit' => 'prolnutí', 'ka-vyjet' => 'vyjetí zdola', 'ka-priblizit' => 'přiblížení', 'none' => 'žádné']],
     ];
 
     public const array GROUPS = ['rozlozeni' => 'Rozložení', 'rozmery' => 'Rozměry', 'mezery' => 'Mezery', 'typografie' => 'Typografie', 'pozadi' => 'Pozadí a rámeček', 'pokrocile' => 'Pokročilé'];
 
-    /** Bezpečný tvar volné hodnoty: čísla s jednotkami, klíčová slova, calc/min/max/clamp, var(--ka-…). Nikdy ; { } < > \ ani url(). */
+    /** Safe form of a free value: numbers with units, keywords, calc/min/max/clamp, var(--ka-…). Never ; { } < > \ or url(). */
     private const string FREE_VALUE_PATTERN = '/^(?!.*(?:url|expression|javascript|@import))[-a-z0-9 .,%()#+*\/]{1,80}$/i';
     private const string LENGTH_PATTERN = '/^(auto|0|-?\d{1,5}(\.\d{1,4})?(px|rem|em|%|vw|vh|svh|dvh|ch|fr)|(min|max|clamp|calc)\([-a-z0-9 .,%+*\/()]{1,70}\)|var\(--ka-[a-z0-9-]{1,40}\)|fit-content|min-content|max-content)$/i';
 
     /**
-     * Vyčistí styl: zná jen stavy ze STAVY a vlastnosti z VLASTNOSTI; neplatná hodnota se zahodí a zapíše do $chyby.
+     * Sanitizes a style: it knows only the states from STATUSES and the properties from PROPERTIES; an invalid value is discarded and written to $errors.
      *
-     * @param array<string, string> $errors cesta => text chyby (pro zprávu editoru a MCP)
+     * @param array<string, string> $errors path => error text (for the editor's and MCP's message)
      * @return array<string, array<string, string>>
      */
     public static function sanitize(mixed $style, string $path = '', array &$errors = []): array
@@ -157,7 +157,7 @@ final class Style
         return $clean;
     }
 
-    /** CSS hodnota pro uloženou hodnotu vlastnosti; null = neplatná. */
+    /** CSS value for a stored property value; null = invalid. */
     public static function value(string $key, string $value): ?string
     {
         [, $type, , , $options] = self::PROPERTIES[$key];
@@ -182,18 +182,18 @@ final class Style
     }
 
     /**
-     * CSS deklarace jako vlastnosti stylu (převod <style> z HTML na stavy třídy – breakpointy a najetí). Tokeny se vrátí
-     * jako klíče („var(--ka-mezera-l)“ → „l“), zkratky padding/margin se rozloží. Co ve stylu obdobu nemá, vrátí null.
+     * A CSS declaration as style properties (converting <style> from HTML to class states – breakpoints and hover). Tokens are returned
+     * as keys ("var(--ka-mezera-l)" → "l"), the padding/margin shorthands are expanded. What has no counterpart in the style returns null.
      *
-     * @return array<string, string>|null klíč stylu => hodnota
+     * @return array<string, string>|null style key => value
      */
     public static function fromCss(string $property, string $value): ?array
     {
         $property = strtolower(trim($property));
         $value = trim((string) preg_replace('/\s*!important$/i', '', trim($value)));
-        // běžné zápisy, které builder zná pod logickým jménem: margin-top → margin-block-start, flex-start → start
+        // common notations the builder knows under a logical name: margin-top → margin-block-start, flex-start → start
         $property = ['margin-top' => 'margin-block-start', 'margin-bottom' => 'margin-block-end', 'margin-left' => 'margin-inline-start', 'margin-right' => 'margin-inline-end'][$property] ?? $property;
-        // zkratka background jen s barvou (background: #EFECE5) je barva pozadí
+        // the background shorthand with only a color (background: #EFECE5) is the background color
         if ($property === 'background' && preg_match('/^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([^()]*\)|var\(--ka-barva-[a-z0-9-]+\)|[a-z]+)$/i', $value)) {
             $property = 'background-color';
         }
@@ -248,7 +248,7 @@ final class Style
         }
         $value = $token($value);
         if ($property === 'transform') {
-            // posun a zvětšení (efekt najetí) mají ve stylu vlastní vlastnosti translate a scale
+            // shift and enlargement (hover effect) have their own properties translate and scale in the style
             $value = match (true) {
                 (bool) preg_match('/^translateY\(([^()]+)\)$/', $value, $m) => '0 ' . trim($m[1]),
                 (bool) preg_match('/^translate\(([^(),]+),\s*([^(),]+)\)$/', $value, $m) => trim($m[1]) . ' ' . trim($m[2]),
@@ -275,7 +275,7 @@ final class Style
         return null;
     }
 
-    /** Barva: token design systému, nebo bezpečně zapsaná vlastní barva. */
+    /** Color: a design system token, or a safely written custom color. */
     public static function color(string $value): ?string
     {
         if (isset(DesignSystem::COLOR_TOKENS[$value])) {
@@ -286,7 +286,7 @@ final class Style
     }
 
     /**
-     * Vlastní stín z editoru stínu: až tři vrstvy „[inset] x y [rozostření] [roztažení] barva“ (barva i jako token, např. „0 8px 24px primarni“).
+     * Custom shadow from the shadow editor: up to three layers "[inset] x y [blur] [spread] color" (the color also as a token, e.g. "0 8px 24px primarni").
      */
     private static function shadow(string $value): ?string
     {
@@ -305,7 +305,7 @@ final class Style
         return $css === [] ? null : implode(', ', $css);
     }
 
-    /** Vlastní rámeček: „2px dashed primarni“ – šířka, styl čáry a barva (token nebo vlastní). */
+    /** Custom border: "2px dashed primarni" – width, line style and color (token or custom). */
     private static function border(string $value): ?string
     {
         if (!preg_match('/^(\d{1,2}(?:\.\d)?px)\s+(solid|dashed|dotted|double)\s+(\S+)$/', $value, $m) || ($color = self::color($m[3])) === null) {
@@ -315,7 +315,7 @@ final class Style
         return $m[1] . ' ' . $m[2] . ' ' . $color;
     }
 
-    /** Oblasti mřížky: řádky oddělené „/“, v řádku názvy oblastí (tečka = prázdná buňka); všechny řádky stejně dlouhé. */
+    /** Grid areas: rows separated by "/", area names in a row (a dot = an empty cell); all rows of the same length. */
     private static function areas(string $value): ?string
     {
         $rows = array_map(fn (string $r): array => preg_split('/\s+/', trim($r)) ?: [], explode('/', $value));
@@ -333,7 +333,7 @@ final class Style
         return implode(' ', array_map(fn (array $r): string => '"' . implode(' ', $r) . '"', $rows));
     }
 
-    /** Sloupce mřížky: „3“ = tři stejné, „auto:16rem“ = kolik se vejde po min. 16rem, „2fr 1fr“ = vlastní poměr. */
+    /** Grid columns: "3" = three equal ones, "auto:16rem" = as many as fit at min. 16rem, "2fr 1fr" = a custom ratio. */
     private static function columns(string $value): ?string
     {
         if (preg_match('/^([1-9]|1[0-2])$/', $value)) {
@@ -347,7 +347,7 @@ final class Style
     }
 
     /**
-     * CSS pro selektor ze stylu: základ, :hover, pak breakpointy (od většího k menšímu, aby menší vyhrál).
+     * CSS for a selector from the style: base, :hover, then breakpoints (from larger to smaller, so that the smaller wins).
      *
      * @param array<string, array<string, string>> $style
      */
@@ -358,7 +358,7 @@ final class Style
             $rows = [];
             $image = null;
             if (isset($properties['typ_styl'])) {
-                // typografický styl jako první: velikost nebo tloušťka nastavené zvlášť ho doladí (pozdější deklarace vyhrává)
+                // the typography style first: a size or weight set separately fine-tunes it (the later declaration wins)
                 $properties = ['typ_styl' => $properties['typ_styl']] + $properties;
             }
             foreach ($properties as $key => $value) {
@@ -386,7 +386,7 @@ final class Style
                 }
                 $rows[] = $property . ': ' . $css;
                 if ($key === 'pozadi' && ($value === 'bila' || $value === 'cerna') && !isset($properties['barva'])) {
-                    // bílá a černá se v tmavém režimu nemění: text a odvozené odstíny uvnitř se jim přizpůsobí (jinak světlý text na bílé)
+                    // white and black do not change in dark mode: the text and derived shades inside adapt to them (otherwise light text on white)
                     $text = $value === 'bila' ? 'var(--ka-barva-text-svetle)' : 'var(--ka-barva-text-tmave)';
                     $surface = $value === 'bila' ? '#ffffff' : '#000000';
                     array_push($rows, '--ka-barva-text: ' . $text, 'color: ' . $text,
@@ -394,11 +394,11 @@ final class Style
                 }
             }
             if ($image !== null) {
-                // médium webu vždy od kořene instalace – relativní url() by se na /en/… nebo /kolekce/polozka hledalo jinde
+                // the site's media always from the installation root – a relative url() would be looked up elsewhere on /en/… or /kolekce/polozka
                 if (!str_starts_with($image, 'https://') && !str_starts_with($image, '/')) {
                     $image = $base . '/' . $image;
                 }
-                // obrázek pozadí vždy pokrývá plochu; volitelný překryv (--ka-prekryv) jde přes něj kvůli čitelnosti textu
+                // the background image always covers the area; an optional overlay (--ka-prekryv) goes over it for text legibility
                 $rows[] = 'background-image: linear-gradient(var(--ka-prekryv, transparent), var(--ka-prekryv, transparent)), url("' . $image . '")';
                 $rows[] = 'background-size: cover';
                 $rows[] = 'background-position: center';
@@ -436,8 +436,8 @@ final class Style
     }
 
     /**
-     * Vlastní CSS třídy (zadává správce, nebo vzniká převodem HTML od AI): jen deklarace „vlastnost: hodnota;“ bez bloků,
-     * url(), importů a skriptových konstrukcí. Nepovolené řádky se zahodí.
+     * Custom CSS of a class (entered by the administrator, or created by converting HTML from AI): only "property: value;" declarations
+     * without blocks, url(), imports and script constructs. Disallowed lines are discarded.
      */
     public static function customCss(string $css, array &$discarded = []): string
     {
@@ -447,7 +447,7 @@ final class Style
             if ($declarations === '') {
                 continue;
             }
-            // zakázané: načítání cizích zdrojů (url, image-set, image, src), komentáře a neuzavřené uvozovky – ty by rozbily CSS zbytku stránky
+            // forbidden: loading external resources (url, image-set, image, src), comments and unclosed quotes – they would break the CSS of the rest of the page
             if (preg_match('/^(--ka-[a-z0-9-]{1,40}|-?[a-z][a-z-]{1,40})\s*:\s*([^;{}<>\\\\@]{1,200})$/i', $declarations, $m)
                 && !preg_match('/url\s*\(|image-set|image\s*\(|src\s*\(|cross-fade|element\s*\(|expression|javascript|behavior|-moz-binding|\/\*|\*\//i', $m[2])
                 && substr_count($m[2], '"') % 2 === 0 && substr_count($m[2], "'") % 2 === 0) {

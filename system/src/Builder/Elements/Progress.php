@@ -8,8 +8,8 @@ use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
 /**
- * Ukazatele průběhu (dovednosti, plnění cíle): každý řádek je <meter> s popiskem a procenty. Pruh se při rolování
- * vysune čistě v CSS (animace řízená posunem stránky); bez podpory nebo s omezeným pohybem je rovnou plný.
+ * Progress bars (skills, progress toward a goal): each row is a <meter> with a label and percentage. The bar slides out on scroll
+ * purely in CSS (a scroll-driven animation); without support or with reduced motion it is full right away.
  */
 final class Progress extends Element
 {

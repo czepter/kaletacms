@@ -8,12 +8,12 @@ use Kaleta\Admin\Module;
 use Kaleta\Core\Response;
 
 /**
- * Novinky a blog firmy (v databázi tabulka ka_novinky, kategorie = ka_kategorie).
+ * News and the company blog (in the database table ka_novinky, categories = ka_kategorie).
  *
- * Pravidla:
- *  - autor vidí a upravuje jen své novinky a nesmí vydávat,
- *  - editor a správce vidí všechny novinky a vydávají je,
- *  - vydanou novinku smí měnit jen ten, kdo smí vydávat.
+ * Rules:
+ *  - an author sees and edits only their own news items and cannot publish,
+ *  - an editor and an administrator see all news items and publish them,
+ *  - a published news item can be changed only by someone who can publish.
  */
 final class News extends Module
 {
@@ -26,12 +26,13 @@ final class News extends Module
     private const int PER_PAGE = 20;
 
     /**
-     * Koncept autora novinek (úroveň 0, sám nevydává) čeká, až ho vydá editor nebo správce. Jiný stav „odesláno ke schválení“
-     * Kaleta nemá – autor umí uložit jen koncept a hláška mu říká, že ho vydá editor.
+     * A draft of a news author (level 0, does not publish themselves) waits until an editor or an administrator publishes it.
+     * Kaleta has no other status "sent for approval" – the author can only save a draft and a message tells them an editor
+     * will publish it.
      */
     public const string AWAITING_PUBLICATION = 'c.visible = 0 AND c.autor IN (SELECT idu FROM {uzivatele} WHERE admin = 0)';
 
-    /** Kolik novinek od autorů čeká na vydání (pro editory a správce; autorům 0). */
+    /** How many news items from authors wait to be published (for editors and administrators; 0 for authors). */
     public static function countAwaitingPublication(\Kaleta\Core\App $app): int
     {
         return $app->auth()->canPublish() ? (int) $app->db()->value('SELECT COUNT(*) FROM {novinky} c WHERE c.smazano IS NULL AND ' . self::AWAITING_PUBLICATION) : 0;
@@ -49,7 +50,7 @@ final class News extends Module
             $where[] = 'c.tema = ?';
             $params[] = $colorScheme;
         }
-        // jazyková verze: výchozí jazyk webu je v sloupci uložený jako ''
+        // language version: the site's default language is stored in the column as ''
         $s = $this->app->settings();
         $siteLanguages = ($additional = \Kaleta\Core\Language::additional($s)) === [] ? [] : [\Kaleta\Core\Language::defaults($s), ...$additional];
         $language = in_array($this->request->get('jazyk'), $siteLanguages, true) ? $this->request->get('jazyk') : '';
@@ -104,7 +105,7 @@ final class News extends Module
 
     protected function actionNew(): Response
     {
-        // bez kategorie by novinka nešla uložit: založí se výchozí a editor se otevře rovnou (žádná slepá ulička)
+        // without a category the news item could not be saved: the default one is created and the editor opens right away (no dead end)
         if (Categories::createDefault($this->db, $this->app->settings()) !== null) {
             $this->app->session->flash('ok', t('Novinky potřebují kategorii, proto vznikla kategorie „%s“. Přejmenovat ji nebo přidat další můžete v Novinky → Kategorie.', (string) (Categories::listAll($this->db)[0]['nazev'] ?? '')));
         }
@@ -112,7 +113,7 @@ final class News extends Module
         return $this->form($this->defaults());
     }
 
-    /** Hodnoty nové novinky; doplňují se jimi i pole, která při neúspěšné validaci ve formuláři chybí. */
+    /** Values of a new news item; they also fill the fields missing from the form after a failed validation. */
     private function defaults(): array
     {
         return [
@@ -122,7 +123,7 @@ final class News extends Module
         ];
     }
 
-    /** Kopie novinky jako koncept (i se štítky) – rychlý začátek podobné novinky. */
+    /** Copy of a news item as a draft (tags included) – a quick start for a similar news item. */
     protected function actionDuplicate(): Response
     {
         $newsItem = $this->request->isPost() ? $this->load($this->request->postInt('idc')) : null;
@@ -203,7 +204,7 @@ final class News extends Module
         if ($errors !== []) {
             return $this->form(['idc' => $id] + $data + ($previous ?? $this->defaults()), $errors);
         }
-        // jazyková verze se přebírá z kategorie; překlad se propojuje s novinkou ve výchozím jazyce (adresa nebo číslo)
+        // the language version is taken from the category; a translation is linked to the news item in the default language (slug or number)
         $data['jazyk'] = (string) $this->db->value('SELECT jazyk FROM {kategorie} WHERE idt = ?', [$data['tema']]);
         $original = trim($r->post('preklad_z'));
         $data['preklad_z'] = $original === '' || $data['jazyk'] === '' ? null
@@ -219,7 +220,7 @@ final class News extends Module
             }
             $this->db->update('novinky', $data, ['idc' => $id]);
             if ($previous['seo_link'] !== $data['seo_link'] && $previous['visible']) {
-                // vydaná novinka změnila adresu: stará se přesměruje, aby odkazy a vyhledávače nepřišly o stránku
+                // a published news item changed its slug: the old one is redirected so that links and search engines do not lose the page
                 Redirects::add($this->db, 'novinky/' . $previous['seo_link'], 'novinky/' . $data['seo_link']);
             }
         } else {
@@ -228,10 +229,10 @@ final class News extends Module
 
         Media::recordUsage($this->db, $id, $data['obrazek'], $data['uvod'], $data['text']);
         \Kaleta\Core\Search::index($this->db, $id);
-        // uložená novinka ruší rozepsaný stav na serveru (u nové je veden pod číslem 0)
+        // a saved news item clears the unsaved state on the server (for a new one it is kept under the number 0)
         $this->db->run('DELETE FROM {novinky_koncepty} WHERE kdo = ? AND idc IN (0, ?)', [$auth->id(), $id]);
         self::tags($this->db, $id, $r->post('stitky'));
-        // nově vydaná novinka se oznámí (webhook, IndexNow); naplánovaná počká na svůj čas - viz Core\Oznameni
+        // a newly published news item is announced (webhook, IndexNow); a scheduled one waits for its time - see Core\Notifications
         \Kaleta\Core\Notifications::process($this->app);
         if ($data['visible'] && !empty($previous['visible']) && !$data['noindex'] && strtotime($data['datum']) <= time()) {
             (new \Kaleta\Front\Seo($this->app))->indexNow($this->app->newsItemUrl($data['seo_link'], $data['jazyk']));
@@ -243,8 +244,9 @@ final class News extends Module
     }
 
     /**
-     * Uložení z úpravy „přímo na webu“ (views/front/upravit.php): jen titulek, perex a text. Platí stejná pravidla jako
-     * u běžného uložení - oprávnění přes nacti(), vydaná novinka jen s právem vydávat, revize, hledání, použití obrázků.
+     * Saving from editing "directly on the site" (views/front/upravit.php): only the title, intro and text. The same rules
+     * apply as for a regular save - permissions via load(), a published news item only with the permission to publish,
+     * versions, search, image usage.
      */
     protected function actionSaveText(): Response
     {
@@ -254,7 +256,7 @@ final class News extends Module
             return $this->redirectToSite($r->post('zpet'));
         }
         $data = ['titulek' => mb_substr($r->post('titulek'), 0, 255), 'uvod' => \Kaleta\Core\Html::forUser($r->post('uvod'), $this->app->auth()), 'text' => \Kaleta\Core\Html::forUser($r->post('text'), $this->app->auth())];
-        // nevydaná novinka je na webu vidět jen v náhledu
+        // an unpublished news item is visible on the site only in the preview
         $preview = $newsItem['visible'] && strtotime((string) $newsItem['datum']) <= time() ? '' : 'nahled=1';
         if ($data['titulek'] === '') {
             return $this->redirectToSite($r->post('zpet'), '?' . ($preview !== '' ? $preview . '&' : '') . 'upravit=text&chyba=1');
@@ -274,8 +276,8 @@ final class News extends Module
     }
 
     /**
-     * Průběžné ukládání rozepsané novinky na server (image/editor.js). Neukládá novinku - jen stav formuláře
-     * přihlášeného uživatele, aby v psaní mohl pokračovat jinde. POST bez pole "pole" rozepsaný stav smaže.
+     * Autosaving an unsaved news item to the server (image/editor.js). It does not save the news item - only the form state
+     * of the signed-in user, so that they can continue writing elsewhere. A POST without the field "pole" deletes the unsaved state.
      */
     protected function actionDraft(): Response
     {
@@ -301,7 +303,7 @@ final class News extends Module
         return Response::json(['ok' => true]);
     }
 
-    /** Hledání novinek podle titulku pro dialog odkazu v editoru a pro paletu příkazů (?uprava=1). */
+    /** Searching news by title for the link dialog in the editor and for the command palette (?uprava=1). */
     protected function actionSearchJson(): Response
     {
         $q = mb_substr(trim($this->request->get('q')), 0, 80);
@@ -322,8 +324,8 @@ final class News extends Module
     }
 
     /**
-     * AI asistent: návrh k rozepsané novince (titulky, perex, SEO popis, štítky, korektura, popis obrázku).
-     * Pracuje s textem z formuláře, nic neukládá - o použití návrhu rozhoduje člověk.
+     * AI assistant: a suggestion for the news item being written (titles, intro, SEO description, tags, proofreading, image description).
+     * Works with the text from the form, saves nothing - a human decides whether to use the suggestion.
      */
     protected function actionAssistant(): Response
     {
@@ -331,14 +333,14 @@ final class News extends Module
         if (!$this->request->isPost() || !$assistant->isReady()) {
             return Response::json(['chyba' => t('AI asistent není zapnutý nebo chybí klíč (nabídka Rozšíření).')], 400);
         }
-        // pojistka proti nechtěné útratě: nejvýš 60 dotazů za hodinu na uživatele
+        // safeguard against unwanted spending: at most 60 requests per hour per user
         if ($this->hasTooManyRequests()) {
             return Response::json(['chyba' => t('Za poslední hodinu jste asistenta použili 60×. Zkuste to prosím později.')], 429);
         }
         $task = $this->request->post('ukol');
         $image = null;
         if ($task === 'alt') {
-            // jen soubory z media/: cesta se skládá z ověřených částí adresy
+            // only files from media/: the path is assembled from verified parts of the URL
             $image = preg_match('#media/(\d{4}/\d{2}/[A-Za-z0-9._-]+\.(?:jpe?g|png|webp|gif))$#', (string) parse_url($this->request->post('obrazek'), PHP_URL_PATH), $m) ? KALETA_ROOT . '/media/' . $m[1] : null;
             $smaller = $image === null ? null : preg_replace('/\.(\w+)$/', '-1200.$1', $image);
             $image = $smaller !== null && is_file($smaller) ? $smaller : $image;
@@ -359,8 +361,9 @@ final class News extends Module
     }
 
     /**
-     * „Přeložit asistentem“: z uložené verze novinky ve výchozím jazyce založí koncept v kategorii cílového jazyka,
-     * propojený s originálem. Překlad vždy čeká na přečtení člověkem – nikdy se nevydává sám.
+     * "Přeložit asistentem" (Translate with the assistant): from the saved version of the news item in the default language
+     * it creates a draft in the category of the target language, linked to the original. The translation always waits to be
+     * read by a human – it is never published by itself.
      */
     protected function actionTranslate(): Response
     {
@@ -380,7 +383,7 @@ final class News extends Module
         if (($existing = $this->db->value('SELECT idc FROM {novinky} WHERE preklad_z = ? AND jazyk = ?', [$newsItem['idc'], $language])) !== null) {
             return $this->back('Překlad do tohoto jazyka už existuje – tady je.', 'edit', ['id' => (int) $existing]);
         }
-        // cílová kategorie: protějšek kategorie originálu, jinak první kategorie daného jazyka
+        // target category: the counterpart of the original's category, otherwise the first category of the given language
         $category = $this->db->value('SELECT idt FROM {kategorie} WHERE jazyk = ? ORDER BY (preklad_z <=> ?) DESC, hodnost DESC, idt LIMIT 1', [$language, $newsItem['tema']]);
         if ($category === null) {
             return $backToNewsItem('V cílovém jazyce zatím není žádná kategorie. Založte ji v Novinky → Kategorie (pole Jazyková verze).');
@@ -389,7 +392,7 @@ final class News extends Module
             return $backToNewsItem('Za poslední hodinu jste asistenta použili 60×. Zkuste to prosím později.');
         }
 
-        set_time_limit(600); // dlouhý text se překládá po dávkách
+        set_time_limit(600); // a long text is translated in batches
         $plainFields = ['titulek', 'seo_titulek', 'seo_popis', 'faq', 't_slova'];
         try {
             $translation = $assistant->translate(array_map(strval(...), array_intersect_key($newsItem, array_flip([...$plainFields, 'uvod', 'text']))), $language, $plainFields);
@@ -398,7 +401,7 @@ final class News extends Module
         }
         \Kaleta\Admin\ChangeLog::write($this->app, 'asistent', 'preklad-' . $language, mb_substr($newsItem['titulek'], 0, 80));
 
-        // koncept přebírá z originálu vše, co se nepřekládá (obrázek, autora…); počitadla ne
+        // the draft takes everything that is not translated from the original (image, author…); not the counters
         $data = array_intersect_key($newsItem, array_flip(['obrazek', 'autor', 'noindex'])) + [
             'tema' => (int) $category, 'jazyk' => $language, 'preklad_z' => $newsItem['idc'], 'visible' => 0, 'datum' => date('Y-m-d H:i:s'),
         ];
@@ -419,7 +422,7 @@ final class News extends Module
         return (int) $this->db->value("SELECT COUNT(*) FROM {protokol} WHERE kdo = ? AND modul = 'asistent' AND cas > NOW() - INTERVAL 1 HOUR", [$this->app->auth()->id()]) >= 60;
     }
 
-    /** Načte do editoru starší verzi novinky; uloží se až odesláním formuláře. */
+    /** Loads an older version of the news item into the editor; it is saved only when the form is submitted. */
     protected function actionVersions(): Response
     {
         $newsItem = $this->load($this->request->getInt('id'));
@@ -432,7 +435,7 @@ final class News extends Module
         return $this->form(['titulek' => $version['titulek'], 'uvod' => $version['uvod'], 'text' => $version['text']] + $newsItem);
     }
 
-    /** Co se od uložené verze změnilo: porovnání starší verze se současným zněním. */
+    /** What changed since the saved version: comparison of an older version with the current wording. */
     protected function actionCompare(): Response
     {
         $newsItem = $this->load($this->request->getInt('id'));
@@ -453,11 +456,11 @@ final class News extends Module
         ]);
     }
 
-    /** Nefunkční odkazy nalezené kontrolou na pozadí (Core\Odkazy). */
+    /** Broken links found by the background check (Core\Links). */
     protected function actionLinks(): Response
     {
         if ($this->request->isPost()) {
-            // "zkontrolovat znovu": novinka se zařadí na začátek fronty
+            // "zkontrolovat znovu" (check again): the news item is put at the front of the queue
             $this->db->update('novinky', ['odkazy_cas' => null], ['idc' => $this->request->postInt('idc')]);
             $this->db->delete('odkazy_vadne', ['idc' => $this->request->postInt('idc')]);
 
@@ -483,7 +486,7 @@ final class News extends Module
             if ($newsItem === null || ($newsItem['visible'] && !$this->app->auth()->canPublish())) {
                 continue;
             }
-            // koš: novinka zmizí z webu i z výpisů, ale 30 dní ji jde obnovit; vrátí se jako koncept, nikdy sama nevyjde
+            // trash: the news item disappears from the site and from lists, but can be restored for 30 days; it returns as a draft, never published by itself
             $moved += $this->db->update('novinky', ['smazano' => date('Y-m-d H:i:s'), 'visible' => 0], ['idc' => $newsItem['idc']]);
             \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'do koše', mb_substr($newsItem['titulek'], 0, 80));
         }
@@ -491,7 +494,7 @@ final class News extends Module
         return $this->back(t('Do koše přesunuto novinek: %d. Obnovit je jde 30 dní (Novinky → Koš).', $moved), type: $moved > 0 ? 'ok' : 'chyba');
     }
 
-    /** Obnovení z koše: novinka se vrátí jako koncept (ne vydaná). */
+    /** Restore from the trash: the news item returns as a draft (not published). */
     protected function actionRestore(): Response
     {
         if (!$this->request->isPost()) {
@@ -510,7 +513,7 @@ final class News extends Module
         return $this->back(t('Obnoveno novinek: %d. Vrátily se jako koncepty.', $restored), '', ['stav' => 'kos'], $restored > 0 ? 'ok' : 'chyba');
     }
 
-    /** Smazání natrvalo z koše (jen ten, kdo smí vydávat). */
+    /** Permanent deletion from the trash (only someone who can publish). */
     protected function actionDeletePermanently(): Response
     {
         if (!$this->request->isPost() || !$this->app->auth()->canPublish()) {
@@ -528,7 +531,7 @@ final class News extends Module
         return $this->back(t('Natrvalo smazáno novinek: %d.', $deleted), '', ['stav' => 'kos'], $deleted > 0 ? 'ok' : 'chyba');
     }
 
-    /** Koš se vysypává sám: novinky starší 30 dní se smažou natrvalo (volá Admin\Kernel při vstupu do administrace). */
+    /** The trash empties itself: news items older than 30 days are deleted permanently (called by Admin\Kernel on entering the admin). */
     public static function emptyTrash(\Kaleta\Core\Db $db): int
     {
         return $db->run('DELETE FROM {novinky} WHERE smazano < NOW() - INTERVAL 30 DAY')->rowCount();
@@ -554,7 +557,7 @@ final class News extends Module
             'canPublish' => $auth->canPublish(),
             'draftOnServer' => $this->request->isPost() ? null : $this->db->one('SELECT cas, data FROM {novinky_koncepty} WHERE kdo = ? AND idc = ?', [$auth->id(), (int) $newsItem['idc']]),
             'siteLanguages' => \Kaleta\Core\Language::additional($this->app->settings()) !== [],
-            // u novinky ve výchozím jazyce: do kterých jazyků jde přeložit a které překlady už existují (jazyk => číslo)
+            // for a news item in the default language: which languages it can be translated into and which translations already exist (language => number)
             'translationLanguages' => $newsItem['idc'] && ($newsItem['jazyk'] ?? '') === '' ? \Kaleta\Core\Language::additional($this->app->settings()) : [],
             'translations' => $newsItem['idc'] ? array_map(intval(...), $this->db->pairs("SELECT jazyk, idc FROM {novinky} WHERE preklad_z = ? AND jazyk <> ''", [(int) $newsItem['idc']])) : [],
             'original' => empty($newsItem['preklad_z']) ? '' : (string) $this->db->value('SELECT seo_link FROM {novinky} WHERE idc = ?', [$newsItem['preklad_z']]),
@@ -572,8 +575,8 @@ final class News extends Module
         ]);
     }
 
-    /** Uloží předchozí podobu novinky; drží se posledních 20 verzí. */
-    /** Předchozí podoba novinky do historie (posledních 20 verzí) – administrace i MCP. */
+    /** Saves the previous form of the news item; the last 20 versions are kept. */
+    /** The previous form of the news item to the history (the last 20 versions) – admin and MCP. */
     public static function version(\Kaleta\Core\Db $db, array $previous, ?int $who): void
     {
         $db->insert('novinky_revize', [
@@ -586,7 +589,7 @@ final class News extends Module
         }
     }
 
-    /** Štítky zapsané čárkami (nejvýš 20); neznámé se založí – administrace i MCP. */
+    /** Tags written with commas (at most 20); unknown ones are created – admin and MCP. */
     public static function tags(\Kaleta\Core\Db $db, int $idc, string $input): void
     {
         $db->delete('novinky_stitky', ['idc' => $idc]);
@@ -599,7 +602,7 @@ final class News extends Module
         }
     }
 
-    /** Načte novinku, jen pokud ji přihlášený smí spravovat. Novinku v koši jen s $zKose (obnovení, smazání natrvalo). */
+    /** Loads a news item only if the signed-in user can manage it. A news item in the trash only with $fromTrash (restore, permanent deletion). */
     private function load(int $id, bool $fromTrash = false): ?array
     {
         $newsItem = $this->db->one('SELECT * FROM {novinky} WHERE idc = ? AND smazano IS ' . ($fromTrash ? 'NOT NULL' : 'NULL'), [$id]);
@@ -613,7 +616,7 @@ final class News extends Module
         return \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $this->db->value('SELECT idc FROM {novinky} WHERE seo_link = ? AND idc <> ?', [$a, $idc]) !== null);
     }
 
-    /** Hodnota z <input type="datetime-local"> -> DATETIME; prázdné nebo neplatné = null. */
+    /** Value from <input type="datetime-local"> -> DATETIME; empty or invalid = null. */
     private static function parseFormDate(string $value): ?string
     {
         if ($value === '') {

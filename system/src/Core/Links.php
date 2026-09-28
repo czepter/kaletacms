@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Kontrola nefunkčních odkazů ve vydaných novinkách. Běží na pozadí po malých dávkách: jednu novinku za pět minut,
- * každou novinku jednou za 30 dní. Ukládají se jen odkazy, které nefungují (Novinky → Nefunkční odkazy).
+ * Check of broken links in published news items. Runs in the background in small batches: one news item per five minutes,
+ * each news item once per 30 days. Only links that do not work are stored ("Novinky → Nefunkční odkazy" (News → Broken links)).
  *
- * Server se při kontrole připojuje na adresy z novinek, proto jen http(s) na veřejné adresy a standardní porty,
- * bez následování přesměrování - odkaz v novince nesmí jít zneužít k ohledávání vnitřní sítě hostingu.
+ * During the check the server connects to URLs from news items, so only http(s) to public addresses and standard ports,
+ * without following redirects - a link in a news item must not be abusable to probe the hosting's internal network.
  */
 final class Links
 {
-    /** Kódy, které neznamenají rozbitý odkaz: weby jimi jen odmítají roboty nebo metodu HEAD. */
+    /** Codes that do not mean a broken link: sites use them only to refuse bots or the HEAD method. */
     private const array INCONCLUSIVE_CODES = [401, 403, 405, 406, 429, 999];
 
     public static function runInBackground(App $app): void
@@ -30,7 +30,7 @@ final class Links
         }
         $db->update('novinky', ['odkazy_cas' => date('Y-m-d H:i:s')], ['idc' => $newsItem['idc']]);
         $db->delete('odkazy_vadne', ['idc' => $newsItem['idc']]);
-        $end = microtime(true) + 12; // na jeden běh nejvýš 12 vteřin
+        $end = microtime(true) + 12; // at most 12 seconds per run
         foreach (self::links($newsItem['uvod'] . $newsItem['text']) as $url) {
             if (microtime(true) > $end) {
                 break;
@@ -42,7 +42,7 @@ final class Links
         }
     }
 
-    /** @return list<string> jedinečné odkazy z HTML (nejvýš 25) */
+    /** @return list<string> unique links from the HTML (at most 25) */
     public static function links(string $html): array
     {
         preg_match_all('#<a\b[^>]*\bhref="([^"]+)"#i', $html, $m);
@@ -51,10 +51,10 @@ final class Links
         return array_slice(array_values(array_unique($links)), 0, 25);
     }
 
-    /** @return int|null kód chyby (0 = bez odpovědi), null = odkaz je v pořádku nebo ho nejde posoudit */
+    /** @return int|null error code (0 = no response), null = the link is OK or cannot be judged */
     public static function verify(App $app, string $url): ?int
     {
-        // odkaz na vlastní web: stačí se podívat do databáze
+        // a link to the site itself: looking into the database is enough
         $custom = $app->request->origin();
         $path = str_starts_with($url, '/') && !str_starts_with($url, '//') ? $url : (str_starts_with($url, $custom . '/') ? substr($url, strlen($custom)) : null);
         if ($path !== null) {
@@ -64,12 +64,12 @@ final class Links
                     && $app->db()->value('SELECT idp FROM {presmerovani} WHERE z_adresy = ?', ['novinky/' . $m[1]]) === null ? 404 : null;
             }
 
-            return null; // ostatní vlastní adresy (rubriky, soubory) se neověřují
+            return null; // other URLs of the site itself (categories, files) are not checked
         }
         if (!self::isPublic($url)) {
             return null;
         }
-        // adresa se přeloží jednou a spojení se na ni připne - mezi kontrolou a připojením ji nejde podvrhnout (DNS rebinding)
+        // the address is resolved once and the connection is pinned to it - it cannot be spoofed between the check and the connection (DNS rebinding)
         $c = parse_url($url);
         $ip = filter_var(trim((string) $c['host'], '[]'), FILTER_VALIDATE_IP) !== false ? null : (gethostbynamel((string) $c['host'])[0] ?? null);
         $port = $c['port'] ?? (strtolower((string) $c['scheme']) === 'https' ? 443 : 80);
@@ -87,7 +87,7 @@ final class Links
         return $code >= 200 && $code < 400 || in_array($code, self::INCONCLUSIVE_CODES, true) ? null : $code;
     }
 
-    /** Jen http(s), standardní port a adresa, která nevede do vnitřní sítě. */
+    /** Only http(s), a standard port and an address that does not lead into an internal network. */
     public static function isPublic(string $url): bool
     {
         $c = parse_url($url);
@@ -97,7 +97,7 @@ final class Links
         $host = trim($c['host'], '[]');
         $addresses = filter_var($host, FILTER_VALIDATE_IP) !== false ? [$host] : (gethostbynamel($host) ?: []);
         if ($addresses === []) {
-            return true; // neexistující doména není vnitřní síť - kontrola ji vyhodnotí jako nedostupnou
+            return true; // a nonexistent domain is not an internal network - the check evaluates it as unreachable
         }
         foreach ($addresses as $ip) {
             if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {

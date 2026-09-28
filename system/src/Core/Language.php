@@ -5,19 +5,19 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Jazyk webu a překlady textů šablon.
+ * Site language and translations of template texts.
  *
- * Texty v šablonách jsou česky a obalené funkcí t('Číst dál'); pro jiný jazyk se hledají ve slovníku
- * system/jazyky/<kód>.php (česky => překlad). Co ve slovníku chybí, vezme se z anglického (a u češtiny zůstane česky) - web se nikdy nerozbije.
- * Jazyk celého webu určuje Nastavení (jazyk_webu); rozšíření "jazyky" přidává další jazykové verze
- * na adresách /en/… - každá má své stránky, kategorie a novinky. Nový jazyk = slovníky system/jazyky/<kód>.php
- * (web), admin-<kód>.php a install-<kód>.php + záznam v DOSTUPNE.
+ * Texts in templates are in Czech and wrapped in the function t('Číst dál'); for another language they are looked up in the dictionary
+ * system/jazyky/<code>.php (Czech => translation). What is missing in the dictionary is taken from the English one (and for Czech it stays Czech) - the site never breaks.
+ * The language of the whole site is set in Settings (site_language); the extension "jazyky" adds more language versions
+ * at URLs /en/… - each has its own pages, categories and news. A new language = dictionaries system/jazyky/<code>.php
+ * (site), admin-<code>.php and install-<code>.php + an entry in AVAILABLE.
  */
 final class Language
 {
     /**
-     * kód => [název v daném jazyce, locale (Open Graph, formát data), číselný tvar data pro date()]. Jazyky zprava doleva
-     * (arabština, hebrejština) zatím nejsou – šablony a builder s nimi nepočítají.
+     * code => [name in that language, locale (Open Graph, date format), numeric date format for date()]. Right-to-left languages
+     * (Arabic, Hebrew) are not available yet – templates and the builder do not account for them.
      */
     public const array AVAILABLE = [
         'cs' => ['Čeština', 'cs_CZ', 'j. n. Y'],
@@ -62,7 +62,7 @@ final class Language
         'zh' => ['中文', 'zh_CN', 'Y-m-d'],
     ];
 
-    /** Kódy z DOSTUPNE pro typy polí Nastavení (vyber:… / seznam:…). */
+    /** Codes from AVAILABLE for Settings field types (vyber:… / seznam:…). */
     public const string CODES = 'cs|en|bg|ca|da|de|el|es|et|fi|fr|ga|hr|hu|is|it|lt|lv|mt|nl|no|pl|pt|ro|sk|sl|sq|sr|bs|mk|sv|tr|uk|ru|hi|id|ja|ko|vi|zh';
 
     private static string $code = 'cs';
@@ -71,17 +71,17 @@ final class Language
     /** @var array<string, string> */
     private static array $dictionary = [];
 
-    /** Jazyky, do kterých je přeložená administrace (slovník system/jazyky/admin-<kód>.php). */
+    /** Languages the administration is translated into (dictionary system/jazyky/admin-<code>.php). */
     public const array ADMIN_LANGUAGES = ['cs' => 'Čeština', 'en' => 'English'];
 
-    /** Jazyk nemá vlastní slovník, texty jsou z anglického (datum slovy pak dá rozšíření intl, je-li na serveru). */
+    /** The language has no dictionary of its own, texts come from the English one (the date in words then comes from the intl extension, if the server has it). */
     private static bool $baseOnly = false;
 
     /**
-     * Slovník jazyka: vlastní (system/jazyky/<sada><kód>.php), a co v něm chybí, z anglického – jazyk bez slovníku tak má
-     * texty šablony anglicky a datum ve svém číselném tvaru. Čeština slovník nepotřebuje (texty v kódu jsou česky).
+     * The language's dictionary: its own (system/jazyky/<set><code>.php), and what is missing there, from the English one – a language
+     * without a dictionary thus has template texts in English and the date in its own numeric format. Czech needs no dictionary (texts in the code are Czech).
      *
-     * @param string $dictionarySet "" = texty webu, "admin-" = texty administrace
+     * @param string $dictionarySet "" = site texts, "admin-" = administration texts
      */
     public static function set(string $code, string $dictionarySet = ''): void
     {
@@ -96,7 +96,7 @@ final class Language
         $baseDictionary = self::$code !== 'en' && is_file(KALETA_SYSTEM . '/jazyky/' . $dictionarySet . 'en.php') ? require KALETA_SYSTEM . '/jazyky/' . $dictionarySet . 'en.php' : [];
         self::$dictionary = $custom + $baseDictionary;
         if (self::$code !== 'en') {
-            // tvar data z anglického slovníku se nepřebírá: vlastní, jinak číselný tvar jazyka a datum slovy z českých klíčů dnů a měsíců
+            // the date format from the English dictionary is not taken over: its own, otherwise the language's numeric format and the date in words from the Czech keys of days and months
             if (!isset($custom['datum_format'])) {
                 self::$dictionary['datum_format'] = self::AVAILABLE[self::$code][2];
             }
@@ -107,14 +107,14 @@ final class Language
         }
     }
 
-    /** Locale pro datum slovy přes rozšíření intl – jen u jazyka bez vlastního slovníku; jinak null. */
+    /** Locale for the date in words through the intl extension – only for a language without its own dictionary; otherwise null. */
     public static function intlLocale(): ?string
     {
         return self::$baseOnly && class_exists(\IntlDateFormatter::class) ? self::AVAILABLE[self::$code][1] : null;
     }
 
     /**
-     * Jazyk právě zobrazené verze webu; zároveň si zapamatuje hodnotu sloupce "jazyk" pro dotazy.
+     * Language of the currently shown version of the site; also remembers the value of the "jazyk" column for queries.
      */
     public static function setSite(Settings $s, string $code): void
     {
@@ -123,8 +123,8 @@ final class Language
     }
 
     /**
-     * Provede funkci s texty webu v jiném jazyce a vrátí jazyk zpět. Pro obsah, jehož jazyk nezávisí na tom,
-     * kdo ho zrovna vytváří – typicky e-mail návštěvníkovi (spouští ho správce v administraci nebo úloha na pozadí).
+     * Runs a function with the site texts in another language and switches the language back. For content whose language does not
+     * depend on who is creating it – typically an e-mail to a visitor (triggered by an administrator in the administration or by a background task).
      *
      * @template T
      * @param callable(): T $callback
@@ -133,7 +133,7 @@ final class Language
     public static function runWith(string $code, callable $callback, string $dictionarySet = ''): mixed
     {
         [$previousCode, $previousDictionary, $previousBase] = [self::$code, self::$dictionary, self::$baseOnly];
-        self::set($code, $dictionarySet); // sada "admin-" = e-mail uživateli administrace v jazyce jeho administrace
+        self::set($code, $dictionarySet); // set "admin-" = an e-mail to an administration user in the language of their administration
         try {
             return $callback();
         } finally {
@@ -141,7 +141,7 @@ final class Language
         }
     }
 
-    /** Hodnota sloupce "jazyk" pro právě zobrazenou verzi webu ('' = výchozí jazyk). Jen '' nebo dvě malá písmena. */
+    /** Value of the "jazyk" column for the currently shown version of the site ('' = default language). Only '' or two lowercase letters. */
     public static function siteColumn(): string
     {
         return self::$column;
@@ -159,14 +159,14 @@ final class Language
         return $values === [] ? $translation : sprintf($translation, ...$values);
     }
 
-    /** Výchozí jazyk webu. */
+    /** Default language of the site. */
     public static function defaults(Settings $s): string
     {
         return isset(self::AVAILABLE[$s->get('site_language')]) ? $s->get('site_language') : 'cs';
     }
 
     /**
-     * Další jazykové verze webu (bez výchozího jazyka); prázdné, když je rozšíření vypnuté.
+     * Additional language versions of the site (without the default language); empty when the extension is disabled.
      *
      * @return list<string>
      */
@@ -180,8 +180,8 @@ final class Language
     }
 
     /**
-     * Další jazyky, které web nabízí návštěvníkům a vyhledávačům (přepínač jazyků, hreflang, mapa webu). Když je úvodem
-     * webu stránka, jen jazyky s jejím zveřejněným překladem – rozpracovaná jazyková verze se zatím neukazuje.
+     * Additional languages the site offers to visitors and search engines (language switcher, hreflang, sitemap). When the home
+     * of the site is a page, only languages with its published translation – a language version in progress is not shown yet.
      *
      * @return list<string>
      */
@@ -197,13 +197,13 @@ final class Language
         return array_values(array_intersect($additional, $done));
     }
 
-    /** Jazyk obsahu podle sloupce "jazyk" (stránka, kategorie, novinka): prázdný = výchozí jazyk webu. */
+    /** Language of content by the "jazyk" column (page, category, news item): empty = the site's default language. */
     public static function ofContent(Settings $s, string $column): string
     {
         return isset(self::AVAILABLE[$column]) ? $column : self::defaults($s);
     }
 
-    /** Hodnota sloupce "jazyk" pro daný jazyk: výchozí jazyk webu se ukládá jako prázdný řetězec. */
+    /** Value of the "jazyk" column for the given language: the site's default language is stored as an empty string. */
     public static function column(Settings $s, string $code): string
     {
         return $code === self::defaults($s) || !in_array($code, self::additional($s), true) ? '' : $code;

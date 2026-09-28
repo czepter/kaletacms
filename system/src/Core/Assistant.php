@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * AI asistent (rozšíření "asistent"): návrhy titulků, perexu, SEO popisu a štítků, korektura, popisy obrázků, překlad
- * a v builderu nové sekce podle popisu a úpravy textů. Poskytovatele (Anthropic, OpenAI, Google, Mistral) a klíč volí
- * administrátor v Rozšířeních. Uvnitř se pracuje s tvarem požadavku Claude API; zavolej() ho převede pro zvoleného poskytovatele.
+ * AI assistant (extension "asistent"): suggestions of titles, intro, SEO description and tags, proofreading, image
+ * descriptions, translation, and in the builder new sections from a description and text edits. The provider (Anthropic,
+ * OpenAI, Google, Mistral) and the key are chosen by the administrator in Extensions. Internally the request has the shape
+ * of the Claude API; call() converts it for the chosen provider.
  *
- * Asistent jen navrhuje – nic sám neukládá ani nevydává. Text se posílá jen po kliknutí na tlačítko asistenta.
+ * The assistant only suggests – it never saves or publishes anything itself. Text is sent only after a click on an assistant button.
  */
 class Assistant
 {
@@ -19,11 +20,11 @@ class Assistant
         'claude-opus-5' => 'Nejpečlivější (Claude Opus 5)',
     ];
 
-    /** Klíče MODELY pro typ pole "vyber" v Nastavení. */
+    /** Keys of MODELS for the field type "vyber" in Settings. */
     /**
-     * Poskytovatelé: klíč => [název, adresa API, kde získat klíč]. Adresa je pevná – z administrace ji změnit nejde (šel by
-     * tudy odeslat klíč jinam); vlastní bránu nebo místní model nastaví jen konstanta KALETA_AI_URL v config.php.
-     * Kromě Anthropicu mluví všichni rozhraním kompatibilním s OpenAI (chat/completions).
+     * Providers: key => [name, API URL, where to get a key]. The URL is fixed – it cannot be changed from the administration
+     * (the key could be sent elsewhere that way); a custom gateway or a local model is set only by the constant KALETA_AI_URL in config.php.
+     * Except for Anthropic, all of them speak an OpenAI-compatible interface (chat/completions).
      */
     public const array PROVIDERS = [
         'anthropic' => ['Anthropic (Claude)', 'https://api.anthropic.com/v1/messages', 'https://console.anthropic.com/'],
@@ -34,7 +35,7 @@ class Assistant
 
     public const string PROVIDER_KEYS = 'anthropic|openai|google|mistral';
 
-    /** úkol => [co má asistent udělat, tvar odpovědi] */
+    /** task => [what the assistant should do, shape of the answer] */
     private const array TASKS = [
         'titulky' => ['Navrhni 5 titulků novinky: věcné, bez clickbaitu, do 80 znaků, každý jinak pojatý (věcný, s číslem, otázka jen pokud dává smysl).', '{"navrhy": ["…", "…"]}'],
         'perex' => ['Navrhni 3 varianty perexu (úvodního odstavce): 1–2 věty, do 300 znaků, shrnou to hlavní a nezopakují titulek.', '{"navrhy": ["…", "…"]}'],
@@ -55,9 +56,9 @@ class Assistant
 
     /**
      * @param array{titulek?:string, uvod?:string, text?:string, stitky_webu?:list<string>} $newsItem
-     * @param string|null $image cesta k souboru obrázku (úkol "alt")
-     * @return array<string, mixed> dekódovaná odpověď ({"navrhy": [...]} nebo {"opravy": [...]})
-     * @throws \RuntimeException s českou zprávou pro uživatele
+     * @param string|null $image path to the image file (task "alt")
+     * @return array<string, mixed> decoded answer ({"navrhy": [...]} or {"opravy": [...]})
+     * @throws \RuntimeException with a Czech message for the user
      */
     public function suggest(string $task, array $newsItem, ?string $image = null): array
     {
@@ -99,7 +100,7 @@ class Assistant
         if (!is_array($json)) {
             throw new \RuntimeException('Asistent odpověděl nečitelně. Zkuste to prosím znovu.');
         }
-        // odpověď modelu je nedůvěryhodný vstup: jen řetězce, bez HTML
+        // the model's answer is untrusted input: strings only, without HTML
         $string = fn (mixed $v): string => trim(strip_tags(is_scalar($v) ? (string) $v : ''));
         if ($task === 'korektura') {
             $corrections = [];
@@ -116,7 +117,7 @@ class Assistant
         return ['navrhy' => array_values(array_filter(array_map($string, array_slice((array) ($json['navrhy'] ?? []), 0, 6))))];
     }
 
-    /** Pokyny pro přepis textu v builderu (klíč => zadání). */
+    /** Instructions for rewriting text in the builder (key => instruction). */
     public const array REWRITES = [
         'kratsi' => 'Zkrať text zhruba na polovinu, zachovej hlavní sdělení.',
         'delsi' => 'Rozveď text o jednu až dvě věty s konkrétními přínosy pro zákazníka. Nic si nevymýšlej (čísla, reference, ceny).',
@@ -126,10 +127,10 @@ class Assistant
     ];
 
     /**
-     * Nová sekce stránky podle popisu: sémantické HTML s <style> (pravidla jedné třídy s tokeny design systému), které
-     * převede Stavitel\ZHtml. Model nevidí nic než popis, název webu a stránky a seznam tokenů.
+     * A new page section from a description: semantic HTML with <style> (rules of a single class with design system tokens),
+     * converted by Builder\HtmlConverter. The model sees nothing but the description, the site and page name and the list of tokens.
      *
-     * @throws \RuntimeException s českou zprávou pro uživatele
+     * @throws \RuntimeException with a Czech message for the user
      */
     public function suggestSection(string $prompt, string $language, string $page): string
     {
@@ -161,10 +162,10 @@ class Assistant
     }
 
     /**
-     * Přepis textu prvku v builderu (nadpis, text, tlačítko, citát). Formátování zůstane jen v bezpečné podobě – výsledek
-     * ještě projde validátorem stavby.
+     * Rewrite of an element's text in the builder (heading, text, button, quote). Formatting stays only in a safe form – the
+     * result also goes through the build validator.
      *
-     * @throws \RuntimeException s českou zprávou pro uživatele
+     * @throws \RuntimeException with a Czech message for the user
      */
     public function rewrite(string $text, string $instruction, bool $html): string
     {
@@ -187,16 +188,16 @@ class Assistant
             throw new \RuntimeException('Asistent odpověděl nečitelně. Zkuste to prosím znovu.');
         }
 
-        // odpověď modelu je nedůvěryhodný vstup
+        // the model's answer is untrusted input
         return $html ? trim(strip_tags(WpContent::safeHtml($result), '<p><ul><ol><li><strong><b><em><i><a><br>')) : trim(strip_tags($result));
     }
 
-    /** Značky, které zůstávají uvnitř překládaného úseku – věta se kvůli nim netrhá. Vše ostatní úseky odděluje. */
+    /** Tags that stay inside a translated segment – the sentence is not split because of them. Everything else separates segments. */
     private const string INLINE_HTML_TAGS = 'a|strong|b|em|i|u|s|sub|sup|span|code|mark|abbr|small|cite|q|br';
 
     /**
-     * Rozloží HTML na kostru a úseky textu k překladu. Kostra (značky, atributy, skripty) zůstává z originálu;
-     * řádkové značky uvnitř úseku nahradí zástupné symboly [[0]], [[1]]…, které překlad jen přenese.
+     * Splits HTML into a skeleton and text segments to translate. The skeleton (tags, attributes, scripts) stays from the original;
+     * inline tags inside a segment are replaced by placeholders [[0]], [[1]]…, which the translation only carries over.
      *
      * @return array{kostra: list<string|array{usek:int, znacky:list<string>, pred:string, za:string}>, useky: list<string>}
      */
@@ -207,7 +208,7 @@ class Assistant
         $segments = [];
         foreach ($parts as $i => $part) {
             if ($i % 2 === 1 || !preg_match('/\p{L}/u', strip_tags($part))) {
-                $skeleton[] = $part; // značka kostry, nebo mezera či samotná čísla – nepřekládá se
+                $skeleton[] = $part; // a skeleton tag, or whitespace or bare numbers – not translated
                 continue;
             }
             preg_match('/^(\s*)(.*?)(\s*)$/su', $part, $m);
@@ -225,8 +226,8 @@ class Assistant
     }
 
     /**
-     * Složí HTML z kostry a přeložených úseků. Překlad je nedůvěryhodný vstup: vypisuje se jako text,
-     * z originálu se vrací jen značky, a to jen když je překlad zachoval všechny a správně vnořené.
+     * Assembles HTML from the skeleton and the translated segments. The translation is untrusted input: it is output as text,
+     * only tags are returned from the original, and only when the translation kept all of them and correctly nested.
      *
      * @param list<string|array{usek:int, znacky:list<string>, pred:string, za:string}> $skeleton
      * @param list<string> $translations
@@ -253,7 +254,7 @@ class Assistant
                 if (($z[1] ?? '') === '') {
                     $stack[] = $displayName;
                 } elseif (array_pop($stack) !== $displayName) {
-                    $complete = false; // zavírací značka bez otevírací – formátování úseku raději vynechat
+                    $complete = false; // a closing tag without an opening one – better to leave out the segment's formatting
                     break;
                 }
             }
@@ -267,11 +268,11 @@ class Assistant
     }
 
     /**
-     * Přeloží novinku nebo stránku do jiného jazyka. Vrací stejná pole, jaká dostal (titulek, uvod, text, seo_titulek, seo_popis…).
+     * Translates a news item or a page into another language. Returns the same fields it received (titulek, uvod, text, seo_titulek, seo_popis…).
      *
-     * @param array<string, string> $field název pole => obsah
-     * @param list<string> $plainFields názvy polí s prostým textem (titulek, SEO…) – ta se při výpisu escapují sama, ostatní jsou HTML
-     * @throws \RuntimeException s českou zprávou pro uživatele
+     * @param array<string, string> $field field name => content
+     * @param list<string> $plainFields names of plain-text fields (title, SEO…) – those are escaped on output themselves, the others are HTML
+     * @throws \RuntimeException with a Czech message for the user
      */
     public function translate(array $field, string $languageCode, array $plainFields = []): array
     {
@@ -294,7 +295,7 @@ class Assistant
             throw new \RuntimeException('Text je na překlad asistentem příliš dlouhý.');
         }
 
-        // dávky po zhruba 5 000 znacích: odpověď se vejde do limitu a jeden výpadek nezahodí celý text
+        // batches of about 5,000 characters: the answer fits within the limit and one failure does not throw away the whole text
         $batches = [[]];
         $length = 0;
         foreach ($segments as $i => $segment) {
@@ -335,7 +336,7 @@ class Assistant
                 $r['kostra'],
             ), $translations);
             if (in_array($name, $plainFields, true)) {
-                $result[$name] = html_entity_decode($result[$name], ENT_QUOTES | ENT_HTML5); // prostý text: escapuje se až při výpisu
+                $result[$name] = html_entity_decode($result[$name], ENT_QUOTES | ENT_HTML5); // plain text: escaped only on output
             }
         }
 
@@ -347,7 +348,7 @@ class Assistant
         return isset(self::PROVIDERS[$this->settings->get('ai_provider')]) ? $this->settings->get('ai_provider') : 'anthropic';
     }
 
-    /** Model z Nastavení; u Claude z nabídky, u ostatních poskytovatelů ho správce zadá sám (jejich nabídka se rychle mění). */
+    /** Model from Settings; for Claude from the list, for other providers the administrator enters it (their offer changes quickly). */
     private function model(): string
     {
         $model = $this->settings->get('ai_model');
@@ -361,7 +362,7 @@ class Assistant
         return $model;
     }
 
-    /** Ověření klíče z Nastavení: krátký dotaz, vrací null (v pořádku) nebo text chyby. */
+    /** Verifies the key from Settings: a short request, returns null (OK) or the error text. */
     public function verifyKey(): ?string
     {
         try {
@@ -378,8 +379,8 @@ class Assistant
      * @return array<string, mixed>
      */
     /**
-     * Volání modelu. Požadavek i odpověď jsou ve tvaru Claude API ({model, max_tokens, system, messages} → {content, stop_reason});
-     * pro ostatní poskytovatele se převedou. Chráněná kvůli testům, které ji nahrazují (tools/unit-tests.php).
+     * Calls the model. Both the request and the answer have the shape of the Claude API ({model, max_tokens, system, messages} → {content, stop_reason});
+     * for other providers they are converted. Protected because of tests that replace it (tools/unit-tests.php).
      */
     protected function call(array $body): array
     {
@@ -389,7 +390,7 @@ class Assistant
         if ($key === '') {
             throw new \RuntimeException('Chybí klíč API – administrátor ho zadá v nabídce Rozšíření (AI asistent).');
         }
-        // adresu jde změnit jen konstantou v config.php (firemní proxy, brána) – z administrace nikdy, šel by tudy odeslat klíč jinam
+        // the URL can be changed only by a constant in config.php (company proxy, gateway) – never from the administration, the key could be sent elsewhere that way
         $url = defined('KALETA_AI_URL') ? (string) constant('KALETA_AI_URL') : self::PROVIDERS[$provider][1];
         if ($provider === 'anthropic') {
             $headers = ['Content-Type: application/json', 'x-api-key: ' . $key, 'anthropic-version: 2023-06-01'];
@@ -411,7 +412,7 @@ class Assistant
         }
         $data = is_string($response) ? json_decode($response, true) : null;
         if (($data[0] ?? null) !== null && is_array($data[0])) {
-            $data = $data[0]; // Google vrací chybu jako pole
+            $data = $data[0]; // Google returns the error as an array
         }
         if ($code === 200 && is_array($data)) {
             return $provider === 'anthropic' ? $data : self::fromOpenAi($data);
@@ -428,7 +429,7 @@ class Assistant
         });
     }
 
-    /** Požadavek ve tvaru Claude API → chat/completions (OpenAI, Google, Mistral). */
+    /** A request in the shape of the Claude API → chat/completions (OpenAI, Google, Mistral). */
     public static function toOpenAi(array $body, string $provider): array
     {
         $messages = isset($body['system']) ? [['role' => 'system', 'content' => (string) $body['system']]] : [];
@@ -446,7 +447,7 @@ class Assistant
             + [$provider === 'openai' ? 'max_completion_tokens' : 'max_tokens' => (int) ($body['max_tokens'] ?? 1000)];
     }
 
-    /** Odpověď chat/completions → tvar Claude API ({content: [{type: text}], stop_reason}). */
+    /** A chat/completions answer → the shape of the Claude API ({content: [{type: text}], stop_reason}). */
     public static function fromOpenAi(array $data): array
     {
         $choice = $data['choices'][0] ?? [];

@@ -13,8 +13,9 @@ use Kaleta\Builder\Publisher;
 use Kaleta\Builder\Build;
 
 /**
- * Komponenty – znovupoužitelné bloky (karta služby, blok s kontaktem, výzva…). Vznikají v builderu tlačítkem
- * „Uložit jako komponentu“ nebo tady; upravují se v builderu a změna se projeví všude, kde jsou použité.
+ * Components – reusable blocks (service card, contact block, call to action…). They are created in the builder with the
+ * button "Uložit jako komponentu" (Save as component) or here; they are edited in the builder and a change shows
+ * everywhere they are used.
  */
 final class Components extends Module
 {
@@ -83,7 +84,7 @@ final class Components extends Module
         return $this->back('Komponenta byla smazána. Místa, kde byla použitá, zůstanou prázdná.');
     }
 
-    /** Z builderu: vybraný prvek se stane komponentou (JSON). Editor ho pak nahradí jejím použitím. */
+    /** From the builder: the selected element becomes a component (JSON). The editor then replaces it with a use of the component. */
     protected function actionFromElement(): Response
     {
         $element = $this->request->isPost() ? json_decode((string) ($_POST['prvek'] ?? ''), true) : null;
@@ -106,7 +107,7 @@ final class Components extends Module
         return array_map(fn (array $k): array => ['id' => (int) $k['idm'], 'nazev' => $k['nazev'], 'vlastnosti' => $k['vlastnosti']], KomponentyStavby::all($db));
     }
 
-    /* ---------- úprava v builderu ---------- */
+    /* ---------- editing in the builder ---------- */
 
     protected function actionBuilder(): Response
     {
@@ -141,13 +142,13 @@ final class Components extends Module
         return [
             'adresa' => $url . '?stavba=koncept', 'nahled' => $url . '?stavba=koncept&editor=1', 'zobrazena' => true, 'casti' => false,
             'zpet' => ['adresa' => $this->url(), 'text' => t('Komponenty')], 'nastaveni' => $this->url('edit', ['id' => (int) $k['idm']]),
-            // nápověda {{vlastností}} v editoru (stejná jako u kolekce, jen bez vestavěných hodnot)
+            // hint of the {{properties}} in the editor (the same as for a collection, only without built-in values)
             'kolekce' => ['seo_link' => '', 'nazev' => $k['nazev'], 'pole' => $k['vlastnosti'], 'detail' => false, 'vestavene' => false],
         ];
     }
 
     /**
-     * Kde je komponenta použitá (stránky, části webu, kolekce, jiné komponenty) – názvy pro výpis a potvrzení smazání.
+     * Where the component is used (pages, site parts, collections, other components) – names for the list and the delete confirmation.
      *
      * @return list<string>
      */
@@ -165,7 +166,7 @@ final class Components extends Module
         foreach ($this->db->all('SELECT nazev FROM {kolekce}' . $whereParts . ' ORDER BY nazev', [$pattern, $pattern]) as $r) {
             $usages[] = t('detail kolekce „%s“', $r['nazev']);
         }
-        // komponenta sama v sobě se nepočítá (a na webu se ani nevykreslí)
+        // a component inside itself does not count (and is not even rendered on the site)
         foreach ($this->db->all('SELECT nazev FROM {komponenty}' . $whereParts . ' AND idm <> ? ORDER BY nazev', [$pattern, $pattern, $idm]) as $r) {
             $usages[] = t('komponenta „%s“', $r['nazev']);
         }

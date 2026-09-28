@@ -1,4 +1,4 @@
-/* Kaleta - instalátor */
+/* Kaleta - installer */
 
 @import url("pismo.css");
 
@@ -84,14 +84,14 @@ input:focus-visible, .pole select:focus-visible { outline: 0; border-color: var(
 	.pole { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* volba jazyka instalace */
+/* installation language picker */
 .jazyky { display: flex; justify-content: flex-end; gap: 4px; margin-bottom: 8px; font-size: 13px; }
 .jazyky a { padding: 4px 10px; border-radius: 6px; color: var(--text-slaby); text-decoration: none; }
 .jazyky a:hover { color: var(--text); background: var(--plocha); }
 .jazyky a.aktivni { background: var(--akcent-svetly); color: var(--akcent); font-weight: 600; }
 .pole select { width: 100%; padding: 10px 12px; border: 1px solid var(--linka-pole); border-radius: 8px; background: var(--plocha); color: var(--text); font: inherit; }
 
-/* volba ukázkového webu */
+/* sample site picker */
 .weby { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 4px 0 0; padding: 0; border: 0; }
 .weby legend { margin-bottom: 6px; font-weight: 600; }
 .weby .napoveda { grid-column: 1 / -1; }
@@ -100,7 +100,7 @@ input:focus-visible, .pole select:focus-visible { outline: 0; border-color: var(
 .web:has(input:focus-visible) { outline: 2px solid #ff4f2e; outline-offset: 2px; }
 .web input { position: absolute; opacity: 0; }
 .web small { color: #5b5f68; line-height: 1.35; }
-.pole .web { display: grid; margin: 0; } /* karta ukázkového webu leží v .pole – název a popis pod sebou, ne za sebou */
+.pole .web { display: grid; margin: 0; } /* the sample site card sits in .pole – name and description stacked, not side by side */
 .rozsireni { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
 .rozsireni .web { padding-left: 40px; }
 .rozsireni .web input { opacity: 1; left: 14px; top: 15px; width: 16px; height: 16px; margin: 0; accent-color: #121212; }

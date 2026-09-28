@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Webhooky: po vydání novinky a po nové poptávce pošle údaje na adresy z Nastavení (Make, Zapier, IFTTT, n8n, CRM…).
- * Přes takovou službu jde novinku automaticky sdílet na sítě a poptávku založit v CRM nebo poslat do Slacku.
+ * Webhooks: after a news item is published and after a new enquiry, sends the data to the URLs from Settings (Make, Zapier,
+ * IFTTT, n8n, CRM…). Through such a service a news item can be shared to social networks automatically and an enquiry
+ * created in a CRM or sent to Slack.
  */
 final class Webhook
 {
-    /** Nová poptávka z formuláře webu → adresa z Nastavení (CRM, Make, Zapier, n8n, Slack…). */
+    /** New enquiry from a site form → URL from Settings (CRM, Make, Zapier, n8n, Slack…). */
     public static function enquiryReceived(App $app, int $idp, string $form, array $data, string $email, string $page, string $campaign = ''): void
     {
         $url = $app->settings()->get('webhook_enquiries');
@@ -24,7 +25,7 @@ final class Webhook
         ] + ($campaign !== '' ? ['utm' => self::utm($campaign)] : []));
     }
 
-    /** @return array<string, string> parametry utm_* bez předpony: source, medium, campaign, term, content */
+    /** @return array<string, string> utm_* parameters without the prefix: source, medium, campaign, term, content */
     private static function utm(string $campaign): array
     {
         parse_str($campaign, $utm);
@@ -59,9 +60,9 @@ final class Webhook
             [$idc],
         );
         if ($c === null) {
-            return; // koncept nebo novinka naplánovaná do budoucna
+            return; // a draft or a news item scheduled for the future
         }
-        $root = $app->request->origin() . $app->request->basePath() . '/'; // soubory jsou společné všem jazykům
+        $root = $app->request->origin() . $app->request->basePath() . '/'; // files are shared by all languages
         $data = [
             'udalost' => 'novinka_vydana', 'web' => $app->settings()->get('site_name'), 'titulek' => $c['titulek'],
             'adresa' => $app->request->origin() . $app->newsItemUrl($c['seo_link'], $c['jazyk']), 'perex' => trim(strip_tags($c['uvod'])), 'kategorie' => $c['kategorie'],

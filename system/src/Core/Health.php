@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Stav systému (health check): sada rychlých kontrol serveru, databáze, bezpečnosti a provozu.
- * Výsledek se zobrazuje v Nastavení a je dostupný i jako JSON pro monitoring (/stav.json?token=...).
+ * System health (health check): a set of quick checks of the server, database, security and operation.
+ * The result is shown in Settings and is also available as JSON for monitoring (/stav.json?token=...).
  */
 final class Health
 {
@@ -22,7 +22,7 @@ final class Health
         $db = $app->db();
         $siteSettings = $app->settings();
 
-        // --- server (názvy a texty jdou přes t(); hodnoty "stav" se nepřekládají - čte je monitoring)
+        // --- server (names and texts go through t(); the "stav" values are not translated - monitoring reads them)
         $add(t('Server'), t('Verze PHP'), PHP_VERSION_ID >= 80400, PHP_VERSION_ID >= 80400 ? PHP_VERSION : t('%s - systém vyžaduje 8.4 nebo novější', PHP_VERSION));
         foreach (['pdo_mysql' => t('databáze'), 'mbstring' => t('text s diakritikou'), 'gd' => t('zpracování obrázků')] as $ext => $purpose) {
             $add(t('Server'), t('Rozšíření %s', $ext), extension_loaded($ext), extension_loaded($ext) ? $purpose : t('%s - chybí', $purpose));
@@ -36,14 +36,14 @@ final class Health
             $add(t('Server'), t('Volné místo na disku'), $freeSpace > 200 * 1024 * 1024 ? 'ok' : 'varovani', self::size((int) $freeSpace));
         }
 
-        // --- databáze
+        // --- database
         $add(t('Databáze'), t('Server'), 'ok', (string) $db->value('SELECT VERSION()'));
         $pending = Migration::latest() - max(1, $siteSettings->int('db_version'));
         $add(t('Databáze'), t('Struktura databáze'), $pending <= 0, $pending <= 0 ? t('aktuální (verze %d)', $siteSettings->int('db_version')) : t('čeká %d aktualizací - proběhnou při příštím načtení administrace', $pending));
         $size = (int) $db->value('SELECT COALESCE(SUM(data_length + index_length), 0) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ?', [addcslashes($db->prefix, '_%') . '%']);
         $add(t('Databáze'), t('Velikost'), 'ok', t('%s, novinek: %d', self::size($size), (int) $db->value('SELECT COUNT(*) FROM {novinky}')));
 
-        // --- soubory a bezpečnost
+        // --- files and security
         foreach (['media' => t('nahrané obrázky'), 'storage/log' => t('záznam chyb'), 'storage/cache' => t('dočasná data')] as $folder => $purpose) {
             $ok = is_dir(KALETA_ROOT . '/' . $folder) ? is_writable(KALETA_ROOT . '/' . $folder) : is_writable(KALETA_ROOT);
             $add(t('Soubory'), t('Zápis do %s/', $folder), $ok, $ok ? $purpose : t('%s - nastavte práva k zápisu', $purpose));
@@ -60,7 +60,7 @@ final class Health
         $core = Integrity::check();
         $add(t('Bezpečnost'), t('Soubory jádra'), $core['stav'], $core['info']);
 
-        // --- provoz
+        // --- operation
         $log = KALETA_ROOT . '/storage/log/chyby.log';
         $errorCount = 0;
         if (is_file($log)) {
@@ -88,7 +88,7 @@ final class Health
             $add(t('Provoz'), t('Zálohy mimo server'), 'varovani', t('vypnuté – zálohy leží jen na stejném serveru jako web (Nastavení → Zálohy a aktualizace)'));
         }
         $smtp = $app->settings()->get('mail_mode') === 'smtp' && $app->settings()->get('smtp_host') !== '';
-        // úlohy na pozadí (naplánované novinky, fronta pošty, push, newsletter) spouští návštěvy webu nebo cron
+        // background tasks (scheduled news items, mail queue, push, newsletter) are run by site visits or cron
         $lastRun = $siteSettings->int('notification_check');
         $before = $lastRun > 0 ? (int) floor((time() - $lastRun) / 60) : null;
         $add(t('Provoz'), t('Úlohy na pozadí'), $before !== null && $before <= 30 ? 'ok' : 'varovani', $before === null
@@ -107,7 +107,7 @@ final class Health
         return $k;
     }
 
-    /** Souhrn pro monitoring: nejhorší nalezený stav. */
+    /** Summary for monitoring: the worst status found. */
     public static function summary(array $checks): string
     {
         $statuses = array_column($checks, 'stav');

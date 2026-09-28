@@ -5,30 +5,30 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Systémové adresy webu v jazyce verze: česká verze má /novinky, /novinky/kategorie/…, /novinky/stitek/… a /hledani,
- * každá jiná /news, /news/category/…, /news/tag/… a /search.
+ * The site's system URLs in the language of the version: the Czech version has /novinky, /novinky/kategorie/…,
+ * /novinky/stitek/… and /hledani, every other one /news, /news/category/…, /news/tag/… and /search.
  *
- * Kód uvnitř systému pracuje s českými (vnitřními) cestami; App::url() je převede na veřejné a Front\Kernel veřejné
- * zase na vnitřní. Druhá podoba adresy (třeba stará /novinky na anglickém webu) přesměruje natrvalo na platnou, takže
- * odkazy a pozice ve vyhledávačích zůstanou. Má-li web vlastní stránku s adresou news nebo search, zůstane jí a systém
- * použije české slovo.
+ * Code inside the system works with the Czech (internal) paths; App::url() converts them to public ones and Front\Kernel
+ * converts public ones back to internal. The other form of a URL (e.g. the old /novinky on an English site) redirects
+ * permanently to the valid one, so links and search engine rankings stay. If the site has its own page with the slug news
+ * or search, the page keeps it and the system uses the Czech word.
  */
 final class Routes
 {
-    /** vnitřní (české) slovo => anglické */
+    /** internal (Czech) word => English one */
     private const array FIRST_SEGMENTS = ['novinky' => 'news', 'hledani' => 'search'];
     private const array SECOND_SEGMENTS = ['kategorie' => 'category', 'stitek' => 'tag'];
 
-    /** @var array<string, bool>|null anglická slova, která na webu zabírá vlastní stránka */
+    /** @var array<string, bool>|null English words that a page of the site itself occupies */
     private static ?array $taken = null;
 
-    /** Anglická slova se použijí pro každý jazyk kromě češtiny. */
+    /** English words are used for every language except Czech. */
     public static function isEnglish(string $language): bool
     {
         return $language !== 'cs';
     }
 
-    /** Vnitřní cesta (bez úvodního lomítka, i s ?dotazem) na veřejnou pro daný jazyk verze. */
+    /** Internal path (without the leading slash, including a ?query) to the public one for the given version language. */
     public static function publicPath(string $path, string $language, ?Db $db): string
     {
         if (!self::isEnglish($language) || !preg_match('#^(novinky|hledani)(?=$|[/?.])#', $path, $m) || self::isTaken(self::FIRST_SEGMENTS[$m[1]], $db)) {
@@ -43,8 +43,8 @@ final class Routes
     }
 
     /**
-     * Veřejná cesta požadavku (s úvodním lomítkem, bez jazykové předpony) na vnitřní. Vrací [vnitřní, kanonická]:
-     * kanonická je podoba, kterou má adresa v tomto jazyce mít; když se liší od požadované, Front\Kernel přesměruje.
+     * Public request path (with the leading slash, without the language prefix) to the internal one. Returns [internal, canonical]:
+     * canonical is the form the URL should have in this language; when it differs from the requested one, Front\Kernel redirects.
      *
      * @return array{0: string, 1: string}
      */
@@ -56,7 +56,7 @@ final class Routes
         $word = $m[1];
         $czech = array_search($word, self::FIRST_SEGMENTS, true);
         if ($czech !== false && self::isTaken($word, $db)) {
-            return [$path, $path]; // vlastní stránka webu
+            return [$path, $path]; // the site's own page
         }
         $internal = '/' . ($czech !== false ? $czech : $word) . substr($path, strlen($m[0]));
         if (($czech !== false ? $czech : $word) === 'novinky') {
@@ -67,7 +67,7 @@ final class Routes
         return [$internal, '/' . self::publicPath(ltrim($internal, '/'), $language, $db)];
     }
 
-    /** Zabírá anglické slovo vlastní stránka webu (třeba stránka „news“ z doby před 1.2)? */
+    /** Does a page of the site itself occupy the English word (e.g. a page "news" from before 1.2)? */
     private static function isTaken(string $word, ?Db $db): bool
     {
         if ($db === null) {
@@ -80,7 +80,7 @@ final class Routes
                     self::$taken[$r['seo_link']] = true;
                 }
             } catch (\Throwable) {
-                // web před instalací nebo bez tabulky – žádná vlastní stránka
+                // site before installation or without the table – no own page
             }
         }
 

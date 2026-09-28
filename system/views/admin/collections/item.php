@@ -1,6 +1,6 @@
 <?php
 /**
- * Formulář položky kolekce – pole podle definice kolekce.
+ * Collection item form – fields according to the collection definition.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Collections $module

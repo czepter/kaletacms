@@ -9,8 +9,8 @@ use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
 /**
- * Fotogalerie: mřížka náhledů, klepnutím se fotka otevře přes celou obrazovku (prohlížečka z image/web.js, šipky i swipe).
- * Počet sloupců řídí styl (Rozložení → Sloupce), na telefonu se mřížka sama zúží.
+ * Photo gallery: a grid of thumbnails, a tap opens the photo full screen (the viewer from image/web.js, arrows and swipe).
+ * The number of columns is set by the style (Rozložení → Sloupce, i.e. Layout → Columns); on a phone the grid narrows by itself.
  */
 final class Gallery extends Element
 {
@@ -34,7 +34,7 @@ final class Gallery extends Element
 
     public static function baseCss(): string
     {
-        // mřížka sama podle šířky; Styl → Sloupce ji přepíše (vrstva prvků je až za vrstvou builderu)
+        // the grid adapts to the width by itself; Styl → Sloupce (Style → Columns) overrides it (the elements layer comes after the builder layer)
         return '.ka-galerie { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(12rem, 45%), 1fr)); gap: var(--ka-mezera-s); margin: 0; }
 .ka-galerie img { display: block; width: 100%; height: auto; object-fit: cover; border-radius: var(--ka-zaobleni-s); cursor: zoom-in; }
 .ka-galerie figcaption { grid-column: 1 / -1; color: var(--ka-barva-tlumeny); font-size: var(--ka-krok--1); }';

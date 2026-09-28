@@ -10,8 +10,8 @@ use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
 /**
- * Výpis kolekce: vnitřek prvku je vzor jedné položky a zopakuje se pro každou položku kolekce (reference, tým, produkty…).
- * V textech, obrázcích a odkazech uvnitř se {{pole}} nahradí hodnotou položky: {{nazev}}, {{url}}, {{datum}} a vlastní pole.
+ * Collection list: the inside of the element is the pattern of one item and repeats for each collection item (references, team, products…).
+ * In texts, images and links inside, {{field}} is replaced by the item's value: {{nazev}}, {{url}}, {{datum}} and custom fields.
  */
 final class CollectionList extends Element
 {
@@ -56,14 +56,14 @@ final class CollectionList extends Element
 
     public static function defaultChildren(): array
     {
-        // třída karta z knihovny sekcí (editor ji při vložení založí, pokud na webu ještě není)
+        // the class karta from the section library (the editor creates it on insert if the site does not have it yet)
         return [['tridy' => ['karta']] + \Kaleta\Builder\Build::fresh('kontejner', [], [
             ['znacka' => 'h3'] + \Kaleta\Builder\Build::fresh('nadpis', ['text' => '{{nazev}}']),
             \Kaleta\Builder\Build::fresh('tlacitko', ['text' => t('Více informací'), 'odkaz' => '{{url}}', 'varianta' => 'odkaz']),
         ])];
     }
 
-    /** Vnitřek pro každou položku (volá Stavba při vykreslení). */
+    /** The inside for each item (called by Build when rendering). */
     public static function repeat(array $p, Context $k, callable $inner): string
     {
         $o = $p['obsah'];
@@ -73,13 +73,13 @@ final class CollectionList extends Element
         }
         $r = $k->app->request;
         $db = $k->app->db();
-        // návštěvníkův filtr a strana jsou v adrese pod klíčem podle id prvku (výpisů může být na stránce víc)
+        // the visitor's filter and page are in the url under a key by the element id (there can be several lists on a page)
         $filterParam = 'f-' . $p['id'];
         $pageParam = 's-' . $p['id'];
         $filterField = preg_match(Collections::KEY_PATTERN, (string) $o['filtr_pole']) ? (string) $o['filtr_pole'] : '';
         $filterValues = $filterField !== '' && $o['filtry'] ? Collections::fieldValues($db, (int) $collection['idk'], Language::siteColumn(), $filterField) : [];
         $selected = in_array($r->get($filterParam), $filterValues, true) ? $r->get($filterParam) : '';
-        // související obsah: hodnota filtru ze zobrazené položky ({{skupina}} na stránce položky); jinde se nefiltruje
+        // related content: the filter value from the displayed item ({{skupina}} on the item page); elsewhere nothing is filtered
         $custom = $k->item;
         $filterValue = (string) $o['filtr_hodnota'];
         if (str_contains($filterValue, '{{')) {
@@ -98,7 +98,7 @@ final class CollectionList extends Element
             if (!$k->editor) {
                 return $o['prazdne'] !== '' ? '<p>' . e($o['prazdne']) . '</p>' : '';
             }
-            $values = [Collections::sample($collection)]; // v editoru vzor s popisky polí, ať je co navrhovat
+            $values = [Collections::sample($collection)]; // in the editor a sample with the field labels, so that there is something to design
         }
         [$previousItem, $depth] = [$k->item, $k->inLoop];
         $k->inLoop++;
@@ -112,7 +112,7 @@ final class CollectionList extends Element
         return $html;
     }
 
-    /** Tlačítka filtru (odkazy – fungují bez JavaScriptu a jdou sdílet). */
+    /** Filter buttons (links – they work without JavaScript and can be shared). */
     private static function filters(array $values, string $selected, string $parameter, Context $k): string
     {
         if ($values === []) {
@@ -124,7 +124,7 @@ final class CollectionList extends Element
         return '<ul class="ka-kolekce-filtry" aria-label="' . e(t('Filtr')) . '">' . $link('', t('Vše')) . implode('', array_map(fn (string $h): string => $link($h, $h), $values)) . '</ul>';
     }
 
-    /** @param array<string, string> $keep další parametry adresy (zvolený filtr) */
+    /** @param array<string, string> $keep other url parameters (the selected filter) */
     private static function pagination(int $total, int $perPage, int $pageNumber, string $parameter, array $keep, Context $k): string
     {
         $pageCount = (int) ceil($total / max(1, $perPage));
@@ -146,7 +146,7 @@ final class CollectionList extends Element
         unset($k->surroundings[$p['id']]);
         $listing = $children === '' ? '' : '<' . $p['znacka'] . $a . '>' . $children . '</' . $p['znacka'] . '>';
 
-        // filtry a stránkování jsou kolem mřížky (ne v ní, jinak by byly jako další karta)
+        // filters and pagination are around the grid (not in it, otherwise they would look like another card)
         return $surroundings['pred'] === '' && $surroundings['za'] === '' ? $listing : '<div class="ka-kolekce">' . $surroundings['pred'] . $listing . $surroundings['za'] . '</div>';
     }
 }

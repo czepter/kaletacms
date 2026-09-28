@@ -8,7 +8,7 @@ use Kaleta\Front\NewsRepository;
 use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
-/** Výpis posledních novinek (dynamický – mění se sám, jak přibývají novinky). */
+/** List of the latest news (dynamic – it changes by itself as news items are added). */
 final class News extends Element
 {
     public const string TYPE = 'novinky';

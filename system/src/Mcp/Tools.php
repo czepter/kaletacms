@@ -19,24 +19,25 @@ use Kaleta\Builder\Build;
 use Kaleta\Builder\HtmlConverter;
 
 /**
- * Nástroje, které MCP server nabízí Claudovi. Každý nástroj respektuje práva uživatele, jehož tokenem se Claude hlásí:
- * autor pracuje jen se svými novinkami a nevydává, editor s veškerým obsahem, správce navíc se šablonami webu.
+ * Tools the MCP server offers to Claude. Every tool respects the permissions of the user whose token Claude signs in with:
+ * an author works only with their own news and does not publish, an editor with all content, an administrator also with
+ * the site layouts.
  *
- * Chyba určená Claudovi (špatný vstup, chybějící právo) se hlásí výjimkou InvalidArgumentException / DomainException.
+ * An error meant for Claude (bad input, missing permission) is reported with an InvalidArgumentException / DomainException.
  */
 final class Tools
 {
-    /** Největší soubor nahraný přes MCP (base64 v jednom volání nástroje). */
+    /** The largest file uploaded via MCP (base64 in one tool call). */
     private const int MAX_UPLOAD = 12 * 1024 * 1024;
 
-    /** Nastavení, která smí MCP měnit (ostatní – e-mail, webhooky, 2FA, pošta, zálohy – jen v administraci). */
+    /** Settings MCP can change (the others – e-mail, webhooks, 2FA, mail, backups – only in the administration). */
     private const string MCP_SETTINGS = '/^(site_name|site_description|footer_text|home_page|social_(facebook|instagram|x|youtube|linkedin)|news_per_page|share_buttons|article_outline|related_news_auto|company_[a-z_]+|dark_mode|theme_switcher|site_(name|description)_[a-z]{2})$/';
 
     public function __construct(private readonly App $app)
     {
     }
 
-    /** @return list<array<string, mixed>> definice nástrojů pro tools/list */
+    /** @return list<array<string, mixed>> tool definitions for tools/list */
     public function listAll(): array
     {
         $s = fn (array $properties, array $required = []): array => ['type' => 'object', 'properties' => $properties === [] ? new \stdClass() : $properties, 'required' => $required];
@@ -177,13 +178,13 @@ final class Tools
         return array_values(array_map(fn (array $n): array => ['name' => $n[0], 'description' => $n[1], 'inputSchema' => $n[2]], $tools));
     }
 
-    /** @return list<string> české názvy všech nástrojů (i vypnutých rozšíření) */
+    /** @return list<string> Czech names of all tools (including disabled extensions) */
     public function names(): array
     {
         return [...array_column($this->listAll(), 'name'), ...self::NEWS_TOOLS];
     }
 
-    /** Nástroje rozšíření Novinky – s vypnutým rozšířením se nenabízejí ani nespustí. */
+    /** Tools of the News extension – with the extension disabled they are neither offered nor run. */
     private const array NEWS_TOOLS = ['seznam_novinek', 'nacti_novinku', 'vytvor_novinku', 'uprav_novinku', 'seznam_kategorii', 'vytvor_kategorii'];
 
     public function isWriteTool(string $name): bool
@@ -220,11 +221,11 @@ final class Tools
             case 'seznam_stranek':
                 $home = $siteSettings->int('home_page');
 
-                // adresa jazykové verze má předponu (/de/…); překlad úvodu je kořenem své verze (/de/)
+                // the URL of a language version has a prefix (/de/…); the translation of the home page is the root of its version (/de/)
                 return array_map(fn (array $r): array => ['id' => (int) $r['ids'], 'titulek' => $r['titulek'], 'adresa' => $this->app->request->origin()
                     . $this->app->url(($r['jazyk'] !== '' ? $r['jazyk'] . '/' : '') . ((int) $r['ids'] === $home || ($home > 0 && (int) $r['preklad_z'] === $home) ? '' : $r['seo_link'])),
                     'uvodni' => (int) $r['ids'] === $home, 'zobrazena' => (bool) $r['zobrazit'], 'v_menu' => (bool) $r['v_menu'], 'jazyk' => $r['jazyk']],
-                    // bez sekce Stránky (autor novinek) jen zveřejněné stránky – na ty smí odkazovat, koncepty nevidí
+                    // without the Pages section (news author) only published pages – it can link to those, it does not see drafts
                     $db->all('SELECT ids, titulek, seo_link, zobrazit, v_menu, jazyk, preklad_z FROM {stranky} WHERE smazano IS NULL' . ($auth->hasModule('pages') ? '' : ' AND zobrazit = 1') . ' ORDER BY jazyk, poradi, titulek'));
 
             case 'nacti_stranku':
@@ -251,7 +252,7 @@ final class Tools
                     if (!$auth->isAdmin()) {
                         throw new \DomainException('Menu smí upravovat jen správce.');
                     }
-                    // null vrátí automatické menu – jen když ho volající opravdu poslal, ne když položky chybí nebo nejdou přečíst
+                    // null restores the automatic menu – only when the caller really sent it, not when items are missing or cannot be read
                     if (!array_key_exists('polozky', $a) || ($a['polozky'] !== null && !is_array($a['polozky']))) {
                         throw new \InvalidArgumentException('Parametr polozky musí být seznam položek menu, nebo null pro automatické menu.');
                     }
@@ -307,7 +308,7 @@ final class Tools
                 $conversion = HtmlConverter::convert('<style>' . str_ireplace('</style', '', (string) ($a['css'] ?? '')) . '</style>', true);
                 $stored = [];
                 foreach (array_unique(array_merge(array_keys($conversion['tridy']), array_keys($conversion['tridy_styl']))) as $className) {
-                    // slučuje se: pravidlo jen pro :hover nebo @media nechá základ třídy a ostatní stavy (nahradit: true = celá třída znovu)
+                    // merged: a rule only for :hover or @media keeps the class base and the other states (nahradit: true = the whole class anew)
                     $previous = empty($a['nahradit']) ? $db->one('SELECT styl, css FROM {tridy} WHERE nazev = ?', [$className]) : null;
                     $style = ($conversion['tridy_styl'][$className] ?? []) + (json_decode((string) ($previous['styl'] ?? ''), true) ?: []);
                     $css = $conversion['tridy'][$className] ?? (string) ($previous['css'] ?? '');
@@ -327,7 +328,7 @@ final class Tools
 
             case 'stavba_z_html':
                 $target = $this->loadBuildTarget($a, true);
-                ['stavba' => $build, 'hlaseni' => $messages] = HtmlConverter::saveToSite($db, (string) ($a['html'] ?? ''), $auth->isAdmin(), $auth->isAdmin() && !empty($a['prepsat_tridy'])); // sdílené třídy mění jen správce
+                ['stavba' => $build, 'hlaseni' => $messages] = HtmlConverter::saveToSite($db, (string) ($a['html'] ?? ''), $auth->isAdmin(), $auth->isAdmin() && !empty($a['prepsat_tridy'])); // only the administrator changes shared classes
                 if (empty($a['prepsat_tridy'])) {
                     $messages = array_map(fn (string $h): string => str_ends_with($h, 'ponechána beze změny.') ? substr($h, 0, -1) . ' (prepsat_tridy: true ji přepíše).' : $h, $messages);
                 }
@@ -529,7 +530,7 @@ final class Tools
                     $args[] = $a['jazyk'];
                 }
                 if (!empty($a['jen_zobrazene']) || !$auth->hasModule('collections')) {
-                    $whereParts[] = 'zobrazit = 1'; // bez sekce Kolekce jen zveřejněné položky
+                    $whereParts[] = 'zobrazit = 1'; // without the Collections section only published items
                 }
                 if (is_string($a['hledat'] ?? null) && trim($a['hledat']) !== '') {
                     $whereParts[] = '(nazev LIKE ? OR data LIKE ?)';
@@ -538,7 +539,7 @@ final class Tools
                 }
                 $rows = $db->all('SELECT * FROM {kolekce_polozky} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY poradi, nazev LIMIT 5000', $args);
                 if (is_string($a['pole'] ?? null) && $a['pole'] !== '') {
-                    // přesná shoda hodnoty pole (JSON v databázi – filtruje se tady, bez závislosti na verzi MySQL)
+                    // exact match of a field value (JSON in the database – filtered here, without depending on the MySQL version)
                     $rows = array_values(array_filter($rows, fn (array $r): bool => (string) ((json_decode((string) $r['data'], true) ?: [])[$a['pole']] ?? '') === (string) ($a['hodnota'] ?? '')));
                 }
                 $pageNumber = max(1, (int) ($a['strana'] ?? 1));
@@ -555,7 +556,7 @@ final class Tools
                 if (isset($a['id']) && $previous === null) {
                     throw new \InvalidArgumentException('Položka v kolekci není. Použij seznam_polozek_kolekce.');
                 }
-                // při úpravě je název nepovinný – zůstane dosavadní
+                // on update the name is optional – the current one stays
                 $itemName = mb_substr(trim((string) ($a['nazev'] ?? $previous['nazev'] ?? '')), 0, 200);
                 if ($itemName === '') {
                     throw new \InvalidArgumentException('Položka musí mít název.');
@@ -570,7 +571,8 @@ final class Tools
                 if ($seo === '' || $seo === '_ukazka') {
                     throw new \InvalidArgumentException('Neplatná adresa položky.');
                 }
-                // adresa je jedinečná v jazyce: překlad položky má mít stejnou (přepínač jazyků a hreflang ji podle ní najdou)
+                // the slug is unique within a language: an item's translation should have the same one (the language
+                // switcher and hreflang find it by the slug)
                 $itemLanguage = array_key_exists('jazyk', $a) ? Language::column($siteSettings, (string) $a['jazyk']) : (string) ($previous['jazyk'] ?? '');
                 $seo = \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$collection['idk'], $itemLanguage, $a, (int) ($previous['idp'] ?? 0)]) !== null);
                 $row = ['nazev' => $itemName, 'seo_link' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')]
@@ -584,14 +586,14 @@ final class Tools
                     $idp = $db->insert('kolekce_polozky', $row + ['idk' => $collection['idk'], 'datum' => date('Y-m-d H:i:s'), 'zobrazit' => 0]);
                 }
 
-                // klíč, který kolekce nemá (překlep, „nazev“ v data místo parametru), by se jinak tiše zahodil
+                // a key the collection does not have (a typo, „nazev“ in data instead of the parameter) would otherwise be silently dropped
                 $unknownKeys = array_values(array_diff(array_keys(is_array($a['data'] ?? null) ? $a['data'] : []), array_column($collection['pole'], 'klic')));
 
                 return ['id' => $idp, 'kolekce' => $collection['seo_link'], 'neplatna_pole' => array_keys($errors)] + ($unknownKeys !== [] ? ['nezname_klice' => $unknownKeys] : []) + [
                     'adresa' => $collection['detail'] ? $this->app->request->origin() . $this->app->url(($itemLanguage !== '' ? $itemLanguage . '/' : '') . $collection['seo_link'] . '/' . $seo) : null];
 
             case 'seznam_novinek':
-                $where = ['c.smazano IS NULL']; // koš se přes MCP nevypisuje ani needituje
+                $where = ['c.smazano IS NULL']; // the trash is neither listed nor edited via MCP
                 $p = [];
                 if (($authors = $auth->managedAuthors()) !== null) {
                     $where[] = 'c.autor IN (' . implode(',', $authors) . ')';
@@ -672,11 +674,12 @@ final class Tools
                     $key = (string) $key;
                     $key = \Kaleta\Core\Settings::LEGACY_KEYS[$key] ?? (preg_match('/^(nazev_webu|popis_webu)_([a-z]{2})$/', $key, $m) ? \Kaleta\Core\Settings::LEGACY_KEYS[$m[1]] . '_' . $m[2] : $key);
                     if (in_array($key, ['logo', 'favicon', 'share_image'], true)) {
-                        // logo a ikona: soubor z Médií (nahraj_soubor) nebo ze systému (image/…); prázdné = bez loga / ikony
+                        // logo and icon: a file from Media (nahraj_soubor) or from the system (image/…); empty = no logo / icon
                         $path = ltrim(trim((string) $value), '/');
                         $ok = $path === '' || (preg_match('#^(media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif)$#', $path) && !str_contains($path, '..') && is_file(KALETA_ROOT . '/' . $path));
                         if ($ok && $key === 'favicon' && $path !== '') {
-                            // ikony pro telefony a instalaci webu (media/ikona-<n>.png) se připraví hned, jako ve Vzhledu
+                            // icons for phones and for installing the site (media/ikona-<n>.png) are prepared right away,
+                            // as in Appearance
                             $ok = \Kaleta\Core\Images::icons(KALETA_ROOT . '/' . $path);
                         } elseif ($key === 'favicon') {
                             array_map(fn (int $n): bool => @unlink(KALETA_ROOT . '/media/ikona-' . $n . '.png'), \Kaleta\Core\Images::ICON_SIZES);
@@ -786,7 +789,7 @@ final class Tools
         }
         if (array_key_exists('kategorie', $a)) {
             $data['tema'] = $this->category((string) $a['kategorie']);
-            // novinka přebírá jazykovou verzi kategorie – stejně jako při uložení v administraci
+            // the news item takes over the category's language version – just like when saved in the administration
             $data['jazyk'] = (string) $db->value('SELECT jazyk FROM {kategorie} WHERE idt = ?', [$data['tema']]);
         }
         if (!empty($a['datum'])) {
@@ -816,7 +819,7 @@ final class Tools
             $id = $db->insert('novinky', $data);
         } else {
             $id = (int) $previous['idc'];
-            \Kaleta\Admin\Modules\News::version($db, $previous, $auth->id()); // historie se promazává stejně jako v administraci
+            \Kaleta\Admin\Modules\News::version($db, $previous, $auth->id()); // history is pruned the same way as in the administration
             $db->update('novinky', $data, ['idc' => $id]);
         }
         \Kaleta\Core\Search::index($db, $id);
@@ -859,7 +862,7 @@ final class Tools
             $data['poradi'] = max(0, min(65535, (int) $a['poradi']));
         }
         if (!$this->app->auth()->canPublish()) {
-            // bez práva vydávat: zveřejněnou stránku neměnit, novou nechat skrytou (stejně jako v administraci)
+            // without the publish permission: do not change a published page, keep a new one hidden (same as in the administration)
             if ($previous !== null && $previous['zobrazit']) {
                 throw new \DomainException('Zveřejněnou stránku smí upravit jen editor nebo správce.');
             }
@@ -880,7 +883,8 @@ final class Tools
             $data['preklad_z'] = $language === '' ? null
                 : ($db->value("SELECT ids FROM {stranky} WHERE ids = ? AND jazyk = '' AND ids <> ? AND smazano IS NULL", [(int) ($a['preklad_z'] ?? $previous['preklad_z'] ?? 0), (int) ($previous['ids'] ?? 0)]) ?: null);
         }
-        // nadřazená stránka: stejný jazyk, ne ona sama ani její podstránka (jinak by vznikl kruh); adresa je /nadrazena/stranka
+        // parent page: the same language, not the page itself nor its subpage (that would create a loop); the slug is
+        // /parent/page
         $parent = null;
         $parentChanged = array_key_exists('nadrazena', $a) || array_key_exists('jazyk', $a);
         if ($parentChanged) {
@@ -904,7 +908,7 @@ final class Tools
             }
         }
         if (!empty($data['zobrazit'])) {
-            $data['zverejnit_od'] = null; // zveřejněná stránka už na plán nečeká
+            $data['zverejnit_od'] = null; // a published page no longer waits for the schedule
         }
         if (array_key_exists('adresa', $a) || $previous === null || $parentChanged) {
             $base = ($a['adresa'] ?? '') !== '' ? basename(str_replace('\\', '/', (string) $a['adresa']))
@@ -922,7 +926,8 @@ final class Tools
         $data['zmeneno'] = date('Y-m-d H:i:s');
         if ($previous === null) {
             if (!empty($a['kopie_stavby'])) {
-                // překlad začíná kopií stavby originálu (koncept, jinak publikovaná) – texty pak změní stavba_uprav podle id
+                // a translation starts with a copy of the original's build (the draft, otherwise the published one) – the
+                // texts are then changed by stavba_uprav by id
                 $original = ($data['preklad_z'] ?? null) !== null ? $db->one('SELECT stavba, stavba_koncept FROM {stranky} WHERE ids = ?', [$data['preklad_z']]) : null;
                 if ($original === null) {
                     throw new \InvalidArgumentException('Kopie stavby potřebuje preklad_z – ID stránky ve výchozím jazyce, a jazyk překladu.');
@@ -936,7 +941,7 @@ final class Tools
         } else {
             $id = (int) $previous['ids'];
             if (($data['titulek'] ?? $previous['titulek']) !== $previous['titulek'] || (string) ($data['text'] ?? $previous['text']) !== (string) $previous['text']) {
-                Pages::version($db, $id, $this->app->auth()->id(), $previous['titulek'], (string) $previous['text']); // předchozí podoba do historie
+                Pages::version($db, $id, $this->app->auth()->id(), $previous['titulek'], (string) $previous['text']); // the previous version into the history
             }
             $db->update('stranky', $data, ['ids' => $id]);
             if (isset($data['seo_link']) && $data['seo_link'] !== $previous['seo_link']) {
@@ -961,7 +966,7 @@ final class Tools
         return $page;
     }
 
-    /** Pop-up okno pro výstup MCP. */
+    /** Popup for MCP output. */
     private function popup(array $p, bool $withPreview = false): array
     {
         $output = ['id' => $p['idpp'], 'nazev' => $p['nazev'], 'adresa' => $p['adresa'], 'odkaz' => '#popup-' . $p['adresa'], 'typ' => $p['typ'], 'spoustec' => $p['spoustec'],
@@ -976,7 +981,7 @@ final class Tools
         return $output;
     }
 
-    /** Založí okno ze vzoru nebo změní nastavení; zapnout jde jen publikované. */
+    /** Creates a popup from a template or changes its settings; only a published one can be enabled. */
     private function savePopup(array $a): array
     {
         $db = $this->app->db();
@@ -1037,8 +1042,9 @@ final class Tools
     }
 
     /**
-     * Cíl stavby: stránka (id; bez id a se $zalozit nová skrytá stránka s názvem z „titulek“) nebo část webu (cast = typ, jazyk),
-     * kterou smí měnit jen správce. Část, která ještě není, se založí s konceptem podle šablony.
+     * Build target: a page (id; without id and with $create a new hidden page named from „titulek“) or a site part
+     * (cast = type, language), which only the administrator can change. A part that does not exist yet is created with a
+     * draft from the layout.
      *
      * @return array{druh: string, radek: array<string, mixed>, stavba: ?string, koncept: ?string, jazyk: string}
      */
@@ -1067,7 +1073,7 @@ final class Tools
             }
             $row = \Kaleta\Builder\Collections::inLanguage($db, $row, $language);
             if ($row['stavba'] === null && $row['stavba_koncept'] === null) {
-                // šablona, kterou by ukázal builder, dokud ji nikdo neupravil (další jazyk začíná kopií výchozího)
+                // the template the builder would show until someone edits it (another language starts with a copy of the default)
                 $row['stavba_koncept'] = \Kaleta\Builder\Collections::initialTemplateDraft($db, $row);
             }
 
@@ -1090,7 +1096,8 @@ final class Tools
                     throw new \InvalidArgumentException('Varianta neexistuje. Varianty záhlaví a patičky vypíše seznam_casti, založí uloz_variantu.');
                 }
             } else {
-                // část, která ještě není: koncept, se kterým by začal builder – řádek se založí až zápisem (čtení nic nemění)
+                // a part that does not exist yet: the draft the builder would start with – the row is created only on write
+                // (reading changes nothing)
                 $row = SiteParts::row($db, $type, $language) ?? ['typ' => $type, 'jazyk' => $language, 'varianta' => '', 'nazev' => '', 'stranky' => null, 'stavba' => null,
                     'stavba_koncept' => SiteParts::initialDraft($db, $type, $language, Language::ofContent($siteSettings, $language)), 'zmeneno' => null, 'nova' => true];
             }
@@ -1110,7 +1117,7 @@ final class Tools
             'revize' => ['ids' => (int) $row['ids']]];
     }
 
-    /** Rozpracovaná, jinak publikovaná stavba cíle; textová stránka jako stavba z jejího textu. */
+    /** The target's draft build, otherwise the published one; a text page as a build from its text. */
     private function targetBuild(array $target): array
     {
         return Build::fromJson($target['koncept'] ?? $target['stavba'])
@@ -1137,7 +1144,7 @@ final class Tools
             Publisher::page($this->app, (array) $db->one('SELECT * FROM {stranky} WHERE ids = ?', [$target['radek']['ids']]));
         } elseif ($target['druh'] === 'kolekce') {
             $row = \Kaleta\Builder\Collections::inLanguage($db, (array) \Kaleta\Builder\Collections::byId($db, (int) $target['radek']['idk']), $target['radek']['sablona_jazyk']);
-            // výchozí šablona, kterou nikdo neuložil, se publikuje taky (jinak by nebylo co publikovat)
+            // a default template nobody saved is published too (otherwise there would be nothing to publish)
             $row['stavba_koncept'] ??= $target['koncept'];
             Publisher::collection($this->app, $row);
         } elseif ($target['druh'] === 'popup') {
@@ -1148,7 +1155,10 @@ final class Tools
         }
     }
 
-    /** Část webu, kterou cilStavby jen předložil (ještě není v databázi), se založí s výchozím konceptem před prvním zápisem. */
+    /**
+     * A site part that loadBuildTarget() only offered (not in the database yet) is created with the default draft before
+     * the first write.
+     */
     private function createSitePart(array $row): void
     {
         if (!empty($row['nova']) && SiteParts::row($this->app->db(), $row['typ'], $row['jazyk']) === null) {
@@ -1156,7 +1166,7 @@ final class Tools
         }
     }
 
-    /** Vyčistí a uloží koncept (případně publikuje); vrací, co model potřebuje k další práci. */
+    /** Sanitizes and saves the draft (and publishes it if asked); returns what the model needs for further work. */
     private function saveBuild(array $target, array $input, bool $publish): array
     {
         $db = $this->app->db();
@@ -1188,7 +1198,10 @@ final class Tools
             'stavitel' => $this->app->request->origin() . $this->app->url('admin.php?' . $params)] + $this->checkTarget($target, $build);
     }
 
-    /** Kontrola před publikováním jako v builderu (tlačítka bez odkazu, obrázky bez popisu, osnova nadpisů stránky); bez nálezů nic. */
+    /**
+     * Check before publishing as in the builder (buttons without a link, images without alt text, the page's heading
+     * outline); nothing when there are no findings.
+     */
     private function checkTarget(array $target, array $build): array
     {
         $findings = \Kaleta\Builder\Check::builds($build, $target['druh'] === 'stranka');
@@ -1196,7 +1209,7 @@ final class Tools
         return $findings === [] ? [] : ['kontrola' => $findings];
     }
 
-    /** Podepsaný odkaz na koncept cíle (platí jen pro tenhle cíl a omezenou dobu). */
+    /** Signed link to the target's draft (valid only for this target and for a limited time). */
     private function targetPreviewUrl(array $target, int $minutes): string
     {
         $r = $target['radek'];
@@ -1204,7 +1217,7 @@ final class Tools
             'stranka' => 'stranka:' . (int) $r['ids'],
             'kolekce' => \Kaleta\Builder\Collections::templateKey($r),
             'popup' => 'popup:' . (int) $r['idpp'],
-            default => 'cast:' . $r['typ'] . ':' . $r['jazyk'] . ($r['varianta'] !== '' ? ':' . $r['varianta'] : ''), // odkaz na záhlaví neukáže koncept varianty
+            default => 'cast:' . $r['typ'] . ':' . $r['jazyk'] . ($r['varianta'] !== '' ? ':' . $r['varianta'] : ''), // a link to the header would not show the variant's draft
         };
         $key = \Kaleta\Core\Preview::key($this->app->db(), $this->app->settings(), $signature, $minutes);
         if ($target['druh'] === 'popup') {
@@ -1216,12 +1229,15 @@ final class Tools
         return $this->targetUrl($target) . '?' . ($target['druh'] === 'cast' ? 'cast=' . $r['typ'] . '&' : '') . $variant . 'stavba=koncept&nahled_klic=' . $key;
     }
 
-    /** Veřejná adresa, na které je cíl vidět (u části webu úvodní stránka, detail novinky, výpis, 404; u kolekce první položka). */
+    /**
+     * Public URL where the target is visible (for a site part the home page, news item detail, listing, 404; for a
+     * collection the first item).
+     */
     private function targetUrl(array $target): string
     {
         $r = $target['radek'];
         if ($target['druh'] === 'popup') {
-            return $this->app->request->origin() . $this->app->url('_popup/' . (int) $r['idpp']); // koncept okna přes prázdnou stránku webu
+            return $this->app->request->origin() . $this->app->url('_popup/' . (int) $r['idpp']); // the popup draft over an empty site page
         }
         if ($target['druh'] === 'kolekce') {
             $language = $r['sablona_jazyk'];
@@ -1233,7 +1249,7 @@ final class Tools
             $home = $this->app->settings()->int('home_page') === (int) $r['ids'];
             $path = $home ? '' : $r['seo_link'];
         } elseif ($r['varianta'] !== '') {
-            // varianta se ukazuje na první stránce, pro kterou platí
+            // the variant is shown on the first page it applies to
             $ids = (int) ((json_decode((string) $r['stranky'], true) ?: [])[0] ?? 0);
             $path = (string) $this->app->db()->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$ids]);
         } else {
@@ -1253,7 +1269,7 @@ final class Tools
     }
 
 
-    /** Médium pro výstup MCP: adresa pro stavbu (media/…), rozměry a jestli jde o obrázek. */
+    /** Media file for MCP output: URL for the build (media/…), dimensions and whether it is an image. */
     private function medium(array $o): array
     {
         return ['id' => (int) $o['ido'], 'nazev' => $o['nazev'], 'adresa' => $o['obr_poloha'], 'url' => $this->app->request->origin() . $this->app->url($o['obr_poloha']),
@@ -1313,7 +1329,7 @@ final class Tools
     }
 
     /** @return array<string, mixed> */
-    /** Volná adresa kolekce: ne systémová cesta, kód jazyka ani adresa jiné kolekce. */
+    /** A free collection slug: not a system path, a language code or the slug of another collection. */
     private function availableCollectionSlug(string $given, int $idk): string
     {
         $seo = slugify($given, 110);
@@ -1330,7 +1346,7 @@ final class Tools
         return Collections::bySlug($this->app->db(), $seo) ?? throw new \InvalidArgumentException('Kolekce neexistuje. Použij seznam_kolekci.');
     }
 
-    /** @return array<string, mixed> novinka, ke které má uživatel přístup */
+    /** @return array<string, mixed> news item the user has access to */
     private function newsItem(int $id): array
     {
         $newsItem = $this->app->db()->one('SELECT * FROM {novinky} WHERE idc = ? AND smazano IS NULL', [$id]);

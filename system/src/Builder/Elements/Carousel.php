@@ -9,8 +9,8 @@ use Kaleta\Builder\Element;
 use Kaleta\Builder\Build;
 
 /**
- * Karusel: vodorovný pás snímků (vnořené prvky) s přichycením při posunu – na telefonu prstem, na počítači šipkami
- * (image/web.js). Bez skriptu jde pás posouvat taky. Nic se samo neposouvá – automatické střídání vadí čtení i přístupnosti.
+ * Carousel: a horizontal strip of slides (nested elements) with scroll snapping – with a finger on a phone, with arrows on a desktop
+ * (image/web.js). The strip can be scrolled without the script too. Nothing scrolls by itself – automatic rotation hurts reading and accessibility.
  */
 final class Carousel extends Element
 {

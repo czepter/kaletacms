@@ -4,11 +4,11 @@
  * @var string $csrf
  * @var array<string, mixed> $page
  * @var array<string, string> $errors
- * @var bool $home  je to úvodní stránka webu
- * @var ?bool $inMenu  je stránka v sestaveném menu (null = menu se skládá automaticky podle v_menu)
- * @var bool $customMenu  web má sestavené hlavní menu
- * @var list<array{ids:int, titulek:string, seo_link:string}> $parents  možné nadřazené stránky
- * @var list<array{idr:int, datum:string, titulek:string, kdo:?string}> $versions  starší verze textu
+ * @var bool $home  this is the home page of the site
+ * @var ?bool $inMenu  the page is in the built menu (null = the menu is built automatically from v_menu)
+ * @var bool $customMenu  the site has a built main menu
+ * @var list<array{ids:int, titulek:string, seo_link:string}> $parents  possible parent pages
+ * @var list<array{idr:int, datum:string, titulek:string, kdo:?string}> $versions  older versions of the text
  */
 $segment = basename((string) $page['seo_link']);
 $prefix = '';

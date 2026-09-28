@@ -7,7 +7,7 @@ namespace Kaleta\Builder\Elements;
 use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
-/** Mřížka: sloupce, které se samy zalomí, když se nevejdou (výchozí „kolik se vejde po 16rem“). */
+/** Grid: columns that wrap by themselves when they do not fit (the default is "as many as fit at 16rem"). */
 final class Grid extends Element
 {
     public const string TYPE = 'mrizka';

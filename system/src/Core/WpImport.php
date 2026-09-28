@@ -9,18 +9,19 @@ use Kaleta\Admin\Modules\Redirects;
 use Kaleta\Admin\Modules\Pages;
 
 /**
- * Import z WordPressu: stránky, příspěvky (→ novinky), kategorie, štítky, přesměrování ze starých adres a (zvlášť) obrázky.
- * Komentáře se nepřenášejí – firemní web je nemá.
+ * Import from WordPress: pages, posts (→ news), categories, tags, redirects from old URLs and (separately) images.
+ * Comments are not carried over – a company site does not have them.
  *
- * Jak to drží pohromadě:
- *  - Soubor se čte proudem (Core\WpSoubor) a pracuje se PO DÁVKÁCH – nejvýš DAVKA příspěvků nebo SEKUND vteřin na jeden požadavek,
- *    aby import přežil časové limity sdíleného hostingu. Kde se skončilo (kolikátý <item>), drží stavový soubor
- *    storage/import/stav-<otisk>.json; další požadavek naváže.
- *  - Tabulka ka_import_mapa si pamatuje, který cizí záznam se stal kterým naším. Stejný soubor jde proto pustit znovu bez duplicit
- *    (už převedená novinka se přeskočí a pozdější úpravy se nepřepíší) a obrázky se nestahují dvakrát.
- *  - Průchody jsou tři: náhled (jen počítá, do databáze nesahá), import obsahu a – až na výslovné přání – stažení obrázků.
- *  - Účty se nezakládají: novinka patří tomu, kdo importuje.
- *  - Importované novinky jsou rovnou „oznámené“ – stovky starých textů nesmí spustit webhook ani IndexNow.
+ * How it holds together:
+ *  - The file is read as a stream (Core\WpFile) and the work is done IN BATCHES – at most BATCH posts or SECONDS seconds per request,
+ *    so that the import survives the time limits of shared hosting. Where it stopped (which <item>) is kept in the state file
+ *    storage/import/stav-<hash>.json; the next request continues from there.
+ *  - The table ka_import_mapa remembers which foreign record became which of ours. So the same file can be run again without
+ *    duplicates (an already converted news item is skipped and later edits are not overwritten) and images are not downloaded twice.
+ *  - There are three passes: preview (only counts, does not touch the database), content import and – only on explicit request –
+ *    downloading images.
+ *  - No accounts are created: a news item belongs to whoever runs the import.
+ *  - Imported news items are "announced" right away – hundreds of old texts must not trigger the webhook or IndexNow.
  */
 final class WpImport
 {
@@ -28,10 +29,10 @@ final class WpImport
     public const int IMAGE_BATCH = 10;
     public const int SECONDS = 8;
 
-    /** Výchozí volby importu (krok Náhled). */
+    /** Default import options (the Preview step). */
     public const array DEFAULT_OPTIONS = ['jazyk' => '', 'koncepty' => true, 'stranky' => true, 'stavitel' => true, 'presmerovani' => true, 'rubrika' => 0];
 
-    /** Typy příspěvků, které umíme; ostatní (menu, vlastní typy doplňků…) náhled jen vyjmenuje. */
+    /** Post types we can handle; the preview only lists the others (menus, custom types of add-ons…). */
     private const array TYPES = ['post', 'page', 'attachment'];
 
     private string $source = 'wp';
@@ -39,21 +40,21 @@ final class WpImport
     /** @var array{nazev:string, adresa:string, autori:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>} */
     private array $header = ['nazev' => '', 'adresa' => '', 'autori' => [], 'rubriky' => [], 'stitky' => []];
 
-    /** @var array<string, int> rubriky převedené v tomto požadavku (adresa rubriky ve WordPressu => naše idt) */
+    /** @var array<string, int> categories converted in this request (category slug in WordPress => our idt) */
     private array $categories = [];
 
     private int $downloadsLeft = 0;
     private float $end = 0.0;
 
     /**
-     * @param string $base složka webu pro adresy obrázků v textu (Request::basePath(), u webu v kořeni prázdné)
-     * @param int $author účet, kterému budou importované články patřit
+     * @param string $base the site folder for image URLs in the text (Request::basePath(), empty for a site in the root)
+     * @param int $author the account the imported articles will belong to
      */
     public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly string $base, private readonly int $author)
     {
     }
 
-    /* ---------- stavový soubor ---------- */
+    /* ---------- state file ---------- */
 
     /** @return array<string, mixed> */
     public static function newState(string $file): array
@@ -80,7 +81,7 @@ final class WpImport
     public static function saveState(array $state): void
     {
         $path = self::stateFile((string) $state['soubor']);
-        // nejdřív vedle, pak přejmenovat: přerušený zápis nesmí nechat poloviční soubor
+        // first next to it, then rename: an interrupted write must not leave a half-written file
         file_put_contents($path . '.tmp', (string) json_encode($state, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
         rename($path . '.tmp', $path);
     }
@@ -95,16 +96,16 @@ final class WpImport
         return WpFile::folder() . '/stav-' . substr(sha1($file), 0, 16) . '.json';
     }
 
-    /* ---------- 1. průchod: náhled (nic nezapisuje do databáze) ---------- */
+    /* ---------- pass 1: preview (writes nothing to the database) ---------- */
 
     /**
-     * Projde další kus souboru a přičte ho do přehledu. Až dojde na konec, přepne fázi na "nahled".
+     * Goes through the next part of the file and adds it to the overview. When it reaches the end, it switches the phase to "nahled".
      *
      * @param array<string, mixed> $state
      */
     public static function analyze(array &$state, float $seconds = self::SECONDS, ?string $path = null): void
     {
-        $wp = new WpFile($path ?? (string) WpFile::path((string) $state['soubor'])); // $cesta jen pro testy; jinak vždy soubor ze storage/import
+        $wp = new WpFile($path ?? (string) WpFile::path((string) $state['soubor'])); // $path only for tests; otherwise always the file from storage/import
         if ($state['pozice'] === 0) {
             $h = $wp->header();
             $state['web'] = ['nazev' => $h['nazev'], 'adresa' => $h['adresa']];
@@ -129,7 +130,7 @@ final class WpImport
 
     /**
      * @param array<string, mixed> $state
-     * @param array<string, mixed> $p příspěvek z WpFile::item()
+     * @param array<string, mixed> $p a post from WpFile::item()
      */
     private static function tally(array &$state, array $p): void
     {
@@ -137,7 +138,7 @@ final class WpImport
         if ($p['typ'] === 'attachment') {
             $overview['prilohy']++;
             if ($p['priloha_url'] !== '') {
-                $state['prilohy'][(int) $p['id']] = $p['priloha_url']; // pro [gallery ids] a hlavní obrázky článků
+                $state['prilohy'][(int) $p['id']] = $p['priloha_url']; // for [gallery ids] and the featured images of articles
             }
         } elseif ($p['typ'] === 'post' || $p['typ'] === 'page') {
             $destination = $p['typ'] === 'post' ? 'clanky' : 'stranky';
@@ -151,11 +152,11 @@ final class WpImport
         }
     }
 
-    /* ---------- čisté převody (hlídá je tools/unit-tests.php) ---------- */
+    /* ---------- pure conversions (covered by tools/unit-tests.php) ---------- */
 
     /**
-     * Stav příspěvku ve WordPressu → naše novinka; null = neimportuje se (soukromé, koš, automatické koncepty, revize).
-     * Naplánovaný příspěvek je u nás vydaná novinka s budoucím datem; „čeká na schválení“ je koncept.
+     * Post status in WordPress → our news item; null = not imported (private, trash, auto-drafts, revisions).
+     * A scheduled post is a published news item with a future date for us; "pending review" is a draft.
      *
      * @return array{visible:int}|null
      */
@@ -167,12 +168,12 @@ final class WpImport
             default => null,
         };
 
-        // příspěvek chráněný heslem u nás nemá obdobu – nesmí se tiše zveřejnit, zůstane jako koncept
+        // a password-protected post has no equivalent here – it must not be published silently, it stays a draft
         return $state !== null && $passwordProtected ? ['visible' => 0] : $state;
     }
 
     /**
-     * Datum vydání: místní čas starého webu; koncepty ho mívají nulové, pak poslouží čas GMT, datum z RSS, nakonec dnešek.
+     * Publish date: the old site's local time; drafts often have it zeroed, then the GMT time, the RSS date and finally today are used.
      *
      * @param array<string, mixed> $p
      */
@@ -189,7 +190,7 @@ final class WpImport
     }
 
     /**
-     * Volná adresa (seo_link): když je základ obsazený, dostane pořadové číslo – stejně jako v administraci.
+     * A free slug (seo_link): when the base is taken, it gets a sequence number – the same as in the admin.
      *
      * @param callable(string): bool $isTaken
      */
@@ -198,7 +199,7 @@ final class WpImport
         return Slug::makeUnique($base, $isTaken, 120);
     }
 
-    /** Cesta staré adresy pro přesměrování (bez domény a lomítek na krajích); prázdná = není co přesměrovat. */
+    /** Path of the old URL for a redirect (without the domain and the slashes at the ends); empty = nothing to redirect. */
     public static function oldPath(string $link): string
     {
         $path = trim(rawurldecode((string) parse_url($link, PHP_URL_PATH)), '/ ');
@@ -206,7 +207,7 @@ final class WpImport
         return mb_strlen($path) > 255 || !mb_check_encoding($path, 'UTF-8') ? '' : $path;
     }
 
-    /** Adresa obrázku bez rozměru náhledu a bez parametrů: foto-300x200.jpg?x=1 → foto.jpg (WordPress vkládá do textu zmenšeniny). */
+    /** Image URL without the thumbnail size and without parameters: foto-300x200.jpg?x=1 → foto.jpg (WordPress inserts downsized copies into the text). */
     public static function withoutSize(string $url): string
     {
         $url = (string) preg_replace('/[?#].*$/', '', $url);
@@ -214,7 +215,7 @@ final class WpImport
         return (string) preg_replace('#-\d{2,5}x\d{2,5}(?=\.(?:jpe?g|png|gif|webp)$)#i', '', $url);
     }
 
-    /** Označení zdroje v ka_import_mapa: dva různé staré weby mají stejná čísla příspěvků, proto je v něm doména. */
+    /** Source label in ka_import_mapa: two different old sites have the same post numbers, which is why it contains the domain. */
     public static function source(string $siteUrl): string
     {
         $domain = ImageDownloader::domainFromUrl($siteUrl);
@@ -222,10 +223,10 @@ final class WpImport
         return mb_substr($domain === '' ? 'wp' : 'wp:' . $domain, 0, 40);
     }
 
-    /* ---------- 2. průchod: import obsahu ---------- */
+    /* ---------- pass 2: content import ---------- */
 
     /**
-     * Převede další dávku příspěvků. Každý příspěvek je jedna transakce: buď je v databázi celý (s komentáři a mapou), nebo vůbec.
+     * Converts the next batch of posts. Each post is one transaction: it is either in the database completely (with comments and the map), or not at all.
      *
      * @param array<string, mixed> $state
      */
@@ -246,7 +247,7 @@ final class WpImport
             });
             $state['pozice'] = $order + 1;
             if ((++$count >= $batch || microtime(true) > $end) && $state['pozice'] < $state['celkem']) {
-                return; // zbytek příště; počet příspěvků (celkem) zná import z náhledu
+                return; // the rest next time; the import knows the number of posts (celkem) from the preview
             }
         }
         $state['faze'] = 'hotovo';
@@ -264,11 +265,11 @@ final class WpImport
         }
         $idc = $this->convertedId('clanek', (string) $p['id'], 'novinky', 'idc');
         if ($idc !== null) {
-            $state['vysledek']['preskoceno']++; // už převedená novinka zůstává, jak je – mezitím ji mohl někdo upravit
+            $state['vysledek']['preskoceno']++; // an already converted news item stays as it is – someone may have edited it in the meantime
         } else {
             $idc = $this->createArticle($p, $articleStatus, $state);
         }
-        // hlavní obrázek si zatím jen poznamenáme – stahuje se až ve zvláštním kroku (i u dříve převedené novinky, která ho ještě nemá)
+        // for now we only note the featured image – it is downloaded in a separate step (also for a previously converted news item that does not have it yet)
         $preview = (string) ($state['prilohy'][$p['nahled']] ?? '');
         if ($preview !== '' && (string) $this->db->value('SELECT obrazek FROM {novinky} WHERE idc = ?', [$idc]) === '') {
             $state['nahledy'][$idc] = $preview;
@@ -284,7 +285,7 @@ final class WpImport
     {
         [$home, $text] = WpContent::introAndText($p['perex'], $p['obsah'], $state['prilohy']);
         $colorScheme = $p['rubriky'] === [] ? $this->defaultCategory($state) : $this->category((string) array_key_first($p['rubriky']), (string) reset($p['rubriky']), $state);
-        $language = (string) $this->db->value('SELECT jazyk FROM {kategorie} WHERE idt = ?', [$colorScheme]); // novinka přebírá jazyk kategorie, jako při uložení v administraci
+        $language = (string) $this->db->value('SELECT jazyk FROM {kategorie} WHERE idt = ?', [$colorScheme]); // the news item takes over the category's language, as when saving in the admin
         $title = mb_substr($p['titulek'] !== '' ? $p['titulek'] : t('(bez názvu)'), 0, 255);
         $now = date('Y-m-d H:i:s');
 
@@ -298,7 +299,7 @@ final class WpImport
             'datum' => self::date($p),
             'visible' => $articleStatus['visible'],
             'zmeneno' => $now,
-            'oznameno' => $now, // stará novinka se neoznamuje (webhook, IndexNow)
+            'oznameno' => $now, // an old news item is not announced (webhook, IndexNow)
         ]);
         foreach (array_slice($p['stitky'], 0, 20, true) as $url => $name) {
             $this->tag($idc, (string) $url, $name !== '' ? $name : (string) ($this->header['stitky'][$url] ?? $url));
@@ -332,7 +333,7 @@ final class WpImport
         }
         $title = mb_substr($p['titulek'] !== '' ? $p['titulek'] : t('(bez názvu)'), 0, 200);
         $language = Language::column($this->settings, (string) $state['volby']['jazyk']);
-        // stránka má adresu přímo pod kořenem webu, nesmí proto zabrat adresu, kterou používá systém
+        // a page has its slug directly under the site root, so it must not take a slug the system uses
         $seo = self::availableSlug(
             slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 110),
             fn (string $url): bool => in_array($url, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$url])
@@ -344,7 +345,7 @@ final class WpImport
             'stavba' => ($state['volby']['stavitel'] ?? false) ? $this->build($title, $text) : null,
             'popis' => mb_substr(trim(html_entity_decode(strip_tags($p['perex']), ENT_QUOTES | ENT_HTML5, 'UTF-8')), 0, 300),
             'zobrazit' => $articleStatus['visible'],
-            'v_menu' => 0, // desítky starých stránek by zaplavily navigaci; do nabídky si je správce zařadí sám
+            'v_menu' => 0, // dozens of old pages would flood the navigation; the administrator adds them to the menu themselves
             'zmeneno' => date('Y-m-d H:i:s'), 'jazyk' => $language,
         ]);
         $this->writeMap('stranka', (string) $p['id'], $ids);
@@ -355,7 +356,7 @@ final class WpImport
     }
 
     /**
-     * Kategorie podle adresy kategorie ve WordPressu (strom se zplošťuje); založí ji, když ještě není. Zakládají se jen kategorie s příspěvky.
+     * Category by the category slug in WordPress (the tree is flattened); creates it when it does not exist yet. Only categories with posts are created.
      *
      * @param array<string, mixed> $state
      */
@@ -370,7 +371,7 @@ final class WpImport
             $name = mb_substr($description['nazev'] !== '' ? $description['nazev'] : ($name !== '' ? $name : $url), 0, 100);
             $language = Language::column($this->settings, (string) $state['volby']['jazyk']);
             $seo = slugify(rawurldecode($url), 110);
-            // stejná adresa, název i jazyk = tatáž kategorie, která na webu už je; jinak nová s volnou adresou
+            // the same slug, name and language = the same category that is already on the site; otherwise a new one with a free slug
             $idt = $this->db->value('SELECT idt FROM {kategorie} WHERE seo_link = ? AND jazyk = ? AND LOWER(nazev) = LOWER(?)', [$seo, $language, $name]);
             if ($idt === null) {
                 $idt = $this->db->insert('kategorie', [
@@ -386,7 +387,7 @@ final class WpImport
     }
 
     /**
-     * Kategorie pro příspěvky bez kategorie: zvolená v náhledu, jinak se založí „Nezařazené“.
+     * Category for posts without a category: the one chosen in the preview, otherwise 'Nezařazené' (Uncategorized) is created.
      *
      * @param array<string, mixed> $state
      */
@@ -400,7 +401,7 @@ final class WpImport
         return $state['volby']['rubrika'] = $this->category('nezarazene', t('Nezařazené'), $state);
     }
 
-    /** Štítek se hledá podle adresy z názvu a neznámý se založí – stejně jako při uložení novinky v administraci. */
+    /** A tag is looked up by the slug made from its name and an unknown one is created – the same as when saving a news item in the admin. */
     private function tag(int $idc, string $wpSlug, string $name): void
     {
         $name = mb_substr(trim($name), 0, 80);
@@ -415,7 +416,7 @@ final class WpImport
     }
 
     /**
-     * Přesměrování ze staré adresy (hezké i číselné /?p=123) na novou. Totožnou adresu Presmerovani::pridej přeskočí samo.
+     * Redirect from the old URL (both the pretty and the numeric /?p=123) to the new one. Redirects::add skips an identical URL by itself.
      *
      * @param array<string, mixed> $p
      */
@@ -432,10 +433,10 @@ final class WpImport
         return $count;
     }
 
-    /* ---------- 3. průchod: obrázky ze starého webu ---------- */
+    /* ---------- pass 3: images from the old site ---------- */
 
     /**
-     * Začátek (nebo opakování) stahování obrázků: počitadla od nuly; co se minule nepovedlo stáhnout, dostane druhou šanci.
+     * Start (or restart) of downloading images: counters from zero; what failed to download last time gets a second chance.
      *
      * @param array<string, mixed> $state
      */
@@ -449,8 +450,8 @@ final class WpImport
     }
 
     /**
-     * Stáhne další dávku obrázků: hlavní obrázek článku a obrázky v textu, které leží na doméně starého webu.
-     * Pracuje nad už převedenými záznamy (ne nad souborem); pozice = poslední hotový článek nebo stránka.
+     * Downloads the next batch of images: the article's featured image and the images in the text that are on the old site's domain.
+     * Works on already converted records (not on the file); position = the last finished article or page.
      *
      * @param array<string, mixed> $state
      */
@@ -462,7 +463,7 @@ final class WpImport
         while (true) {
             $id = $this->db->value('SELECT MIN(nase_id) FROM {import_mapa} WHERE zdroj = ? AND typ = ? AND nase_id > ?', [$this->source, $state['obr']['typ'], (int) $state['obr']['id']]);
             if ($id === null && $state['obr']['typ'] === 'clanek') {
-                $state['obr'] = ['typ' => 'stranka', 'id' => 0] + $state['obr']; // po článcích stránky
+                $state['obr'] = ['typ' => 'stranka', 'id' => 0] + $state['obr']; // pages after the articles
                 continue;
             }
             if ($id === null) {
@@ -471,7 +472,7 @@ final class WpImport
                 return;
             }
             if (!$this->recordImages((string) $state['obr']['typ'], (int) $id, $state, $downloader)) {
-                return; // dávka je vyčerpaná uprostřed záznamu – příště se pokračuje tímtéž
+                return; // the batch ran out in the middle of a record – next time it continues with the same one
             }
             $state['obr']['id'] = (int) $id;
             $state['obr']['hotovo']++;
@@ -483,7 +484,7 @@ final class WpImport
 
     /**
      * @param array<string, mixed> $state
-     * @return bool false = došel rozpočet dávky, záznam ještě není celý
+     * @return bool false = the batch budget ran out, the record is not complete yet
      */
     private function recordImages(string $type, int $id, array &$state, ImageDownloader $downloader): bool
     {
@@ -491,7 +492,7 @@ final class WpImport
             ? $this->db->one('SELECT idc, titulek, uvod, text, obrazek FROM {novinky} WHERE idc = ?', [$id])
             : $this->db->one("SELECT ids, titulek, '' AS uvod, text, '' AS obrazek FROM {stranky} WHERE ids = ?", [$id]);
         if ($record === null) {
-            return true; // záznam mezitím někdo smazal
+            return true; // someone deleted the record in the meantime
         }
         $complete = true;
         $newItems = ['uvod' => (string) $record['uvod'], 'text' => (string) $record['text'], 'obrazek' => (string) $record['obrazek']];
@@ -499,7 +500,7 @@ final class WpImport
             $newItems[$field] = (string) preg_replace_callback('#<img\b[^>]*>#i', function (array $m) use ($downloader, &$state, &$complete, $record): string {
                 $src = preg_match('#\bsrc="([^"]+)"#i', $m[0], $a) ? html_entity_decode($a[1], ENT_QUOTES | ENT_HTML5) : '';
                 if (!$complete || !$downloader->isAllowedUrl($src)) {
-                    return $m[0]; // cizí obrázky (jiná doména) zůstávají, jak jsou – nestahují se nikdy
+                    return $m[0]; // foreign images (another domain) stay as they are – they are never downloaded
                 }
                 $alt = preg_match('#\balt="([^"]*)"#i', $m[0], $a) ? html_entity_decode($a[1], ENT_QUOTES | ENT_HTML5) : '';
                 $image = $this->image($src, $alt !== '' ? $alt : (string) $record['titulek'], $state, $downloader);
@@ -527,7 +528,7 @@ final class WpImport
             $this->db->update('novinky', $newItems, ['idc' => $id]);
             Media::recordUsage($this->db, $id, $newItems['obrazek'], $newItems['uvod'], $newItems['text']);
         } elseif ($type === 'stranka' && $newItems['text'] !== $record['text']) {
-            // obrázky jsou už v Médiích: stavba importované stránky se převede znovu, aby odkazovala na ně
+            // the images are already in Media: the build of the imported page is converted again so that it refers to them
             $build = $this->db->value('SELECT stavba FROM {stranky} WHERE ids = ?', [$id]) !== null && $this->db->value('SELECT stavba_koncept FROM {stranky} WHERE ids = ?', [$id]) === null
                 ? ['stavba' => $this->build((string) $record['titulek'], $newItems['text'])] : [];
             $this->db->update('stranky', ['text' => $newItems['text']] + $build, ['ids' => $id]);
@@ -537,8 +538,8 @@ final class WpImport
     }
 
     /**
-     * Stránka z WordPressu jako stavba (Stavitel\ZHtml): nadpis a obsah v úzké sekci, bloky Gutenbergu jako prvky, třídy
-     * WordPressu bez stylu pryč. Vlastní HTML (vložené mapy, iframe) smí vzniknout – import spouští správce.
+     * A WordPress page as a build (Builder\HtmlConverter): heading and content in a narrow section, Gutenberg blocks as elements,
+     * WordPress classes without a style removed. Custom HTML (embedded maps, iframe) may be created – the import is run by an administrator.
      */
     private function build(string $title, string $html): ?string
     {
@@ -546,7 +547,7 @@ final class WpImport
         $build = \Kaleta\Builder\HtmlConverter::withoutClasses($conversion['stavba'], array_column($this->db->all('SELECT nazev FROM {tridy}'), 'nazev'));
         foreach ($build['deti'] as &$section) {
             if ($section['typ'] === 'sekce' && !isset($section['kotva'])) {
-                $section['obsah']['sirka'] = 'uzka'; // text stránky se čte lépe v užším sloupci
+                $section['obsah']['sirka'] = 'uzka'; // page text reads better in a narrower column
             }
         }
         unset($section);
@@ -556,10 +557,10 @@ final class WpImport
     }
 
     /**
-     * Jeden obrázek: z mapy (už stažený), nebo ze starého webu přes Core\Obrazky do Médií.
+     * One image: from the map (already downloaded), or from the old site through Core\Images into Media.
      *
      * @param array<string, mixed> $state
-     * @return array<string, mixed>|null|false řádek ka_media; null = nejde stáhnout; false = dávka je vyčerpaná
+     * @return array<string, mixed>|null|false a ka_media row; null = cannot be downloaded; false = the batch has run out
      */
     private function image(string $url, string $name, array &$state, ImageDownloader $downloader): array|null|false
     {
@@ -568,7 +569,7 @@ final class WpImport
         $ido = $this->db->value("SELECT nase_id FROM {import_mapa} WHERE zdroj = ? AND typ = 'obrazek' AND cizi_id = ?", [$this->source, $key]);
         $row = $ido === null ? null : $this->db->one('SELECT * FROM {media} WHERE ido = ?', [(int) $ido]);
         if ($row !== null || ($ido !== null && (int) $ido === 0)) {
-            return $row; // hotovo dřív, nebo už jednou selhalo (null)
+            return $row; // done earlier, or it already failed once (null)
         }
         if ($this->downloadsLeft <= 0 || microtime(true) > $this->end) {
             return false;
@@ -582,7 +583,7 @@ final class WpImport
                 if ($original === $url) {
                     throw $e;
                 }
-                $data = $downloader->download((string) preg_replace('/[?#].*$/', '', $url)); // originál chybí, zkusí se aspoň zmenšenina z textu
+                $data = $downloader->download((string) preg_replace('/[?#].*$/', '', $url)); // the original is missing, try at least the downsized copy from the text
             }
             file_put_contents($temporary, $data);
             $saved = Images::saveFile($temporary, basename((string) parse_url($original, PHP_URL_PATH)));
@@ -593,7 +594,7 @@ final class WpImport
 
             return $saved;
         } catch (\RuntimeException $e) {
-            $this->writeMap('obrazek', $key, 0); // nezkoušet znovu u každého článku, který obrázek používá
+            $this->writeMap('obrazek', $key, 0); // do not retry for every article that uses the image
             $state['obr']['chyb']++;
             $state['obr']['chyby'] = array_slice(array_merge($state['obr']['chyby'], [mb_substr($original, 0, 200) . ' – ' . t($e->getMessage()) . ($e->getCode() > 0 ? ' ' . $e->getCode() : '')]), -10);
 
@@ -603,9 +604,9 @@ final class WpImport
         }
     }
 
-    /* ---------- mapa cizích a našich záznamů ---------- */
+    /* ---------- map of foreign and our records ---------- */
 
-    /** Číslo našeho záznamu, do kterého byl cizí už převeden – jen pokud pořád existuje (smazaný se importuje znovu). */
+    /** The id of our record the foreign one was already converted into – only if it still exists (a deleted one is imported again). */
     private function convertedId(string $type, string $foreignId, string $table, string $key): ?int
     {
         $ourId = $this->db->value('SELECT nase_id FROM {import_mapa} WHERE zdroj = ? AND typ = ? AND cizi_id = ?', [$this->source, $type, mb_substr($foreignId, 0, 190)]);

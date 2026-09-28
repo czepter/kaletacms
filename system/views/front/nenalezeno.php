@@ -1,6 +1,6 @@
 <?php
 /**
- * Stránka 404: hledání a hlavní stránky webu, aby návštěvník neodešel s prázdnou.
+ * 404 page: search and the main pages of the site, so the visitor does not leave empty-handed.
  *
  * @var callable(string): string $url
  * @var list<array{titulek:string, seo_link:string}> $stranky

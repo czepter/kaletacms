@@ -1,15 +1,15 @@
 <?php
 /**
- * Položky kolekce.
+ * Collection items.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Collections $module
  * @var string $csrf
  * @var array<string, mixed> $k
  * @var list<array<string, mixed>> $items
- * @var list<string> $languages další jazyky webu (šablona detailu pro každý zvlášť)
- * @var list<string> $siteLanguages všechny jazyky webu pro filtr (prázdné = jediný jazyk)
- * @var string $language zvolený jazyk filtru ('' = všechny)
+ * @var list<string> $languages other languages of the site (a detail template for each one separately)
+ * @var list<string> $siteLanguages all languages of the site for the filter (empty = a single language)
+ * @var string $language language selected in the filter ('' = all)
  */
 ?>
 <p class="navigace-radek"><a class="tl" href="<?= e($module->url('item', ['id' => $k['idk']])) ?>"><?= e(t('Přidat položku')) ?></a>

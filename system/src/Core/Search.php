@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Vyhledávací index článků: sloupec ka_novinky.hledani drží text malými písmeny bez diakritiky, takže čtenář
- * najde "nábřeží" i po zadání "nabrezi". U zamčených článků se indexuje jen titulek a perex - z výsledků
- * hledání tak nejde po kouskách vyčíst zamčený text.
+ * Search index of articles: the column ka_novinky.hledani holds the text in lowercase without diacritics, so a reader
+ * finds "nábřeží" even after typing "nabrezi". For locked articles only the title and the intro are indexed - so the
+ * locked text cannot be pieced together from search results.
  */
 final class Search
 {
-    /** Malá písmena bez diakritiky, jen písmena a číslice oddělené mezerou. */
+    /** Lowercase without diacritics, only letters and digits separated by a space. */
     public static function normalize(string $text): string
     {
         $text = remove_diacritics(mb_strtolower(html_entity_decode(strip_tags(str_replace(['<', '>'], [' <', '> '], $text)), ENT_QUOTES | ENT_HTML5)));
@@ -19,7 +19,7 @@ final class Search
         return trim((string) preg_replace('/[^a-z0-9]+/', ' ', $text));
     }
 
-    /** Přepočítá index jednoho článku; volá se po každém uložení (administrace, Claude). */
+    /** Recomputes the index of one article; called after every save (admin, Claude). */
     public static function index(Db $db, int $idc): void
     {
         $c = $db->one('SELECT titulek, uvod, text, t_slova FROM {novinky} WHERE idc = ?', [$idc]);
@@ -28,7 +28,7 @@ final class Search
         }
     }
 
-    /** Doplní index článkům, které ho ještě nemají (po aktualizaci systému); po dávkách, aby nezdržel požadavek. */
+    /** Fills in the index for articles that do not have it yet (after a system update); in batches so it does not hold up the request. */
     public static function complete(Db $db, int $batch = 100): int
     {
         $ids = array_column($db->all('SELECT idc FROM {novinky} WHERE hledani IS NULL LIMIT ' . max(1, $batch)), 'idc');
@@ -40,9 +40,10 @@ final class Search
     }
 
     /**
-     * Hledání ve stránkách a položkách kolekcí bez indexu (je jich na firemním webu stovky, ne tisíce): všechna slova
-     * dotazu bez ohledu na diakritiku a velikost písmen. Vrací shody s úryvkem textu kolem prvního nalezeného slova,
-     * seřazené podle relevance (shoda v názvu váží nejvíc, pak počet výskytů v textu; při shodě zůstává pořadí webu).
+     * Search in pages and collection items without an index (a company site has hundreds of them, not thousands): all words
+     * of the query regardless of diacritics and letter case. Returns matches with an excerpt of the text around the first
+     * word found, sorted by relevance (a match in the title weighs most, then the number of occurrences in the text; on a tie
+     * the site's order stays).
      *
      * @param list<array{titulek: string, adresa: string, text: string}> $candidates
      * @return list<array{titulek: string, adresa: string, uryvek: string}>
@@ -63,7 +64,7 @@ final class Search
                     continue 2;
                 }
             }
-            // úryvek: české znaky se bez diakritiky mapují 1:1, pozice v textu bez diakritiky tedy sedí i v originále
+            // excerpt: Czech characters map 1:1 without diacritics, so a position in the text without diacritics matches the original too
             $position = mb_strpos(remove_diacritics(mb_strtolower($plain)), $words[0]);
             $from = $position === false ? 0 : max(0, $position - 60);
             $excerpt = mb_substr($plain, $from, 180);
@@ -72,14 +73,14 @@ final class Search
             $text = self::normalize($plain);
             $score[] = array_sum(array_map(fn (string $s): int => (str_contains($name, $s) ? 100 : 0) + min(20, substr_count($text, $s)), $words));
         }
-        // stabilní řazení: stejné skóre = pořadí, v jakém je web řadí
+        // stable sort: the same score = the order in which the site sorts them
         $order = array_keys($results);
         array_multisort($score, SORT_DESC, $order, SORT_ASC, $results);
 
         return array_slice($results, 0, $limit);
     }
 
-    /** Dotaz pro MATCH … AGAINST v režimu BOOLEAN: všechna slova od 3 znaků s libovolnou koncovkou. */
+    /** Query for MATCH … AGAINST in BOOLEAN mode: all words of 3 or more characters with any ending. */
     public static function query(string $q): string
     {
         $words = array_filter(explode(' ', self::normalize($q)), fn (string $s): bool => strlen($s) >= 3);

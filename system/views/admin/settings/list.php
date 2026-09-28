@@ -1,6 +1,6 @@
 <?php
 /**
- * Nastavení: záložky + formulář zvolené záložky (settings/<tab>.php).
+ * Settings: tabs + the form of the selected tab (settings/<tab>.php).
  *
  * @var Kaleta\Admin\Modules\Settings $module
  * @var string $csrf
@@ -13,23 +13,23 @@
  * @var list<array{soubor:string, velikost:int, cas:int}> $backups
  * @var array<string, mixed>|null $update
  * @var list<array{kategorie:string, pocet:int}> $consents
- * @var list<string> $errorLog  poslední řádky záznamu chyb
- * @var string $remoteStatus  výsledek posledního nahrání zálohy mimo server
- * @var string $tasksToken  tajná část adresy /ulohy pro cron
- * @var array<int, string> $pages  stránky pro volbu úvodní stránky (záložka Základní)
+ * @var list<string> $errorLog  last lines of the error log
+ * @var string $remoteStatus  result of the last backup upload off the server
+ * @var string $tasksToken  secret part of the /ulohy url for cron
+ * @var array<int, string> $pages  pages for choosing the home page (the "Základní" (General) tab)
  */
 use Kaleta\Admin\Modules\Settings;
 
-/** Řádek formuláře: $field('klic', 'Popisek', 'text|radky|kod|ano|cislo|url|email', 'nápověda', [atributy]) */
+/** Form row: $field('key', 'Label', 'text|radky|kod|ano|cislo|url|email', 'hint', [attributes]) */
 $invalidFields ??= [];
 $field = function (string $key, string $labelText, string $kind = 'text', string $hint = '', string $attributes = '') use ($values, $app, $invalidFields): void {
     $h = $values[$key] ?? '';
     if (in_array($key, $invalidFields, true)) {
-        $attributes .= ' aria-invalid="true"'; // neuložená hodnota k opravě (hláška nahoře říká, co je špatně)
+        $attributes .= ' aria-invalid="true"'; // an unsaved value to fix (the message at the top says what is wrong)
     }
     $labelText = t($labelText);
     $hint = $hint === '' ? '' : t($hint);
-    // nápověda bez vlastního HTML: cesty v nabídce („Nastavení → Pošta“) se promění v odkazy
+    // a hint without its own HTML: menu paths ("Nastavení → Pošta") turn into links
     $hintHtml = $hint !== '' ? '<span class="napoveda">' . (str_contains($hint, '<') ? $hint : Kaleta\Admin\MenuPaths::links($app->url('admin.php'), $hint, ['config', 'vzhled', 'bloky'])) . '</span>' : '';
     echo '<div class="radek">';
     if ($kind === 'ano') {
@@ -51,7 +51,7 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
 </nav>
 <?php endif ?>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>">
-<?php /* první odesílací tlačítko ve formuláři určuje, co udělá Enter: uložit nastavení (ne zálohu, kontrolu aktualizací ani zkušební e-mail) */ ?>
+<?php /* the first submit button in the form determines what Enter does: save the settings (not a backup, an update check or a test e-mail) */ ?>
 <button type="submit" class="vychozi-odeslani" tabindex="-1" aria-hidden="true"><?= e(t('Uložit nastavení')) ?></button>
 <?= $csrf ?>
 <input type="hidden" name="tab" value="<?= e($tab) ?>">

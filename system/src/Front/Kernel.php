@@ -11,64 +11,66 @@ use Kaleta\Core\Extensions;
 use Kaleta\Core\View;
 
 /**
- * Veřejná část webu.
+ * Public part of the site.
  *
- *   /                           úvodní stránka (Nastavení → Základní), bez ní výpis novinek
- *   /novinky                    výpis novinek
- *   /novinky/<seo-link>         novinka (+ .md pro jazykové modely)
- *   /novinky/kategorie/<seo>    novinky v kategorii
- *   /novinky/stitek/<seo>       novinky se štítkem
- *   /hledani?q=...              vyhledávání
- *   /rss.xml                    RSS kanál novinek
- *   /<adresa>                   stránka
- *   robots.txt, sitemap.xml, llms.txt, feed.json... viz Seo
+ *   /                           home page ("Nastavení → Základní", Settings → Basic), without it the news listing
+ *   /novinky                    news listing
+ *   /novinky/<seo-link>         news item (+ .md for language models)
+ *   /novinky/kategorie/<seo>    news in a category
+ *   /novinky/stitek/<seo>       news with a tag
+ *   /hledani?q=...              search
+ *   /rss.xml                    RSS feed of news
+ *   /<slug>                     page
+ *   robots.txt, sitemap.xml, llms.txt, feed.json... see Seo
  */
 final class Kernel
 {
     private readonly View $view;
     private readonly NewsRepository $news;
 
-    /** Kategorie nebo stránka, kterou požadavek zobrazuje - přepínač jazyků podle ní najde protějšek v jiné verzi. */
+    /** Category or page the request shows - the language switcher uses it to find the counterpart in another version. */
     private ?array $counterpart = null;
 
-    /** Zobrazená položka kolekce [idk, adresa kolekce, adresa položky]: protějšky v dalších jazycích mají stejnou adresu. */
+    /** Shown collection item [idk, collection slug, item slug]: counterparts in other languages have the same slug. */
     private ?array $collectionItem = null;
 
-    /** Zobrazená stránka je úvodní: v každé jazykové verzi má adresu kořene (/, /en/), ne svou adresu (ta přesměrovává). */
+    /** The shown page is the home page: in every language version its URL is the root (/, /en/), not its slug (that redirects). */
     private bool $isHome = false;
 
-    /** Sdílený stav builderu pro celou stránku (stavba stránky, záhlaví, patička, obálka) – jedno CSS bez opakování. */
+    /** Shared builder state for the whole page (page build, header, footer, wrapper) – one CSS without repetition. */
     private ?\Kaleta\Builder\Context $context = null;
 
-    /** Složka šablony (layoutu), kterou web právě používá. */
+    /** Folder of the layout the site currently uses. */
     private string $layout = Layouts::DEFAULTS;
 
-    /** Systémová adresa v cizí podobě (/novinky na anglickém webu) – přesměrování na platnou (Core\Cesty). */
+    /** System URL in a foreign form (/novinky on the English site) – redirect to the valid one (Core\Routes). */
     private ?Response $redirect = null;
 
-    /** Požadovaná stránka výpisu je až za jeho koncem - odpoví se 404. */
+    /** The requested listing page is past its end - the response is 404. */
     private bool $pastEnd = false;
 
-    /** Odkaz „Upravit zde“ pro právě zobrazenou stránku nebo novinku; vypíše ho stranka() přihlášenému, který na to má právo. */
+    /** The „Upravit zde“ (Edit here) link for the shown page or news item; page() prints it for a signed-in user allowed to. */
     private string $editHereUrl = '';
 
-    /** Kolekce zobrazené stránky položky (pravidla pop-up oken „jen v kolekci“). */
+    /** Collection of the shown item page (popup rules „jen v kolekci“, only in collection). */
     private ?string $pageCollection = null;
 
-    /** Pop-up okno, jehož koncept ukazuje podepsaný náhled /_popup/<id> (otevře se hned). */
+    /** Popup whose draft the signed preview /_popup/<id> shows (it opens immediately). */
     private int $previewPopup = 0;
 
     public function __construct(private readonly App $app)
     {
         $app->request->setOrigin($app->settings()->get('site_url'));
         $app->applyTimezone();
-        // po aktualizaci systému (i automatické) se databáze upraví hned při první návštěvě, ne až po přihlášení administrátora
+        // after a system update (automatic too) the database is updated right on the first visit, not only after the
+        // administrator signs in
         if ($app->settings()->int('db_version') < KALETA_DB_VERSION) {
-            // nepovedená migrace nesmí shodit celý web: zapíše se a web běží dál (změny databáze jsou jen přidávající);
-            // správce ji uvidí v administraci a může nainstalovat opravu
+            // a failed migration must not bring down the whole site: it is logged and the site keeps running (database
+            // changes are additive only); the administrator sees it in the administration and can install a fix
             \Kaleta\Core\Migration::safe($app->db(), $app->settings());
         }
-        // jazyková verze: /en/novinky/x -> jazyk "en", cesta "/novinky/x"; adresy z $app->url() pak dostávají předponu samy
+        // language version: /en/novinky/x -> language "en", path "/novinky/x"; URLs from $app->url() then get the prefix
+        // automatically
         $language = Language::defaults($app->settings());
         if (preg_match('#^/([a-z]{2})(/.*)?$#', $app->request->path(), $m) && in_array($m[1], Language::additional($app->settings()), true)) {
             $language = $m[1];
@@ -76,7 +78,8 @@ final class Kernel
             $app->request->setPath($m[2] ?? '/');
         }
         Language::setSite($app->settings(), $language);
-        // systémové adresy v jazyce verze (/news ↔ /novinky): dál se pracuje s vnitřní podobou, cizí podoba přesměruje
+        // system URLs in the version's language (/news ↔ /novinky): the internal form is used from here on, a foreign form
+        // redirects
         [$internal, $canonicalUrl] = \Kaleta\Core\Routes::internalPath($app->request->path(), $language, $app->db());
         if ($canonicalUrl !== $app->request->path() && !$app->request->isPost()) {
             $query = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
@@ -84,17 +87,17 @@ final class Kernel
         }
         $app->request->setPath($internal);
         $layout = $app->settings()->get('layout');
-        // náhled jiné šablony (?sablona=slozka) - jen přihlášenému administrátorovi, např. při tvorbě šablony přes Claude
+        // preview of another layout (?sablona=folder) - only for a signed-in administrator, e.g. when creating a layout via Claude
         $preview = $app->request->get('sablona');
         if ($preview !== '' && preg_match('/^[a-z0-9_-]+$/i', $preview) && is_file(KALETA_ROOT . '/layout/' . $preview . '/base.php') && $app->auth()->isAdmin()) {
             $layout = $preview;
         }
-        // nastavená šablona chybí (smazaná složka) - web se vykreslí výchozí
+        // the configured layout is missing (deleted folder) - the site renders with the default one
         if (!preg_match('/^[a-z0-9_-]+$/i', $layout) || !is_file(KALETA_ROOT . '/layout/' . $layout . '/base.php')) {
             $layout = Layouts::DEFAULTS;
         }
         $this->layout = $layout;
-        // šablona se hledá nejdřív v layoutu webu, potom mezi systémovými - layout tak může přepsat cokoli
+        // a template is looked up first in the site's layout, then among the system ones - so a layout can override anything
         $this->view = new View([KALETA_ROOT . '/layout/' . $layout, KALETA_SYSTEM . '/views/front']);
         $this->news = new NewsRepository($app->db(), $app->settings(), $app->request->basePath());
     }
@@ -105,7 +108,7 @@ final class Kernel
         if ($this->redirect !== null) {
             return $this->redirect;
         }
-        // OAuth pro konektor Claude (metadata, registrace, tokeny) – běží i v režimu údržby, stejně jako /mcp
+        // OAuth for the Claude connector (metadata, registration, tokens) – runs in maintenance mode too, just like /mcp
         if (($oauth = (new OAuth($this->app))->handle($request->path())) !== null) {
             return $oauth;
         }
@@ -114,8 +117,8 @@ final class Kernel
                 . '<body style="font:18px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;padding:24px;text-align:center"><div><h1 style="font-size:28px">' . e($this->app->settings()->get('site_name'))
                 . '</h1><p>' . e($this->app->settings()->get('maintenance_text')) . '</p></div>', 503, ['Content-Type' => 'text/html; charset=utf-8', 'Retry-After' => '3600']);
         }
-        // stará číselná adresa WordPressu /?p=123 (po importu): její cesta je hlavní stránka, která existuje vždy, takže by se na
-        // přesměrování při chybě 404 nikdy nedostalo – hledá se proto podle parametru, ještě před cache
+        // an old numeric WordPress URL /?p=123 (after import): its path is the home page, which always exists, so the redirect
+        // on a 404 error would never be reached – it is therefore looked up by the parameter, even before the cache
         if ($request->getInt('p') > 0 && $request->path() === '/' && Extensions::isEnabled($this->app->settings(), 'presmerovani')) {
             $target = $this->app->db()->one('SELECT idp, na_adresu FROM {presmerovani} WHERE z_adresy = ?', ['?p=' . $request->getInt('p')]);
             if ($target !== null) {
@@ -133,7 +136,7 @@ final class Kernel
         }
         $withNews = Extensions::isEnabled($this->app->settings(), 'novinky');
         if (!$withNews && ($path === '/novinky' || str_starts_with($path, '/novinky/') || $path === '/rss.xml' || $path === '/feed.json')) {
-            return $this->notFound(); // rozšíření Novinky je vypnuté: data zůstávají, na webu nejsou
+            return $this->notFound(); // the News extension is disabled: the data stay, but are not on the site
         }
         if ($path === '/novinky') {
             return $this->showNewsList();
@@ -165,7 +168,7 @@ final class Kernel
             return new Response(SiteIdentity::manifest($this->app->settings(), $this->app->request->basePath()), 200, ['Content-Type' => 'application/manifest+json; charset=utf-8']);
         }
         if ($path === '/favicon.ico') {
-            // prohlížeče se ptají samy; místo celé stránky 404 odkaz na ikonu webu, nebo prázdná odpověď
+            // browsers ask on their own; instead of a full 404 page a link to the site icon, or an empty response
             $icon = is_file(KALETA_ROOT . '/media/ikona-32.png') ? $this->app->url('media/ikona-32.png') : null;
 
             return $icon !== null ? Response::redirect($icon, 301) : new Response('', 204, ['Cache-Control' => 'public, max-age=86400']);
@@ -189,7 +192,7 @@ final class Kernel
             return new Response($indexNowKey, 200, ['Content-Type' => 'text/plain; charset=utf-8']);
         }
         if ($path === '/souhlas' && $request->isPost()) {
-            // evidence souhlasu s cookies: bez IP adresy, jen náhodný identifikátor z cookie návštěvníka
+            // cookie consent log: without the IP address, only a random identifier from the visitor's cookie
             $category = implode(',', array_intersect(explode(',', $request->post('kategorie')), ['analytika', 'marketing'])) ?: 'nic';
             $antispam = new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings());
             if ($this->app->settings()->bool('cookies_log') && preg_match('/^[a-f0-9]{32}$/', $request->post('id')) && $antispam->count($request->ip(), 'souhlas', 0, 60) < 20) {
@@ -200,7 +203,7 @@ final class Kernel
             return new Response('', 204);
         }
         if ($path === '/popup' && $request->isPost()) {
-            // počitadla pop-up oken: zobrazení, zavření, konverze – bez cookies a bez údajů o návštěvníkovi
+            // popup counters: views, closes, conversions – without cookies and without data about the visitor
             $column = ['zobrazeni' => 'zobrazeni', 'zavreni' => 'zavreni', 'konverze' => 'konverze'][$request->post('udalost')] ?? null;
             $antispam = new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings());
             if ($column !== null && $request->postInt('id') > 0 && $antispam->count($request->ip(), 'popup', 0, 60) < 60) {
@@ -216,8 +219,8 @@ final class Kernel
         if ($path === '/mcp') {
             return (new \Kaleta\Mcp\Server($this->app))->handle();
         }
-        // odber: přihlášení z prvku (jen se zapnutým Newsletterem); potvrzení a odhlášení odkazem z e-mailu fungují vždy –
-        // i po vypnutí rozšíření musí jít odhlásit z už rozeslaných e-mailů
+        // odber: sign-up from the element (only with Newsletter enabled); confirmation and unsubscribe by a link from the
+        // e-mail always work – even after the extension is disabled, unsubscribing from already sent e-mails must work
         $subscriptionLink = $request->get('potvrdit') !== '' || $request->get('odhlasit') !== '';
         if ($path === '/odber' && ($subscriptionLink || Extensions::isEnabled($this->app->settings(), 'newsletter'))) {
             $subscription = new Subscription($this->app);
@@ -236,7 +239,7 @@ final class Kernel
             return (new Forms($this->app))->process();
         }
         if ($path === '/ulohy') {
-            // úlohy na pozadí pro cron: weby s malou návštěvností tak vydají naplánovanou novinku a odešlou poštu včas
+            // background tasks for cron: this way low-traffic sites publish a scheduled news item and send mail on time
             $token = $this->app->settings()->get('tasks_token');
             if ($token === '' || !hash_equals($token, $request->get('token'))) {
                 return new Response(t('Neplatný token.') . "\n", 403, ['Content-Type' => 'text/plain; charset=utf-8']);
@@ -261,13 +264,14 @@ final class Kernel
             if ($token === '' || !hash_equals($token, $request->get('token'))) {
                 return Response::json(['chyba' => 'Neplatný token.'], 403);
             }
-            // monitoring dostává texty vždy česky - nesmí se měnit podle jazyka zobrazené verze webu
+            // monitoring always gets the texts in Czech - they must not change with the language of the shown site version
             $checks = Language::runWith('cs', fn (): array => \Kaleta\Core\Health::checks($this->app));
 
             return Response::json(['stav' => \Kaleta\Core\Health::summary($checks), 'verze' => KALETA_VERSION, 'cas' => date('c'), 'kontroly' => $checks]);
         }
 
-        // skrytou stránku vidí jen náhled builderu (kdo smí upravovat stránky) a podepsaný odkaz na náhled (?nahled_klic=…, Core\Nahled)
+        // a hidden page is visible only in the builder preview (whoever can edit pages) and via a signed preview link
+        // (?nahled_klic=…, Core\Preview)
         $showHidden = $request->get('stavba') === 'koncept' && ($this->app->auth()->hasModule('pages') || $request->get('nahled_klic') !== '');
         $page = $this->app->db()->one('SELECT * FROM {stranky} WHERE seo_link = ? AND jazyk = ? AND smazano IS NULL' . ($showHidden ? '' : ' AND zobrazit = 1'), [ltrim($path, '/'), Language::siteColumn()]);
         if ($page !== null && !$page['zobrazit'] && !$this->canSeeDraft('stranka:' . (int) $page['ids'])) {
@@ -275,7 +279,7 @@ final class Kernel
         }
         if ($page !== null) {
             if ((int) $page['ids'] === $this->homePageId() && !$showHidden) {
-                return Response::redirect($this->app->url(''), 301); // úvodní stránka má jen jednu adresu – kořen webu
+                return Response::redirect($this->app->url(''), 301); // the home page has only one URL – the site root
             }
 
             return $this->showPage($page, ltrim($path, '/'));
@@ -297,8 +301,8 @@ final class Kernel
     }
 
     /**
-     * Náhled hotové sekce knihovny pro panel builderu: jen sekce ve vzhledu webu, bez záhlaví a patičky.
-     * Třídy knihovny se jen vykreslí z jejich výchozího stylu – do webu se nic nezapisuje.
+     * Preview of a ready-made library section for the builder panel: only the section in the site's appearance, without
+     * header and footer. Library classes are only rendered from their default style – nothing is written to the site.
      */
     private function previewSection(string $key): Response
     {
@@ -312,7 +316,7 @@ final class Kernel
         foreach ($section['tridy'] as $t) {
             $classes .= \Kaleta\Builder\Style::css('.' . $t, \Kaleta\Builder\Library::CLASSES[$t] ?? []);
         }
-        $k->classes = []; // styl tříd výše z knihovny, ne z databáze webu (na webu třída ještě nemusí být)
+        $k->classes = []; // class styles above come from the library, not from the site database (the class may not exist on the site yet)
         $siteSettings = $this->app->settings();
         $css = \Kaleta\Builder\DesignSystem::css(\Kaleta\Builder\DesignSystem::load($siteSettings), $this->app->request->basePath()) . \Kaleta\Builder\Build::css($this->app->db(), $k) . '@layer tridy {' . $classes . '}';
         $layout = $this->app->url('layout/' . $this->layout . '/style.css');
@@ -322,7 +326,7 @@ final class Kernel
             . '<body><main class="stavba">' . $html . '</main></body></html>', 200, ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'private, max-age=300']);
     }
 
-    /** Plátno editoru komponenty (jen správce): rozpracovaná komponenta s výchozími hodnotami vlastností. */
+    /** Canvas of the component editor (administrator only): the draft component with default property values. */
     private function previewComponent(int $idm): Response
     {
         $component = \Kaleta\Builder\Components::byId($this->app->db(), $idm);
@@ -339,17 +343,19 @@ final class Kernel
     }
 
     /**
-     * Stránka položky kolekce (/<kolekce>/<položka>) podle šablony detailu z builderu. Správce vidí v editoru koncept
-     * šablony (?stavba=koncept&editor=1), a když kolekce ještě nemá položky, ukázku s popisky polí (/<kolekce>/_ukazka).
+     * Collection item page (/<collection>/<item>) by the item template from the builder. In the editor the administrator
+     * sees the template draft (?stavba=koncept&editor=1), and when the collection has no items yet, a sample with field
+     * labels (/<collection>/_ukazka).
      */
     private function showCollectionItem(string $collectionSlug, string $seo): Response
     {
         $db = $this->app->db();
         $r = $this->app->request;
         $collection = \Kaleta\Builder\Collections::bySlug($db, $collectionSlug);
-        // šablona detailu v jazyce zobrazené verze webu; jazyk bez vlastní šablony použije šablonu výchozího jazyka
+        // item template in the shown site version's language; a language without its own template uses the default language's
         $template = $collection !== null ? \Kaleta\Builder\Collections::inLanguage($db, $collection, Language::siteColumn()) : null;
-        // koncept šablony: správce, nebo podepsaný náhled právě této šablony (Core\Nahled, cíl kolekce:<idk>[:<jazyk>])
+        // template draft: the administrator, or a signed preview of exactly this template (Core\Preview, target
+        // kolekce:<idk>[:<language>])
         $draft = $template !== null && $r->get('stavba') === 'koncept' && ($this->app->auth()->isAdmin() || $this->canSeeDraft(\Kaleta\Builder\Collections::templateKey($template)));
         if ($collection === null || (!$collection['detail'] && !$draft)) {
             return $this->notFound();
@@ -364,8 +370,9 @@ final class Kernel
         $build = \Kaleta\Builder\Build::fromJson($draft ? ($template['stavba_koncept'] ?? $template['stavba']) : $template['stavba'])
             ?? \Kaleta\Builder\Build::fromJson($draft ? ($collection['stavba_koncept'] ?? $collection['stavba']) : $collection['stavba'])
             ?? \Kaleta\Builder\Collections::defaultTemplate($collection);
-        // úroveň kolekce odkazuje na stránku se stejnou adresou (např. /navod nad /navod/<článek>), když na webu je – s jejím
-        // titulkem; v další jazykové verzi na její překlad (adresy stránek jsou jedinečné napříč jazyky: /de/vergleich)
+        // the collection level links to the page with the same slug (e.g. /navod above /navod/<article>) when it exists on
+        // the site – with its title; in another language version to its translation (page slugs are unique across
+        // languages: /de/vergleich)
         $parentPage = null;
         $main = $db->one('SELECT ids, preklad_z, jazyk, seo_link, titulek, zobrazit FROM {stranky} WHERE seo_link = ? AND smazano IS NULL', [$collection['seo_link']]);
         if ($main !== null && $main['jazyk'] === Language::siteColumn()) {
@@ -385,7 +392,7 @@ final class Kernel
         $html = \Kaleta\Builder\Build::html($build, $k);
         [$k->item, $k->editor] = [null, false];
 
-        // popis a obrázek pro vyhledávače a sdílení: první delší text a první obrázek položky
+        // description and image for search engines and sharing: the item's first longer text and first image
         $description = '';
         $image = '';
         foreach ($collection['pole'] as $field) {
@@ -403,7 +410,7 @@ final class Kernel
         ]);
     }
 
-    /** Číslo úvodní stránky v jazyce zobrazené verze webu (protějšek stránky z Nastavení); 0 = úvodem je výpis novinek. */
+    /** Home page ID in the shown site version's language (counterpart of the page from Settings); 0 = the news listing is home. */
     private function homePageId(): int
     {
         $id = $this->app->settings()->int('home_page');
@@ -419,7 +426,7 @@ final class Kernel
         $page = ($id = $this->homePageId()) > 0 ? $this->app->db()->one('SELECT * FROM {stranky} WHERE ids = ? AND zobrazit = 1', [$id]) : null;
 
         if ($page === null && !Extensions::isEnabled($this->app->settings(), 'novinky')) {
-            // bez úvodní stránky i bez novinek: první zveřejněná stránka webu
+            // without a home page and without news: the site's first published page
             $page = $this->app->db()->one('SELECT * FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND jazyk = ? ORDER BY poradi, ids LIMIT 1', [Language::siteColumn()]);
         }
 
@@ -432,7 +439,7 @@ final class Kernel
         $this->counterpart = ['stranky', 'ids', $page, ''];
         $this->isHome = $home;
         if (!$home) {
-            // podstránka: v drobečcích i nadřazené stránky (podle adresy sluzby/kuchyne → sluzby)
+            // subpage: parent pages in the breadcrumbs too (by slug sluzby/kuchyne → sluzby)
             $levels = [];
             $segments = explode('/', (string) $page['seo_link']);
             for ($i = 1; $i < count($segments); $i++) {
@@ -443,13 +450,14 @@ final class Kernel
             }
             $this->breadcrumbs(...[...$levels, [$page['titulek'], '']]);
         }
-        // titulek a údaje pro vyhledávače a sdílení (vlastní titulek, obrázek, noindex – jako u novinek)
+        // title and data for search engines and sharing (custom title, image, noindex – as with news)
         $title = $page['seo_titulek'] !== '' ? $page['seo_titulek'] : ($home ? '' : $page['titulek']);
         $meta = [
             'popis' => $page['popis'] !== '' ? $page['popis'] : ($home ? $this->app->settings()->get('site_description') : ''),
             'hlavni' => $home, 'obrazek' => $page['obrazek'], 'noindex' => (bool) $page['noindex'],
         ];
-        // náhled rozpracované stavby pro editor: ?stavba=koncept (jen kdo smí upravovat stránky), &editor=1 přidá značky pro výběr prvků
+        // preview of the draft build for the editor: ?stavba=koncept (only whoever can edit pages), &editor=1 adds markers
+        // for selecting elements
         $draft = $this->app->request->get('stavba') === 'koncept' && $this->canSeeDraft('stranka:' . (int) $page['ids']);
         $build = \Kaleta\Builder\Build::fromJson($draft ? ($page['stavba_koncept'] ?? $page['stavba']) : $page['stavba']);
         if ($build !== null) {
@@ -514,7 +522,7 @@ final class Kernel
         }
         $pageNumber = max(1, $this->app->request->getInt('strana', 1));
         [$news, $total] = $this->news->withTag((int) $tag['ids'], $pageNumber);
-        // štítek s popisem je stránka tématu: úvod a vlastní popis pro vyhledávače
+        // a tag with a description is a topic page: intro and its own description for search engines
         $colorScheme = trim((string) $tag['popis']) !== '';
 
         return $this->page($colorScheme ? $tag['nazev'] : t('Štítek') . ' ' . $tag['nazev'], $this->view->render('vypis', [
@@ -533,15 +541,15 @@ final class Kernel
             return $this->notFound();
         }
         if ($newsItem['jazyk'] !== Language::siteColumn()) {
-            // novinka patří do jiné jazykové verze, než ze které přišel požadavek
+            // the news item belongs to a different language version than the one the request came from
             if ($newsItem['jazyk'] !== '' && !in_array($newsItem['jazyk'], Language::additional($this->app->settings()), true)) {
-                return $this->notFound(); // její jazyková verze je vypnutá: přesměrování by vedlo zpět na tutéž adresu
+                return $this->notFound(); // its language version is disabled: a redirect would lead back to the same URL
             }
             $this->app->languagePrefix = $newsItem['jazyk'];
 
             return Response::redirect($this->app->url('novinky/' . $newsItem['seo_link']) . ($preview ? '?nahled=1' : ''), 301);
         }
-        // úprava přímo na webu pracuje se surovým textem z databáze (bez osnovy a vložených přehrávačů)
+        // editing directly on the site works with the raw text from the database (without the outline and embedded players)
         $raw = $this->app->auth()->user() === null ? null : $this->app->db()->one('SELECT * FROM {novinky} WHERE idc = ?', [$newsItem['idc']]);
         if ($raw !== null && ($form = $this->editInPlace('novinka', $raw, 'novinky/' . $newsItem['seo_link'])) !== null) {
             return $this->page($newsItem['titulek'], $form, ['noindex' => true]);
@@ -575,7 +583,7 @@ final class Kernel
     private function search(): Response
     {
         $q = mb_substr($this->app->request->get('q'), 0, 100);
-        // hledání je nejdražší dotaz webu a necachuje se: nejvýš 30 hledání za minutu z jedné adresy
+        // search is the site's most expensive query and is not cached: at most 30 searches per minute from one address
         $antispam = new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings());
         if (mb_strlen($q) >= 3) {
             if ($antispam->count($this->app->request->ip(), 'hledani', 0, 1) >= 30) {
@@ -585,7 +593,8 @@ final class Kernel
         }
         $pageNumber = max(1, $this->app->request->getInt('strana', 1));
         [$news, $total] = mb_strlen($q) >= 3 && Extensions::isEnabled($this->app->settings(), 'novinky') ? $this->news->search($q, $pageNumber) : [[], 0];
-        // stránky a položky kolekcí s vlastní stránkou – bez ohledu na diakritiku, s úryvkem (novinky hledá fulltext výše)
+        // pages and collection items with their own page – regardless of diacritics, with a snippet (news are found by the
+        // fulltext above)
         $pages = [];
         if (mb_strlen($q) >= 3 && $pageNumber === 1) {
             $db = $this->app->db();
@@ -594,7 +603,7 @@ final class Kernel
                 $db->all('SELECT ids, titulek, seo_link, text FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY poradi LIMIT 500', [Language::siteColumn()]));
             foreach ($db->all('SELECT p.nazev, p.seo_link, p.data, k.seo_link AS kolekce, k.pole FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.jazyk = ? ORDER BY p.poradi LIMIT 2000', [Language::siteColumn()]) as $p) {
                 $data = json_decode((string) $p['data'], true);
-                // hledá se jen v textových polích – cesty k obrázkům a adresy odkazů by dělaly šum ve výsledcích i úryvcích
+                // only text fields are searched – image paths and link URLs would add noise to the results and snippets
                 $textFields = array_column(array_filter(json_decode((string) $p['pole'], true) ?: [], fn (array $f): bool => in_array($f['typ'] ?? '', ['text', 'radky', 'html'], true)), 'klic');
                 $candidates[] = ['titulek' => $p['nazev'], 'adresa' => $p['kolekce'] . '/' . $p['seo_link'],
                     'text' => implode(' ', array_filter(array_intersect_key(is_array($data) ? $data : [], array_flip($textFields)), 'is_string'))];
@@ -622,7 +631,7 @@ final class Kernel
 
     private function notFound(): Response
     {
-        // než web odpoví 404, zkusí přesměrování ze staré adresy (ruční, po importu i po změně adresy)
+        // before the site answers 404, it tries a redirect from an old URL (manual, after import and after a slug change)
         $target = Extensions::isEnabled($this->app->settings(), 'presmerovani')
             ? $this->app->db()->one('SELECT * FROM {presmerovani} WHERE z_adresy = ?', [trim($this->app->request->path(), '/')])
             : null;
@@ -632,7 +641,7 @@ final class Kernel
             return Response::redirect(preg_match('#^https?://#i', $target['na_adresu']) ? $target['na_adresu'] : $this->app->url($target['na_adresu']), (int) ($target['typ'] ?? 301) === 302 ? 302 : 301);
         }
 
-        // přehled nenalezených adres pro správce (Přesměrování); roboti zkoušející cizí systémy se nezapisují
+        // overview of not-found URLs for the administrator (Redirects); bots probing other systems are not recorded
         $path = mb_substr(trim($this->app->request->path(), '/'), 0, 255);
         if ($path !== '' && $this->app->request->get('cast') === '' && !preg_match('#\.(php|asp|aspx|env|git|sql|bak|ini|xml|txt|js|css|map|png|jpe?g|gif|ico|webp)$|^(wp-|\.|cgi-bin|vendor/|admin/)#i', $path) && mb_check_encoding($path, 'UTF-8')) {
             try {
@@ -640,7 +649,7 @@ final class Kernel
                     $this->app->db()->run('INSERT INTO {nenalezeno} (cesta, pocet, naposledy) VALUES (?, 1, NOW()) ON DUPLICATE KEY UPDATE pocet = pocet + 1, naposledy = NOW()', [$path]);
                 }
             } catch (\Throwable) {
-                // přehled je jen pomůcka - chyba zápisu nesmí změnit odpověď
+                // the overview is only an aid - a write error must not change the response
             }
         }
 
@@ -649,7 +658,7 @@ final class Kernel
 
     /**
      * @param list<array<string, mixed>> $news
-     * @param array<string, string> $params další parametry stránkovacích odkazů
+     * @param array<string, string> $params extra parameters of the pagination links
      * @return array<string, mixed>
      */
     private function listVariables(array $news, int $total, int $pageNumber, string $path, array $params = []): array
@@ -669,8 +678,9 @@ final class Kernel
     }
 
     /**
-     * Přepínač jazyků pro šablonu: kód => [název, adresa, je aktivní]. U novinky vede na její překlad, jinak na protějšek
-     * stránky či kategorie, a když ho nemá, na úvod verze. Prázdné pole = web má jediný jazyk.
+     * Language switcher for the template: code => [name, url, is active]. For a news item it leads to its translation,
+     * otherwise to the counterpart of the page or category, and when there is none, to the version's home page.
+     * An empty array = the site has a single language.
      *
      * @param array<string, mixed>|null $newsItem
      * @return array<string, array{nazev:string, url:string, aktivni:bool, preklad:bool}>
@@ -678,7 +688,8 @@ final class Kernel
     private function languages(?array $newsItem): array
     {
         $siteSettings = $this->app->settings();
-        // rozpracovaný jazyk (bez zveřejněného překladu úvodu) přepínač nenabízí; na jeho vlastních stránkách zůstane
+        // an unfinished language (without a published translation of the home page) is not offered by the switcher; it stays
+        // on its own pages
         $publishedLanguages = Language::published($siteSettings, $this->app->db());
         $additional = array_values(array_filter(Language::additional($siteSettings), fn (string $j): bool => in_array($j, $publishedLanguages, true) || $j === Language::siteColumn()));
         if ($additional === []) {
@@ -692,7 +703,7 @@ final class Kernel
             [$idk, $collection, $seo] = $this->collectionItem;
             $translations = array_map(fn (string $s): string => $collection . '/' . $s, $this->app->db()->pairs('SELECT jazyk, seo_link FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND zobrazit = 1', [$idk, $seo]));
         } elseif ($this->counterpart !== null && !$this->isHome) {
-            // kategorie nebo stránka: originál + jeho překlady
+            // category or page: the original + its translations
             [$table, $key, $row, $path] = $this->counterpart;
             $original = (int) ($row['preklad_z'] ?: $row[$key]);
             $condition = $table === 'stranky' ? ' AND zobrazit = 1' : '';
@@ -715,10 +726,11 @@ final class Kernel
     }
 
     /**
-     * Úprava stránky nebo novinky přímo na webu. Bez práva nedělá nic; s právem připraví odkaz „Upravit zde“
-     * a při ?upravit=text vrátí formulář s editorem místo obsahu. Ukládá administrace (akce uloz_text).
+     * Editing a page or news item directly on the site. Without the permission it does nothing; with it, it prepares the
+     * „Upravit zde“ (Edit here) link, and with ?upravit=text it returns a form with the editor instead of the content.
+     * The administration saves it (action save_text).
      *
-     * @param array<string, mixed> $record řádek ka_stranky nebo ka_novinky
+     * @param array<string, mixed> $record row of ka_stranky or ka_novinky
      */
     private function editInPlace(string $type, array $record, string $path): ?string
     {
@@ -728,7 +740,7 @@ final class Kernel
         }
         $url = $this->app->url($path);
         if ($this->app->request->get('upravit') !== 'text') {
-            // koncept je vidět jen v náhledu – bez něj by „Upravit zde“ skončilo na stránce Nenalezeno
+            // the draft is visible only in the preview – without it „Upravit zde“ would end on the Not found page
             $this->editHereUrl = $url . ($this->app->request->get('nahled') === '1' ? '?nahled=1&upravit=text' : '?upravit=text');
 
             return null;
@@ -745,7 +757,7 @@ final class Kernel
     /** @var list<array{titulek:string, seo_link:string, uvod:bool}>|null */
     private ?array $menuPages = null;
 
-    /** Stránky do hlavní navigace šablony (úvodní stránka vede na kořen webu). */
+    /** Pages for the template's main navigation (the home page leads to the site root). */
     private function menuPages(): array
     {
         if ($this->menuPages === null) {
@@ -759,13 +771,13 @@ final class Kernel
         return $this->menuPages;
     }
 
-    /** Drobečková navigace zobrazené stránky (prvek Drobečky a BreadcrumbList): Úvod a zadané úrovně. */
+    /** Breadcrumb navigation of the shown page (Breadcrumbs element and BreadcrumbList): Home and the given levels. */
     private function breadcrumbs(array ...$levels): void
     {
         $this->context()->breadcrumbs = [[t('Úvod'), $this->app->url('')], ...$levels];
     }
 
-    /** @var array<string, list<array<string, mixed>>> umístění => položky menu (Core\Menu) */
+    /** @var array<string, list<array<string, mixed>>> location => menu items (Core\Menu) */
     private array $menu = [];
 
     /** @return list<array<string, mixed>> */
@@ -775,7 +787,8 @@ final class Kernel
     }
 
     /**
-     * Složí stránku: obsah obalí layoutem webu (hlavička s navigací, patička), doplní SEO a uloží do cache.
+     * Assembles the page: wraps the content in the site layout (header with navigation, footer), adds SEO and saves it to
+     * the cache.
      *
      * @param array<string, mixed> $meta
      */
@@ -783,7 +796,8 @@ final class Kernel
     {
         if ($this->context === null) {
             $this->context = new \Kaleta\Builder\Context($this->app);
-            // cesta zobrazené stránky už pro obsah (odkazy filtru a stránkování výpisu kolekce, aktivní položka navigace)
+            // path of the shown page already for the content (filter and pagination links of a collection list, active
+            // navigation item)
             $this->context->path = (string) parse_url($this->app->url(ltrim($this->app->request->path(), '/')), PHP_URL_PATH);
         }
 
@@ -791,13 +805,17 @@ final class Kernel
     }
 
     /**
-     * Části webu z builderu: obálka kolem obsahu (novinka, výpis, 404), záhlaví a patička. Část bez publikované stavby
-     * vrátí null a layout vykreslí svou. Správce vidí v editoru koncept části (?cast=<typ>&stavba=koncept&editor=1).
+     * Site parts from the builder: the wrapper around the content (news item, listing, 404), header and footer. A part
+     * without a published build returns null and the layout renders its own. In the editor the administrator sees the
+     * part's draft (?cast=<type>&stavba=koncept&editor=1).
      *
      * @param array<string, mixed> $meta
      * @return array{0: string, 1: array{hlavicka: ?string, paticka: ?string}, 2: array<string, mixed>}
      */
-    /** Smí návštěvník vidět koncept: kdo upravuje stránky (u částí webu správce), nebo platný podepsaný odkaz na náhled cíle. */
+    /**
+     * Can the visitor see the draft: whoever edits pages (for site parts the administrator), or a valid signed preview
+     * link of the target.
+     */
     private function canSeeDraft(string $target): bool
     {
         $auth = $this->app->auth();
@@ -821,7 +839,7 @@ final class Kernel
             && ($this->app->auth()->isAdmin() || $this->canSeeDraft('cast:' . $r->get('cast') . ':' . Language::siteColumn() . ($r->get('varianta') !== '' ? ':' . $r->get('varianta') : ''))) ? $r->get('cast') : '';
         $editor = $r->get('editor') === '1' && ($preview !== '' || ($r->get('stavba') === 'koncept' && $r->get('cast') === ''));
         $language = Language::siteColumn();
-        // stránka webu může mít vlastní variantu záhlaví a patičky; v editoru varianty rozhoduje parametr ?varianta=
+        // a site page can have its own header and footer variant; in the variant editor the ?varianta= parameter decides
         $ids = ($this->counterpart[0] ?? '') === 'stranky' ? (int) $this->counterpart[2]['ids'] : null;
         $previewVariant = preg_match(\Kaleta\Builder\SiteParts::VARIANT_PATTERN, $r->get('varianta')) ? $r->get('varianta') : '';
         $render = function (string $type) use ($db, $k, $preview, $editor, $language, $ids, $previewVariant): ?string {
@@ -829,7 +847,7 @@ final class Kernel
                 $variant = $preview === $type ? $previewVariant : \Kaleta\Builder\SiteParts::pageVariant($db, $type, $language, $ids);
                 $build = \Kaleta\Builder\SiteParts::build($db, $type, $language, $preview === $type, $variant);
             } catch (\Throwable $e) {
-                error_log('Části webu: ' . $e->getMessage()); // web bez tabulky (před migrací) vykreslí části ze šablony
+                error_log('Části webu: ' . $e->getMessage()); // a site without the table (before migration) renders the parts from the layout
 
                 return null;
             }
@@ -857,12 +875,13 @@ final class Kernel
         $parts = ['hlavicka' => $render('hlavicka'), 'paticka' => $render('paticka')];
         $meta['popupy'] = $this->popups($k, in_array($wrapper, ['novinka', 'vypis'], true));
         if ($r->get('popup') !== '' || $this->previewPopup > 0) {
-            $meta['noindex'] = true; // náhled konceptu pop-up okna
+            $meta['noindex'] = true; // preview of a popup draft
         }
 
         if ($k->types !== []) {
             $meta['css'] = \Kaleta\Builder\Build::css($db, $k)
-                // plátno builderu se po každé změně načítá znovu – přechod mezi stránkami by jen blikal a v prohlížeči hlásil přerušení
+                // the builder canvas reloads after every change – a page transition would only flicker and report an abort in
+                // the browser
                 . ($editor ? '@view-transition{navigation:none}' : '');
             if ($k->faq !== [] && !isset($meta['faq'])) {
                 $meta['faq'] = $k->faq;
@@ -876,14 +895,14 @@ final class Kernel
     }
 
     /**
-     * Pop-up okna pro zobrazenou stránku (Stavitel\Popupy): zapnutá a publikovaná, podle pravidel serveru. Náhled konceptu
-     * (?popup=<id>&stavba=koncept nebo /_popup/<id>) přidá dané okno i vypnuté a otevře ho hned.
+     * Popups for the shown page (Builder\Popups): enabled and published, by the server rules. A draft preview
+     * (?popup=<id>&stavba=koncept or /_popup/<id>) adds the given popup even when disabled and opens it immediately.
      */
     private function popups(\Kaleta\Builder\Context $k, bool $news): string
     {
         $r = $this->app->request;
         if ($r->get('nahled') === 'vzhled' || ($r->get('editor') === '1' && !$this->previewPopup)) {
-            return ''; // náhled ve Vzhledu webu a plátno builderu (mimo builder okna) ukazují stránku bez oken
+            return ''; // the preview in Appearance and the builder canvas (outside the popup builder) show the page without popups
         }
         $db = $this->app->db();
         $preview = $this->previewPopup ?: ($r->get('stavba') === 'koncept' && preg_match('/^\d{1,9}$/', $r->get('popup')) && $this->canSeeDraft('popup:' . $r->get('popup')) ? (int) $r->get('popup') : 0);
@@ -892,7 +911,7 @@ final class Kernel
                 'kolekce' => $this->pageCollection, 'novinky' => $news, 'jazyk' => Language::code(), 'dnes' => date('Y-m-d')]);
             $draft = $preview > 0 ? \Kaleta\Builder\Popups::byId($db, $preview) : null;
         } catch (\Throwable $e) {
-            error_log('Pop-up okna: ' . $e->getMessage()); // web před migrací
+            error_log('Pop-up okna: ' . $e->getMessage()); // site before migration
 
             return '';
         }
@@ -907,10 +926,10 @@ final class Kernel
                 continue;
             }
             if ($p['pravidla']['od'] !== '' || $p['pravidla']['do'] !== '') {
-                $k->withoutCache = true; // okno s obdobím se nesmí dostat do cache stránky po jeho konci
+                $k->withoutCache = true; // a popup with a date range must not stay in the page cache after it ends
             }
             $k->source = 'popup:' . $p['idpp'];
-            // přihlášení (správci, redaktoři) si okna prohlížejí, ale do počitadel se nepočítají
+            // signed-in users (administrators, editors) view the popups, but are not counted in the counters
             $html .= \Kaleta\Builder\Popups::wrapper($p, \Kaleta\Builder\Build::html($build, $k), $this->app->auth()->user() === null ? $this->app->url('popup') : '', !empty($p['nahled']));
         }
 
@@ -918,8 +937,8 @@ final class Kernel
     }
 
     /**
-     * Pop-up okno pro builder a sdílený náhled: s editor=1 (správce) okno stojí na plátně k úpravám, jinak se koncept
-     * otevře přes prázdnou stránku webu. Bez práva správce nebo platného podepsaného odkazu 404.
+     * Popup for the builder and a shared preview: with editor=1 (administrator) the popup stands on the canvas for editing,
+     * otherwise the draft opens over an empty site page. Without administrator permission or a valid signed link, 404.
      */
     private function previewPopup(int $idpp): Response
     {
@@ -927,7 +946,7 @@ final class Kernel
         try {
             $p = \Kaleta\Builder\Popups::byId($this->app->db(), $idpp);
         } catch (\Throwable) {
-            // web před migrací
+            // site before migration
         }
         if ($p === null || $this->app->request->get('stavba') !== 'koncept' || !$this->canSeeDraft('popup:' . $idpp)) {
             return $this->notFound();
@@ -963,20 +982,21 @@ final class Kernel
         }
 
         if (($meta['obrazek'] ?? '') !== '' && !preg_match('#^https?://#', $meta['obrazek'])) {
-            // sociální sítě berou jen úplnou adresu obrázku
+            // social networks accept only a full image URL
             $meta['obrazek'] = $this->app->request->origin() . $this->app->url(ltrim((string) preg_replace('#^' . preg_quote($this->app->request->basePath(), '#') . '/#', '', $meta['obrazek']), '/'));
         }
         $meta['drobecky'] ??= $this->context()->breadcrumbs;
         $languages = $this->languages($newsItem);
         $languageSwitcher = $languages === [] ? '' : $this->view->render('jazyky', ['jazyky' => $languages]);
-        // přepínač světlý / tmavý vzhled pro návštěvníky – vedle jazyků (šablona, prvek Navigace)
+        // light / dark color scheme switcher for visitors – next to the languages (template, Navigation element)
         $colorScheme = in_array($this->app->settings()->get('dark_mode'), ['auto', 'tmavy'], true) && $this->app->settings()->bool('theme_switcher')
             ? $this->view->render('tema', ['vychozi' => $this->app->settings()->get('dark_mode') === 'tmavy' ? 'tmavy' : 'auto']) : '';
         $languagesHtml = $languageSwitcher . $colorScheme;
-        // prvky builderu: Navigace přidá přepínač jazyků (volitelně) a vzhledu, Přepínač jazyků skládá z tohoto seznamu
+        // builder elements: Navigation adds the language switcher (optionally) and the color scheme switcher, Language
+        // switcher builds from this list
         $this->context()->languageList = $languages;
         $this->context()->colorScheme = $colorScheme;
-        // kanonická adresa: cesta bez parametrů, u stránkování s číslem strany (strana 2 není kopie strany 1)
+        // canonical URL: the path without parameters, with the page number for pagination (page 2 is not a copy of page 1)
         $listPageNumber = $this->app->request->getInt('strana', 1);
         $canonicalUrl = $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')) . ($listPageNumber > 1 ? '?strana=' . $listPageNumber : '');
         [$content, $parts, $meta] = $this->siteParts($content, $meta, $languageSwitcher, (string) parse_url($canonicalUrl, PHP_URL_PATH));
@@ -995,19 +1015,20 @@ final class Kernel
             'menu_html' => \Kaleta\Core\Menu::html(...),
             'jazyk' => Language::code(),
             'jazyky_html' => $languagesHtml,
-            'sNovinkami' => Extensions::isEnabled($siteSettings, 'novinky'), // zapnuté rozšíření Novinky (odkazy na RSS v šabloně)
+            'sNovinkami' => Extensions::isEnabled($siteSettings, 'novinky'), // News extension enabled (RSS links in the template)
             'casti' => $parts,
             'url' => $this->app->url(...),
             'kanonicka' => $canonicalUrl,
         ]);
-        $html = ImageHtml::complete($this->app->db(), $html); // rozměry a barva podkladu obrázků – méně poskakování stránky
+        $html = ImageHtml::complete($this->app->db(), $html); // image dimensions and background color – less page jumping
         $html = $this->localizeSystemLinks($html);
-        // image/web.js jen na stránkách, které ho potřebují (galerie a fotky v textu, video, sdílení, záložky, karusel, okno, formulář,
-        // počítadlo, odpočet, podmenu – Esc ho zavře, pop-up okna, jazykové verze – při první návštěvě jazyk prohlížeče)
+        // image/web.js only on pages that need it (gallery and photos in text, video, sharing, tabs, carousel, modal, form,
+        // counter, countdown, submenu – Esc closes it, popups, language versions – browser language on the first visit)
         if (!preg_match('/data-(vlozit|sdilet|kopirovat|zalozky|karusel|formular|odeslano|pocitadlo|odpocet|tema-volba)|popover role="dialog"|galerie|class="(?:text|perex)[" ][\s\S]*?<img|cookies-|<li class="podmenu|data-popup=|rel="alternate" hreflang=/', $html)) {
             $html = (string) preg_replace('#<script src="[^"]*/image/web\.js[^"]*"[^>]*></script>\n?#', '', $html);
         }
-        // prvky s podmínkou zobrazení (datum, přihlášení) se skládají pokaždé znovu – cache by je ukazovala podle stavu v okamžiku uložení
+        // elements with a display condition (date, sign-in) are assembled anew every time – the cache would show them as they
+        // were at the moment of saving
         if ($status === 200 && empty($meta['noindex']) && $this->app->request->get('nahled') === '' && !($this->context?->withoutCache ?? false)) {
             Cache::save($this->app, $html, $newsItem === null ? null : (int) $newsItem['idc']);
         }
@@ -1016,8 +1037,8 @@ final class Kernel
     }
 
     /**
-     * Odkazy na systémové adresy uložené v obsahu (href="/novinky" ze starší stavby nebo startovacího webu) v podobě jazyka
-     * verze, aby nevedly přes přesměrování (Core\Cesty).
+     * Links to system URLs stored in the content (href="/novinky" from an older build or a starter site) in the form of the
+     * version's language, so they do not go through a redirect (Core\Routes).
      */
     private function localizeSystemLinks(string $html): string
     {

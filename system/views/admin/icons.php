@@ -1,6 +1,6 @@
 <?php
 /**
- * Sada ikon administrace (čárové, 24x24). Použití: $icon('clanek').
+ * The admin icon set (line icons, 24x24). Usage: $icon('clanek').
  *
  * @return callable(string): string
  */
@@ -34,7 +34,7 @@ $paths = [
     'web' => '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
     'odhlasit' => '<path d="M9 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3"/><path d="m16 17 5-5-5-5M21 12H9"/>',
     'tema' => '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
-    // bloky ve vizuálním editoru (Bloky::KATALOG)
+    // blocks in the visual editor (Bloky::KATALOG)
     'b-otvirak' => '<rect x="3" y="4" width="18" height="10" rx="1.5"/><path d="M3 18h12M3 21h7"/>',
     'b-seznam' => '<rect x="3" y="4.5" width="4" height="4" rx="1"/><rect x="3" y="13.5" width="4" height="4" rx="1"/><path d="M10 5.5h11M10 8h7M10 14.500h11M10 17h7"/>',
     'b-nejctenejsi' => '<path d="M3 17l5-5 4 3 8-9"/><path d="M15 6h5v5"/><path d="M3 21h18"/>',

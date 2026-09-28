@@ -36,7 +36,7 @@ final class Response
     public function send(): void
     {
         http_response_code($this->status);
-        // základní bezpečnostní hlavičky; konkrétní odpověď je může přepsat
+        // basic security headers; a specific response may override them
         $defaults = ['X-Content-Type-Options' => 'nosniff', 'Referrer-Policy' => 'strict-origin-when-cross-origin', 'X-Frame-Options' => 'SAMEORIGIN'];
         foreach ($this->headers + $defaults as $name => $value) {
             header($name . ': ' . $value);

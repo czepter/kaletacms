@@ -13,8 +13,8 @@ use Kaleta\Builder\Publisher;
 use Kaleta\Builder\Build;
 
 /**
- * Pop-up okna: obsah se staví v builderu jako část webu, v nastavení se určí typ, spouštěč, pravidla a četnost.
- * Na webu se okno objeví, až je publikované a zapnuté. Počitadla zobrazení, zavření a konverzí jsou bez cookies.
+ * Popups: the content is built in the builder as a site part, the settings define the type, trigger, rules and frequency.
+ * The popup appears on the site once it is published and enabled. The counters of views, closes and conversions are without cookies.
  */
 final class Popups extends Module
 {
@@ -36,7 +36,7 @@ final class Popups extends Module
         return $this->view('new', 'Nové pop-up okno', []);
     }
 
-    /** Nové okno z hotového vzoru: koncept stavby v jazyce webu, typ a spouštěč ze vzoru, vypnuté – rovnou do builderu. */
+    /** A new popup from a ready-made pattern: build draft in the site language, type and trigger from the pattern, disabled – straight into the builder. */
     protected function actionCreate(): Response
     {
         $r = $this->request;
@@ -76,7 +76,7 @@ final class Popups extends Module
         if (!preg_match(Okna::ADDRESS_PATTERN, $url) || $this->db->value('SELECT idpp FROM {popupy} WHERE adresa = ? AND idpp <> ?', [$url, $p['idpp']]) !== null) {
             return $this->back(t('Adresu „%s“ už používá jiné okno.', $url), 'edit', ['id' => $p['idpp']], 'chyba');
         }
-        // „na celém webu“: výběr míst je ve formuláři neaktivní a neodešle se – zůstane uložený pro případ, že se k němu vrátíte
+        // "na celém webu" (on the whole site): the choice of places is inactive in the form and is not sent – it stays saved in case you return to it
         $selected = $r->post('kde') === 'vybrane';
         $rules = Okna::sanitizeRules([
             'kde' => $r->post('kde'),
@@ -91,7 +91,7 @@ final class Popups extends Module
             'spoustec' => isset(Okna::TRIGGERS[$r->post('spoustec')]) ? $r->post('spoustec') : $p['spoustec'],
             'hodnota' => max(0, min(3600, $r->postInt('hodnota'))),
             'cetnost' => isset(Okna::FREQUENCIES[$r->post('cetnost')]) ? $r->post('cetnost') : $p['cetnost'],
-            'dni' => $r->post('dni') !== '' ? max(1, min(365, $r->postInt('dni', 7))) : (int) $p['dni'], // pole je aktivní jen u četnosti „dni“
+            'dni' => $r->post('dni') !== '' ? max(1, min(365, $r->postInt('dni', 7))) : (int) $p['dni'], // the field is active only for the frequency "dni"
             'poradi' => max(-9999, min(9999, $r->postInt('poradi', 100))),
             'pravidla' => (string) json_encode($rules, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s'),
         ], ['idpp' => $p['idpp']]);
@@ -100,14 +100,14 @@ final class Popups extends Module
         return $this->back('Nastavení okna bylo uloženo.');
     }
 
-    /** Zapnout nebo vypnout okno na webu; zapnout jde jen publikované. */
+    /** Enable or disable the popup on the site; only a published one can be enabled. */
     protected function actionToggle(): Response
     {
         $p = $this->request->isPost() ? Okna::byId($this->db, $this->request->postInt('idpp')) : null;
         if ($p === null) {
             return $this->back();
         }
-        // z nastavení okna se zůstane v nastavení, ze seznamu v seznamu
+        // from the popup settings you stay in the settings, from the list in the list
         [$action, $args] = $this->request->post('z') === 'edit' ? ['edit', ['id' => $p['idpp']]] : ['', []];
         if (!$p['aktivni'] && $p['stavba'] === null) {
             return $this->back('Okno nejdřív publikujte v builderu – teprve pak ho jde zapnout.', $action, $args, 'chyba');
@@ -137,7 +137,7 @@ final class Popups extends Module
         return $this->back('Pop-up okno bylo smazáno.');
     }
 
-    /** Stránky a kolekce pro výběr „kde se okno ukáže“, jazyky webu. @return array<string, mixed> */
+    /** Pages and collections for the choice "where the popup appears", site languages. @return array<string, mixed> */
     private function options(): array
     {
         $siteSettings = $this->app->settings();

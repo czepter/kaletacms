@@ -3,9 +3,9 @@
  * @var Kaleta\Admin\Modules\Redirects $module
  * @var string $csrf
  * @var list<array<string, mixed>> $records
- * @var list<array<string, mixed>> $notFound  adresy, které v posledních 60 dnech skončily chybou 404
- * @var string $fromUrl  předvyplněná stará adresa
- * @var ?array<string, mixed> $edit  upravovaný záznam
+ * @var list<array<string, mixed>> $notFound  urls that ended with a 404 error in the last 60 days
+ * @var string $fromUrl  pre-filled old url
+ * @var ?array<string, mixed> $edit  the record being edited
  * @var int $total
  * @var int $pageNumber
  * @var int $pageCount

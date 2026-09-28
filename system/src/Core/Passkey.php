@@ -5,48 +5,50 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Přihlašovací klíče (passkeys, standard WebAuthn): otisk prstu, Face ID, Windows Hello nebo bezpečnostní klíč
- * místo opisování kódu z aplikace. Čisté PHP, bez knihoven - podpis ověřuje rozšíření openssl.
+ * Login keys (passkeys, the WebAuthn standard): fingerprint, Face ID, Windows Hello or a security key
+ * instead of copying a code from an app. Pure PHP, no libraries - the openssl extension verifies the signature.
  *
- * Jak to funguje: zařízení si při registraci vytvoří pár klíčů vázaný na doménu webu. Soukromý klíč zařízení nikdy
- * neopustí, serveru pošle jen veřejný. Při přihlášení server pošle náhodnou výzvu, zařízení ji (po otisku prstu)
- * podepíše a server podpis ověří uloženým veřejným klíčem. Podvržená stránka na jiné doméně podpis nedostane.
+ * How it works: on registration the device creates a key pair bound to the site's domain. The private key never leaves
+ * the device, it sends only the public one to the server. On login the server sends a random challenge, the device signs
+ * it (after the fingerprint) and the server verifies the signature with the stored public key. A forged page on another
+ * domain does not get the signature.
  *
- * Co se ověřuje (WebAuthn Level 2, kap. 7.1 a 7.2) a proč:
- *  - typ odpovědi (webauthn.create / webauthn.get) - odpověď z registrace nejde použít k přihlášení a naopak,
- *  - výzva - odpověď patří k TOMUTO pokusu (proti přehrání staré odpovědi),
- *  - původ (origin) a otisk domény (rpIdHash) - odpověď vznikla na našem webu, ne na podvržené stránce,
- *  - příznak přítomnosti uživatele (UP) - někdo se zařízení opravdu dotkl,
- *  - podpis nad daty autentikátoru a otiskem údajů klienta,
- *  - počitadlo podpisů - pokud ho zařízení vede, musí růst (odhalí zkopírovaný klíč).
+ * What is verified (WebAuthn Level 2, sections 7.1 and 7.2) and why:
+ *  - the response type (webauthn.create / webauthn.get) - a registration response cannot be used to log in and vice versa,
+ *  - the challenge - the response belongs to THIS attempt (against replaying an old response),
+ *  - the origin and the domain hash (rpIdHash) - the response was created on our site, not on a forged page,
+ *  - the user presence flag (UP) - someone really touched the device,
+ *  - the signature over the authenticator data and the hash of the client data,
+ *  - the signature counter - if the device keeps one, it must grow (reveals a copied key).
  *
- * Atestace (doklad o výrobci zařízení) se nevyžaduje ani neověřuje ("none"): redakční systém nepotřebuje vědět,
- * jaké zařízení uživatel má, a nechce o něm nic zjišťovat. Veřejný klíč proto dodává prohlížeč ve tvaru SPKI
- * (getPublicKey()); u klíčů ES256 se navíc kontroluje, že tentýž klíč stojí i v datech autentikátoru.
+ * Attestation (proof of the device manufacturer) is neither required nor verified ("none"): a CMS does not need to know
+ * what device the user has and does not want to find out anything about it. So the browser supplies the public key in
+ * SPKI form (getPublicKey()); for ES256 keys it is also checked that the same key is in the authenticator data.
  *
- * Třída nic neukládá a nesahá do session ani do databáze - jen počítá. O výzvy, účty a uložené klíče se stará volající.
+ * The class stores nothing and touches neither the session nor the database - it only computes. The caller takes care
+ * of challenges, accounts and stored keys.
  */
 final class Passkey
 {
-    /** Podporované algoritmy podpisu (čísla COSE): ES256 = ECDSA P-256 + SHA-256, RS256 = RSA PKCS#1 v1.5 + SHA-256. */
+    /** Supported signature algorithms (COSE numbers): ES256 = ECDSA P-256 + SHA-256, RS256 = RSA PKCS#1 v1.5 + SHA-256. */
     public const array ALGORITHMS = [-7, -257];
 
-    private const int FLAG_UP = 0x01; // uživatel byl přítomen
-    private const int FLAG_AT = 0x40; // data obsahují nově vytvořený klíč (jen při registraci)
+    private const int FLAG_UP = 0x01; // the user was present
+    private const int FLAG_AT = 0x40; // the data contains a newly created key (only on registration)
 
-    /** Náhodná výzva pro jeden pokus (base64url). Volající ji uloží do session a po použití zahodí. */
+    /** Random challenge for one attempt (base64url). The caller stores it in the session and discards it after use. */
     public static function challenge(): string
     {
         return self::b64(random_bytes(32));
     }
 
-    /** Doména, na kterou se klíče vážou (rpId), z adresy webu: https://www.web.cz:8443/x -> www.web.cz */
+    /** The domain the keys are bound to (rpId), from the site URL: https://www.web.cz:8443/x -> www.web.cz */
     public static function rpId(string $siteUrl): string
     {
         return strtolower((string) parse_url($siteUrl, PHP_URL_HOST));
     }
 
-    /** Původ, který prohlížeč uvede v odpovědi (schéma://host[:port]), z adresy webu. */
+    /** The origin the browser states in the response (scheme://host[:port]), from the site URL. */
     public static function origin(string $siteUrl): string
     {
         $c = parse_url($siteUrl);
@@ -56,9 +58,9 @@ final class Passkey
     }
 
     /**
-     * Nastavení pro navigator.credentials.create().
+     * Options for navigator.credentials.create().
      *
-     * @param list<string> $existing id už zaregistrovaných klíčů účtu (base64url) - zařízení se nezaregistruje dvakrát
+     * @param list<string> $existing ids of the account's already registered keys (base64url) - a device is not registered twice
      * @return array<string, mixed>
      */
     public static function registrationOptions(string $challenge, string $rpId, string $siteName, string $userId, string $login, string $displayName, array $existing): array
@@ -76,9 +78,9 @@ final class Passkey
     }
 
     /**
-     * Nastavení pro navigator.credentials.get().
+     * Options for navigator.credentials.get().
      *
-     * @param list<string> $allowed id klíčů účtu (base64url)
+     * @param list<string> $allowed ids of the account's keys (base64url)
      * @return array<string, mixed>
      */
     public static function signInOptions(string $challenge, string $rpId, array $allowed): array
@@ -93,11 +95,11 @@ final class Passkey
     }
 
     /**
-     * Ověří odpověď z registrace a vrátí, co se má uložit.
+     * Verifies a registration response and returns what should be stored.
      *
-     * @param array<string, mixed> $response clientDataJSON, authenticatorData, publicKey (SPKI DER) - vše base64url; publicKeyAlgorithm
-     * @return array{id:string, klic:string, alg:int, pocitadlo:int} id klíče (base64url), veřejný klíč (PEM), algoritmus, počitadlo
-     * @throws \RuntimeException s důvodem odmítnutí
+     * @param array<string, mixed> $response clientDataJSON, authenticatorData, publicKey (SPKI DER) - all base64url; publicKeyAlgorithm
+     * @return array{id:string, klic:string, alg:int, pocitadlo:int} key id (base64url), public key (PEM), algorithm, counter
+     * @throws \RuntimeException with the reason for rejection
      */
     public static function verifyRegistration(array $response, string $challenge, string $origin, string $rpId): array
     {
@@ -112,7 +114,7 @@ final class Passkey
             throw new \RuntimeException('Identifikátor klíče má neplatnou délku.');
         }
         $id = substr($data, 55, $idLength);
-        $rest = substr($data, 55 + $idLength); // veřejný klíč tak, jak ho zapsal autentikátor (COSE)
+        $rest = substr($data, 55 + $idLength); // the public key as the authenticator wrote it (COSE)
 
         $alg = (int) ($response['publicKeyAlgorithm'] ?? 0);
         if (!in_array($alg, self::ALGORITHMS, true)) {
@@ -126,7 +128,7 @@ final class Passkey
             throw new \RuntimeException('Veřejný klíč zařízení se nepodařilo načíst.');
         }
         if ($alg === -7) {
-            // ES256: křivka P-256 a tentýž bod (x, y) musí stát i v datech podepsaných autentikátorem
+            // ES256: curve P-256 and the same point (x, y) must also be in the data signed by the authenticator
             $ec = $description['ec'] ?? null;
             if ($description['type'] !== OPENSSL_KEYTYPE_EC || !is_array($ec) || ($ec['curve_name'] ?? '') !== 'prime256v1'
                 || !str_contains($rest, str_pad((string) $ec['x'], 32, "\0", STR_PAD_LEFT)) || !str_contains($rest, str_pad((string) $ec['y'], 32, "\0", STR_PAD_LEFT))) {
@@ -140,10 +142,10 @@ final class Passkey
     }
 
     /**
-     * Ověří odpověď z přihlášení. Vrací nové počitadlo podpisů k uložení.
+     * Verifies a login response. Returns the new signature counter to store.
      *
-     * @param array<string, mixed> $response clientDataJSON, authenticatorData, signature - vše base64url
-     * @throws \RuntimeException s důvodem odmítnutí
+     * @param array<string, mixed> $response clientDataJSON, authenticatorData, signature - all base64url
+     * @throws \RuntimeException with the reason for rejection
      */
     public static function verifySignIn(array $response, string $challenge, string $origin, string $rpId, string $publicKeyPem, int $storedCounter): int
     {
@@ -156,8 +158,8 @@ final class Passkey
         if ($key === false || $signature === '' || openssl_verify($data . hash('sha256', $client, true), $signature, $key, OPENSSL_ALGO_SHA256) !== 1) {
             throw new \RuntimeException('Podpis zařízení neplatí.');
         }
-        // zařízení, která počitadlo vedou, ho musí zvyšovat; stejná nebo nižší hodnota = klíč někdo zkopíroval.
-        // Synchronizované klíče (iCloud, Google) posílají trvale nulu - u nich kontrola nemá co porovnat.
+        // devices that keep a counter must increase it; the same or a lower value = someone copied the key.
+        // Synced keys (iCloud, Google) always send zero - for them the check has nothing to compare.
         $counter = self::counter($data);
         if (($counter !== 0 || $storedCounter !== 0) && $counter <= $storedCounter) {
             throw new \RuntimeException('Počitadlo klíče se vrátilo zpět - klíč mohl být zkopírován. Odeberte ho a zaregistrujte znovu.');
@@ -166,7 +168,7 @@ final class Passkey
         return $counter;
     }
 
-    /** Údaje klienta: typ operace, výzva a původ. Vrací surový JSON (jeho otisk je součást podepsaných dat). */
+    /** Client data: operation type, challenge and origin. Returns the raw JSON (its hash is part of the signed data). */
     private static function verifyClient(string $b64, string $type, string $challenge, string $origin): string
     {
         $json = self::fromB64($b64);
@@ -187,7 +189,7 @@ final class Passkey
         return $json;
     }
 
-    /** Data autentikátoru: otisk domény a příznak přítomnosti uživatele. Vrací bajt příznaků. */
+    /** Authenticator data: domain hash and the user presence flag. Returns the flags byte. */
     private static function verifyData(string $data, string $rpId): int
     {
         if (strlen($data) < 37) {

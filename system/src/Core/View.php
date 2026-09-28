@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Šablony jsou obyčejné PHP soubory. Proměnné z $data jsou v šabloně dostupné přímo,
- * výstup se ošetřuje funkcí e().
+ * Templates are plain PHP files. Variables from $data are available directly in the template,
+ * output is escaped with the function e().
  */
 final class View
 {
-    /** @param list<string> $dirs adresáře prohledávané v daném pořadí (např. layout webu, pak systémové šablony) */
+    /** @param list<string> $dirs directories searched in the given order (e.g. the site layout, then the system templates) */
     public function __construct(private readonly array $dirs)
     {
     }

@@ -7,15 +7,16 @@ namespace Kaleta\Front;
 use Kaleta\Core\Settings;
 
 /**
- * Údaje o firmě z Nastavení → Firma: adresa, IČO, telefon, otevírací doba, mapa. Používá je prvek Údaje firmy (web)
- * a strukturovaná data schema.org (Organization / LocalBusiness) pro vyhledávače a AI asistenty.
+ * Company details from "Nastavení → Firma" (Settings → Company): address, company ID, phone, opening hours, map. Used by
+ * the Company details element (site) and by schema.org structured data (Organization / LocalBusiness) for search engines
+ * and AI assistants.
  *
- * Otevírací doba se zadává lidsky, řádek po řádku („Po–Pá 8:00–17:00“, „So 9–12“, „Ne zavřeno“); na webu se vypíše,
- * jak byla napsaná, pro strukturovaná data se rozebere.
+ * Opening hours are entered in human form, line by line („Po–Pá 8:00–17:00“, „So 9–12“, „Ne zavřeno“); the site prints
+ * them as written, for structured data they are parsed.
  */
 final class Company
 {
-    /** Typy podniku schema.org (klíč => popisek v Nastavení). */
+    /** schema.org business types (key => label in Settings). */
     public const array TYPES = [
         'Organization' => 'firma bez provozovny pro zákazníky',
         'LocalBusiness' => 'provozovna (obecně)',
@@ -32,13 +33,13 @@ final class Company
         'EducationalOrganization' => 'škola a kurzy',
     ];
 
-    /** Dny v týdnu: zkratky (česky i anglicky) → schema.org. */
+    /** Days of the week: abbreviations (Czech and English) → schema.org. */
     private const array DAYS = [
         'po' => 'Monday', 'ut' => 'Tuesday', 'st' => 'Wednesday', 'ct' => 'Thursday', 'pa' => 'Friday', 'so' => 'Saturday', 'ne' => 'Sunday',
         'mo' => 'Monday', 'tu' => 'Tuesday', 'we' => 'Wednesday', 'th' => 'Thursday', 'fr' => 'Friday', 'sa' => 'Saturday', 'su' => 'Sunday',
     ];
 
-    /** Adresa na řádcích (ulice; PSČ a město; země, jen když není česká). @return list<string> */
+    /** Address in lines (street; postcode and city; country, only when it is not Czech). @return list<string> */
     public static function address(Settings $s): array
     {
         return array_values(array_filter([
@@ -48,14 +49,14 @@ final class Company
         ], fn (string $r): bool => $r !== ''));
     }
 
-    /** @return list<string> řádky otevírací doby, jak je zadal správce */
+    /** @return list<string> opening hours lines as the administrator entered them */
     public static function openingHoursLines(Settings $s): array
     {
         return array_values(array_filter(array_map('trim', preg_split('/\R/', $s->get('company_hours')) ?: []), fn (string $r): bool => $r !== ''));
     }
 
     /**
-     * Rozebere otevírací dobu pro schema.org. Neznámý řádek = null (Nastavení ho odmítne s hláškou).
+     * Parses opening hours for schema.org. An unknown line = null (Settings rejects it with a message).
      *
      * @return list<array{dny: list<string>, od: string, do: string}>|null
      */
@@ -93,9 +94,9 @@ final class Company
     }
 
     /**
-     * Firma pro schema.org (vydavatel webu i samostatný uzel na úvodní stránce).
+     * Company for schema.org (publisher of the site as well as a separate node on the home page).
      *
-     * @param callable(string): string $absoluteUrl převod adresy obrázku na absolutní
+     * @param callable(string): string $absoluteUrl converts an image URL to an absolute one
      * @return array<string, mixed>
      */
     public static function schema(Settings $s, string $siteSettings, callable $absoluteUrl): array

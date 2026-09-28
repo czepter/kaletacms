@@ -8,8 +8,8 @@ use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
 /**
- * Rozbalovací položky (akordeon) jako <details> – bez JavaScriptu. Volitelně otevřená vždy jen jedna (atribut name)
- * a strukturovaná data FAQPage – ta jen ve stránce, ne v záhlaví a patičce (jinak by FAQ byla každá stránka webu).
+ * Expandable items (accordion) as <details> – without JavaScript. Optionally only one open at a time (the name attribute)
+ * and FAQPage structured data – only in a page, not in the header and footer (otherwise every page of the site would be an FAQ).
  */
 final class Faq extends Element
 {

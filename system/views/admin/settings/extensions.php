@@ -1,10 +1,10 @@
 <?php
-/** Záložka Rozšíření. */
+/** The "Rozšíření" (Extensions) tab. */
 use Kaleta\Core\Extensions;
 ?>
 <p class="hlaska"><?= e(t('Rozšíření jsou volitelné části Kalety. Všechna jsou součástí systému a udržuje je tým Kaleta – nic se nestahuje ani neinstaluje. Vypnuté rozšíření zmizí z menu i z webu, jeho data zůstanou a po zapnutí se vrátí.')) ?></p>
 <?php
-// kde se zapnuté rozšíření nastavuje – každé žije jinde v administraci, karta proto vede rovnou na to místo
+// where an enabled extension is configured – each lives elsewhere in the admin, so the card leads straight to that place
 $adminUrl = fn (string $query): string => $app->url('admin.php?' . $query);
 $extensionSettings = [
     'novinky' => [[$adminUrl('module=news'), 'Novinky'], [$adminUrl('module=categories'), 'Kategorie'], [$adminUrl('module=tags'), 'Štítky']],

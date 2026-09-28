@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Kopie zálohy databáze mimo server: FTP/FTPS (jiný hosting, NAS) nebo úložiště kompatibilní s S3
- * (Amazon S3, Backblaze B2, Wasabi, Cloudflare R2…). Záloha na stejném disku jako web nechrání před
- * ztrátou hostingu. Bez knihoven: FTP přes rozšíření PHP, S3 přes cURL s podpisem AWS Signature V4.
+ * Copy of the database backup off the server: FTP/FTPS (another hosting, NAS) or S3-compatible storage
+ * (Amazon S3, Backblaze B2, Wasabi, Cloudflare R2…). A backup on the same disk as the site does not protect against
+ * losing the hosting. No libraries: FTP through the PHP extension, S3 through cURL with an AWS Signature V4 signature.
  */
 final class RemoteBackup
 {
-    /** @return string|null text chyby, null = nahráno (nebo je vzdálené zálohování vypnuté) */
+    /** @return string|null error text, null = uploaded (or remote backup is turned off) */
     public static function upload(Settings $s, string $path): ?string
     {
         $mode = $s->get('remote_backup');
@@ -35,7 +35,8 @@ final class RemoteBackup
             throw new \RuntimeException('Na serveru chybí rozšíření PHP pro FTP.');
         }
         $host = $s->get('backup_host');
-        // jen šifrované FTPS: záloha obsahuje hesla a tajné klíče, po nešifrovaném FTP by šly sítí čitelně (i heslo k FTP)
+        // encrypted FTPS only: the backup contains passwords and secret keys, over plain FTP they would travel the network
+        // readable (the FTP password too)
         if (!function_exists('ftp_ssl_connect')) {
             throw new \RuntimeException('Server neumí šifrované FTP (FTPS). Zálohu posílejte do úložiště S3, nebo si ji stahujte ručně.');
         }
@@ -88,7 +89,7 @@ final class RemoteBackup
     }
 
     /**
-     * Hlavičky požadavku podepsané AWS Signature Version 4 (služba s3).
+     * Request headers signed with AWS Signature Version 4 (service s3).
      *
      * @return array<string, string>
      */

@@ -1,12 +1,12 @@
 <?php
 /**
- * Souhlas s připojením aplikace přes OAuth (konektor Claude a jiné klienty MCP).
+ * Consent to connecting an app via OAuth (the Claude connector and other MCP clients).
  *
  * @var Kaleta\Core\App $app
  * @var string $csrf
  * @var array{nazev:string, redirect_uri:string} $pending
  * @var array<string, mixed> $user
- * @var string $url  server, kam se aplikace po souhlasu vrátí
+ * @var string $url  the server the app returns to after consent
  */
 $role = t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '');
 ?>

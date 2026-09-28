@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace Kaleta\Front;
 
 /**
- * Přehled layoutů (šablon vzhledu webu) ve složce layout/.
- * Layout se může představit souborem info.php: return ['nazev' => ..., 'popis' => ...];
+ * Overview of layouts (site appearance templates) in the layout/ folder.
+ * A layout can introduce itself with an info.php file: return ['nazev' => ..., 'popis' => ...];
  */
 final class Layouts
 {
-    /** Šablona nové instalace a náhrada, když nastavená šablona ve složce layout/ chybí. */
+    /** Layout of a new installation and the fallback when the configured layout is missing from the layout/ folder. */
     public const string DEFAULTS = 'zakladni';
 
-    /** @return array<string, array{nazev:string, popis:string}> složka => informace, výchozí layout první */
+    /** @return array<string, array{nazev:string, popis:string}> folder => information, default layout first */
     public static function listAll(): array
     {
         $layouts = [];

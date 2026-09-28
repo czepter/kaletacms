@@ -1,11 +1,11 @@
 <?php
 /**
- * Komponenty webu.
+ * Components of the site.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Components $module
  * @var string $csrf
- * @var list<array<string, mixed>> $components  i s počtem použití (pouziti) a jejich místy (mista)
+ * @var list<array<string, mixed>> $components  including the number of uses (pouziti) and their places (mista)
  */
 ?>
 <p class="navigace-radek"><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('Nová komponenta')) ?></a></p>

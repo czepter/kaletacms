@@ -1,8 +1,8 @@
-/* Kaleta – editor menu (Vzhled → Menu). Položky: stránka, vlastní odkaz, novinky, skupina; pod položkou jedna úroveň podmenu.
- * Pořadí přetažením nebo šipkami (i z klávesnice), šipka vpravo zařadí položku do podmenu té nad ní.
- * Stav je pole položek; při odeslání formuláře jde jako JSON do skrytého pole – čistí ho server (Core\Menu::vycisti).
+/* Kaleta – menu editor ("Vzhled → Menu", Appearance → Menu). Items: page, custom link, news, group; one submenu level under an item.
+ * Order by dragging or with arrows (keyboard too); the right arrow moves an item into the submenu of the item above it.
+ * The state is an array of items; on form submit it goes as JSON into a hidden field – the server cleans it (Core\Menu::sanitize).
  */
-// skript je v obsahu stránky, tedy před admin.js se slovníkem překladů (window.T) – začne až po načtení všech skriptů
+// the script is in the page content, i.e. before admin.js with the translation dictionary (window.T) – it starts only after all scripts load
 document.addEventListener('DOMContentLoaded', function () {
 	'use strict';
 
@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		return e;
 	}
 
-	/** Pole, ve kterém položka leží, a její index: cesta [i] = hlavní úroveň, [i, j] = podmenu položky i. */
+	/** The array the item lies in, and its index: path [i] = top level, [i, j] = submenu of item i. */
 	const field = (path) => (path.length === 1 ? items : items[path[0]].deti);
 	const item = (path) => field(path)[path[path.length - 1]];
 
@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	}
 	function remove(path) {
 		const [p] = field(path).splice(path[path.length - 1], 1);
-		// podmenu smazané položky se posune o úroveň výš, nezmizí
+		// the submenu of a removed item moves one level up, it does not disappear
 		if (path.length === 1 && p.deti.length) { items.splice(path[0], 0, ...p.deti.map((d) => Object.assign(d, { deti: [] }))); }
 		render(null);
 	}
@@ -81,12 +81,12 @@ document.addEventListener('DOMContentLoaded', function () {
 				tl('✕', T('Odebrat z menu'), remove)));
 		const li = el('li', { class: 'menu-polozka' }, rowEl);
 		li.dataset.cesta = path.join(',');
-		// táhne se za úchyt (celá položka by bránila označování textu v polích)
+		// dragged by the handle (the whole item would prevent selecting text in the fields)
 		const handle = rowEl.querySelector('.menu-uchyt');
 		handle.addEventListener('dragstart', (e) => { dragged = path; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); e.dataTransfer.setDragImage(rowEl, 10, 10); li.classList.add('menu-tazena'); });
 		handle.addEventListener('dragend', () => { dragged = null; li.classList.remove('menu-tazena'); list.querySelectorAll('.menu-cil').forEach((x) => x.classList.remove('menu-cil')); });
 		rowEl.addEventListener('dragover', (e) => {
-			if (!dragged || (dragged.length === 1 && item(dragged).deti.length && path.length > 1)) { return; } // položka s podmenu nejde do podmenu
+			if (!dragged || (dragged.length === 1 && item(dragged).deti.length && path.length > 1)) { return; } // an item with a submenu cannot go into a submenu
 			e.preventDefault();
 			rowEl.classList.add('menu-cil');
 		});
@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		rowEl.addEventListener('drop', (e) => {
 			e.preventDefault();
 			if (!dragged || dragged.join() === path.join()) { return; }
-			// vloží se před cílovou položku, na její úroveň
+			// inserted before the target item, at its level
 			const target = item(path);
 			const [p2] = field(dragged).splice(dragged[dragged.length - 1], 1);
 			if (path.length > 1) { p2.deti = []; }
@@ -113,7 +113,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		list.replaceChildren(...items.map((p, i) => row(p, [i])));
 		empty.hidden = items.length > 0;
 		if (focusTarget) {
-			// po přesunu šipkou zůstane fokus na přesunuté položce (ovládání z klávesnice)
+			// after a move with an arrow, focus stays on the moved item (keyboard control)
 			const li = list.querySelector('[data-cesta="' + focusTarget.join(',') + '"]');
 			if (li) { li.querySelector('.menu-radek input').focus(); }
 		}
@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		render([items.length - 1]);
 	}));
 
-	/** Upozornění vlastním dialogem (ne window.alert – ten nejde nastylovat ani přeložit); po zavření se vrátí fokus na chybné pole. */
+	/** A notice in a custom dialog (not window.alert – that cannot be styled or translated); on close, focus returns to the invalid field. */
 	function notify(text, field) {
 		const d = el('dialog', { class: 'potvrzeni', role: 'alertdialog', 'aria-modal': 'true' },
 			el('p', {}, text),
@@ -144,13 +144,13 @@ document.addEventListener('DOMContentLoaded', function () {
 	}
 
 	formEl.addEventListener('submit', (e) => {
-		// odkaz bez adresy nebo textu a skupina bez textu by server zahodil potichu – raději říct hned
+		// the server would silently drop a link without a URL or text and a group without text – better to say so right away
 		const invalid = list.querySelectorAll('.menu-polozka');
 		for (const li of invalid) {
 			const p = item(li.dataset.cesta.split(',').map(Number));
 			if ((p.typ === 'odkaz' && (!p.text || !p.url)) || (p.typ === 'skupina' && !p.text)) {
 				e.preventDefault();
-				// chybí text, nebo (u odkazu) adresa: fokus na to pole, které je prázdné
+				// the text or (for a link) the URL is missing: focus the field that is empty
 				const empty = [...li.querySelector('.menu-radek').querySelectorAll('input.textpole')].find((x) => !x.value.trim()) || li.querySelector('input');
 				empty.setAttribute('aria-invalid', 'true');
 				empty.addEventListener('input', () => empty.removeAttribute('aria-invalid'), { once: true });

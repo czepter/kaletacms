@@ -1,12 +1,12 @@
 <?php
 /**
- * Ověří kanál aktualizací tak, jak ho vidí instalace Kalety: co právě visí na webu projektu, musí být podepsané
- * klíčem z repozitáře a balíček ke stažení musí odpovídat podepsanému otisku. Běží denně v GitHub Actions
- * (.github/workflows/denni-kontrola.yml) - odhalí podvržený nebo poškozený soubor dřív, než ho potkají weby uživatelů.
+ * Verifies the update channel the way a Kaleta installation sees it: whatever is currently on the project website must be
+ * signed with a key from the repository and the download package must match the signed hash. Runs daily in GitHub Actions
+ * (.github/workflows/denni-kontrola.yml) - catches a forged or damaged file before users' sites run into it.
  *
- *   php tools/check-channel.php [adresa aktualizace.json]
+ *   php tools/check-channel.php [aktualizace.json url]
  *
- * Nic nepodepisuje a žádný soukromý klíč nepotřebuje.
+ * Signs nothing and needs no private key.
  */
 
 declare(strict_types=1);
@@ -46,7 +46,7 @@ try {
     if (!hash_equals(strtolower($m['sha256']), hash_file('sha256', $zip))) {
         $errors[] = 'otisk staženého balíčku neodpovídá podepsanému otisku';
     }
-    // balíček nesmí instalacím podstrčit jiné veřejné klíče, než jaké jsou v repozitáři
+    // the package must not slip installations public keys other than those in the repository
     $archive = new ZipArchive();
     if ($archive->open($zip) === true) {
         $inPackage = $archive->getFromName('system/aktualizace.pub');

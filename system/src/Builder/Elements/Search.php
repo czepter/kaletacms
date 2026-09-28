@@ -7,7 +7,7 @@ namespace Kaleta\Builder\Elements;
 use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
-/** Vyhledávací pole: formulář na /hledani (stránky, položky kolekcí a novinky; bez ohledu na diakritiku). */
+/** Search field: a form to /hledani (pages, collection items and news; regardless of diacritics). */
 final class Search extends Element
 {
     public const string TYPE = 'hledani';

@@ -8,13 +8,13 @@ use Kaleta\Core\Db;
 use Kaleta\Core\Images;
 
 /**
- * Méně poskakování stránky při načítání (CLS): obrázkům z Médií doplní do hotového HTML rozměry a převládající barvu
- * jako podklad, než se fotka načte. Dělá se na jednom místě nad výsledným HTML, takže to platí ve všech šablonách
- * včetně vlastních. Barva se počítá jednou (při prvním zobrazení) a ukládá k obrázku.
+ * Less page jumping while loading (CLS): adds dimensions and the dominant color, as a background until the photo loads,
+ * to images from Media in the finished HTML. It is done in one place over the resulting HTML, so it applies in all
+ * layouts, custom ones included. The color is computed once (on first display) and stored with the image.
  */
 final class ImageHtml
 {
-    /** Nejvýš tolik barev se dopočítá při jednom požadavku – starší weby se doplní postupně. */
+    /** At most this many colors are computed in one request – older sites are filled in gradually. */
     private const int PER_REQUEST = 6;
 
     public static function complete(Db $db, string $html): string
@@ -32,7 +32,7 @@ final class ImageHtml
             if ($o['barva'] === '' && $computed < self::PER_REQUEST) {
                 $computed++;
                 $known[$path]['barva'] = Images::color(KALETA_ROOT . '/' . ($o['nahl_poloha'] !== '' ? $o['nahl_poloha'] : $path)) ?: '-';
-                $db->update('media', ['barva' => $known[$path]['barva']], ['ido' => $o['ido']]); // „-“ = nejde zjistit, znovu nezkoušet
+                $db->update('media', ['barva' => $known[$path]['barva']], ['ido' => $o['ido']]); // „-“ = cannot be determined, do not try again
             }
         }
 
@@ -46,14 +46,15 @@ final class ImageHtml
             if ((int) $o['obr_width'] > 0 && (int) $o['obr_height'] > 0 && !preg_match('#\b(width|height)=#i', $attributes)) {
                 $toAdd .= ' width="' . (int) $o['obr_width'] . '" height="' . (int) $o['obr_height'] . '"';
             }
-            // podkladová barva jen u fotek: PNG bývá logo nebo ilustrace s průhledností a barevný obdélník by za ní prosvítal;
-            // ohnisko: kam se soustředí ořez, když fotka vyplňuje jiný tvar (object-fit: cover)
+            // background color only for photos: a PNG is often a logo or an illustration with transparency and a colored
+            // rectangle would show through behind it;
+            // focal point: where the crop centers when the photo fills a different shape (object-fit: cover)
             $style = (strtolower($m[4]) !== 'png' && preg_match('/^#[0-9a-f]{6}$/', (string) $o['barva']) ? 'background-color:' . $o['barva'] . ';' : '')
                 . (preg_match('/^\d{1,3}% \d{1,3}%$/', (string) ($o['ohnisko'] ?? '')) ? 'object-position:' . $o['ohnisko'] . ';' : '');
             if ($style !== '' && !preg_match('#\bstyle=#i', $attributes)) {
                 $toAdd .= ' style="' . $style . '"';
             } elseif ($style !== '' && preg_match('#\bstyle="([^"]*)"#i', $m[1] . $m[5])) {
-                // obrázek už styl má (galerie: poměr stran) – ohnisko se připojí
+                // the image already has a style (gallery: aspect ratio) – the focal point is appended
                 [$m[1], $m[5]] = array_map(fn (string $x): string => (string) preg_replace('#\bstyle="([^"]*)"#i', 'style="$1;' . $style . '"', $x, 1), [$m[1], $m[5]]);
             }
 

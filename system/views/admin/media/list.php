@@ -1,6 +1,6 @@
 <?php
 /**
- * Média: vlevo složky a filtry, vpravo nahrávání a mřížka obrázků.
+ * Media: folders and filters on the left, upload and the image grid on the right.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Media $module
@@ -12,7 +12,7 @@
  * @var string $limit
  * @var array{sekce: ?int, clanek: int, nepouzite: bool, hledat: string, razeni: string} $filter
  * @var list<array<string, mixed>> $folders
- * @var string|null $newsItem  titulek článku, podle kterého se filtruje
+ * @var string|null $newsItem  title of the news item used as the filter
  */
 $activeFolder = null;
 foreach ($folders as $s) {

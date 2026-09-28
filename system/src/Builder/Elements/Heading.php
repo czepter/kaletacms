@@ -20,7 +20,7 @@ final class Heading extends Element
         return ['text' => ['typ' => 'inline', 'popisek' => 'Text', 'vychozi' => t('Nadpis'), 'max' => 400]];
     }
 
-    /** Zvýraznění části nadpisu (<mark>): doplňková barva bez podbarvení – tečka za titulkem, klíčové slovo. */
+    /** Highlighting part of a heading (<mark>): the accent color without a background – a dot after the title, a keyword. */
     public static function baseCss(): string
     {
         return ':where(.stavba) mark { background: none; color: var(--ka-barva-sekundarni); }';

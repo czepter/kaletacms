@@ -1,16 +1,16 @@
 <?php
 /**
- * Uživatel: jméno, přihlášení a role. Oprávnění plynou z role; ruční nastavení je schované v „Podrobném nastavení“.
+ * User: name, sign-in and role. Permissions follow from the role; manual settings are hidden in "Podrobné nastavení" (Advanced settings).
  *
  * @var Kaleta\Admin\Modules\Users $module
  * @var string $csrf
  * @var array<string, mixed> $author
  * @var array<string, string> $errors
- * @var bool $isSelf  admin upravuje vlastní účet
- * @var array<string, string> $modules  ident => název (sekce, ke kterým se přístup nastavuje)
+ * @var bool $isSelf  the admin is editing their own account
+ * @var array<string, string> $modules  ident => name (sections to which access is set)
  * @var list<string> $hasModules
- * @var bool $manual  přístup do sekcí je nastavený ručně (liší se od výchozího pro roli)
- * @var list<array<string, mixed>> $customRoles  role z Uživatelé → Role
+ * @var bool $manual  access to sections is set manually (differs from the default for the role)
+ * @var list<array<string, mixed>> $customRoles  roles from Uživatelé → Role (Users → Roles)
  */
 $error = fn (string $field): string => isset($errors[$field]) ? '<span class="chyba-pole" role="alert">' . e(t($errors[$field])) . '</span>' : '';
 $role = [

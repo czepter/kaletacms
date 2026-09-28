@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Neporušenost jádra: balíček vydání nese podepsaný seznam souborů s otisky (system/soubory.json).
- * Stav systému podle něj pozná soubory jádra, které někdo změnil, smazal nebo přidal. Úpravy jádra se
- * nepodporují - vlastní je jen layout/<vlastní šablona>/, media/, storage/ a config.php; aktualizace
- * vrátí jádro do původní podoby.
+ * Core integrity: the release package carries a signed list of files with hashes (system/soubory.json).
+ * By it the system health check recognizes core files that someone changed, deleted or added. Edits of the core are
+ * not supported - only layout/<custom layout>/, media/, storage/ and config.php are custom; an update
+ * returns the core to its original form.
  */
 final class Integrity
 {
@@ -35,7 +35,7 @@ final class Integrity
                 $changed[] = $path;
             }
         }
-        // soubory PHP, které do jádra nepatří (kořen webu a system/) - typická stopa po napadení webu
+        // PHP files that do not belong to the core (site root and system/) - a typical trace of a compromised site
         $extra = [];
         $candidates = glob(KALETA_ROOT . '/*.php') ?: [];
         $tree = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(KALETA_SYSTEM, \FilesystemIterator::SKIP_DOTS));
@@ -62,9 +62,9 @@ final class Integrity
     }
 
     /**
-     * Text, který vydavatel podepisuje (tools/release.php) a instalace ověřuje.
+     * The text that the publisher signs (tools/release.php) and the installation verifies.
      *
-     * @param array<string, string> $files cesta => sha256
+     * @param array<string, string> $files path => sha256
      */
     public static function stringToSign(string $version, array $files): string
     {

@@ -7,7 +7,7 @@ namespace Kaleta\Builder\Elements;
 use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
-/** Logo webu z Vzhledu (bez něj název webu) jako odkaz na úvodní stránku. Výšku mění styl „Výška“. */
+/** Site logo from Appearance (without it, the site name) as a link to the home page. The height is changed by the „Výška“ (height) style. */
 final class Logo extends Element
 {
     public const string TYPE = 'logo';

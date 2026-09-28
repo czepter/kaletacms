@@ -7,17 +7,17 @@ namespace Kaleta\Builder;
 use Kaleta\Core\Db;
 
 /**
- * Pop-up okna jako části webu: obsah se staví v builderu (cíl „popup:<id>“, verze v ka_stavba_revize), okno má typ,
- * spouštěč, pravidla zobrazení a četnost.
+ * Popups as site parts: the content is built in the builder (target „popup:<id>“, versions in ka_stavba_revize), a popup has a type,
+ * a trigger, display rules and a frequency.
  *
- * Pravidla, která zná server (stránky, kolekce, novinky, jazyk, období), rozhodnou, jestli se okno do stránky vůbec
- * vloží. Zbytek (zařízení, kampaň, odkud návštěvník přišel, počet stránek v návštěvě, četnost) vyhodnotí image/web.js
- * v prohlížeči – bez cookies, jen sessionStorage a localStorage návštěvníka. Počitadla zobrazení, zavření a konverzí
- * zvyšuje POST /popup (Front\Kernel).
+ * The rules the server knows (pages, collections, news, language, period) decide whether the popup is inserted into the page
+ * at all. The rest (device, campaign, where the visitor came from, number of pages in the visit, frequency) is evaluated by
+ * image/web.js in the browser – without cookies, only the visitor's sessionStorage and localStorage. The counters of views,
+ * closes and conversions are incremented by POST /popup (Front\Kernel).
  */
 final class Popups
 {
-    /** typ => [název, popover] – okno a celá obrazovka zavřou kliknutím vedle (auto), panel a lišty ne (manual) */
+    /** type => [name, popover] – the window and the full screen close with a click outside (auto), the panel and bars do not (manual) */
     public const array TYPES = [
         'okno' => ['Okno uprostřed', 'auto'],
         'panel' => ['Vysouvací panel v rohu', 'manual'],
@@ -26,7 +26,7 @@ final class Popups
         'cela' => ['Přes celou obrazovku', 'auto'],
     ];
 
-    /** spouštěč => [název, jednotka hodnoty ('' = bez hodnoty)] */
+    /** trigger => [name, value unit ('' = without a value)] */
     public const array TRIGGERS = [
         'cas' => ['Po zadaném počtu sekund', 's'],
         'posun' => ['Po odrolování části stránky', '%'],
@@ -48,7 +48,7 @@ final class Popups
 
     public const string ADDRESS_PATTERN = '/^[a-z0-9][a-z0-9-]{0,59}$/';
 
-    /** Pravidla nového okna: celý web, všechny jazyky, bez omezení. */
+    /** Rules of a new popup: the whole site, all languages, no restrictions. */
     public static function defaultRules(): array
     {
         return ['kde' => 'vse', 'stranky' => [], 'kolekce' => [], 'novinky' => false, 'jazyk' => '', 'od' => '', 'do' => '',
@@ -76,10 +76,10 @@ final class Popups
     }
 
     /**
-     * Rozhodne pravidla, která zná server: jazyk a období platí vždy, výběr míst jen u „vybrane“.
+     * Decides the rules the server knows: language and period always apply, the choice of places only with „vybrane“.
      *
-     * @param array<string, mixed> $rules vyčištěná pravidla
-     * @param array{ids: ?int, kolekce: ?string, novinky: bool, jazyk: string, dnes: string} $whereParts zobrazená stránka
+     * @param array<string, mixed> $rules sanitized rules
+     * @param array{ids: ?int, kolekce: ?string, novinky: bool, jazyk: string, dnes: string} $whereParts the displayed page
      */
     public static function matches(array $rules, array $whereParts): bool
     {
@@ -98,7 +98,7 @@ final class Popups
             || ($whereParts['novinky'] && $rules['novinky']);
     }
 
-    /** Řádek z databáze s rozbalenými pravidly. */
+    /** A database row with the rules decoded. */
     public static function prepare(array $r): array
     {
         $r['pravidla'] = self::sanitizeRules(json_decode((string) $r['pravidla'], true) ?: []);
@@ -123,7 +123,7 @@ final class Popups
     }
 
     /**
-     * Publikovaná a zapnutá okna pro zobrazenou stránku.
+     * Published and enabled popups for the displayed page.
      *
      * @param array{ids: ?int, kolekce: ?string, novinky: bool, jazyk: string, dnes: string} $whereParts
      * @return list<array<string, mixed>>
@@ -136,15 +136,15 @@ final class Popups
         ));
     }
 
-    /** Volná adresa okna (#popup-<adresa>) odvozená z textu. */
+    /** A free popup slug (#popup-<slug>) derived from the text. */
     public static function address(Db $db, string $z, int $idpp = 0): string
     {
         return \Kaleta\Core\Slug::makeUnique(slugify($z, 50) ?: 'popup', fn (string $a): bool => $db->value('SELECT idpp FROM {popupy} WHERE adresa = ? AND idpp <> ?', [$a, $idpp]) !== null, 60);
     }
 
     /**
-     * Obal okna na webu. Obsah je už vykreslená stavba; data-* čte image/web.js (spouštěč, četnost, pravidla prohlížeče).
-     * $otevrit: náhled – okno se otevře hned po načtení, bez ohledu na spouštěč a četnost.
+     * Popup wrapper on the site. The content is an already rendered build; image/web.js reads data-* (trigger, frequency, browser rules).
+     * $open: preview – the popup opens right after loading, regardless of trigger and frequency.
      */
     public static function wrapper(array $p, string $content, string $counterUrl, bool $open = false): string
     {
@@ -161,7 +161,7 @@ final class Popups
             . '<div class="ka-popup-obsah stavba">' . $content . '</div></div>';
     }
 
-    /** Obal v editoru builderu: okno stojí na plátně, aby šlo upravovat (bez popoveru a spouštěče). */
+    /** Wrapper in the builder editor: the popup stands on the canvas so that it can be edited (without popover and trigger). */
     public static function editorWrapper(array $p, string $content): string
     {
         $type = isset(self::TYPES[$p['typ']]) ? $p['typ'] : 'okno';
@@ -169,7 +169,7 @@ final class Popups
         return '<div class="ka-popup ka-popup--' . e($type) . ' ka-popup--editor"><div class="ka-popup-obsah stavba">' . $content . '</div></div>';
     }
 
-    /** Hotová okna pro nový pop-up: klíč => [název, popis, typ, spouštěč, hodnota]. */
+    /** Ready-made popups for a new popup: key => [name, description, type, trigger, value]. */
     public const array LIBRARY = [
         'newsletter' => ['Přihlášení k newsletteru', 'Nadpis, krátký text a pole pro e-mail s potvrzením odběru.', 'okno', 'posun', 50],
         'magnet' => ['Materiál ke stažení za e-mail', 'Nabídka průvodce nebo ceníku výměnou za kontakt – formulář jde do Poptávek.', 'okno', 'odchod', 0],
@@ -179,7 +179,7 @@ final class Popups
         'prazdny' => ['Prázdné okno', 'Nadpis a text – zbytek poskládáte v builderu.', 'okno', 'klik', 0],
     ];
 
-    /** Stavba hotového okna v jazyce obsahu. */
+    /** Build of a ready-made popup in the content language. */
     public static function libraryBuild(string $key, string $language = 'cs'): array
     {
         return \Kaleta\Core\Language::runWith($language, function () use ($key): array {

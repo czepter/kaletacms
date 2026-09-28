@@ -9,12 +9,12 @@ use Kaleta\Core\Language;
 use Kaleta\Core\Response;
 
 /**
- * Veřejné čtecí API (JSON). Vrací jen to, co je vidět i na webu: vydané novinky, kategorie a zobrazené stránky.
+ * Public read-only API (JSON). Returns only what is visible on the site too: published news, categories and shown pages.
  *
- *   GET /api/novinky?strana=1&kategorie=<adresa>   seznam novinek
- *   GET /api/novinky/<adresa>                      celá novinka
- *   GET /api/kategorie                             kategorie novinek
- *   GET /api/stranky                               stránky webu (bez textu)
+ *   GET /api/novinky?strana=1&kategorie=<slug>     list of news
+ *   GET /api/novinky/<slug>                        full news item
+ *   GET /api/kategorie                             news categories
+ *   GET /api/stranky                               site pages (without content)
  */
 final class Api
 {

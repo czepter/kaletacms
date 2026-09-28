@@ -13,12 +13,13 @@ use Kaleta\Core\WpImport;
 use Kaleta\Core\WpFile;
 
 /**
- * Import a export: přechod z WordPressu (soubor WXR) a export celého webu do otevřeného formátu.
+ * Import and export: moving from WordPress (a WXR file) and export of the whole site to an open format.
  *
- * Import má tři kroky na jedné obrazovce: 1. soubor (nahraný formulářem, nebo přes FTP do storage/import/),
- * 2. náhled – co v souboru je a co se nepřevede, 3. import po dávkách (formulář se odesílá sám, data-auto-odeslat).
- * Obrázky ze starého webu se stahují až ve zvláštním kroku na výslovné přání. Všechnu práci dělá Core\WpImport;
- * tady je jen obsluha formulářů. Stav rozpracovaného importu je v souboru vedle exportu, ne v session.
+ * The import has three steps on one screen: 1. file (uploaded with the form, or via FTP to storage/import/),
+ * 2. preview – what is in the file and what will not be converted, 3. import in batches (the form submits itself,
+ * data-auto-odeslat). Images from the old site are downloaded only in a separate step on explicit request. Core\WpImport
+ * does all the work; here are only the form handlers. The state of an ongoing import is in a file next to the export,
+ * not in the session.
  */
 final class Transfer extends Module
 {
@@ -44,9 +45,9 @@ final class Transfer extends Module
         ]);
     }
 
-    /* ---------- import: 1. soubor ---------- */
+    /* ---------- import: 1. file ---------- */
 
-    /** Nahrání exportu formulářem; soubor skončí ve storage/import/ stejně jako ten nahraný přes FTP. */
+    /** Uploading the export with the form; the file ends up in storage/import/ just like one uploaded via FTP. */
     protected function actionUpload(): Response
     {
         $file = $this->request->file('soubor');
@@ -59,7 +60,7 @@ final class Transfer extends Module
         try {
             $name = WpFile::uploadName((string) $file['name']);
             $target = WpFile::folder() . '/' . $name;
-            // nejdřív ověřit, až potom uložit: do složky se nedostane nic, co není export z WordPressu
+            // verify first, only then save: nothing that is not a WordPress export gets into the folder
             (new WpFile((string) $file['tmp_name']))->verifyContent();
             if (!move_uploaded_file((string) $file['tmp_name'], $target)) {
                 throw new \RuntimeException('Soubor se nepodařilo uložit – zkontrolujte práva k zápisu do storage/import.');
@@ -71,7 +72,7 @@ final class Transfer extends Module
         return $this->start($name);
     }
 
-    /** Výběr souboru, který už ve storage/import/ leží (nahraný přes FTP nebo dříve). */
+    /** Choosing a file that already lies in storage/import/ (uploaded via FTP or earlier). */
     protected function actionSelect(): Response
     {
         $file = $this->request->post('soubor');
@@ -106,7 +107,7 @@ final class Transfer extends Module
         return $this->back('Soubor byl smazán. Převedený obsah na webu zůstává.');
     }
 
-    /* ---------- import: 2. náhled a volby ---------- */
+    /* ---------- import: 2. preview and options ---------- */
 
     protected function actionPreview(): Response
     {
@@ -124,7 +125,7 @@ final class Transfer extends Module
         ]);
     }
 
-    /** Uloží volby z náhledu a spustí import. */
+    /** Saves the options from the preview and starts the import. */
     protected function actionRun(): Response
     {
         $state = $this->state();
@@ -145,11 +146,11 @@ final class Transfer extends Module
         return $this->back('', 'progress', ['soubor' => $state['soubor']]);
     }
 
-    /* ---------- import: 3. průběh po dávkách (náhled, obsah i obrázky) ---------- */
+    /* ---------- import: 3. progress in batches (preview, content and images) ---------- */
 
     /**
-     * GET jen ukáže, kde import je; POST udělá jednu dávku. Dokud není hotovo, šablona formulář sama znovu odešle.
-     * Zámek na stavovém souboru brání tomu, aby dvě okna prohlížeče importovala současně.
+     * GET only shows where the import is; POST does one batch. Until it is done, the template submits the form again by itself.
+     * A lock on the state file prevents two browser windows from importing at the same time.
      */
     protected function actionProgress(): Response
     {
@@ -163,7 +164,7 @@ final class Transfer extends Module
             if ($lock !== false && flock($lock, LOCK_EX | LOCK_NB)) {
                 try {
                     @set_time_limit(60);
-                    $state = WpImport::loadState($state['soubor']) ?? $state; // čerstvý stav až pod zámkem
+                    $state = WpImport::loadState($state['soubor']) ?? $state; // fresh state only under the lock
                     $this->batch($state);
                 } catch (\RuntimeException $e) {
                     $error = self::message($e);
@@ -195,7 +196,7 @@ final class Transfer extends Module
         };
     }
 
-    /** Výslovné spuštění stahování obrázků ze starého webu (až po importu obsahu). */
+    /** Explicit start of downloading images from the old site (only after the content import). */
     protected function actionImages(): Response
     {
         $state = $this->state();
@@ -208,7 +209,7 @@ final class Transfer extends Module
         return $this->back('', 'progress', ['soubor' => $state['soubor']]);
     }
 
-    /** @return array<string, mixed>|null stav importu souboru z adresy nebo formuláře */
+    /** @return array<string, mixed>|null import state of the file from the URL or the form */
     private function state(): ?array
     {
         $file = $this->request->isPost() && $this->request->post('soubor') !== '' ? $this->request->post('soubor') : $this->request->get('soubor');
@@ -236,8 +237,9 @@ final class Transfer extends Module
     }
 
     /**
-     * Stažení exportu. Archiv může mít stovky MB, proto se neposílá přes Response (ta drží celé tělo v paměti),
-     * ale po kouscích přímo ze souboru. Přístup hlídá administrace (modul je jen pro správce), název souboru Core\ExportWebu::cesta().
+     * Download of the export. The archive can have hundreds of MB, so it is not sent via Response (which holds the whole body
+     * in memory), but in chunks directly from the file. Access is guarded by the admin (the module is administrator only),
+     * the file name by Core\SiteExport::path().
      */
     protected function actionDownload(): Response
     {
@@ -268,13 +270,13 @@ final class Transfer extends Module
         return $this->back('Export byl smazán.');
     }
 
-    /** Hláška výjimky v jazyce administrace; číslo (řádek XML, kód odpovědi) nese getCode(), aby šel text přeložit. */
+    /** Exception message in the admin language; the number (XML line, response code) is carried by getCode(), so that the text can be translated. */
     private static function message(\RuntimeException $e): string
     {
         return t($e->getMessage()) . (is_int($e->getCode()) && $e->getCode() > 0 ? ' ' . $e->getCode() : '');
     }
 
-    /** "8M" z php.ini → bajty. */
+    /** "8M" from php.ini → bytes. */
     private static function bytes(string $value): int
     {
         $number = (int) $value;

@@ -28,7 +28,7 @@ final class Session
             'samesite' => 'Lax',
         ]);
         ini_set('session.use_strict_mode', '1');
-        // přihlášení vydrží 8 hodin nečinnosti (administrace ho navíc při otevřené stránce udržuje, image/admin.js)
+        // a login survives 8 hours of inactivity (the admin also keeps it alive while a page is open, image/admin.js)
         ini_set('session.gc_maxlifetime', '28800');
         session_start();
         $this->started = true;
@@ -53,7 +53,7 @@ final class Session
         unset($_SESSION[$key]);
     }
 
-    /** Nové ID session - volat při přihlášení i odhlášení. */
+    /** New session ID - call on both login and logout. */
     public function regenerate(): void
     {
         $this->start();
@@ -68,7 +68,7 @@ final class Session
         $this->started = false;
     }
 
-    /** Jednorázová hláška zobrazená po přesměrování. Typ: "ok" | "chyba" | "info". */
+    /** One-time message shown after a redirect. Type: "ok" | "chyba" | "info". */
     public function flash(string $type, string $message): void
     {
         $this->start();

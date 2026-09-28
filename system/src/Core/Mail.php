@@ -5,29 +5,30 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Odesílání e-mailů: buď funkcí mail() serveru, nebo přes vlastní SMTP server (Nastavení → Pošta).
+ * Sending e-mails: either with the server's mail() function or through the site's own SMTP server ("Nastavení → Pošta",
+ * Settings → Mail).
  *
- * SMTP je spolehlivější - zprávy odcházejí z ověřené schránky (SPF, DKIM) a nekončí ve spamu. Klient je
- * záměrně malý a bez knihoven: STARTTLS nebo SSL, přihlášení AUTH LOGIN/PLAIN, jedno spojení se při
- * frontě pošty používá opakovaně.
+ * SMTP is more reliable - messages go out from a verified mailbox (SPF, DKIM) and do not end up in spam. The client is
+ * deliberately small and has no libraries: STARTTLS or SSL, AUTH LOGIN/PLAIN login, one connection is reused while
+ * processing the mail queue.
  */
 final class Mail
 {
-    /** Text poslední chyby (pro zkušební e-mail a Stav systému). */
+    /** Text of the last error (for the test e-mail and System status). */
     public static string $error = '';
 
-    /** @var resource|null otevřené SMTP spojení */
+    /** @var resource|null open SMTP connection */
     private static $connection = null;
 
-    /** Za jak dlouho se nepovedené odeslání zkusí znovu (minuty); po posledním pokusu zpráva zůstane ve frontě jako chybná. */
+    /** How long until a failed send is retried (minutes); after the last attempt the message stays in the queue as failed. */
     private const array RETRY_DELAYS = [5, 30, 120, 720];
 
     /**
-     * Odešle zprávu hned. Když to nejde (výpadek SMTP), uloží ji do fronty a zkusí to později znovu - potvrzení
-     * registrace nebo nové heslo se tak neztratí. Každá zpráva má záznam v protokolu (Nastavení → Pošta).
+     * Sends the message right away. When that fails (SMTP outage), it stores it in the queue and retries later - so
+     * a registration confirmation or a new password is not lost. Every message has a log entry ("Nastavení → Pošta").
      *
-     * @param array<string, string> $headers další hlavičky (např. List-Unsubscribe)
-     * @param bool $queueOnFailure false = jednorázová zpráva, která se při chybě neopakuje (zkušební e-mail)
+     * @param array<string, string> $headers extra headers (e.g. List-Unsubscribe)
+     * @param bool $queueOnFailure false = a one-off message that is not retried on error (test e-mail)
      */
     public static function send(Settings $siteSettings, string $recipient, string $subject, string $text, string $html = '', array $headers = [], bool $queueOnFailure = true): bool
     {
@@ -44,14 +45,14 @@ final class Mail
                 $siteSettings->db()->run('DELETE FROM {posta} WHERE vytvoreno < NOW() - INTERVAL 30 DAY');
             }
         } catch (\Throwable) {
-            // protokol pošty nesmí shodit odeslání (např. před provedením migrace tabulka ještě není)
+            // the mail log must not break sending (e.g. before the migration runs, the table does not exist yet)
         }
         self::$error = $error;
 
         return $ok;
     }
 
-    /** Další pokus o zprávy čekající ve frontě; volá se z úloh na pozadí. Vrací počet odeslaných. */
+    /** Another attempt at messages waiting in the queue; called from background tasks. Returns the number sent. */
     public static function processQueue(Settings $siteSettings, int $maxCount = 10): int
     {
         $db = $siteSettings->db();
@@ -59,7 +60,7 @@ final class Mail
         foreach ($db->all('SELECT * FROM {posta} WHERE odeslano IS NULL AND telo IS NOT NULL AND dalsi_pokus <= NOW() ORDER BY idp LIMIT ' . max(1, $maxCount)) as $z) {
             $body = json_decode((string) $z['telo'], true) ?: [];
             $attempt = (int) $z['pokusu'] + 1;
-            // nejdřív posunout další pokus: souběžný požadavek tak stejnou zprávu neodešle podruhé
+            // move the next attempt first: a concurrent request then does not send the same message a second time
             $db->update('posta', ['pokusu' => $attempt, 'dalsi_pokus' => date('Y-m-d H:i:s', time() + (self::RETRY_DELAYS[$attempt - 1] ?? 0) * 60)], ['idp' => $z['idp']]);
             if (self::deliver($siteSettings, $z['komu'], $z['predmet'], (string) ($body['text'] ?? ''), (string) ($body['html'] ?? ''), (array) ($body['hlavicky'] ?? []))) {
                 $db->update('posta', ['odeslano' => date('Y-m-d H:i:s'), 'telo' => null, 'dalsi_pokus' => null, 'chyba' => ''], ['idp' => $z['idp']]);
@@ -101,7 +102,7 @@ final class Mail
         $encodedSubject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
         $rows = [];
         foreach ($h as $name => $value) {
-            $rows[] = $name . ': ' . str_replace(["\r", "\n"], '', $value); // hlavičky nesmí jít rozdělit vloženým koncem řádku
+            $rows[] = $name . ': ' . str_replace(["\r", "\n"], '', $value); // headers must not be splittable by an injected line break
         }
 
         if ($siteSettings->get('mail_mode') === 'smtp' && $siteSettings->get('smtp_host') !== '') {
@@ -141,7 +142,7 @@ final class Mail
         self::statement('MAIL FROM:<' . $from . '>', [250]);
         self::statement('RCPT TO:<' . $recipient . '>', [250, 251]);
         self::statement('DATA', [354]);
-        // řádek začínající tečkou se zdvojuje, samotná tečka ukončuje zprávu
+        // a line starting with a dot gets the dot doubled, a lone dot ends the message
         $message = preg_replace('/^\./m', '..', implode("\r\n", $headers) . "\r\n\r\n" . $body) ?? '';
         self::statement(rtrim($message, "\r\n") . "\r\n.", [250]);
     }

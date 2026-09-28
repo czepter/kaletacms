@@ -20,12 +20,12 @@ final class Request
     ) {
     }
 
-    /** Cesta bez předpony jazykové verze ("/en/novinky/x" -> "/novinky/x"); nastavuje Front\Kernel. */
+    /** Path without the language version prefix ("/en/novinky/x" -> "/novinky/x"); set by Front\Kernel. */
     private ?string $path = null;
 
     /**
-     * Adresa webu z Nastavení (adresa_webu). Hlavičce Host se nedá věřit - kdo ji podvrhne, dostal by svou doménu
-     * do odkazů v e-mailech (nové heslo!), do webhooku i do oznámení. Nastavují oba kernely hned po startu.
+     * Site URL from Settings (site_url). The Host header cannot be trusted - whoever forges it would get their domain
+     * into links in e-mails (new password!), into the webhook and into notifications. Both kernels set it right after start.
      */
     private ?string $origin = null;
 
@@ -51,7 +51,7 @@ final class Request
         return ($this->server['REQUEST_METHOD'] ?? 'GET') === 'POST';
     }
 
-    /** Textová hodnota z GET; pole a chybějící klíč vrací výchozí hodnotu. */
+    /** Text value from GET; an array or a missing key returns the default value. */
     public function get(string $key, string $default = ''): string
     {
         $value = $this->query[$key] ?? null;
@@ -106,7 +106,7 @@ final class Request
         return (string) ($this->server['REMOTE_ADDR'] ?? '');
     }
 
-    /** Adresa stránky, ze které požadavek přišel (hlavička Referer; prohlížeč ji může vynechat). */
+    /** URL of the page the request came from (the Referer header; the browser may omit it). */
     public function referer(): string
     {
         return (string) ($this->server['HTTP_REFERER'] ?? '');
@@ -118,7 +118,7 @@ final class Request
             || ($this->server['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
     }
 
-    /** Schéma a doména bez koncového lomítka: "https://www.example.cz". */
+    /** Scheme and domain without a trailing slash: "https://www.example.cz". */
     public function origin(): string
     {
         if ($this->origin !== null) {
@@ -132,7 +132,7 @@ final class Request
         return ($this->isHttps() ? 'https://' : 'http://') . $host;
     }
 
-    /** Cesta k instalaci vůči kořeni domény, bez koncového lomítka ("" nebo "/magazin"). */
+    /** Path to the installation relative to the domain root, without a trailing slash ("" or "/magazin"). */
     public function basePath(): string
     {
         $dir = str_replace('\\', '/', dirname((string) ($this->server['SCRIPT_NAME'] ?? '/')));
@@ -141,8 +141,8 @@ final class Request
     }
 
     /**
-     * Cesta požadavku uvnitř instalace, vždy začíná lomítkem: "/novinky/muj-titulek".
-     * Bez mod_rewrite funguje i tvar index.php?cesta=/novinky/muj-titulek.
+     * Request path inside the installation, always starts with a slash: "/novinky/muj-titulek".
+     * Without mod_rewrite the form index.php?cesta=/novinky/muj-titulek works too.
      */
     public function path(): string
     {
@@ -163,7 +163,7 @@ final class Request
         return '/' . trim($uri, '/');
     }
 
-    /** Název spuštěného skriptu: "index.php", "admin.php"... */
+    /** Name of the running script: "index.php", "admin.php"... */
     public function script(): string
     {
         return basename((string) ($this->server['SCRIPT_NAME'] ?? 'index.php'));

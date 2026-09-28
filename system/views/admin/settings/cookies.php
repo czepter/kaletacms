@@ -1,4 +1,4 @@
-<?php /** Záložka Soukromí a cookies. */ ?>
+<?php /** The "Soukromí a cookies" (Privacy and cookies) tab. */ ?>
 <fieldset>
 <legend><?= e(t('Cookie lišta')) ?></legend>
 <div class="karty-volby karty-volby-text">

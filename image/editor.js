@@ -1,30 +1,30 @@
-/* Kaleta - editor textu (novinky, stránky) a práce s obrázky. Bez knihoven, bez build kroku.
+/* Kaleta - text editor (news, pages) and working with images. No libraries, no build step.
  *
- *   <textarea data-editor>            WYSIWYG editor (data-editor="maly" = zkrácená lišta)
- *   <input data-obrazek>              pole s adresou obrázku + tlačítko "Vybrat z galerie" a náhled
- *   <form data-nahravani>             nahrávání přetažením souborů
+ *   <textarea data-editor>            WYSIWYG editor (data-editor="maly" = shortened toolbar)
+ *   <input data-obrazek>              image URL field + "Vybrat z galerie" (Choose from gallery) button and a preview
+ *   <form data-nahravani>             uploading by dragging files
  *
- * Do formuláře se vždy odesílá obsah původní <textarea> - bez JavaScriptu zůstane obyčejným polem pro HTML.
+ * The form always submits the content of the original <textarea> - without JavaScript it stays a plain HTML field.
  */
 
 (function () {
 	'use strict';
 
-	var T = window.T || function (s) { return s; }; // překlad textů administrace (image/jazyky/admin-*.js)
+	var T = window.T || function (s) { return s; }; // translation of admin texts (image/jazyky/admin-*.js)
 
 	var SCRIPT = document.querySelector('script[data-admin-url]');
 	var ADMIN = SCRIPT.getAttribute('data-admin-url');
-	var MAX_FILE = parseInt(SCRIPT.getAttribute('data-max-soubor') || '0', 10); // limit serveru na soubor v bajtech (0 = bez limitu)
+	var MAX_FILE = parseInt(SCRIPT.getAttribute('data-max-soubor') || '0', 10); // the server's per-file limit in bytes (0 = no limit)
 	var MAX_SIDE = parseInt(SCRIPT.getAttribute('data-max-strana') || '2000', 10);
 	var CSRF = (document.querySelector('input[name="_csrf"]') || {}).value || '';
 	var GALLERY = ADMIN + '?module=media';
 	var NEWS_ID = parseInt((document.querySelector('form[data-koncept] input[name="idc"]') || {}).value || '0', 10);
-	var LANGUAGE = document.documentElement.lang || 'cs'; // formát data a času podle jazyka stránky
+	var LANGUAGE = document.documentElement.lang || 'cs'; // date and time format by the page language
 	var time = function (t, timeOnly) { return window.kaletaCas ? window.kaletaCas(t, timeOnly) : new Date(t).toLocaleString(LANGUAGE); }; // image/admin.js
 
 	function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
-	// Oznámení chyby vlastním dialogem - systémový alert() vestavěné prohlížeče potlačují stejně jako confirm().
+	// Error notice in a custom dialog - embedded browsers suppress the system alert() just like confirm().
 	var noticeDialog = null;
 	function announce(text) {
 		if (!noticeDialog) {
@@ -39,7 +39,7 @@
 		if (!noticeDialog.open) { noticeDialog.showModal(); }
 	}
 
-	/* ---------- čištění HTML (vkládání z Wordu a webu) ---------- */
+	/* ---------- HTML cleanup (pasting from Word and the web) ---------- */
 
 	var ALLOWED = { P: [], H2: [], H3: [], H4: [], STRONG: [], EM: [], B: [], I: [], U: [], S: [], SUB: [], SUP: [], BR: [], HR: [],
 		A: ['href', 'title', 'target', 'rel'], UL: [], OL: [], LI: [], BLOCKQUOTE: [], CODE: [], PRE: [],
@@ -78,14 +78,14 @@
 		return box.innerHTML.replace(/<p>(\s|&nbsp;|<br>)*<\/p>/g, '').replace(/&nbsp;/g, ' ').trim();
 	}
 
-	/* ---------- nahrávání ---------- */
+	/* ---------- uploading ---------- */
 
-	// Fotka z telefonu (5–10 MB) se zmenší už v prohlížeči na MAX_STRANA px – stejně by ji zmenšil server – a nenarazí tak
-	// na limit hostingu. Otočení podle EXIF zachová createImageBitmap; údaje EXIF (i poloha) zmizí, jako při zpracování na serveru.
+	// A phone photo (5–10 MB) is scaled down to MAX_STRANA px already in the browser – the server would scale it anyway – so it
+	// does not hit the hosting limit. createImageBitmap keeps the EXIF rotation; EXIF data (location too) is dropped, as in server processing.
 	function shrink(file) {
 		if (!/^image\/(jpeg|png|webp)$/.test(file.type) || !window.createImageBitmap) { return Promise.resolve(file); }
 		return createImageBitmap(file, { imageOrientation: 'from-image' }).then(function (bitmap) {
-			// stejné pravidlo jako Core\Obrazky::pomer: vysoký obrázek (celostránkový snímek) se měří šířkou, ne delší stranou
+			// the same rule as Core\Images::ratio: a tall image (a full-page screenshot) is measured by width, not by the longer side
 			var w = bitmap.width, h = bitmap.height;
 			var ratio = h > 2 * w ? Math.min(1, MAX_SIDE / w, 3 * MAX_SIDE / h) : Math.min(1, MAX_SIDE / Math.max(w, h));
 			if (ratio === 1 && (!MAX_FILE || file.size <= MAX_FILE)) { bitmap.close(); return file; }
@@ -94,11 +94,11 @@
 			canvas.height = Math.round(bitmap.height * ratio);
 			canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
 			bitmap.close();
-			// kvalita 0,9; když je výsledek pořád nad limitem serveru, zkusí se nižší (PNG kvalitu nemá)
+			// quality 0.9; when the result is still over the server limit, a lower one is tried (PNG has no quality)
 			var write = function (quality) {
 				return new Promise(function (done) { canvas.toBlob(done, file.type, quality); }).then(function (blob) {
 					if (blob && MAX_FILE && blob.size > MAX_FILE && file.type !== 'image/png' && quality > 0.6) { return write(Math.round((quality - 0.1) * 10) / 10); }
-					// prohlížeč, který typ neumí zapsat (WebP v Safari), vrátí jiný – pak raději původní soubor
+					// a browser that cannot write the type (WebP in Safari) returns another one – then the original file is preferred
 					return blob && blob.type === file.type && (ratio < 1 || blob.size < file.size)
 						? new File([blob], file.name, { type: file.type, lastModified: file.lastModified }) : file;
 				});
@@ -107,7 +107,7 @@
 		}).catch(function () { return file; });
 	}
 
-	// Zmenší obrázky a odloží soubory, které by server i tak odmítl (celý požadavek nad limitem by skončil chybou bez vysvětlení).
+	// Scales images down and sets aside files the server would reject anyway (a whole request over the limit would fail without explanation).
 	function prepareFiles(files) {
 		return Promise.all(Array.prototype.map.call(files, shrink)).then(function (finished) {
 			var errors = [];
@@ -144,11 +144,11 @@
 		return transfer && transfer.files && transfer.files.length && Array.prototype.every.call(transfer.files, function (f) { return /^image\//.test(f.type); });
 	}
 
-	/* ---------- okno galerie ---------- */
+	/* ---------- gallery dialog ---------- */
 
 	var modal = null;
 
-	// vice = true: klepnutím se obrázky označují a vloží se najednou jako fotogalerie
+	// vice = true: tapping selects images and they are inserted at once as a photo gallery
 	function pickImage(backwards, more, withAttachments) {
 		var selected = [];
 		if (!modal) {
@@ -156,18 +156,18 @@
 			modal.className = 'galerie-okno';
 			modal.innerHTML = '<div class="galerie-okno-hlava"><strong>' + T('Média') + '</strong>'
 				+ '<label class="tl">' + T('Nahrát nový') + '<input type="file" multiple hidden></label>'
-				// na telefonu a tabletu: vyfotit přímo do textu (tlačítko ukazuje CSS jen na dotykových zařízeních)
+				// on a phone and tablet: take a photo straight into the text (CSS shows the button only on touch devices)
 				+ '<label class="navigace galerie-vyfotit">' + T('Vyfotit') + '<input type="file" accept="image/*" capture="environment" hidden></label>'
-				+ '<button type="button" class="tl" data-vlozit hidden></button>' // „Vložit galerii (n)“ – jen při výběru více fotek
+				+ '<button type="button" class="tl" data-vlozit hidden></button>' // „Vložit galerii (n)“ (Insert gallery) – only when selecting several photos
 				+ '<button type="button" class="navigace" data-zavri>' + T('Zavřít') + '</button></div>'
 				+ '<div class="galerie-okno-filtr"><select aria-label="' + T('Složka') + '"></select>'
 				+ '<input class="textpole" type="search" placeholder="' + T('Hledat v médiích…') + '" aria-label="' + T('Hledat v médiích') + '"></div>'
-				+ '<p class="napoveda"></p><div class="galerie-mrizka"></div>' // text nápovědy se nastavuje při každém otevření;
+				+ '<p class="napoveda"></p><div class="galerie-mrizka"></div>' // the hint text is set on every opening;
 			document.body.appendChild(modal);
 			modal.querySelector('[data-zavri]').addEventListener('click', function () { modal.close(); });
 			modal.querySelector('[data-vlozit]').addEventListener('click', function () { modal.close(); modal.zpetne(modal.vybrane.slice()); });
 			modal.querySelector('select').addEventListener('change', function () { load(this.value); });
-			var waiting = null; // hledá se až po krátké pauze v psaní, ne po každém písmenu
+			var waiting = null; // search runs only after a short pause in typing, not after every letter
 			modal.querySelector('input[type=search]').addEventListener('input', function () {
 				clearTimeout(waiting);
 				waiting = setTimeout(function () { load(modal.querySelector('select').value); }, 300);
@@ -187,7 +187,7 @@
 			var b = document.createElement('button');
 			b.type = 'button';
 			b.className = 'galerie-polozka';
-			if (o.soubor && !modal.sPrilohami) { return; } // hlavní obrázek, logo, galerie: jen obrázky
+			if (o.soubor && !modal.sPrilohami) { return; } // main image, logo, gallery: images only
 			b.innerHTML = o.soubor ? '<span class="galerie-soubor"><span></span></span><span></span>' : '<img loading="lazy" alt=""><span></span>';
 			if (o.soubor) { b.firstChild.firstChild.textContent = o.pripona; } else { b.firstChild.src = o.nahled; }
 			b.lastChild.textContent = o.nazev || T('bez názvu');
@@ -201,7 +201,7 @@
 			});
 			if (upward) { grid.prepend(b); } else { grid.appendChild(b); }
 		}
-		// filtr: "" = vše, "clanek" = obrázky této novinky, číslo = složka (0 = nezařazené)
+		// filter: "" = all, "clanek" = images of this news item, number = folder (0 = unfiled)
 		function load(filter) {
 			var query = filter === 'clanek' ? '&clanek=' + NEWS_ID : (filter !== '' ? '&sekce=' + filter : '');
 			var search = modal.querySelector('input[type=search]').value.trim();
@@ -220,7 +220,7 @@
 				additional(query, 2, j.obrazky.length);
 			});
 		}
-		// server vrací 60 položek na stránku: plná stránka = nabídnout další, ať jsou dosažitelné i starší soubory
+		// the server returns 60 items per page: a full page = offer more, so older files are reachable too
 		function additional(query, pageNumber, loaded) {
 			if (loaded < 60) { return; }
 			var tl = document.createElement('button');
@@ -294,7 +294,7 @@
 
 	function statement(name, value) { document.execCommand(name, false, value || null); }
 
-	/* Dialog odkazu: adresa, nebo vlastní novinka vyhledaná podle titulku. Systémový prompt() vestavěné prohlížeče potlačují. */
+	/* Link dialog: a URL, or an own news item found by its title. Embedded browsers suppress the system prompt(). */
 	var linkDialog = null;
 
 	function link() {
@@ -369,7 +369,7 @@
 		var surface = document.createElement('div');
 		surface.className = 'editor-plocha';
 		surface.contentEditable = 'true';
-		surface.style.setProperty('--ed-popis-galerie', JSON.stringify(T('Fotogalerie'))); // štítek nad fotogalerií kreslí editor.css; text v CSS by přeložit nešel
+		surface.style.setProperty('--ed-popis-galerie', JSON.stringify(T('Fotogalerie'))); // the label above a photo gallery is drawn by editor.css; a text in CSS could not be translated
 		surface.setAttribute('role', 'textbox');
 		surface.setAttribute('aria-multiline', 'true');
 		surface.setAttribute('aria-label', (field.labels && field.labels[0] ? field.labels[0].textContent : 'Text'));
@@ -431,7 +431,7 @@
 		fromField();
 		statement('defaultParagraphSeparator', 'p');
 
-		// úpravy tabulky: lišta se ukáže, když je kurzor v tabulce
+		// table editing: the toolbar shows when the cursor is in a table
 		var tabBar = document.createElement('div');
 		tabBar.className = 'editor-tabulka-lista';
 		tabBar.hidden = true;
@@ -469,7 +469,7 @@
 		surface.addEventListener('input', toField);
 		surface.addEventListener('blur', toField);
 		surface.addEventListener('keydown', function (e) {
-			// stopPropagation: stejnou zkratku má paleta příkazů (admin.js) - v editoru znamená „vložit odkaz“
+			// stopPropagation: the command palette (admin.js) has the same shortcut - in the editor it means "insert link"
 			if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); e.stopPropagation(); link(); toField(); }
 		});
 		surface.addEventListener('paste', function (e) {
@@ -486,20 +486,20 @@
 		surface.addEventListener('dragleave', function () { wrapper.classList.remove('editor-pretazeni'); });
 		surface.addEventListener('drop', function (e) {
 			wrapper.classList.remove('editor-pretazeni');
-			// jiný soubor než obrázek (PDF…): nenahrává se, ale prohlížeč ho nesmí otevřít místo formuláře - rozepsaný text by byl pryč
+			// a file other than an image (PDF…): not uploaded, but the browser must not open it in place of the form - unsaved text would be gone
 			if (!hasImages(e.dataTransfer)) { if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) { e.preventDefault(); } return; }
 			e.preventDefault();
 			upload(e.dataTransfer.files).then(function (newItems) { surface.focus(); newItems.forEach(function (o) { statement('insertHTML', imageHtml(o)); }); toField(); });
 		});
 		if (field.form) { field.form.addEventListener('submit', function () { if (!source) { field.value = cleanHtml(surface.innerHTML); } }); }
 		count();
-		// pomocník editoru (kontrola přístupnosti, AI asistent) po zápisu do pole editor překreslí
+		// the editor helper (accessibility check, AI assistant) redraws the editor after writing into the field
 		window.kaletaEditory = window.kaletaEditory || {};
 		if (field.id) { window.kaletaEditory[field.id] = { obnov: function () { fromField(); count(); } }; }
 		return { obnov: fromField, stav: state.lastChild };
 	}
 
-	/* ---------- automatické ukládání rozepsaného textu do prohlížeče ---------- */
+	/* ---------- automatic saving of unsaved text to the browser ---------- */
 
 	function autosave(form, editors) {
 		var key = 'kaleta-koncept:' + form.getAttribute('data-koncept');
@@ -509,12 +509,12 @@
 		function save() {
 			var data = { cas: Date.now(), pole: {} };
 			field.forEach(function (p) { if (p.type === 'checkbox' || p.type === 'radio') { if (p.checked) { data.pole[p.name] = p.value; } else if (p.type === 'checkbox') { data.pole[p.name] = null; } } else { data.pole[p.name] = p.value; } });
-			try { localStorage.setItem(key, JSON.stringify(data)); } catch (e) { /* prohlížeč úložiště nedovolil - zbývá server */ }
+			try { localStorage.setItem(key, JSON.stringify(data)); } catch (e) { /* the browser did not allow storage - the server remains */ }
 			editors.forEach(function (ed) { ed.stav.textContent = T('rozepsaný text uložen v prohlížeči ') + time(Date.now(), true); });
 			lastData = data;
 			if (!serverTimer) { serverTimer = setTimeout(saveToServer, 15000); }
 		}
-		// na server jde rozepsaný stav nejvýš jednou za 15 vteřin: dá se v něm pokračovat z jiného zařízení
+		// the unsaved state goes to the server at most once every 15 seconds: it can be continued from another device
 		var draftUrl = form.getAttribute('data-koncept-url'), serverTimer = null, lastData = null;
 		function saveToServer() {
 			serverTimer = null;
@@ -525,30 +525,30 @@
 			fd.append('pole', JSON.stringify(lastData.pole));
 			fetch(draftUrl, { method: 'POST', body: fd, credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
 				if (j.ok) { editors.forEach(function (ed) { ed.stav.textContent = T('rozepsaný text uložen i na serveru ') + time(Date.now(), true); }); }
-			}).catch(function () { /* bez spojení zůstává kopie v prohlížeči */ });
+			}).catch(function () { /* offline, the copy stays in the browser */ });
 		}
 		function discardOnServer() {
 			if (!draftUrl) { return; }
 			var fd = new FormData();
 			fd.append('_csrf', CSRF);
 			fd.append('idc', String(NEWS_ID || 0));
-			fetch(draftUrl, { method: 'POST', body: fd, credentials: 'same-origin' }).catch(function () { /* nic */ });
+			fetch(draftUrl, { method: 'POST', body: fd, credentials: 'same-origin' }).catch(function () { /* nothing */ });
 		}
 		form.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(save, 1500); });
-		// při odeslání se kopie nemaže, jen označí: když uložení selže (vypršelé přihlášení, výpadek spojení), text zůstane k obnovení.
-		// Smaže se až po potvrzeném uložení (hláška o úspěchu, image/admin.js), nebo když se shoduje s uloženým obsahem.
-		form.addEventListener('submit', function () { clearTimeout(timer); save(); try { var d = JSON.parse(localStorage.getItem(key) || 'null'); if (d) { d.odeslano = Date.now(); localStorage.setItem(key, JSON.stringify(d)); } } catch (e) { /* nic */ } });
+		// on submit the copy is not deleted, only marked: when saving fails (expired sign-in, connection outage), the text remains to restore.
+		// It is deleted only after a confirmed save (success message, image/admin.js), or when it matches the saved content.
+		form.addEventListener('submit', function () { clearTimeout(timer); save(); try { var d = JSON.parse(localStorage.getItem(key) || 'null'); if (d) { d.odeslano = Date.now(); localStorage.setItem(key, JSON.stringify(d)); } } catch (e) { /* nothing */ } });
 
 		var storedForm = null;
-		try { storedForm = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { /* nic */ }
-		// novější z obou kopií: prohlížeč tohoto zařízení, nebo server (psaní z jiného zařízení)
+		try { storedForm = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { /* nothing */ }
+		// the newer of the two copies: this device's browser, or the server (writing from another device)
 		var fromServer = null;
-		try { fromServer = JSON.parse((document.getElementById('koncept-server') || {}).textContent || 'null'); } catch (e) { /* nic */ }
+		try { fromServer = JSON.parse((document.getElementById('koncept-server') || {}).textContent || 'null'); } catch (e) { /* nothing */ }
 		var isFromServer = !!(fromServer && fromServer.pole && (!storedForm || !storedForm.cas || fromServer.cas > storedForm.cas));
 		if (isFromServer) { storedForm = fromServer; }
 		if (!storedForm || !storedForm.pole || Date.now() - storedForm.cas > 14 * 86400000) { return; }
 		var differs = field.some(function (p) { return (p.tagName === 'TEXTAREA' || p.type === 'text') && storedForm.pole[p.name] !== undefined && storedForm.pole[p.name] !== p.value; });
-		if (!differs) { if (!isFromServer) { try { localStorage.removeItem(key); } catch (e) { /* nic */ } } return; }
+		if (!differs) { if (!isFromServer) { try { localStorage.removeItem(key); } catch (e) { /* nothing */ } } return; }
 		var tabList = document.createElement('p');
 		tabList.className = 'hlaska';
 		tabList.innerHTML = T(isFromServer ? 'Na serveru je neuložená rozepsaná verze z ' : 'V prohlížeči je neuložená rozepsaná verze z ') + time(storedForm.cas) + '. <button type="button" class="navigace">' + T('Obnovit ji') + '</button> <button type="button" class="navigace">' + T('Zahodit') + '</button>';
@@ -562,10 +562,10 @@
 			document.querySelectorAll('[data-obrazek]').forEach(function (p) { p.dispatchEvent(new Event('change')); });
 			tabList.remove();
 		});
-		tabList.children[1].addEventListener('click', function () { try { localStorage.removeItem(key); } catch (e) { /* nic */ } discardOnServer(); tabList.remove(); });
+		tabList.children[1].addEventListener('click', function () { try { localStorage.removeItem(key); } catch (e) { /* nothing */ } discardOnServer(); tabList.remove(); });
 	}
 
-	/* ---------- pole "Hlavní obrázek" ---------- */
+	/* ---------- the "Hlavní obrázek" (Featured image) field ---------- */
 
 	document.querySelectorAll('[data-obrazek]').forEach(function (field) {
 		var tl = document.createElement('button');
@@ -583,7 +583,7 @@
 		show();
 	});
 
-	/* ---------- nahrávání přetažením na stránce galerie ---------- */
+	/* ---------- uploading by dragging on the gallery page ---------- */
 
 	document.querySelectorAll('[data-nahravani]').forEach(function (form) {
 		var inputEl = form.querySelector('input[type=file]');
@@ -594,7 +594,7 @@
 			form.classList.remove('nahravani-aktivni');
 			if (e.dataTransfer.files.length) { inputEl.files = e.dataTransfer.files; form.requestSubmit(); }
 		});
-		// před odesláním zmenšit fotky a odložit soubory nad limit serveru (form.submit() už tuto obsluhu nespustí)
+		// before submitting, scale photos down and set aside files over the server limit (form.submit() does not trigger this handler again)
 		form.addEventListener('submit', function (e) {
 			if (!window.DataTransfer) { return; }
 			e.preventDefault();
@@ -611,8 +611,8 @@
 		});
 	});
 
-	window.kaletaVytvorEditor = createEditor; // builder stránek si editor vytváří sám nad dynamickým polem
-	window.kaletaVyberObrazek = pickImage; // výběr obrázku z Médií pro builder (zpětné volání dostane {url, nazev, …})
+	window.kaletaVytvorEditor = createEditor; // the page builder creates the editor itself over a dynamic field
+	window.kaletaVyberObrazek = pickImage; // picking an image from Media for the builder (the callback gets {url, nazev, …})
 
 	var editors = Array.prototype.map.call(document.querySelectorAll('textarea[data-editor]'), createEditor);
 	var draftForm = document.querySelector('form[data-koncept]');

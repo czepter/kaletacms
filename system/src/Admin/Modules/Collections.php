@@ -12,8 +12,9 @@ use Kaleta\Builder\Collections as KolekceObsahu;
 use Kaleta\Builder\Publisher;
 
 /**
- * Kolekce – vlastní typy obsahu (reference, tým, produkty, pobočky…). Definici polí a šablonu detailu mění správce,
- * položky každý, kdo má k modulu přístup. Na web je dostane prvek Výpis kolekce v builderu.
+ * Collections – custom content types (references, team, products, branches…). The field definition and the item template
+ * are changed by the administrator, the items by anyone with access to the module. The Collection list element in the
+ * builder puts them on the site.
  */
 final class Collections extends Module
 {
@@ -33,7 +34,7 @@ final class Collections extends Module
         ]);
     }
 
-    /* ---------- definice kolekce (správce) ---------- */
+    /* ---------- collection definition (administrator) ---------- */
 
     protected function actionNew(): Response
     {
@@ -65,7 +66,7 @@ final class Collections extends Module
         if (in_array($seo, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$seo]) || $this->db->value('SELECT idk FROM {kolekce} WHERE seo_link = ? AND idk <> ?', [$seo, $id]) !== null) {
             return $this->back(t('Adresu „%s“ už používá systém nebo jiná kolekce.', $seo), $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $id] : [], 'chyba');
         }
-        // klíč existujícího pole se nemění (jsou pod ním uložené hodnoty položek); nová pole ho dostanou z popisku
+        // the key of an existing field does not change (item values are stored under it); new fields get it from the label
         $field = KolekceObsahu::sanitizeFields(is_array($_POST['pole'] ?? null) ? array_values($_POST['pole']) : []);
         $data = ['nazev' => $name, 'seo_link' => $seo, 'detail' => $r->postBool('detail') ? 1 : 0, 'pole' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')];
         if ($previous !== null) {
@@ -90,7 +91,7 @@ final class Collections extends Module
         return $this->back('Kolekce i s položkami byla smazána.');
     }
 
-    /* ---------- položky ---------- */
+    /* ---------- items ---------- */
 
     protected function actionItems(): Response
     {
@@ -138,7 +139,7 @@ final class Collections extends Module
         $errors = [];
         $data = KolekceObsahu::sanitizeData($k['pole'], is_array($_POST['data'] ?? null) ? $_POST['data'] : [], $errors);
         $seo = slugify($r->post('seo_link') !== '' ? $r->post('seo_link') : $name, 150);
-        // adresa je jedinečná v jazyce: překlad položky smí mít stejnou (/compare/wordpress, /de/compare/wordpress)
+        // the slug is unique within a language: a translation of the item can have the same one (/compare/wordpress, /de/compare/wordpress)
         $language = Language::column($this->app->settings(), $r->post('jazyk'));
         $seo = \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $this->db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$k['idk'], $language, $a, $idp]) !== null);
         $row = ['idk' => $k['idk'], 'nazev' => $name, 'seo_link' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
@@ -157,7 +158,7 @@ final class Collections extends Module
         return $this->back('Položka byla uložena.', 'items', ['id' => $k['idk']]);
     }
 
-    /** Kopie položky (skrytá, s volnou adresou) – rychlý začátek podobné reference, člena týmu, produktu. */
+    /** Copy of an item (hidden, with a free slug) – a quick start for a similar reference, team member, product. */
     protected function actionDuplicateItem(): Response
     {
         $idk = $this->request->postInt('idk');
@@ -183,7 +184,7 @@ final class Collections extends Module
         return $this->back('Položka byla smazána.', 'items', ['id' => $idk]);
     }
 
-    /* ---------- šablona detailu v builderu (správce) ---------- */
+    /* ---------- item template in the builder (administrator) ---------- */
 
     protected function actionBuilder(): Response
     {
@@ -216,7 +217,7 @@ final class Collections extends Module
         ];
     }
 
-    /** Kolekce se šablonou jazyka z adresy (?jazyk=de; bez něj nebo s jazykem, který web nemá, výchozí jazyk). */
+    /** Collection with the template of the language from the URL (?jazyk=de; without it, or with a language the site does not have, the default language). */
     private function template(): ?array
     {
         $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
@@ -239,7 +240,7 @@ final class Collections extends Module
     {
         $k = $target['radek'];
         $language = $k['sablona_jazyk'];
-        // náhled na první položce v jazyce šablony (další jazyk má adresy /<jazyk>/…)
+        // preview on the first item in the template's language (an additional language has URLs /<language>/…)
         $seo = $this->db->value('SELECT seo_link FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND zobrazit = 1 ORDER BY poradi, nazev LIMIT 1', [$k['idk'], $language]);
         $url = $this->app->url(($language !== '' ? $language . '/' : '') . $k['seo_link'] . '/' . ($seo ?? '_ukazka'));
 

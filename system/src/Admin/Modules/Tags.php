@@ -8,8 +8,8 @@ use Kaleta\Admin\Module;
 use Kaleta\Core\Response;
 
 /**
- * Štítky a témata. Štítky vznikají samy při psaní novinek; tady se dají přejmenovat, sloučit a smazat.
- * Štítek s popisem a obrázkem se na webu chová jako stránka tématu (/novinky/stitek/<adresa>).
+ * Tags and topics. Tags are created automatically when writing news; here they can be renamed, merged and deleted.
+ * A tag with a description and an image behaves on the site as a topic page (/novinky/stitek/<slug>).
  */
 final class Tags extends Module
 {
@@ -39,7 +39,7 @@ final class Tags extends Module
         }
         $this->db->update('stitky', ['nazev' => $name, 'popis' => \Kaleta\Core\Html::forUser(trim($this->request->post('popis')), $this->app->auth()), 'obrazek' => mb_substr($this->request->post('obrazek'), 0, 255)], ['ids' => $tag['ids']]);
 
-        // sloučení: novinky dostanou cílový štítek, tento zanikne a jeho adresa se přesměruje
+        // merge: the news items get the target tag, this one ceases to exist and its slug is redirected
         $target = $this->db->one('SELECT * FROM {stitky} WHERE ids = ? AND ids <> ?', [$this->request->postInt('sloucit_do'), $tag['ids']]);
         if ($target !== null) {
             $this->db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) SELECT idc, ? FROM {novinky_stitky} WHERE ids = ?', [$target['ids'], $tag['ids']]);

@@ -1,13 +1,13 @@
-/* Kaleta - drobnosti administrace. Bez knihoven, bez build kroku. */
+/* Kaleta - admin odds and ends. No libraries, no build step. */
 
 (function () {
 	'use strict';
 
-	// překlad textů skriptů administrace: slovník window.KALETA_PREKLAD dodá image/jazyky/admin-<kód>.js, čeština ho nemá
+	// translation of admin script texts: the window.KALETA_PREKLAD dictionary comes from image/jazyky/admin-<code>.js, Czech has none
 	window.T = function (s) { return (window.KALETA_PREKLAD || {})[s] || s; };
 	var T = window.T;
 
-	// datum a čas jako datum() v PHP, v časovém pásmu webu (<html data-pasmo>): česky 25. 9. 2026 09:31, anglicky 25 Sep 2026 09:31
+	// date and time like date() in PHP, in the site's time zone (<html data-pasmo>): Czech 25. 9. 2026 09:31, English 25 Sep 2026 09:31
 	window.kaletaCas = function (time, timeOnly) {
 		var c = {};
 		var format = function (timeZone) {
@@ -21,8 +21,8 @@
 		return (document.documentElement.lang === 'en' ? c.day + ' ' + months[c.month - 1] + ' ' + c.year : c.day + '. ' + c.month + '. ' + c.year) + ' ' + parseOpeningHours;
 	};
 
-	// Potvrzení nevratných akcí: data-potvrdit="text" na formuláři nebo tlačítku.
-	// Vlastní dialog místo window.confirm(), který vestavěné prohlížeče (např. v aplikacích) potichu potlačují.
+	// Confirmation of irreversible actions: data-potvrdit="text" on a form or a button.
+	// A custom dialog instead of window.confirm(), which embedded browsers (e.g. in apps) silently suppress.
 	var confirmDialog = null;
 	document.addEventListener('submit', function (e) {
 		var form = e.target, button = e.submitter;
@@ -47,18 +47,18 @@
 		confirmDialog.querySelector('[data-ne]').focus();
 	});
 
-	// Světlý / tmavý režim (výchozí podle systému, volba se pamatuje v prohlížeči; před vykreslením ji nastaví tema.js)
+	// Light / dark mode (the default follows the system, the choice is remembered in the browser; tema.js sets it before rendering)
 	var schemeButton = document.querySelector('[data-tema-prepinac]');
 	if (schemeButton) {
 		schemeButton.addEventListener('click', function () {
 			var root = document.documentElement;
 			var dark = root.getAttribute('data-tema') ? root.getAttribute('data-tema') === 'tmavy' : window.matchMedia('(prefers-color-scheme: dark)').matches;
 			root.setAttribute('data-tema', dark ? 'svetly' : 'tmavy');
-			try { localStorage.setItem('kaleta-tema', dark ? 'svetly' : 'tmavy'); } catch (e) { /* nic */ }
+			try { localStorage.setItem('kaleta-tema', dark ? 'svetly' : 'tmavy'); } catch (e) { /* nothing */ }
 		});
 	}
 
-	// Rozbalení menu na mobilu
+	// Expanding the menu on mobile
 	var toggle = document.querySelector('.menu-prepinac');
 	if (toggle) {
 		toggle.addEventListener('click', function () {
@@ -67,8 +67,8 @@
 		});
 	}
 
-	// Záložky uvnitř jedné stránky (Vzhled webu): šipky, Home a End; po uložení se vrátí poslední záložka; pole, které
-	// neprojde kontrolou prohlížeče, ukáže svou záložku. Bez skriptu jsou vidět všechny panely pod sebou.
+	// Tabs within one page ("Vzhled webu", Site appearance): arrows, Home and End; after saving the last tab comes back; a field that
+	// fails the browser's validation shows its tab. Without the script all panels are visible one below another.
 	document.querySelectorAll('[data-zalozky]').forEach(function (wrapper) {
 		var buttons = Array.prototype.slice.call(wrapper.querySelectorAll('[role="tab"]'));
 		var panels = buttons.map(function (t) { return document.getElementById(t.getAttribute('aria-controls')); });
@@ -80,9 +80,9 @@
 				t.tabIndex = i === j ? 0 : -1;
 				if (panels[j]) { panels[j].hidden = i !== j; }
 			});
-			if (shouldSave) { shouldSave.hidden = !wrapper.querySelector('.vzhled-formular').contains(panels[i]); } // import a export mají vlastní tlačítka
+			if (shouldSave) { shouldSave.hidden = !wrapper.querySelector('.vzhled-formular').contains(panels[i]); } // import and export have their own buttons
 			if (focusTarget) { buttons[i].focus(); }
-			try { sessionStorage.setItem(key, buttons[i].id); } catch (error) { /* soukromý režim */ }
+			try { sessionStorage.setItem(key, buttons[i].id); } catch (error) { /* private mode */ }
 		};
 		buttons.forEach(function (t, i) {
 			t.addEventListener('click', function () { show(i, false); });
@@ -98,11 +98,11 @@
 			if (i >= 0) { show(i, false); }
 		}, true);
 		var storedValue = null;
-		try { storedValue = sessionStorage.getItem(key); } catch (error) { /* soukromý režim */ }
+		try { storedValue = sessionStorage.getItem(key); } catch (error) { /* private mode */ }
 		show(Math.max(0, buttons.findIndex(function (t) { return t.id === storedValue; })), false);
 	});
 
-	// Vzhled webu: předvolby a živý náhled skutečné úvodní stránky. CSS tokenů počítá server (akce nahled) – jediný výpočet v PHP.
+	// "Vzhled webu" (Site appearance): presets and a live preview of the real home page. The token CSS is computed by the server (action nahled) – the single computation in PHP.
 	var appearance = document.querySelector('[data-vzhled]');
 	if (appearance) {
 		var preview = document.querySelector('[data-nahled]'), frame2 = document.querySelector('[data-ramec]');
@@ -141,7 +141,7 @@
 		appearance.addEventListener('input', change);
 		appearance.addEventListener('change', change);
 		preview.addEventListener('load', insertCss);
-		// předvolba vyplní formulář (velikosti jsou ve formuláři v px, v design systému v rem)
+		// a preset fills in the form (sizes are in px in the form, in rem in the design system)
 		appearance.querySelectorAll('[data-predvolba]').forEach(function (tl) {
 			tl.addEventListener('click', function () {
 				var ds = JSON.parse(tl.getAttribute('data-predvolba'));
@@ -163,11 +163,11 @@
 					}
 					field.value = value;
 				});
-				// jako ruční změna: přepočítá náhled a formulář bude hlídat odchod bez uložení
+				// like a manual change: recomputes the preview and the form will guard against leaving without saving
 				appearance.dispatchEvent(new Event('input', { bubbles: true }));
 			});
 		});
-		// počítač se vykresluje v šířce 1280 px a zmenší se do rámu, aby platily skutečné breakpointy webu
+		// desktop renders at 1280 px wide and is scaled down into the frame, so the site's real breakpoints apply
 		var dimension = function () {
 			var width = device === 'mobil' ? 390 : 1280, available = frame2.clientWidth, scale = Math.min(1, available / width);
 			preview.style.width = width + 'px';
@@ -186,7 +186,7 @@
 		dimension();
 	}
 
-	// Obecné: volba s data-prepni="sekce:1" ukáže (nebo :0 skryje) část formuláře označenou data-sekce="sekce"
+	// General: an option with data-prepni="sekce:1" shows (or :0 hides) the form part marked data-sekce="sekce"
 	document.querySelectorAll('[data-prepni]').forEach(function (choice) {
 		choice.addEventListener('change', function () {
 			var p = choice.getAttribute('data-prepni').split(':');
@@ -194,7 +194,7 @@
 		});
 	});
 
-	// Obecné: formulář s data-prepinac="pole" ukazuje jen řádky, jejichž data-pro obsahuje zvolenou hodnotu pole
+	// General: a form with data-prepinac="pole" shows only rows whose data-pro contains the selected value of the field
 	document.querySelectorAll('form[data-prepinac]').forEach(function (form) {
 		var displayName = form.getAttribute('data-prepinac');
 		var switchTo = function () {
@@ -205,8 +205,8 @@
 		switchTo();
 	});
 
-	// Výpis na telefonu jako karty: buňka dostane popisek sloupce z hlavičky (ukáže ho CSS jen v úzkém okně). Role tabulky se
-	// doplní výslovně – prohlížeče je jinak při display: block zahazují a čtečka by přišla o sloupce.
+	// A listing as cards on a phone: a cell gets the column label from the header (CSS shows it only in a narrow window). The table
+	// roles are added explicitly – otherwise browsers drop them with display: block and a screen reader would lose the columns.
 	document.querySelectorAll('table.vypis').forEach(function (tab) {
 		if (!tab.tHead || !tab.tHead.rows.length) { return; }
 		var headers = Array.prototype.map.call(tab.tHead.rows[0].cells, function (th) { th.setAttribute('role', 'columnheader'); return th.textContent.trim(); });
@@ -224,7 +224,7 @@
 		});
 	});
 
-	// Varování před opuštěním rozepsaného formuláře
+	// Warning before leaving a form with unsaved changes
 	document.querySelectorAll('form.formular').forEach(function (form) {
 		var changed = false;
 		form.addEventListener('input', function () { changed = true; });
@@ -234,16 +234,17 @@
 			if (changed) { e.preventDefault(); e.returnValue = ''; }
 		});
 	});
-	/* ---------- drobné obsluhy místo inline skriptů (administrace má Content-Security-Policy bez 'unsafe-inline') ---------- */
+	/* ---------- small handlers instead of inline scripts (the admin has a Content-Security-Policy without 'unsafe-inline') ---------- */
 
-	// data-aktivni-kdyz="pole=hodnota": pole uvnitř bloku jsou aktivní, jen když má pole formuláře danou hodnotu
-	// (počet dní jen u četnosti „jednou za N dní“, výběr stránek jen u „jen na vybraných místech“)
+	// data-aktivni-kdyz="pole=hodnota": fields inside the block are enabled only when the form field has the given value
+	// (the number of days only for the frequency „jednou za N dní“ (once every N days), the page selection only for
+	// „jen na vybraných místech“ (only in selected places))
 	var dependent = document.querySelectorAll('[data-aktivni-kdyz]');
 	var refreshDependent = function () {
 		dependent.forEach(function (block) {
 			var condition = block.getAttribute('data-aktivni-kdyz').split('=');
 			var field = block.closest('form') && block.closest('form').elements[condition[0]];
-			// zaškrtávací políčko: hodnota jen, když je zaškrtnuté („zobrazit=“ = nezaškrtnuté)
+			// checkbox: a value only when it is checked („zobrazit=“ = unchecked)
 			var value = field && field.type === 'checkbox' ? (field.checked ? field.value : '') : (field ? field.value : '');
 			var isEnabled = !field || value === condition[1];
 			block.querySelectorAll('input, select, textarea').forEach(function (i) { i.disabled = !isEnabled; });
@@ -252,7 +253,7 @@
 	};
 	if (dependent.length) { document.addEventListener('change', refreshDependent); refreshDependent(); }
 
-	// záhlaví číselného sloupce se zarovná jako čísla pod ním (buňky td.cislo v prvním řádku)
+	// the header of a numeric column is aligned like the numbers below it (td.cislo cells in the first row)
 	document.querySelectorAll('table.vypis').forEach(function (table) {
 		var row = table.tBodies[0] && table.tBodies[0].rows[0];
 		var header = table.tHead && table.tHead.rows[0];
@@ -271,7 +272,7 @@
 	document.addEventListener('click', function (e) {
 		if (e.target.closest && e.target.closest('[data-neklikat]')) { e.preventDefault(); }
 	});
-	/* ---------- paleta příkazů: Ctrl/⌘+K – sekce, rychlé akce a hledání novinky ---------- */
+	/* ---------- command palette: Ctrl/⌘+K – sections, quick actions and news item search ---------- */
 
 	var palette = document.getElementById('paleta');
 	if (palette && typeof palette.showModal === 'function') {
@@ -338,7 +339,7 @@
 		});
 		document.addEventListener('click', function (e) {
 			if (e.target.closest && e.target.closest('[data-paleta]')) { popupOpen(); }
-			if (e.target === palette) { palette.close(); } // klik mimo okno
+			if (e.target === palette) { palette.close(); } // click outside the dialog
 		});
 		popupFields.addEventListener('input', function () {
 			popupSelected = 0;
@@ -349,7 +350,7 @@
 			if (!address || q.length < 2) { popupNews = []; return; }
 			popupTimer = setTimeout(function () {
 				fetch(address + '&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
-					if (popupFields.value.trim() !== q) { return; } // mezitím se psalo dál
+					if (popupFields.value.trim() !== q) { return; } // typing continued in the meantime
 					popupNews = (d.clanky || []).map(function (c) { return { n: c.titulek, u: c.url, s: c.vydany ? T('novinka') : T('novinka – nevydaná') }; });
 					popupRender();
 				}).catch(function () {});
@@ -367,12 +368,12 @@
 				if (target) { window.location.href = target.href; }
 			}
 		});
-		// na Macu ukázat ⌘K
+		// show ⌘K on a Mac
 		if (/Mac|iPhone|iPad/.test(navigator.platform || '')) {
 			Array.prototype.forEach.call(document.querySelectorAll('[data-paleta] kbd'), function (k) { k.textContent = '⌘K'; });
 		}
 	}
-	// Rozbalovací nabídky (<details data-zavrit-mimo>): zavře je klepnutí mimo a klávesa Esc
+	// Dropdown menus (<details data-zavrit-mimo>): closed by a tap outside and by the Esc key
 	document.addEventListener('click', function (e) {
 		Array.prototype.forEach.call(document.querySelectorAll('details[data-zavrit-mimo][open]'), function (d) {
 			if (!d.contains(e.target)) { d.open = false; }
@@ -385,7 +386,7 @@
 			d.querySelector('summary').focus();
 		});
 	});
-	// Média: ohnisko ořezu – klepnutím do náhledu se nastaví obě pole (v procentech)
+	// Media: crop focal point – a tap in the preview sets both fields (in percent)
 	document.querySelectorAll('[data-ohnisko]').forEach(function (box) {
 		var formEl = box.closest('form');
 		box.addEventListener('click', function (e) {
@@ -398,7 +399,7 @@
 			box.querySelector('.ohnisko-bod').style.top = y + '%';
 		});
 	});
-	// Média: popis obrázku (alt) přímo v mřížce – uloží se po opuštění pole, bez znovunačtení stránky
+	// Media: image description (alt) right in the grid – saved on leaving the field, without reloading the page
 	document.querySelectorAll('[data-popis-media]').forEach(function (field) {
 		var previous = field.value;
 		var token = document.querySelector('input[name="_csrf"]');
@@ -415,23 +416,23 @@
 				.catch(function () { field.value = previous; field.classList.add('chyba'); });
 		});
 	});
-	// přihlášení se při otevřené administraci udržuje (jinak by po nečinnosti odeslání formuláře selhalo a rozepsaný text by se ztratil)
+	// the sign-in is kept alive while the admin is open (otherwise after inactivity a form submit would fail and unsaved text would be lost)
 	if (document.querySelector('form[method="post"]')) {
 		setInterval(function () {
-			if (document.visibilityState === 'visible') { fetch('admin.php?action=token', { credentials: 'same-origin' }).catch(function () { /* bez spojení nic */ }); }
+			if (document.visibilityState === 'visible') { fetch('admin.php?action=token', { credentials: 'same-origin' }).catch(function () { /* offline: nothing */ }); }
 		}, 10 * 60 * 1000);
 	}
-	// uložení potvrdila hláška o úspěchu: rozepsané kopie odeslaných formulářů (image/editor.js) už nejsou potřeba
+	// a success message confirmed the save: unsaved copies of submitted forms (image/editor.js) are no longer needed
 	if (document.querySelector('.hlaska-ok')) {
 		try {
 			Object.keys(localStorage).filter(function (k) { return k.indexOf('kaleta-koncept:') === 0; }).forEach(function (k) {
 				var d = JSON.parse(localStorage.getItem(k) || 'null');
 				if (d && d.odeslano && Date.now() - d.odeslano < 15 * 60 * 1000) { localStorage.removeItem(k); }
 			});
-		} catch (e) { /* úložiště nedostupné */ }
+		} catch (e) { /* storage unavailable */ }
 	}
 
-	// popisky grafů a údajů (data-tip): hned při najetí myší, při zaměření klávesnicí i po klepnutí na dotykové obrazovce
+	// tooltips of charts and figures (data-tip): immediately on mouse hover, on keyboard focus and after a tap on a touch screen
 	var tip = null, tipTarget = null;
 	function showTip(el) {
 		tipTarget = el;
@@ -443,7 +444,7 @@
 		}
 		tip.textContent = el.getAttribute('data-tip');
 		tip.hidden = false;
-		var r = (el.querySelector('[data-tip-kotva]') || el).getBoundingClientRect(); // sloupec grafu: popisek nad jeho výškou
+		var r = (el.querySelector('[data-tip-kotva]') || el).getBoundingClientRect(); // chart bar: the tooltip above its height
 		var x = Math.min(Math.max(r.left + r.width / 2, tip.offsetWidth / 2 + 8), window.innerWidth - tip.offsetWidth / 2 - 8);
 		tip.style.left = x + 'px';
 		tip.style.top = Math.max(r.top - 8, tip.offsetHeight + 8) + 'px';
@@ -453,5 +454,5 @@
 	document.addEventListener('pointerout', function (e) { var el = e.target.closest && e.target.closest('[data-tip]'); if (el && !el.contains(e.relatedTarget)) { hideTip(); } });
 	document.addEventListener('focusin', function (e) { var el = e.target.closest && e.target.closest('[data-tip]'); if (el) { showTip(el); } });
 	document.addEventListener('focusout', hideTip);
-	window.addEventListener('scroll', function () { if (tipTarget) { showTip(tipTarget); } }, { passive: true }); // při posunu stránky popisek jde s prvkem
+	window.addEventListener('scroll', function () { if (tipTarget) { showTip(tipTarget); } }, { passive: true }); // when the page scrolls, the tooltip moves with the element
 })();

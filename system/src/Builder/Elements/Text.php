@@ -7,7 +7,7 @@ namespace Kaleta\Builder\Elements;
 use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
-/** Formátovaný text z editoru: odstavce, seznamy, podnadpisy, odkazy, tabulky. */
+/** Formatted text from the editor: paragraphs, lists, subheadings, links, tables. */
 final class Text extends Element
 {
     public const string TYPE = 'text';
@@ -39,8 +39,8 @@ final class Text extends Element
     }
 
     /**
-     * Mezititulky h2 a h3 dostanou kotvu z textu („#what-you-need“), ať jde odkázat na konkrétní část stránky. Nadpis s vlastním
-     * id zůstane, jak je; v kartách výpisu kolekce se kotvy nepřidávají (opakovaly by se).
+     * Subheadings h2 and h3 get an anchor from their text ("#what-you-need"), so that one can link to a specific part of the page.
+     * A heading with its own id stays as it is; in collection list cards no anchors are added (they would repeat).
      */
     private static function anchors(string $html, Context $k): string
     {
@@ -66,7 +66,7 @@ final class Text extends Element
         }, $html) ?? $html;
     }
 
-    /** Doplní základní třídu typu do hotových atributů (před třídy uživatele). */
+    /** Adds the type's base class to the finished attributes (before the user's classes). */
     public static function withClass(string $a, string $className): string
     {
         return str_contains($a, ' class="') ? str_replace(' class="', ' class="' . $className . ' ', $a) : $a . ' class="' . $className . '"';

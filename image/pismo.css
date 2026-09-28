@@ -1,6 +1,6 @@
-/* Kaleta – písmo prostředí systému (administrace, přihlášení, instalátor, ovládání vizuálního editoru).
- * Bricolage Grotesque (písmo značky), licence SIL OFL 1.1 (pisma/OFL.txt), variabilní (tloušťka 200–800, optická velikost),
- * hostované u sebe – nic se nenačítá z cizích serverů. Šablon webu se netýká: ty mají písma podle vzhledu webu. */
+/* Kaleta – font of the system interface (admin, login, installer, visual editor controls).
+ * Bricolage Grotesque (the brand font), licensed SIL OFL 1.1 (pisma/OFL.txt), variable (weight 200–800, optical size),
+ * self-hosted – nothing is loaded from third-party servers. Does not apply to site templates: they use fonts from the site design. */
 @font-face {
 	font-family: "Bricolage Grotesque";
 	src: url("pisma/bricolage-grotesque-latin.woff2") format("woff2");

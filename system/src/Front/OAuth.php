@@ -10,16 +10,18 @@ use Kaleta\Core\Db;
 use Kaleta\Core\Response;
 
 /**
- * OAuth 2.1 pro konektor Claude (a další klienty MCP) podle specifikace autorizace MCP:
- *   /.well-known/oauth-protected-resource   metadata chráněného zdroje (RFC 9728) – kdo vydává tokeny pro /mcp
- *   /.well-known/oauth-authorization-server metadata autorizačního serveru (RFC 8414)
- *   /oauth/register                         dynamická registrace klienta (RFC 7591)
- *   /oauth/authorize                        začátek přihlášení → souhlas v administraci (admin.php?action=oauth)
- *   /oauth/token                            výměna kódu za tokeny (PKCE S256) a obnova tokenu
+ * OAuth 2.1 for the Claude connector (and other MCP clients) according to the MCP authorization specification:
+ *   /.well-known/oauth-protected-resource   protected resource metadata (RFC 9728) – who issues tokens for /mcp
+ *   /.well-known/oauth-authorization-server authorization server metadata (RFC 8414)
+ *   /oauth/register                         dynamic client registration (RFC 7591)
+ *   /oauth/authorize                        start of sign-in → consent in the administration (admin.php?action=oauth)
+ *   /oauth/token                            exchange of a code for tokens (PKCE S256) and token refresh
  *
- * Aplikace dostane stejná práva jako uživatel, který ji povolil. Přístupový token platí hodinu, obnovovací 30 dní a při
- * každém použití se vymění za nový. Tokeny leží v ka_api_tokeny (jen otisky) – odpojení aplikace v Můj účet je smaže.
- * OAuth předpokládá web v kořeni domény (metadata jsou na /.well-known/); v podsložce zůstává přihlášení osobním tokenem.
+ * The application gets the same permissions as the user who allowed it. The access token is valid for an hour, the
+ * refresh token for 30 days, and it is exchanged for a new one on every use. Tokens are stored in ka_api_tokeny (hashes
+ * only) – disconnecting the application in "Můj účet" (My account) deletes them.
+ * OAuth assumes the site is at the domain root (the metadata are at /.well-known/); in a subfolder, sign-in with a
+ * personal token remains.
  */
 final class OAuth
 {
@@ -32,7 +34,7 @@ final class OAuth
     {
     }
 
-    /** Obslouží adresu OAuth, nebo vrátí null, když cesta k OAuth nepatří. */
+    /** Handles an OAuth URL, or returns null when the path does not belong to OAuth. */
     public function handle(string $path): ?Response
     {
         $r = $this->app->request;
@@ -65,7 +67,7 @@ final class OAuth
         return $this->app->request->origin() . rtrim($this->app->url(''), '/');
     }
 
-    /** Adresa metadat chráněného zdroje – posílá ji MCP v hlavičce WWW-Authenticate. */
+    /** URL of the protected resource metadata – MCP sends it in the WWW-Authenticate header. */
     public function metadataUrl(): string
     {
         return $this->issuer() . '/.well-known/oauth-protected-resource';
@@ -91,7 +93,7 @@ final class OAuth
         ];
     }
 
-    /** Dynamická registrace klienta (RFC 7591): Claude si tak sám založí client_id se svou adresou pro návrat. */
+    /** Dynamic client registration (RFC 7591): this is how Claude creates its own client_id with its redirect URI. */
     private function register(): Response
     {
         $r = $this->app->request;
@@ -121,8 +123,9 @@ final class OAuth
     }
 
     /**
-     * Začátek přihlášení: ověří klienta a adresu návratu, parametry uloží do relace a pošle uživatele na souhlas do administrace
-     * (tam se případně nejdřív přihlásí). Neplatný klient nebo adresa návratu se nikam nepřesměrovávají (otevřené přesměrování).
+     * Start of sign-in: verifies the client and the redirect URI, saves the parameters in the session and sends the user
+     * to consent in the administration (where they sign in first if needed). An invalid client or redirect URI is not
+     * redirected anywhere (open redirect).
      */
     private function authorize(): Response
     {
@@ -149,9 +152,10 @@ final class OAuth
     }
 
     /**
-     * Souhlas uživatele (volá administrace po potvrzení): jednorázový kód na 10 minut a návrat do aplikace.
+     * User consent (called by the administration after confirmation): a one-time code valid for 10 minutes and a return
+     * to the application.
      *
-     * @param array<string, mixed> $pending parametry uložené v autorizace()
+     * @param array<string, mixed> $pending parameters saved in authorize()
      */
     public function issueCode(array $pending, int $idu): string
     {
@@ -184,7 +188,7 @@ final class OAuth
         if ($r->post('grant_type') === 'authorization_code') {
             $code = $db->one('SELECT * FROM {oauth_kody} WHERE otisk = ?', [hash('sha256', $r->post('code'))]);
             if ($code !== null) {
-                $db->delete('oauth_kody', ['otisk' => $code['otisk']]); // kód platí jen jednou
+                $db->delete('oauth_kody', ['otisk' => $code['otisk']]); // the code is valid only once
             }
             $challenge = rtrim(strtr(base64_encode(hash('sha256', $r->post('code_verifier'), true)), '+/', '-_'), '=');
             if ($code === null || $code['expirace'] < $now || $code['client_id'] !== $clientId || $code['presmerovani'] !== $r->post('redirect_uri') || !hash_equals((string) $code['vyzva'], $challenge)) {
@@ -198,7 +202,7 @@ final class OAuth
             if ($refresh === null || $refresh['klient'] !== $clientId || (string) $refresh['expirace'] < $now) {
                 return $this->error('invalid_grant', 'Obnovovací token je neplatný nebo prošlý – připojte aplikaci znovu.');
             }
-            $db->delete('api_tokeny', ['idt' => (int) $refresh['idt']]); // rotace: starý obnovovací token končí
+            $db->delete('api_tokeny', ['idt' => (int) $refresh['idt']]); // rotation: the old refresh token ends
 
             return $this->issueTokens($db, (int) $refresh['idu'], $client);
         }
@@ -219,14 +223,14 @@ final class OAuth
             $db->insert('api_tokeny', ['idu' => $idu, 'nazev' => $client['nazev'], 'klient' => $client['client_id'], 'druh' => $kind,
                 'expirace' => date('Y-m-d H:i:s', time() + $lifetime), 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s')]);
         }
-        // úklid prošlých tokenů a kódů
+        // cleanup of expired tokens and codes
         $db->run("DELETE FROM {api_tokeny} WHERE druh <> 'token' AND expirace < ?", [date('Y-m-d H:i:s')]);
         $db->run('DELETE FROM {oauth_kody} WHERE expirace < ?', [date('Y-m-d H:i:s')]);
 
         return $this->json(['access_token' => $access, 'token_type' => 'Bearer', 'expires_in' => self::ACCESS_LIFETIME, 'refresh_token' => $refresh, 'scope' => 'mcp']);
     }
 
-    /** @return array{0: string, 1: string} client_id a tajemství z hlavičky Basic nebo z formuláře */
+    /** @return array{0: string, 1: string} client_id and secret from the Basic header or from the form */
     private function clientCredentials(): array
     {
         $header = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');

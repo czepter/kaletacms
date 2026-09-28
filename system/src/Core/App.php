@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Jednoduchý kontejner sdílených služeb. Žádná magie - co aplikace umí, je vidět tady.
+ * A simple container of shared services. No magic - what the application can do is visible here.
  */
 final class App
 {
@@ -17,7 +17,7 @@ final class App
     private ?Auth $auth = null;
     private ?Settings $settings = null;
 
-    /** @param array<string, mixed> $config obsah config.php */
+    /** @param array<string, mixed> $config contents of config.php */
     public function __construct(public readonly array $config, ?Request $request = null)
     {
         $this->request = $request ?? Request::fromGlobals();
@@ -25,7 +25,7 @@ final class App
         $this->view = new View([KALETA_SYSTEM . '/views']);
     }
 
-    /** Načte config.php; když chybí, web ještě není nainstalovaný. */
+    /** Loads config.php; when it is missing, the site is not installed yet. */
     public static function boot(): self
     {
         $file = KALETA_ROOT . '/config.php';
@@ -34,8 +34,8 @@ final class App
             header('Location: ' . $base . '/install.php');
             exit;
         }
-        // během aktualizace souborů web krátce odpovídá 503 (zámek starší než 10 minut je pozůstatek a ignoruje se);
-        // slovník tu ještě není načtený, proto je pod českým textem krátká anglická věta
+        // while files are being updated the site briefly answers 503 (a lock older than 10 minutes is a leftover and is ignored);
+        // the dictionary is not loaded here yet, so a short English sentence follows the Czech text
         $lock = KALETA_ROOT . '/storage/udrzba.lock';
         if (is_file($lock) && time() - (int) filemtime($lock) < 600 && basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')) !== 'admin.php') {
             http_response_code(503);
@@ -65,8 +65,8 @@ final class App
     }
 
     /**
-     * Časové pásmo webu z Nastavení platí pro PHP i pro relaci databáze (data zapisuje PHP, dotazy je porovnávají s NOW()).
-     * Volají oba kernely hned po startu; do té doby platí výchozí pásmo z bootstrapu.
+     * The site time zone from Settings applies to PHP and to the database session (PHP writes the dates, queries compare them with NOW()).
+     * Both kernels call it right after start; until then the default zone from the bootstrap applies.
      */
     public function applyTimezone(): void
     {
@@ -82,19 +82,19 @@ final class App
         return (bool) ($this->config['debug'] ?? false);
     }
 
-    /** Předpona jazykové verze webu ("en"); nastavuje Front\Kernel, když čtenář prochází /en/… */
+    /** Prefix of the site's language version ("en"); set by Front\Kernel when a visitor browses /en/… */
     public string $languagePrefix = '';
 
     /**
-     * Absolutní cesta v rámci instalace: url('admin.php') -> "/magazin/admin.php".
-     * V jazykové verzi dostanou adresy stránek webu předponu jazyka (url('novinky/x') -> "/en/novinky/x");
-     * soubory a služby (cokoli s příponou, api/, mcp) zůstávají společné.
+     * Absolute path within the installation: url('admin.php') -> "/magazin/admin.php".
+     * In a language version the URLs of site pages get the language prefix (url('novinky/x') -> "/en/novinky/x");
+     * files and services (anything with an extension, api/, mcp) stay shared.
      */
     public function url(string $path = ''): string
     {
         $path = ltrim($path, '/');
         if (preg_match('#^(novinky|hledani)(?=$|[/?.])#', $path) && isset($this->config['db'])) {
-            // systémové adresy v jazyce verze (/news, /search mimo češtinu) – Core\Cesty
+            // system URLs in the version's language (/news, /search outside Czech) – Core\Routes
             $language = $this->languagePrefix !== '' ? $this->languagePrefix : Language::defaults($this->settings());
             $path = Routes::publicPath($path, $language, $this->db());
         }
@@ -109,8 +109,8 @@ final class App
     }
 
     /**
-     * Adresa novinky v JEJÍ jazykové verzi – nezávisle na tom, ze které verze přišel právě běžící požadavek
-     * (oznámení o vydání se rozesílají na pozadí cizí návštěvy).
+     * URL of a news item in ITS language version – regardless of which version the current request came from
+     * (publication notifications are sent in the background of someone else's visit).
      */
     public function newsItemUrl(string $seo, string $language): string
     {
@@ -140,7 +140,7 @@ final class App
                 http_response_code(500);
                 header('Content-Type: text/html; charset=utf-8');
             }
-            // jazyk webu tu ještě nemusí být známý (chyba i při startu): česky jen návštěvníkům s češtinou nebo slovenštinou v prohlížeči
+            // the site language may not be known here yet (an error even at start): Czech only for visitors with Czech or Slovak in the browser
             $czech = (bool) preg_match('/^\s*(cs|sk)\b/i', (string) ($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? ''));
             [$title, $heading, $help] = $czech
                 ? ['Chyba', 'Omlouváme se, na stránce došlo k chybě.', 'Podrobnosti najde správce v souboru storage/log/chyby.log.']

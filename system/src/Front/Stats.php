@@ -8,9 +8,9 @@ use Kaleta\Core\Antispam;
 use Kaleta\Core\App;
 
 /**
- * Vlastní měření návštěvnosti bez cookies.
- * Návštěvník = otisk (IP + prohlížeč + sůl platná jeden den); samotná IP se nikam neukládá
- * a otisky starší než dva dny se mažou, takže čtenáře nejde sledovat v čase.
+ * Own traffic measurement without cookies.
+ * Visitor = hash (IP + browser + salt valid for one day); the IP itself is not stored anywhere
+ * and hashes older than two days are deleted, so readers cannot be tracked over time.
  */
 final class Stats
 {
@@ -33,12 +33,12 @@ final class Stats
         if ($idc !== null) {
             $db->run('INSERT INTO {stat_novinky} (den, idc, pocet) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE pocet = pocet + 1', [$today, $idc]);
         }
-        // zobrazení po adresách (i s jazykovou verzí) – nejčtenější stránky v administraci
+        // views per URL (including the language version) – most read pages in the administration
         $path = mb_substr((string) parse_url($app->url(ltrim($app->request->path(), '/')), PHP_URL_PATH), 0, 255);
         $db->run('INSERT INTO {stat_stranky} (den, cesta, pocet) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE pocet = pocet + 1', [$today, $path]);
         $source = strtolower((string) parse_url((string) ($server['HTTP_REFERER'] ?? ''), PHP_URL_HOST));
         $source = preg_replace('/^www\./', '', $source) ?? '';
-        // vlastní web je nastavená adresa webu, ne hlavička Host – tu si může klient napsat, jak chce
+        // the own site is the configured site URL, not the Host header – the client can write that however it wants
         $custom = preg_replace('/^www\./', '', strtolower((string) parse_url($app->request->origin(), PHP_URL_HOST))) ?? '';
         if ($new && $source !== '' && $source !== $custom) {
             $db->run('INSERT INTO {stat_zdroje} (den, zdroj, pocet) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE pocet = pocet + 1', [$today, mb_substr($source, 0, 100)]);

@@ -8,8 +8,8 @@ use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
 /**
- * Tlačítko „nahoru“ v pravém dolním rohu. Objeví se, až návštěvník odroluje (animace řízená posunem stránky, bez skriptu);
- * kde to prohlížeč neumí, je vidět pořád. Nejlépe do patičky – pak je na všech stránkách.
+ * A "back to top" button in the bottom right corner. It appears once the visitor scrolls down (a scroll-driven animation, no script);
+ * where the browser cannot do that, it is always visible. Best placed in the footer – then it is on all pages.
  */
 final class BackToTop extends Element
 {

@@ -8,7 +8,7 @@
  * @var int $confirmed
  * @var string $search
  * @var int $pageNumber
- * @var string $service napojená mailingová služba (prázdné = žádná)
+ * @var string $service connected mailing service (empty = none)
  * @var array{ceka: ?string, chyby: ?string} $queue
  */
 use Kaleta\Core\Newsletter;

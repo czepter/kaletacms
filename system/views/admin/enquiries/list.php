@@ -1,6 +1,6 @@
 <?php
 /**
- * Poptávky z formulářů webu.
+ * Enquiries from the site's forms.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Enquiries $module

@@ -9,30 +9,30 @@ use Dom\HTMLDocument;
 use Dom\Node;
 
 /**
- * Převod HTML na stavbu: jazykový model (nebo import) napíše běžné sémantické HTML s blokem <style> a z něj vznikne
- * čistá stavba – jeden prvek za jednu značku, vzhled ve sdílených třídách; <form> se stane prvkem Formulář. Co převést
- * nejde (skripty, vložené styly, složité selektory), se vynechá a nahlásí, aby autor věděl, co doplnit v builderu.
+ * Converting HTML to a build: the language model (or an import) writes ordinary semantic HTML with a <style> block and a clean
+ * build results from it – one element per tag, the appearance in shared classes; <form> becomes a Form element. What cannot be
+ * converted (scripts, inline styles, complex selectors) is left out and reported, so that the author knows what to add in the builder.
  *
- * Třída je čistá (bez databáze): vrací stavbu, třídy z <style> a hlášení. Ukládání a kontrolu práv dělá volající.
+ * The class is pure (no database): it returns the build, the classes from <style> and the messages. The caller does saving and permission checks.
  */
 final class HtmlConverter
 {
-    /** Značky, které se převádějí na obsah prvku Text (souvislý tok textu se slučuje do jednoho prvku). */
+    /** Tags converted to the content of a Text element (a continuous flow of text is merged into one element). */
     private const array TEXT_TAGS = ['p', 'ul', 'ol', 'table', 'pre', 'dl', 'address'];
 
-    /** Obalové značky bez vlastního významu pro stavbu – převádí se jen jejich obsah. */
+    /** Wrapper tags without their own meaning for the build – only their content is converted. */
     private const array UNWRAP = ['html', 'body', 'main'];
 
-    /** Značky, které nemají ve stavbě obdobu a vynechají se vždy. */
+    /** Tags that have no counterpart in the build and are always left out. */
     private const array SKIP = ['script', 'noscript', 'style', 'link', 'meta', 'template', 'input', 'select', 'textarea', 'button', 'label', 'canvas', 'object', 'embed'];
 
     /** @var list<string> */
     private array $messages = [];
 
-    /** @var array<string, string> třída => bezpečné deklarace */
+    /** @var array<string, string> class => safe declarations */
     private array $classes = [];
 
-    /** @var array<string, array<string, array<string, string>>> třída => stav (tablet, mobil, hover…) => vlastnosti stylu */
+    /** @var array<string, array<string, array<string, string>>> class => state (tablet, mobil, hover…) => style properties */
     private array $classStyles = [];
 
     private function __construct(private readonly bool $admin)
@@ -40,7 +40,7 @@ final class HtmlConverter
     }
 
     /**
-     * @param bool $admin smí vzniknout prvek Vlastní HTML (pro SVG a vložené mapy)
+     * @param bool $admin a Custom HTML element may be created (for SVG and embedded maps)
      * @return array{stavba: array<string, mixed>, tridy: array<string, string>, tridy_styl: array<string, array<string, array<string, string>>>, hlaseni: list<string>}
      */
     public static function convert(string $html, bool $admin = false): array
@@ -52,7 +52,7 @@ final class HtmlConverter
         }
         $elements = $conversion->children($document->body);
 
-        // nejvyšší úroveň stavby tvoří sekce: souvislé řady jiných prvků se zabalí do jedné sekce
+        // sections make up the top level of the build: continuous runs of other elements are wrapped into one section
         $root = [];
         $sequence = [];
         foreach ($elements as $p) {
@@ -75,8 +75,8 @@ final class HtmlConverter
     }
 
     /**
-     * HTML z jazykového modelu (MCP, asistent v builderu) do webu: převod, uložení nových tříd z <style> (existující třída
-     * webu se přepíše jen s $prepsat) a odebrání tříd bez stylu.
+     * HTML from the language model (MCP, the assistant in the builder) into the site: conversion, saving new classes from <style>
+     * (an existing class of the site is overwritten only with $overwrite) and removing classes without a style.
      *
      * @return array{stavba: array<string, mixed>, hlaseni: list<string>}
      */
@@ -104,10 +104,10 @@ final class HtmlConverter
     }
 
     /**
-     * Odebere třídy, které nemají styl (z cizích CSS frameworků, WordPressu…) – jen by zabíraly místo.
+     * Removes classes that have no style (from third-party CSS frameworks, WordPress…) – they would only take up space.
      *
-     * @param list<string> $known třídy, které styl mají
-     * @param list<string> $skipped sem se zapíšou odebrané
+     * @param list<string> $known classes that have a style
+     * @param list<string> $skipped the removed ones are written here
      */
     public static function withoutClasses(array $node, array $known, array &$skipped = []): array
     {
@@ -129,8 +129,8 @@ final class HtmlConverter
     private function children(Node $parent, int $depth = 0): array
     {
         $output = [];
-        $flow = '';          // souvislý text (odstavce, seznamy) čekající na sloučení do jednoho prvku Text
-        $questions = [];       // souvislé <details> čekající na sloučení do prvku Otázky a odpovědi
+        $flow = '';          // continuous text (paragraphs, lists) waiting to be merged into one Text element
+        $questions = [];       // continuous <details> waiting to be merged into an FAQ element
         $flushFlow = function () use (&$output, &$flow, &$questions): void {
             if (trim(strip_tags($flow, '<img>')) !== '') {
                 $output[] = Build::fresh('text', ['html' => $flow]);
@@ -163,7 +163,7 @@ final class HtmlConverter
                 $questions[] = ['otazka' => trim($question->textContent), 'odpoved' => trim($response->innerHTML)];
                 continue;
             }
-            // odstavec bez třídy se připojí k souvislému textu; s třídou je samostatný prvek, aby třída měla kam
+            // a paragraph without a class joins the continuous text; with a class it is a separate element, so that the class has a place
             if (in_array($htmlTag, self::TEXT_TAGS, true) && $this->classesOf($node) === [] && !$this->hasBlocks($node)) {
                 if ($questions !== []) {
                     $flushFlow();
@@ -181,7 +181,7 @@ final class HtmlConverter
         return $output;
     }
 
-    /** @return list<array<string, mixed>> jeden prvek, víc prvků (rozbalený obal) nebo nic */
+    /** @return list<array<string, mixed>> one element, several elements (an unwrapped wrapper) or nothing */
     private function element(Element $el, int $depth): array
     {
         $htmlTag = strtolower($el->localName);
@@ -224,7 +224,7 @@ final class HtmlConverter
         if (($classes = $this->classesOf($el)) !== []) {
             $p['tridy'] = $classes;
             if (array_intersect($classes, array_keys($this->classes + $this->classStyles)) !== []) {
-                // vzhled dává třída z <style>: výchozí styl prvku (flex kontejneru, odsazení sekce) by ji přebil – vrstva prvků je v kaskádě až za třídami
+                // the appearance comes from the class in <style>: the element's default style (container flex, section padding) would override it – the elements layer comes after the classes in the cascade
                 $p['styl'] = [];
             }
         }
@@ -235,12 +235,12 @@ final class HtmlConverter
         return [$p];
     }
 
-    /** section/div/… – na nejvyšší úrovni sekce (section, header, footer), jinde kontejner nebo mřížka. */
+    /** section/div/… – at the top level a section (section, header, footer), elsewhere a container or grid. */
     private function wrapper(Element $el, string $htmlTag, int $depth): array
     {
         $children = $this->children($el, $depth + 1);
         if ($depth === 0 && in_array($htmlTag, ['section', 'header', 'footer', 'aside', 'article'], true)) {
-            // vnitřní obal webu (.container, .wrapper) je u sekce zbytečný – sekce má vlastní; zůstane, jen když jeho třída má styl
+            // the site's inner wrapper (.container, .wrapper) is needless in a section – the section has its own; it stays only when its class has a style
             if (count($children) === 1 && $children[0]['typ'] === 'kontejner' && array_intersect($children[0]['tridy'] ?? [], array_keys($this->classes)) === []) {
                 $children = $children[0]['deti'];
             }
@@ -252,7 +252,7 @@ final class HtmlConverter
         return ['znacka' => $htmlTag] + Build::fresh('kontejner', [], $children);
     }
 
-    /** Seznam s třídou nebo se složitými položkami (karty v <ul>) je kontejner, jednoduchý seznam s třídou je prvek Seznam. */
+    /** A list with a class or with complex items (cards in <ul>) is a container, a simple list with a class is a List element. */
     private function textOrWrapper(Element $el, string $htmlTag, int $depth): array
     {
         if (in_array($htmlTag, ['ul', 'ol'], true)) {
@@ -284,7 +284,7 @@ final class HtmlConverter
         return Build::fresh('obrazek', ['src' => $image->getAttribute('src') ?? '', 'alt' => $image->getAttribute('alt') ?? '', 'popisek' => trim($el->querySelector('figcaption')?->textContent ?? '')]);
     }
 
-    /** Odkaz s blokovým obsahem (karta) je kontejner-odkaz, samostatný textový odkaz je tlačítko. */
+    /** A link with block content (a card) is a link container, a standalone text link is a button. */
     private function link(Element $el, int $depth): array
     {
         $url = $el->getAttribute('href') ?? '';
@@ -301,11 +301,11 @@ final class HtmlConverter
         return Build::fresh('tlacitko', ['text' => trim($el->textContent), 'odkaz' => $url, 'varianta' => $variant, 'nove_okno' => $el->getAttribute('target') === '_blank']);
     }
 
-    /** Formulář → prvek Formulář: pole podle ovládacích prvků a jejich popisků; odesílá se vždy do Poptávek webu. */
+    /** Form → Form element: fields by the form controls and their labels; it always sends to the site's Enquiries. */
     private function form(Element $el): array
     {
         $field = [];
-        $radios = []; // skupiny <input type="radio"> podle name → jedno pole výběru
+        $radios = []; // groups of <input type="radio"> by name → one choice field
         foreach ($el->querySelectorAll('input, select, textarea') as $input) {
             $type = strtolower((string) ($input->getAttribute('type') ?? 'text'));
             if (in_array($type, ['hidden', 'submit', 'button', 'reset', 'image', 'file', 'password'], true)) {
@@ -397,13 +397,13 @@ final class HtmlConverter
         return Build::fresh('html', ['kod' => self::html($el)]);
     }
 
-    /** Obsahuje prvek blokové značky (pak nejde o prostý text, ale o strukturu)? */
+    /** Does the element contain block tags (then it is not plain text but structure)? */
     private function hasBlocks(Element $el): bool
     {
         return $el->querySelector('div, section, article, header, footer, aside, nav, h1, h2, h3, h4, h5, h6, figure, img, blockquote, details, a.btn, a.button, a[class*="tlacitko"]') !== null;
     }
 
-    /** @return list<string> třídy ve tvaru, který stavba přijme */
+    /** @return list<string> classes in a form the build accepts */
     private function classesOf(Element $el): array
     {
         $classes = preg_split('/\s+/', trim((string) $el->getAttribute('class'))) ?: [];
@@ -412,13 +412,13 @@ final class HtmlConverter
     }
 
     /**
-     * Pravidla „.trida { … }“ z <style> se stanou sdílenými třídami. „.trida:hover“ a @media (max-width: …) se převedou na stavy
-     * třídy (najetí, tablet do 1023 px, mobil do 767 px) – deklarace, které mají ve stylu builderu obdobu. Ostatní se nahlásí.
+     * Rules ".class { … }" from <style> become shared classes. ".class:hover" and @media (max-width: …) are converted to class
+     * states (hover, tablet up to 1023 px, mobile up to 767 px) – the declarations that have a counterpart in the builder style. The rest is reported.
      */
     private function styles(string $css): void
     {
         $css = (string) preg_replace('#/\*.*?\*/#s', '', $css);
-        // @media s max-width = breakpoint builderu; blok se zpracuje a z CSS odstraní
+        // @media with max-width = a builder breakpoint; the block is processed and removed from the CSS
         $css = (string) preg_replace_callback('/@media\s*([^{]*)\{((?:[^{}]*\{[^{}]*\})*[^{}]*)\}/i', function (array $m): string {
             $state = $this->stateFromMedia($m[1]);
             if ($state === null) {
@@ -441,7 +441,7 @@ final class HtmlConverter
         }, $css);
         if (preg_match_all('/@(media|supports|container|keyframes|font-face|import|layer)\b/i', $css, $m)) {
             $this->messages[] = 'Pravidla @' . implode(', @', array_unique(array_map('strtolower', $m[1]))) . ' se nepřevádějí – nastavte je ve stylu prvku nebo třídy v builderu.';
-            // vnořené bloky se odstraní, aby nepřevzaly deklarace do nesprávných tříd
+            // nested blocks are removed so that their declarations do not end up in the wrong classes
             do {
                 $css = (string) preg_replace('/@[a-z-]+[^{;]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}|@[a-z-]+[^{;]*;/i', '', $css, -1, $count);
             } while ($count > 0);
@@ -469,7 +469,7 @@ final class HtmlConverter
         }
     }
 
-    /** Breakpoint builderu podle podmínky @media: max-width do 767 px = mobil, do 1023 px = tablet; jiná podmínka = null. */
+    /** Builder breakpoint by the @media condition: max-width up to 767 px = mobile, up to 1023 px = tablet; another condition = null. */
     private function stateFromMedia(string $condition): ?string
     {
         if (!preg_match('/^\s*(?:screen\s+and\s+)?\(\s*max-width\s*:\s*(\d+(?:\.\d+)?)(px|rem|em)\s*\)\s*$/i', $condition, $m)) {
@@ -484,7 +484,7 @@ final class HtmlConverter
         };
     }
 
-    /** Deklarace do stavu třídy (hover, tablet…) jako vlastnosti stylu; co převést nejde, se nahlásí. */
+    /** Declarations into a class state (hover, tablet…) as style properties; what cannot be converted is reported. */
     private function addClassState(string $className, string $state, string $declarations): void
     {
         if (!isset(Style::STATUSES[$state])) {
@@ -504,7 +504,7 @@ final class HtmlConverter
         }
     }
 
-    /** Celé HTML prvku včetně značky. Vlastnost outerHTML má Dom\Element až od PHP 8.5 – Kaleta běží i na 8.4. */
+    /** The element's whole HTML including the tag. Dom\Element has the outerHTML property only from PHP 8.5 – Kaleta runs on 8.4 too. */
     private static function html(\Dom\Element $el): string
     {
         return $el->ownerDocument->saveHtml($el);

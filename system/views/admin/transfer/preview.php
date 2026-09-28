@@ -1,13 +1,13 @@
 <?php
 /**
- * Import z WordPressu, krok 2: náhled – co v souboru je, co se nepřevede, a volby importu. Do databáze se zatím nic nezapsalo.
+ * WordPress import, step 2: preview – what the file contains, what will not be converted, and the import options. Nothing has been written to the database yet.
  *
  * @var Kaleta\Admin\Modules\Transfer $module
  * @var Kaleta\Core\App $app
  * @var string $csrf
- * @var array<string, mixed> $state  stav importu (Core\WpImport::newState)
- * @var list<string> $languages  jazykové verze webu, první je výchozí
- * @var list<array{idt:int, nazev:string, jazyk:string}> $categories  kategorie novinek
+ * @var array<string, mixed> $state  import state (Core\WpImport::newState)
+ * @var list<string> $languages  language versions of the site, the first one is the default
+ * @var list<array{idt:int, nazev:string, jazyk:string}> $categories  news categories
  * @var bool $redirectsEnabled
  */
 $p = $state['prehled'];

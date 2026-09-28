@@ -9,9 +9,9 @@ use Kaleta\Core\Images;
 use Kaleta\Core\Response;
 
 /**
- * Média: nahrávání i přetažením a přímo z editoru, složky,
- * popisky, mazání a přehled, kde je obrázek použitý (novinky, stavby, kolekce, logo…).
- * Obrázek se do textu vkládá z editoru.
+ * Media: uploading, also by drag and drop and directly from the editor, folders,
+ * labels, deleting and an overview of where an image is used (news, builds, collections, logo…).
+ * An image is inserted into the text from the editor.
  */
 final class Media extends Module
 {
@@ -20,7 +20,7 @@ final class Media extends Module
     public const string GROUP = 'Obsah';
     public const string ICON = 'media';
 
-    /** Nahrávat musí umět každý, kdo píše novinky; cizí obrázky ale mění a maže jen správce. */
+    /** Everyone who writes news must be able to upload; but only the administrator changes and deletes other people's images. */
     public const bool FOR_ALL_USERS = true;
 
     private const int PER_PAGE = 40;
@@ -43,7 +43,7 @@ final class Media extends Module
         ]);
     }
 
-    /** JSON seznam pro okno výběru obrázku v editoru; filtry stejné jako ve výpisu. */
+    /** JSON list for the image picker dialog in the editor; the same filters as in the list. */
     protected function actionListing(): Response
     {
         [$where, $params] = $this->filter();
@@ -54,7 +54,7 @@ final class Media extends Module
         ]);
     }
 
-    /** Založení nebo přejmenování složky. */
+    /** Creating or renaming a folder. */
     protected function actionFolder(): Response
     {
         $name = mb_substr($this->request->post('nazev'), 0, 100);
@@ -71,7 +71,7 @@ final class Media extends Module
         return $this->back('Složka byla uložena.', '', ['sekce' => $ids]);
     }
 
-    /** Smazání složky; obrázky zůstávají a přejdou mezi nezařazené. */
+    /** Deleting a folder; the images stay and move to the unsorted ones. */
     protected function actionFolderDelete(): Response
     {
         if ($this->request->isPost() && $this->app->auth()->isAdmin()) {
@@ -82,15 +82,15 @@ final class Media extends Module
     }
 
     /**
-     * Přepočítá, které obrázky novinka používá: hlavní obrázek, obrázky vložené editorem
-     * (data-id, adresa souboru). Volá se při uložení novinky.
+     * Recounts which images a news item uses: the main image, images inserted by the editor
+     * (data-id, file URL). Called when a news item is saved.
      */
     public static function recordUsage(\Kaleta\Core\Db $db, int $idc, string ...$html): void
     {
         $all = implode(' ', $html);
         preg_match_all('/data-id="(\d+)"/', $all, $m);
         $ids = array_map(intval(...), $m[1]);
-        preg_match_all('#media/\d{4}/\d{2}/[A-Za-z0-9._-]+\.[a-z0-9]{2,5}#', $all, $paths); // obrázky i přílohy (PDF, dokumenty…)
+        preg_match_all('#media/\d{4}/\d{2}/[A-Za-z0-9._-]+\.[a-z0-9]{2,5}#', $all, $paths); // images and attachments (PDF, documents…)
         foreach (array_unique($paths[0]) as $path) {
             $ido = $db->value('SELECT ido FROM {media} WHERE obr_poloha = ? OR nahl_poloha = ?', [$path, $path]);
             if ($ido !== null) {
@@ -104,11 +104,11 @@ final class Media extends Module
     }
 
     /**
-     * Média použitá mimo tabulku použití novinek: stavby stránek, částí webu, šablon kolekcí a komponent (i rozpracované),
-     * textové stránky, položky kolekcí, třídy (obrázek pozadí) a nastavení (logo, ikona, obrázek pro sdílení).
-     * Počítá se při zobrazení – přehled je tak vždy aktuální bez evidence při každém uložení.
+     * Media used outside the news usage table: builds of pages, site parts, collection item templates and components (drafts
+     * too), text pages, collection items, classes (background image) and settings (logo, icon, sharing image).
+     * Computed when shown – so the overview is always up to date without tracking on every save.
      *
-     * @return array<int, list<string>> ido => popisy míst
+     * @return array<int, list<string>> ido => descriptions of the places
      */
     public static function findUsagesElsewhere(\Kaleta\Core\Db $db): array
     {
@@ -128,7 +128,7 @@ final class Media extends Module
         $usages = [];
         foreach ($sources as [$kind, $sql]) {
             foreach ($db->all($sql) as $r) {
-                // cesty i v JSON (media\/2026\/…), s adresou webu i bez ní
+                // paths also in JSON (media\/2026\/…), with and without the site URL
                 preg_match_all('#media(?:\\\\?/)\d{4}(?:\\\\?/)\d{2}(?:\\\\?/)[A-Za-z0-9._-]+#', (string) $r['obsah'], $m);
                 foreach ($m[0] as $path) {
                     $usages[str_replace('\\/', '/', $path)][$kind . ' ' . $r['kde']] = true;
@@ -150,7 +150,7 @@ final class Media extends Module
         return $used;
     }
 
-    /** Nahrání jednoho či více souborů; s parametrem format=json odpovídá editoru JSONem. */
+    /** Upload of one or more files; with the parameter format=json it answers the editor with JSON. */
     protected function actionUpload(): Response
     {
         $json = $this->request->get('format') === 'json';
@@ -168,8 +168,8 @@ final class Media extends Module
                     default => Images::save($file),
                 };
                 if (!$attachment) {
-                    // název obrázku je zároveň popis pro nevidomé (alt): jméno souboru („IMG 2041“, „foto dilna“) obrázek nepopisuje
-                    // a kontroly by ho braly jako vyplněný – zůstane prázdný a výpis i kontrola před publikováním o něj požádají
+                    // the image name is also the description for the blind (alt): a file name ("IMG 2041", "foto dilna") does not describe the image
+                    // and the checks would take it as filled in – it stays empty and the list and the pre-publish check ask for it
                     $data['nazev'] = '';
                     $imageCount++;
                 }
@@ -195,7 +195,7 @@ final class Media extends Module
     }
 
     /**
-     * SVG (logo, ikona): vyčištěné na povolené značky a atributy; bez náhledu a variant, prohlížeč ho zmenší sám.
+     * SVG (logo, icon): sanitized to allowed tags and attributes; without a thumbnail and variants, the browser scales it itself.
      *
      * @param array<string, mixed> $file
      * @return array<string, mixed>
@@ -211,9 +211,9 @@ final class Media extends Module
     }
 
     /**
-     * SVG z textu (nahrání i MCP): vyčistí se od skriptů a odkazů ven (Core\Svg) a uloží pod novým jménem.
+     * SVG from text (upload and MCP): cleaned of scripts and outbound links (Core\Svg) and saved under a new name.
      *
-     * @return array<string, mixed> řádek pro tabulku médií
+     * @return array<string, mixed> row for the media table
      */
     public static function saveSvgContent(string $content, string $displayName): array
     {
@@ -234,7 +234,7 @@ final class Media extends Module
             'nahl_poloha' => $path, 'nahl_width' => min(65535, $w), 'nahl_height' => min(65535, $h), 'nazev' => mb_substr(str_replace(['_', '-'], ' ', $name), 0, 150)];
     }
 
-    /** Nový soubor místo starého se stejnou adresou: odkazy na webu zůstanou a ukážou novou verzi. */
+    /** A new file in place of the old one with the same URL: links on the site stay and show the new version. */
     protected function actionReplace(): Response
     {
         $ido = $this->request->postInt('ido');
@@ -271,7 +271,7 @@ final class Media extends Module
         return $this->back('Popis obrázku byl uložen.');
     }
 
-    /** Popis pro nevidomé (alt = pole „nazev“, stejně jako v detailu a v editoru) přímo z mřížky – bez znovunačtení (image/admin.js). */
+    /** Description for the blind (alt = field "nazev", as in the detail and in the editor) directly from the grid – without reloading (image/admin.js). */
     protected function actionSaveCaption(): Response
     {
         $ido = $this->request->postInt('ido');
@@ -284,7 +284,7 @@ final class Media extends Module
         return Response::json(['ok' => true]);
     }
 
-    /** Hromadná akce nad označenými obrázky: smazání, nebo přesun do složky. */
+    /** Bulk action on the selected images: delete, or move to a folder. */
     protected function actionBulk(): Response
     {
         if (!$this->request->isPost()) {
@@ -303,7 +303,7 @@ final class Media extends Module
             if ($move) {
                 $count += $this->db->update('media', ['sekce' => $target], ['ido' => $image['ido']]) >= 0 ? 1 : 0;
             } elseif (isset($elsewhere[(int) $image['ido']]) || $this->db->value('SELECT 1 FROM {media_pouziti} WHERE ido = ? LIMIT 1', [$image['ido']]) !== null) {
-                $skipped++; // použitý soubor by na webu zmizel – smaže se, až nebude nikde použitý
+                $skipped++; // a used file would disappear from the site – it is deleted once it is not used anywhere
             } else {
                 Images::delete($image['obr_poloha'], $image['nahl_poloha']);
                 \Kaleta\Core\Files::delete($image['obr_poloha']);
@@ -326,7 +326,7 @@ final class Media extends Module
     }
 
     /**
-     * Filtr výpisu z adresy: sekce (číslo složky, 0 = nezařazené), clanek (idc), nepouzite=1, hledat (název, popisek nebo jméno souboru).
+     * List filter from the URL: sekce (folder number, 0 = unsorted), clanek (idc), nepouzite=1, hledat (name, label or file name).
      *
      * @return array{0: string, 1: list<int|string>, 2: array{sekce: ?int, clanek: int, nepouzite: bool, hledat: string, razeni: string}}
      */
@@ -366,14 +366,14 @@ final class Media extends Module
         return [implode(' AND ', $where), $params, ['sekce' => $section, 'clanek' => $newsItem, 'nepouzite' => $unused, 'hledat' => $search, 'razeni' => $sort]];
     }
 
-    /** @return list<array<string, mixed>> složky s počtem obrázků */
+    /** @return list<array<string, mixed>> folders with the number of images */
     private function folders(): array
     {
         return $this->db->all('SELECT s.*, (SELECT COUNT(*) FROM {media} o WHERE o.sekce = s.ids) AS pocet FROM {media_slozky} s ORDER BY s.nazev');
     }
 
     /** @return list<array<string, mixed>> */
-    /** Řazení výpisu: klíč z adresy => [popisek, ORDER BY]. */
+    /** List sort orders: key from the URL => [label, ORDER BY]. */
     public const array SORT_ORDERS = [
         'nove' => ['nejnovější', 'o.ido DESC'], 'stare' => ['nejstarší', 'o.ido ASC'], 'nazev' => ['podle názvu', 'o.nazev ASC, o.ido DESC'],
         'velikost' => ['největší soubory', 'o.obr_vel DESC'], 'nepouzite' => ['nejméně použité', 'pouzito ASC, o.ido DESC'],
@@ -385,7 +385,7 @@ final class Media extends Module
         $elsewhere = self::findUsagesElsewhere($this->db);
 
         return array_map(function (array $o) use ($elsewhere): array {
-            // kde: novinky podle tabulky použití + místa mimo novinky
+            // where: news by the usage table + places outside news
             $o['kde'] = $elsewhere[(int) $o['ido']] ?? [];
             $o['pouzito'] = (int) $o['pouzito'] + count($o['kde']);
 
@@ -404,12 +404,12 @@ final class Media extends Module
             'id' => (int) $o['ido'], 'nazev' => $o['nazev'], 'popis' => $o['popis'] ?? '',
             'url' => $this->app->url($o['obr_poloha']), 'nahled' => $o['nahl_poloha'] === '' ? '' : $this->app->url($o['nahl_poloha']),
             'sirka' => (int) $o['obr_width'], 'vyska' => (int) $o['obr_height'],
-            // příloha ke stažení (PDF, dokument, zvuk…): bez náhledu, do textu se vkládá jako odkaz
+            // attachment for download (PDF, document, audio…): without a thumbnail, inserted into the text as a link
             'soubor' => $o['nahl_poloha'] === '', 'pripona' => strtoupper(pathinfo($o['obr_poloha'], PATHINFO_EXTENSION)), 'velikost' => \Kaleta\Core\Files::size((int) ($o['obr_vel'] ?? 0)),
         ];
     }
 
-    /** $_FILES['soubory'] (i vícenásobné) převedené na seznam jednotlivých souborů. */
+    /** $_FILES['soubory'] (multiple too) converted to a list of individual files. */
     private function files(): array
     {
         $f = $_FILES['soubory'] ?? null;

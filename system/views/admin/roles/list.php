@@ -4,7 +4,7 @@
  * @var Kaleta\Core\App $app
  * @var string $csrf
  * @var list<array<string, mixed>> $role
- * @var array<string, string> $names  ident sekce => název
+ * @var array<string, string> $names  section ident => name
  */
 ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($app->url('admin.php?module=users')) ?>"><?= e(t('Zpět na uživatele')) ?></a> <a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('Nová role')) ?></a></p>

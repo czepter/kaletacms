@@ -1,15 +1,15 @@
 <?php
 /**
- * Části webu: záhlaví, patička a obálky – stav (ze šablony / z builderu) a vstup do builderu.
+ * Site parts: header, footer and wrappers – status (from the layout / from the builder) and the way into the builder.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\SiteParts $module
  * @var string $csrf
  * @var array<string, array{0:string, 1:string}> $types
- * @var list<string> $languages  '' = výchozí jazyk webu
+ * @var list<string> $languages  '' = default language of the site
  * @var array<string, string> $languageNames
- * @var array<string, array<string, mixed>> $rows  "typ:jazyk" => stav části
- * @var array<string, list<array<string, mixed>>> $variants  "typ:jazyk" => varianty (záhlaví, patička)
+ * @var array<string, array<string, mixed>> $rows  "typ:jazyk" => status of the part
+ * @var array<string, list<array<string, mixed>>> $variants  "typ:jazyk" => variants (header, footer)
  * @var array<int, string> $pageNames
  */
 ?>

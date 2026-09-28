@@ -8,8 +8,8 @@ use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
 /**
- * Místo, kam systém vloží obsah stránky v obálce: text novinky, výpis novinek, hlášení 404. Obálka kolem něj přidá
- * sekce (výzva, novinky, kontakt) – obsah sám zůstává ze šablony, takže vypadá stejně jako bez obálky.
+ * The place where the system inserts the page content in a wrapper: the news item text, the news list, the 404 message. The wrapper
+ * adds sections around it (call to action, news, contact) – the content itself stays from the layout, so it looks the same as without the wrapper.
  */
 final class PageContent extends Element
 {
@@ -23,7 +23,7 @@ final class PageContent extends Element
 
     public static function baseCss(): string
     {
-        // v obálce navazují další sekce hned pod obsahem – výška „aspoň na celou obrazovku“ ze šablony tu nepatří
+        // in the wrapper, more sections follow right below the content – the layout's "at least full screen" height does not belong here
         return ':where(.stavba) > .obsah { min-height: 0; }';
     }
 
@@ -31,7 +31,7 @@ final class PageContent extends Element
     {
         $content = $k->content !== '' ? $k->content : ($k->editor ? '<p>' . e(t('Sem se vloží obsah stránky (novinka, výpis novinek, hlášení 404).')) . '</p>' : '');
 
-        // třídy šablony „obal obsah“: obsah vypadá stejně jako bez obálky
+        // the layout classes „obal obsah“: the content looks the same as without the wrapper
         return '<' . $p['znacka'] . Text::withClass($a, 'obal obsah') . '>' . $content . '</' . $p['znacka'] . '>';
     }
 }

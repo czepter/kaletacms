@@ -1,6 +1,6 @@
 <?php
 /**
- * Kaleta - administrace.
+ * Kaleta - admin.
  * URLs look like admin.php?module=news&action=edit&id=5 (1.3 and older: ?module=news&action=edit, see Admin\LegacyUrls).
  */
 
@@ -18,12 +18,12 @@ if ($legacyUrl && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
 
 $app = Kaleta\Core\App::boot();
 $response = (new Kaleta\Admin\Kernel($app))->handle();
-// formulář smí odeslat jen na vlastní web; výjimka je souhlas s připojením aplikace (OAuth): po odeslání prohlížeč přejde
-// na adresu návratu aplikace (claude.ai, localhost u Claude Code) a CSP form-action hlídá i tohle přesměrování
+// forms may submit only to the site itself; the exception is consent to connecting an application (OAuth): after submitting,
+// the browser goes to the application's return URL (claude.ai, localhost for Claude Code) and CSP form-action guards this redirect too
 $headers = $response->headers;
 $formTargets = "'self'" . (preg_match('#^https?://[a-z0-9.\[\]:-]+$#i', $headers['X-Kaleta-Form-Action'] ?? '') ? ' ' . $headers['X-Kaleta-Form-Action'] : '');
 unset($headers['X-Kaleta-Form-Action']);
-// administrace: nic z ní nepatří do mezipaměti prohlížeče ani proxy a smí spouštět jen vlastní skripty (žádné inline, žádné cizí)
+// admin: nothing from it belongs in the browser or proxy cache, and it may run only its own scripts (no inline, no third-party)
 (new Kaleta\Core\Response($response->body, $response->status, $headers + [
     'Cache-Control' => 'no-store, private',
     'Content-Security-Policy' => "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' https:; "

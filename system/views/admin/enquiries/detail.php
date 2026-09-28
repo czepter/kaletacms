@@ -1,12 +1,12 @@
 <?php
 /**
- * Detail poptávky.
+ * Enquiry detail.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Enquiries $module
  * @var string $csrf
  * @var array<string, mixed> $p
- * @var list<array{0:string, 1:string, 2?:string}> $data  [popisek, hodnota, cesta přílohy]
+ * @var list<array{0:string, 1:string, 2?:string}> $data  [label, value, attachment path]
  * @var array<int, string> $users
  */
 use Kaleta\Admin\Modules\Enquiries;

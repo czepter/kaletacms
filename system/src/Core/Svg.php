@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Nahrané SVG (loga, ikony): vyčistí se na seznam povolených značek a atributů. Zmizí skripty, obsluhy událostí,
- * foreignObject, odkazy mimo soubor a vložené HTML – zůstane jen kresba. Server ho navíc posílá s přísnou CSP (media/.htaccess).
+ * Uploaded SVG (logos, icons): it is cleaned down to a list of allowed tags and attributes. Scripts, event handlers,
+ * foreignObject, links outside the file and embedded HTML disappear – only the drawing remains. The server also sends it
+ * with a strict CSP (media/.htaccess).
  */
 final class Svg
 {
@@ -19,7 +20,7 @@ final class Svg
         'fx', 'fy', 'clip-path', 'mask', 'font-family', 'font-size', 'font-weight', 'text-anchor', 'dominant-baseline', 'letter-spacing', 'preserveaspectratio',
         'xmlns', 'version', 'href', 'xlink:href', 'style', 'role', 'aria-label', 'aria-hidden', 'focusable', 'patternunits', 'vector-effect', 'color'];
 
-    /** Vyčištěné SVG, nebo null, když soubor SVG není. */
+    /** The cleaned SVG, or null when the file is not an SVG. */
     public static function sanitize(string $svg): ?string
     {
         if (strlen($svg) > 2_000_000 || !str_contains($svg, '<svg')) {
@@ -27,7 +28,7 @@ final class Svg
         }
         $dom = new \DOMDocument();
         $previous = libxml_use_internal_errors(true);
-        // bez DTD a externích entit (XXE) a bez sítě
+        // without DTD and external entities (XXE) and without network access
         $ok = $dom->loadXML(preg_replace('/<!DOCTYPE[^>]*>/i', '', $svg) ?? '', LIBXML_NONET | LIBXML_NOBLANKS);
         libxml_use_internal_errors($previous);
         if (!$ok || $dom->documentElement === null || strtolower($dom->documentElement->localName) !== 'svg') {
@@ -39,7 +40,7 @@ final class Svg
         return $output === false ? null : $output;
     }
 
-    /** @return array{0: int, 1: int} šířka a výška podle width/height nebo viewBox (0 = neznámé) */
+    /** @return array{0: int, 1: int} width and height from width/height or viewBox (0 = unknown) */
     public static function dimensions(string $svg): array
     {
         if (preg_match('/<svg[^>]*\bviewBox="[-\d.]+[ ,]+[-\d.]+[ ,]+([\d.]+)[ ,]+([\d.]+)"/i', $svg, $m)) {

@@ -1,10 +1,10 @@
 <?php
 /**
- * Builder stránek na celou obrazovku. Celé ovládání skládá image/stavitel.js z dat níže; bez JavaScriptu se jen vysvětlí proč.
- * Plátno je skutečná stránka webu (?stavba=koncept&editor=1) – co editor ukazuje, je přesně to, co uvidí návštěvník.
+ * Full-screen page builder. All controls are assembled by image/stavitel.js from the data below; without JavaScript it only explains why.
+ * The canvas is a real page of the site (?stavba=koncept&editor=1) – what the editor shows is exactly what the visitor will see.
  *
  * @var Kaleta\Core\App $app
- * @var array<string, mixed> $data  stavba, schéma, knihovna, třídy, adresy akcí (Moduly\Stranky::actionBuilder)
+ * @var array<string, mixed> $data  build, schema, library, classes, action urls (Modules\Pages::actionBuilder)
  * @var string $title
  */
 $version = rawurlencode(KALETA_VERSION);
