@@ -1199,7 +1199,8 @@ mcp list_item_versions "{\"collection\":\"tym\",\"id\":$JANA}" > "$WORK/response
 mcp restore_item_version "{\"collection\":\"tym\",\"id\":$JANA,\"version\":$VER}" > /dev/null
 expect "item versions: the earlier version comes back, the newer one goes to the history" "$(sq "SELECT CONCAT(seo_titulek = '', '|', (SELECT COUNT(*) FROM ka_stavba_revize WHERE cast = 'polozka:$JANA') >= 2) FROM ka_kolekce_polozky WHERE idp = $JANA")" "1|1"
 mcp save_collection_item "{\"collection\":\"tym\",\"id\":$JANA,\"noindex\":true}" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
-curl -s "$B/tym/jana-novakova" | grep -q 'content="noindex' && ! curl -s "$B/sitemap.xml" | grep -q '/tym/jana-novakova' && ! curl -s "$B/llms.txt" | grep -q '/tym/jana-novakova' \
+curl -s -o "$WORK/response" "$B/tym/jana-novakova" # into a file: grep -q on a pipe would cut curl off (pipefail)
+grep -q 'content="noindex' "$WORK/response" && ! curl -s "$B/sitemap.xml" | grep -q '/tym/jana-novakova' && ! curl -s "$B/llms.txt" | grep -q '/tym/jana-novakova' \
   && echo "  ok     a noindex item is out of search engines, the sitemap and llms.txt" || { echo "  CHYBA  noindex item"; ERRORS=$((ERRORS+1)); }
 mcp save_collection_item "{\"collection\":\"tym\",\"id\":$JANA,\"noindex\":false}" > /dev/null
 mcp save_collection_item '{"collection":"tym","name":"Planovany Clen","publish_at":"2099-01-01 08:00"}' > "$WORK/response"; PLAN=$(mcp_value id)
