@@ -232,7 +232,9 @@ final class Pages extends Module
                 return \Kaleta\Core\Response::redirect($this->url('builder', ['id' => $id]));
             }
             if ($template !== null && $data['text'] === '') {
-                $this->db->update('stranky', ['text' => \Kaleta\Builder\Library::privacyPolicyText()], ['ids' => $id]);
+                // in the page's language, from what the site has switched on (1.9)
+                $text = \Kaleta\Core\Language::runWith($this->contentLanguage($language), fn (): string => \Kaleta\Builder\Library::privacyPolicyText($this->app->settings()));
+                $this->db->update('stranky', ['text' => $text], ['ids' => $id]);
 
                 return $this->back('The page has been created with a privacy policy outline – fill in the details in square brackets.', 'edit', ['id' => $id]);
             }

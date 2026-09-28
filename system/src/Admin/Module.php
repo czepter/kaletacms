@@ -70,6 +70,25 @@ abstract class Module
         return $this->kernel->page($heading, $this->app->view->render('admin/' . static::IDENT . '/' . $template, $data));
     }
 
+    /**
+     * Sends a file straight from the disk in chunks and ends the request – a backup or an export can have hundreds of MB,
+     * so it never goes through Response (which holds the whole body in memory).
+     */
+    protected function sendFile(string $path, string $name, string $type = 'application/octet-stream'): never
+    {
+        session_write_close();
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        header('Content-Type: ' . $type);
+        header('Content-Disposition: attachment; filename="' . str_replace(['"', "\r", "\n"], '', $name) . '"');
+        header('Content-Length: ' . filesize($path));
+        header('Cache-Control: no-store, private');
+        header('X-Content-Type-Options: nosniff');
+        readfile($path);
+        exit;
+    }
+
     protected function error(string $text, int $status = 400): Response
     {
         return $this->kernel->page('Error', $this->app->view->render('admin/error', ['text' => $text]), $status);

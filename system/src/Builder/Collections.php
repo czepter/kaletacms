@@ -316,4 +316,48 @@ final class Collections
             ['styl' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm']]] + $n('kontejner', [], $children),
         ])]])[0];
     }
+
+    /* ---------- items as full pages (1.9) ---------- */
+
+    /** Columns of an item that make up one version in the history (ka_stavba_revize, cast polozka:<idp>). */
+    public const array VERSIONED = ['nazev', 'seo_link', 'data', 'seo_titulek', 'popis', 'obrazek', 'noindex'];
+
+    /**
+     * SEO fields and scheduled publishing of an item from a form or from Claude. A hidden item with a future time
+     * publishes itself then (Notifications::process); a past time publishes it at once.
+     *
+     * @param array{seo_titulek?: mixed, popis?: mixed, obrazek?: mixed, noindex?: mixed, zverejnit_od?: mixed} $input
+     * @return array{seo_titulek: string, popis: string, obrazek: string, noindex: int, zverejnit_od: ?string, zobrazit: int}
+     */
+    public static function pageFields(array $input, bool $visible): array
+    {
+        $text = fn (string $key, int $max): string => mb_substr(trim(is_scalar($input[$key] ?? null) ? (string) $input[$key] : ''), 0, $max);
+        $image = $text('obrazek', 255);
+        $from = is_string($input['zverejnit_od'] ?? null) && $input['zverejnit_od'] !== '' ? (strtotime(str_replace('T', ' ', $input['zverejnit_od'])) ?: null) : null;
+
+        return [
+            'seo_titulek' => $text('seo_titulek', 200), 'popis' => $text('popis', 300),
+            'obrazek' => preg_match('#^(/?media/|https://)[^\s"\'<>]+$#', $image) && !str_contains($image, '..') ? $image : '',
+            'noindex' => filter_var($input['noindex'] ?? false, FILTER_VALIDATE_BOOL) ? 1 : 0,
+            'zverejnit_od' => !$visible && $from !== null && $from > time() ? date('Y-m-d H:i:s', $from) : null,
+            'zobrazit' => $visible || ($from !== null && $from <= time()) ? 1 : 0,
+        ];
+    }
+
+    /** Keeps the item as it was before a save in its history (the last Publisher::VERSIONS_KEPT). */
+    public static function saveVersion(\Kaleta\Core\App $app, array $previous, array $new): void
+    {
+        $snapshot = fn (array $r): string => (string) json_encode(array_intersect_key($r, array_flip(self::VERSIONED)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $old = $snapshot($previous);
+        $new = $snapshot(array_replace($previous, $new));
+        Publisher::version($app, ['cast' => 'polozka:' . (int) $previous['idp']], $old, $new, $previous['zmeneno'] ?? $previous['datum'] ?? null);
+    }
+
+    /** @return array<string, mixed>|null the item columns stored in one version */
+    public static function loadVersion(Db $db, int $idp, int $idr): ?array
+    {
+        $stored = json_decode((string) Publisher::load($db, ['cast' => 'polozka:' . $idp], $idr), true);
+
+        return is_array($stored) ? array_intersect_key($stored, array_flip(self::VERSIONED)) : null;
+    }
 }

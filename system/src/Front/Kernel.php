@@ -355,7 +355,7 @@ final class Kernel
         if ($collection === null || (!$collection['detail'] && !$draft)) {
             return $this->notFound();
         }
-        $item = $db->one('SELECT * FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND jazyk = ?' . ($draft ? '' : ' AND zobrazit = 1'), [$collection['idk'], $seo, Language::siteColumn()]);
+        $item = $db->one('SELECT * FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND jazyk = ? AND smazano IS NULL' . ($draft ? '' : ' AND zobrazit = 1'), [$collection['idk'], $seo, Language::siteColumn()]);
         if ($item === null && !($draft && $seo === '_ukazka')) {
             return $this->notFound();
         }
@@ -400,8 +400,18 @@ final class Kernel
             }
         }
 
-        return $this->page((string) ($item['nazev'] ?? $collection['nazev']), $this->view->render('stranka', ['stranka' => ['titulek' => ''], 'uvod' => false, 'stavba' => $html]), [
-            'popis' => $description, 'obrazek' => $image, 'stavba' => true, 'noindex' => $draft,
+        // the item's own SEO fields (1.9) win over what is derived from its fields
+        if ($item !== null && $item['popis'] !== '') {
+            $description = (string) $item['popis'];
+        }
+        if ($item !== null && $item['obrazek'] !== '') {
+            $image = preg_match('#^https?://#', $item['obrazek']) ? (string) $item['obrazek'] : $this->app->request->origin() . $this->app->url(ltrim((string) $item['obrazek'], '/'));
+        }
+        $title = $item !== null && $item['seo_titulek'] !== '' ? (string) $item['seo_titulek'] : (string) ($item['nazev'] ?? $collection['nazev']);
+
+        return $this->page($title, $this->view->render('stranka', ['stranka' => ['titulek' => ''], 'uvod' => false, 'stavba' => $html]), [
+            'popis' => $description, 'obrazek' => $image, 'stavba' => true, 'noindex' => $draft || !empty($item['noindex']),
+            'polozka' => $item !== null ? ['kolekce' => $collection, 'polozka' => $item] : null,
         ]);
     }
 
@@ -596,7 +606,7 @@ final class Kernel
             $home = $this->homePageId();
             $candidates = array_map(fn (array $s): array => ['titulek' => $s['titulek'], 'adresa' => (int) $s['ids'] === $home ? '' : $s['seo_link'], 'text' => (string) $s['text']],
                 $db->all('SELECT ids, titulek, seo_link, text FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY poradi LIMIT 500', [Language::siteColumn()]));
-            foreach ($db->all('SELECT p.nazev, p.seo_link, p.data, k.seo_link AS kolekce, k.pole FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.jazyk = ? ORDER BY p.poradi LIMIT 2000', [Language::siteColumn()]) as $p) {
+            foreach ($db->all('SELECT p.nazev, p.seo_link, p.data, k.seo_link AS kolekce, k.pole FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.noindex = 0 AND p.jazyk = ? ORDER BY p.poradi LIMIT 2000', [Language::siteColumn()]) as $p) {
                 $data = json_decode((string) $p['data'], true);
                 // only text fields are searched – image paths and link URLs would add noise to the results and snippets
                 $textFields = array_column(array_filter(json_decode((string) $p['pole'], true) ?: [], fn (array $f): bool => in_array($f['typ'] ?? '', ['text', 'radky', 'html'], true)), 'klic');
@@ -744,7 +754,7 @@ final class Kernel
         return $this->view->render('upravit', [
             'app' => $this->app, 'typ' => $type, 'zaznam' => $record,
             'zpet' => $url . ($this->app->request->get('nahled') === '1' ? '?nahled=1' : ''),
-            'akce' => $this->app->url('admin.php?module=' . ($type === 'novinka' ? 'novinky' : 'stranky') . '&action=save_text'),
+            'akce' => $this->app->url('admin.php?module=' . ($type === 'novinka' ? 'news' : 'pages') . '&action=save_text'),
             'chyba' => $this->app->request->get('chyba') === '1',
         ]);
     }

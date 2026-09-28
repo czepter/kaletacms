@@ -38,6 +38,7 @@ final class Kernel
         Modules\Roles::class,
         Modules\Stats::class,
         Modules\Redirects::class,
+        Modules\Audit::class,
         Modules\ChangeLog::class,
         Modules\Transfer::class,
         Modules\Extensions::class,

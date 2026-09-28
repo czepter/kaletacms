@@ -7,6 +7,7 @@
  * @var string $csrf
  * @var array<string, mixed> $k
  * @var array<string, mixed> $p
+ * @var list<array{idr: int, datum: string, kdo: ?string}> $versions  earlier versions of the item (1.9)
  */
 use Kaleta\Core\Language;
 
@@ -31,7 +32,19 @@ $languages = Language::additional($app->settings());
     } ?> <code class="napoveda">{{<?= e($field['klic']) ?>}}</code></div>
 </div>
 <?php endforeach ?>
-<details class="pokrocile">
+<?php if ($k['detail']): ?>
+<details class="pokrocile"<?= $p['popis'] !== '' || $p['seo_titulek'] !== '' || $p['obrazek'] !== '' || $p['noindex'] ? ' open' : '' ?>>
+<summary><?= e(t('Search engines and sharing')) ?></summary>
+<div class="radek"><label for="seo_titulek"><?= e(t('Search engine title')) ?></label><div><input class="textpole siroke" id="seo_titulek" name="seo_titulek" value="<?= e($p['seo_titulek']) ?>" maxlength="200" placeholder="<?= e(t('empty = the item name')) ?>"></div></div>
+<div class="radek"><label for="popis"><?= e(t('Search engine description')) ?></label><div><input class="textpole siroke" id="popis" name="popis" value="<?= e($p['popis']) ?>" maxlength="300">
+	<span class="napoveda"><?= e(t('One or two sentences for search results (up to 160 characters). Empty = the beginning of the first longer text field.')) ?></span></div></div>
+<div class="radek"><label for="obrazek"><?= e(t('Sharing image')) ?></label><div><input class="textpole siroke" id="obrazek" name="obrazek" value="<?= e($p['obrazek']) ?>" maxlength="255" placeholder="<?= e(t('empty = the first image field')) ?>" data-obrazek>
+	<span class="napoveda"><?= e(t('Shown when the link is shared on Facebook, LinkedIn or Teams (ideally 1200 × 630 px).')) ?></span></div></div>
+<div class="radek"><span class="popisek"><?= e(t('Options')) ?></span><div class="volby"><label><input type="checkbox" name="noindex" value="1"<?= $p['noindex'] ? ' checked' : '' ?>> <?= e(t('Hide from search engines (noindex)')) ?></label>
+	<span class="napoveda"><?= e(t('The item page stays reachable, but it is left out of search engines, the sitemap, llms.txt and site search.')) ?></span></div></div>
+</details>
+<?php endif ?>
+<details class="pokrocile"<?= ($p['zverejnit_od'] ?? null) !== null ? ' open' : '' ?>>
 <summary><?= e(t('Address, order and visibility')) ?></summary>
 <?php if ($k['detail']): ?>
 <div class="radek"><label for="seo_link"><?= e(t('Adresa')) ?></label><div><input class="textpole" id="seo_link" name="seo_link" value="<?= e($p['seo_link']) ?>" maxlength="150"><span class="napoveda">/<?= e($k['seo_link']) ?>/…</span></div></div>
@@ -39,7 +52,8 @@ $languages = Language::additional($app->settings());
 <input type="hidden" name="seo_link" value="<?= e($p['seo_link']) ?>">
 <?php endif ?>
 <div class="radek"><label for="poradi"><?= e(t('Pořadí')) ?></label><div><input class="textpole" type="number" id="poradi" name="poradi" value="<?= (int) $p['poradi'] ?>" min="-9999" max="9999"><span class="napoveda"><?= e(t('Smaller number = earlier in the list.')) ?></span></div></div>
-<div class="radek"><span class="popisek"><?= e(t('Display')) ?></span><div class="volby"><label><input type="checkbox" name="zobrazit" value="1"<?= $p['zobrazit'] ? ' checked' : '' ?>> <?= e(t('published on the site')) ?></label></div></div>
+<div class="radek"><span class="popisek"><?= e(t('Display')) ?></span><div class="volby"><label><input type="checkbox" name="zobrazit" value="1"<?= $p['zobrazit'] ? ' checked' : '' ?>> <?= e(t('published on the site')) ?></label><br>
+	<span class="napoveda" data-aktivni-kdyz="zobrazit="><label for="zverejnit_od"><?= e(t('Publish the hidden item automatically at:')) ?></label> <input class="textpole" type="datetime-local" id="zverejnit_od" name="zverejnit_od" value="<?= e(($p['zverejnit_od'] ?? null) ? date('Y-m-d\TH:i', strtotime($p['zverejnit_od'])) : '') ?>"></span></div></div>
 <?php if ($languages !== []): ?>
 <div class="radek"><label for="jazyk"><?= e(t('Language')) ?></label><div><select id="jazyk" name="jazyk">
 	<option value=""><?= e(Language::AVAILABLE[Language::defaults($app->settings())][0]) ?></option>
@@ -51,3 +65,14 @@ $languages = Language::additional($app->settings());
 </details>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save item')) ?>"> <a class="navigace" href="<?= e($module->url('items', ['id' => $k['idk']])) ?>"><?= e(t('Back')) ?></a></p>
 </form>
+<?php if (($versions ?? []) !== []): ?>
+<details class="pokrocile">
+<summary><?= e(t('Item history (%s)', count($versions))) ?></summary>
+<ul class="revize">
+<?php foreach ($versions as $v): ?>
+	<li><?= e(format_date($v['datum'], true)) ?><?= $v['kdo'] ? ' · ' . e($v['kdo']) : '' ?>
+		<form class="vradku" method="post" action="<?= e($module->url('restore_item_version')) ?>" data-potvrdit="<?= e(t('Restore this version of the item? The current version stays in the history.')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><input type="hidden" name="idr" value="<?= (int) $v['idr'] ?>"><button class="navigace" type="submit"><?= e(t('Restore')) ?></button></form></li>
+<?php endforeach ?>
+</ul>
+</details>
+<?php endif ?>

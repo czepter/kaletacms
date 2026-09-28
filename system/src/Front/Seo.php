@@ -73,7 +73,7 @@ final class Seo
         foreach ($db->all('SELECT seo_link, zmeneno, jazyk FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND smazano IS NULL AND ids <> ? AND (preklad_z IS NULL OR preklad_z <> ?)' . $inLanguages, [$home, $home, ...$languages]) as $r) {
             $xml[] = $url($r['seo_link'], $r['zmeneno'], '0.8', $r['jazyk']);
         }
-        foreach ($db->all('SELECT k.seo_link AS kolekce, p.seo_link, p.jazyk, COALESCE(p.zmeneno, p.datum) AS zmena FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.jazyk IN (' . implode(',', array_fill(0, count($languages), '?')) . ') LIMIT 5000', $languages) as $r) {
+        foreach ($db->all('SELECT k.seo_link AS kolekce, p.seo_link, p.jazyk, COALESCE(p.zmeneno, p.datum) AS zmena FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.noindex = 0 AND p.smazano IS NULL AND p.jazyk IN (' . implode(',', array_fill(0, count($languages), '?')) . ') LIMIT 5000', $languages) as $r) {
             $xml[] = $url($r['kolekce'] . '/' . $r['seo_link'], $r['zmena'], '0.5', $r['jazyk']);
         }
         if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky')) {
@@ -154,15 +154,15 @@ final class Seo
         foreach ($db->all('SELECT idk, nazev, seo_link, pole FROM {kolekce} WHERE detail = 1 ORDER BY nazev') as $k) {
             $field = json_decode((string) $k['pole'], true) ?: [];
             $descriptiveFields = array_column(array_filter($field, fn (array $f): bool => in_array($f['typ'] ?? '', ['radky', 'html', 'text'], true)), 'klic');
-            $items = $db->all('SELECT nazev, seo_link, data FROM {kolekce_polozky} WHERE idk = ? AND zobrazit = 1 AND jazyk = ? ORDER BY poradi, nazev LIMIT 200', [$k['idk'], \Kaleta\Core\Language::siteColumn()]);
+            $items = $db->all('SELECT nazev, seo_link, data, popis FROM {kolekce_polozky} WHERE idk = ? AND zobrazit = 1 AND noindex = 0 AND jazyk = ? ORDER BY poradi, nazev LIMIT 200', [$k['idk'], \Kaleta\Core\Language::siteColumn()]);
             if ($items === []) {
                 continue;
             }
             array_push($rows, '', '## ' . $k['nazev']);
             foreach ($items as $p) {
                 $data = json_decode((string) $p['data'], true) ?: [];
-                $description = '';
-                foreach ($descriptiveFields as $key) {
+                $description = (string) $p['popis']; // the item's own description (1.9) first
+                foreach ($description === '' ? $descriptiveFields : [] as $key) {
                     if (is_string($data[$key] ?? null) && trim(strip_tags($data[$key])) !== '') {
                         $description = mb_strimwidth(trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($data[$key]), ENT_QUOTES | ENT_HTML5))), 0, 200, '…');
                         break;
@@ -372,6 +372,14 @@ final class Seo
                 $chart[] = ['@type' => 'FAQPage', 'mainEntity' => array_map(fn (array $d): array => [
                     '@type' => 'Question', 'name' => $d[0], 'acceptedAnswer' => ['@type' => 'Answer', 'text' => $d[1]],
                 ], $meta['faq'])];
+            }
+            if (!empty($meta['polozka'])) {
+                // a collection item page: its schema.org type from the collection (service, person, product, event, question)
+                $node = \Kaleta\Builder\CollectionSchema::forItem($meta['polozka']['kolekce'], $meta['polozka']['polozka'], $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')),
+                    (string) ($meta['popis'] ?? ''), (string) ($meta['obrazek'] ?? ''), (string) $issuer['@id']);
+                if ($node !== null) {
+                    $chart[] = $node;
+                }
             }
             if (count($meta['drobecky'] ?? []) > 1) {
                 $chart[] = ['@type' => 'BreadcrumbList', 'itemListElement' => array_map(fn (array $d, int $i): array => array_filter([

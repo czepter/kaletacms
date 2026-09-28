@@ -120,7 +120,7 @@ final class Media extends Module
             [t('user'), 'SELECT user AS kde, foto AS obsah FROM {uzivatele}'],
             [t('site part'), 'SELECT CONCAT(typ, IF(nazev = \'\', \'\', CONCAT(\' – \', nazev))) AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {casti}'],
             [t('collection'), 'SELECT nazev AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {kolekce}'],
-            [t('collection item'), 'SELECT nazev AS kde, data AS obsah FROM {kolekce_polozky}'],
+            [t('collection item'), "SELECT nazev AS kde, CONCAT(data, ' ', obrazek) AS obsah FROM {kolekce_polozky}"],
             [t('component'), 'SELECT nazev AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {komponenty}'],
             [t('class'), 'SELECT nazev AS kde, CONCAT_WS(\' \', styl, css) AS obsah FROM {tridy}'],
             [t('settings'), 'SELECT promenna AS kde, hodnota AS obsah FROM {nastaveni} WHERE hodnota LIKE \'%media%\''],

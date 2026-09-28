@@ -16,9 +16,10 @@ final class Check
     /**
      * @param array<string, mixed> $build sanitized build
      * @param bool $headings check the heading outline (a page should have one h1 and not skip levels)
+     * @param int $max at most this many findings (the site audit wants them all)
      * @return list<array{id: ?string, zprava: string}>
      */
-    public static function builds(array $build, bool $headings): array
+    public static function builds(array $build, bool $headings, int $max = self::MAX): array
     {
         $findings = [];
         $outline = [];
@@ -64,7 +65,7 @@ final class Check
             }
         }
 
-        return array_slice($findings, 0, self::MAX);
+        return array_slice($findings, 0, $max);
     }
 
     private static function text(mixed $html): string

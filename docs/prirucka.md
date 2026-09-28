@@ -10,7 +10,7 @@ Návod pro toho, kdo web spravuje: od instalace přes builder stránek až po na
    přinese vlastní styl a stránky Úvod, O nás, Služby a Kontakt z hotových sekcí s ukázkovými texty.
 3. Vyberte, **co chcete mít zapnuté**: Novinky, Formuláře a poptávky, Newsletter, Statistiku, Přesměrování, jazykové
    verze, AI asistenta… Rozšíření jde kdykoli zapnout a vypnout v administraci (**Rozšíření**); vypnutím se nic nesmaže.
-4. Instalace založí i skrytou kostru **Zásad ochrany osobních údajů** v jazyce webu s odkazem v patičce, v cookie liště a u souhlasu ve formuláři. Doplňte údaje v hranatých závorkách a stránku zveřejněte.
+4. Instalace založí i skrytou kostru **Zásad ochrany osobních údajů** v jazyce webu s odkazem v patičce, v cookie liště a u souhlasu ve formuláři. Doplňte údaje v hranatých závorkách a stránku zveřejněte. Nová stránka ze šablony **Zásady ochrany osobních údajů** (Stránky → Nová stránka) se řídí tím, co má web zapnuté – poptávky, newsletter, statistika, měření a marketingové kódy, mapy – a doplní údaje o firmě. Vždy je to šablona ke kontrole, ne právní rada.
 5. Po přihlášení vás na **Přehledu** provedou **První kroky**: vzhled webu, údaje o firmě, stránky, zásady a pošta.
 
 Administrace je na adrese `/admin.php`. Role: **správce** smí všechno, **editor** spravuje obsah, **autor novinek** píše
@@ -151,6 +151,16 @@ a `/de/compare/wordpress`; přepínač jazyků a `hreflang` je propojí. Každý
 Začíná jako kopie výchozí šablony a dokud ji nepublikujete, položky v tom jazyce používají výchozí. Drobečky vedou na
 překlad stránky s adresou kolekce (u `/compare` třeba `/de/vergleich`).
 
+**Stránky položek jsou plnohodnotné stránky (1.9).** Každá položka má jako stránka **Vyhledávače a sdílení**: vlastní
+titulek pro vyhledávače, popis, obrázek pro sdílení a *Skrýt před vyhledávači (noindex)* – taková položka zůstane
+dostupná, ale vynechá se z vyhledávačů, mapy webu, `llms.txt` i hledání na webu. Bez nich se použije název, začátek
+prvního delšího textu a první obrázek. Skrytá položka se umí **sama zveřejnit** v nastavený čas a každé uložení nechá
+předchozí verzi v **Historii položky** (posledních 20), jedním kliknutím ji vrátíte.
+
+**Strukturovaná data pro vyhledávače:** v nastavení kolekce řekněte, co položky jsou – služba, osoba, produkt, událost
+nebo otázka s odpovědí – a která pole plní vlastnosti (cena, pracovní pozice, začátek…). Stránky položek pak ponesou
+data schema.org vedle údajů o firmě. Nabídka potřebuje pole s cenou a měnu.
+
 ## 7. Formuláře a poptávky
 
 Prvek **Formulář** (nebo hotová sekce *Poptávkový formulář*) vloží poptávkový formulář. V panelu Obsah nastavíte pole
@@ -283,7 +293,20 @@ Přenést jde i **jedna stránka**: **Stránky → Exportovat** stáhne JSON se 
 a jejími komponentami (i komponentami v komponentách). **Stránky → Importovat** na jiném webu založí stránku skrytou,
 doplní chybějící třídy (třída, kterou web už má, si nechá svůj vzhled) a komponenty a dřív naimportovanou komponentu použije znovu.
 
-## 12. Zálohy, aktualizace, export
+## 12. Audit webu a Stav systému
+
+**Správa → Audit webu** projde celý web a vypíše, co opravit, u každé věci s odkazem, kde ji opravíte: odkazy na stránky,
+které neexistují (ve stránkách, částech webu, šablonách, komponentách, pop-up oknech, menu, položkách a novinkách), a
+nefunkční externí odkazy nalezené na pozadí, stránky a stránky položek bez popisu, stejné titulky, položky menu vedoucí
+na skryté nebo smazané stránky, kontroly builderu (tlačítka bez odkazu, obrázky bez popisu, osnova nadpisů) a adresy,
+které často končí „stránka nenalezena“ a nemají přesměrování. Stejný audit spustí Claude nástrojem `site_audit` a nalezené
+opraví.
+
+**Nastavení → Stav systému → Před Kaletou 2.0** vypíše, co verze 2.0 odstraní a tento web ještě používá: veřejné API,
+nastavení uložená pod starými názvy, starý prvek Vyskakovací okno ve stránce a staré názvy tříd nebo pomocných funkcí ve
+vlastním PHP kódu. Kaleta 1.9 vám na změnu dává celé jedno vydání.
+
+## 13. Zálohy, aktualizace, export
 
 **Nastavení → Zálohy a aktualizace:** podepsané aktualizace a automatické zálohy databáze – každý den, kdy se na webu něco
 změnilo, jinak jednou týdně; uchovává se posledních 10. **Kopie mimo server** nahrají každou zálohu na server FTPS nebo do

@@ -552,6 +552,8 @@ final class SiteImport
 
         return (int) ($r['idk'] ?? 0) > 0 && $name !== '' ? ['idk' => (int) $r['idk'], 'nazev' => $name, 'seo_link' => self::slug($r['seo_link'] ?? '', $name, 110),
             'pole' => (string) json_encode(Collections::sanitizeFields($fields), JSON_UNESCAPED_UNICODE), 'detail' => (int) !empty($r['detail']),
+            'schema_org' => ($schema = \Kaleta\Builder\CollectionSchema::sanitize(is_array($r['schema_org'] ?? null) ? $r['schema_org'] : json_decode((string) ($r['schema_org'] ?? ''), true), Collections::sanitizeFields($fields))) === null
+                ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE),
             'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] : null;
     }
 
@@ -574,7 +576,9 @@ final class SiteImport
         return ['idp' => (int) $r['idp'], 'idk' => $idk, 'nazev' => $name, 'seo_link' => self::slug($r['seo_link'] ?? '', $name, 160),
             'data' => (string) json_encode(Collections::sanitizeData($fields, is_array($data) ? $data : []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'poradi' => (int) ($r['poradi'] ?? 0), 'zobrazit' => (int) !empty($r['zobrazit']), 'jazyk' => self::language($r['jazyk'] ?? ''),
-            'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s'), 'zmeneno' => date('Y-m-d H:i:s')];
+            'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s'), 'zmeneno' => date('Y-m-d H:i:s'),
+            'seo_titulek' => self::text($r['seo_titulek'] ?? '', 200), 'popis' => self::text($r['popis'] ?? '', 300), 'obrazek' => self::file($r['obrazek'] ?? ''),
+            'noindex' => (int) !empty($r['noindex']), 'zverejnit_od' => self::date($r['zverejnit_od'] ?? null)];
     }
 
     private function popup(array $r): ?array

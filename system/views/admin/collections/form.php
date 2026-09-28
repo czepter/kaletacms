@@ -7,11 +7,21 @@
  * @var string $csrf
  * @var array<string, mixed> $k
  */
+use Kaleta\Builder\CollectionSchema;
 use Kaleta\Builder\Collections;
 
 $field = array_merge($k['pole'], array_fill(0, 3, ['klic' => '', 'popisek' => '', 'typ' => 'text']));
+$schema = CollectionSchema::of($k) ?? ['typ' => '', 'pole' => [], 'mena' => ''];
+// every property once, with the types that have it (the form shows only the rows of the chosen type)
+$properties = [];
+foreach (CollectionSchema::TYPES as $type => [, $props]) {
+    foreach ($props as $property => $label) {
+        $properties[$property] ??= [$label, []];
+        $properties[$property][1][] = $type;
+    }
+}
 ?>
-<form class="formular" method="post" action="<?= e($module->url('save')) ?>">
+<form class="formular" method="post" action="<?= e($module->url('save')) ?>" data-prepinac="schema[typ]">
 <?= $csrf ?>
 <input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>">
 <div class="radek"><label for="nazev"><?= e(t('Collection name')) ?></label><div><input class="textpole siroke" id="nazev" name="nazev" value="<?= e($k['nazev']) ?>" maxlength="100" required placeholder="<?= e(t('e.g. Testimonials, Team, Products')) ?>"></div></div>
@@ -40,6 +50,28 @@ $field = array_merge($k['pole'], array_fill(0, 3, ['klic' => '', 'popisek' => ''
 </table>
 </div>
 </fieldset>
+<?php if ($k['pole'] !== []): ?>
+<details class="pokrocile"<?= $schema['typ'] !== '' ? ' open' : '' ?>>
+<summary><?= e(t('Structured data for search engines')) ?></summary>
+<p class="napoveda"><?= e(t('Tell search engines what the items are. Item pages then carry the schema.org data; the name, address, description and image come from the item itself. Save new fields first – then you can pick them here.')) ?></p>
+<div class="radek"><label for="schema-typ"><?= e(t('Items are')) ?></label><div><select id="schema-typ" name="schema[typ]">
+	<option value=""><?= e(t('nothing specific (no structured data)')) ?></option>
+<?php foreach (CollectionSchema::TYPES as $type => [$label]): ?>
+	<option value="<?= e($type) ?>"<?= $schema['typ'] === $type ? ' selected' : '' ?>><?= e(t($label)) ?> (<?= e($type) ?>)</option>
+<?php endforeach ?>
+</select></div></div>
+<?php foreach ($properties as $property => [$label, $types]): ?>
+<div class="radek" data-pro="<?= e(implode(' ', $types)) ?>"><label for="schema-<?= e($property) ?>"><?= e(t($label)) ?></label><div><select id="schema-<?= e($property) ?>" name="schema[pole][<?= e($property) ?>]">
+	<option value=""><?= e(t('– none –')) ?></option>
+<?php foreach ($k['pole'] as $f): ?>
+	<option value="<?= e($f['klic']) ?>"<?= ($schema['pole'][$property] ?? '') === $f['klic'] ? ' selected' : '' ?>><?= e($f['popisek']) ?></option>
+<?php endforeach ?>
+</select></div></div>
+<?php endforeach ?>
+<div class="radek" data-pro="Service Product Event"><label for="schema-mena"><?= e(t('Currency of the price')) ?></label><div><input class="textpole" id="schema-mena" name="schema[mena]" value="<?= e($schema['mena']) ?>" maxlength="3" size="5" placeholder="EUR">
+	<span class="napoveda"><?= e(t('A three-letter code (EUR, CZK, USD). Without it the price is not passed on.')) ?></span></div></div>
+</details>
+<?php endif ?>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save collection')) ?>"> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back')) ?></a></p>
 </form>
 <?php if ($k['idk'] > 0): ?>

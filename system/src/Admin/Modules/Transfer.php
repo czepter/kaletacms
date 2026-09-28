@@ -360,17 +360,7 @@ final class Transfer extends Module
         if ($path === null) {
             return $this->error('The export does not exist.', 404);
         }
-        session_write_close();
-        while (ob_get_level() > 0) {
-            ob_end_clean();
-        }
-        header('Content-Type: application/octet-stream');
-        header('Content-Disposition: attachment; filename="' . basename($path) . '"');
-        header('Content-Length: ' . filesize($path));
-        header('Cache-Control: no-store, private');
-        header('X-Content-Type-Options: nosniff');
-        readfile($path);
-        exit;
+        $this->sendFile($path, basename($path));
     }
 
     protected function actionDeleteExport(): Response

@@ -132,11 +132,11 @@ final class Tools
             ['vytvor_kolekci', 'Založí kolekci (správce). Pole: seznam {popisek, typ}; typ = ' . implode(' | ', array_keys(Collections::FIELD_TYPES)) . '. Klíč pole vznikne z popisku.',
                 $s(['nazev' => $text('Název, např. Reference'), 'adresa' => $text('Adresa kolekce v URL (nepovinné, jinak z názvu), např. guide'),
                     'pole' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"popisek":"Citát","typ":"radky"},{"popisek":"Logo","typ":"obrazek"}]'],
-                    'detail' => ['type' => 'boolean', 'description' => 'true = každá položka má vlastní stránku /<kolekce>/<položka>']], ['nazev'])],
+                    'detail' => ['type' => 'boolean', 'description' => 'true = každá položka má vlastní stránku /<kolekce>/<položka>'], 'schema_org' => ['type' => 'object', 'description' => 'Structured data of item pages (1.9): {"type":"Service|Person|Product|Event|FAQPage","fields":{"price":"price_field_key",…},"currency":"EUR"}; properties per type in builder_schema collection_schema; {} or {"type":""} = none']], ['nazev'])],
             ['uprav_kolekci', 'Změní název, adresu, stránky položek nebo pole kolekce (správce). Pole = celý nový seznam; u stávajících pošli i "klic" (hodnoty položek zůstanou), pole bez klíče je nové, vynechané pole zmizí z formuláře.',
                 $s(['kolekce' => $text('současná adresa (seo_link) kolekce'), 'nazev' => $text('nový název (nepovinné)'), 'adresa' => $text('nová adresa v URL (nepovinné)'),
                     'detail' => ['type' => 'boolean', 'description' => 'stránky položek zapnuté / vypnuté (nepovinné)'],
-                    'pole' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"klic":"citat","popisek":"Citát","typ":"radky"},{"popisek":"Nové pole","typ":"text"}] (nepovinné)']], ['kolekce'])],
+                    'pole' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"klic":"citat","popisek":"Citát","typ":"radky"},{"popisek":"Nové pole","typ":"text"}] (nepovinné)'], 'schema_org' => ['type' => 'object', 'description' => 'Structured data of item pages (1.9): {"type":"Service|Person|Product|Event|FAQPage","fields":{"price":"price_field_key",…},"currency":"EUR"}; properties per type in builder_schema collection_schema; {} or {"type":""} = none']], ['kolekce'])],
             ['seznam_polozek_kolekce', 'Položky kolekce včetně hodnot polí, po 50 na stránku (celkem vrací počet). Filtr: hledaný text v názvu a hodnotách, pole=hodnota, jazyk, jen zobrazené.', $s([
                 'kolekce' => $text('adresa (seo_link) kolekce'), 'hledat' => $text('text v názvu nebo hodnotách polí (nepovinné)'),
                 'pole' => $text('klíč pole pro přesnou shodu (nepovinné)'), 'hodnota' => $text('hodnota pole pro přesnou shodu'),
@@ -147,7 +147,11 @@ final class Tools
                 $s(['kolekce' => $text('adresa (seo_link) kolekce'), 'id' => $number('ID položky – jen při úpravě'), 'nazev' => $text('Název položky (u nové povinný, při úpravě jen když se mění)'),
                     'adresa' => $text('Adresa položky v URL (nepovinné, jinak z názvu), např. install'), 'jazyk' => $text('jazyková verze položky u vícejazyčného webu (prázdné = výchozí); překlad má stejnou adresu jako originál – přepínač jazyků a hreflang je propojí'),
                     'data' => ['type' => 'object', 'description' => 'Hodnoty polí podle klíčů ze seznam_kolekci, např. {"citat":"…","logo":"media/…"}'],
-                    'poradi' => $number('Pořadí, menší = dřív'), 'zobrazit' => ['type' => 'boolean', 'description' => 'true = položka je na webu (jen na pokyn uživatele)']], ['kolekce'])],
+                    'poradi' => $number('Pořadí, menší = dřív'), 'zobrazit' => ['type' => 'boolean', 'description' => 'true = položka je na webu (jen na pokyn uživatele)'],
+                    'seo_titulek' => $text('Title for search engines (optional, otherwise the name)'), 'popis' => $text('Description for search engines, up to 160 characters (optional, otherwise from the first longer text field)'),
+                    'obrazek' => $text('Image for sharing on social networks (path from Media; optional, otherwise the first image field)'),
+                    'noindex' => ['type' => 'boolean', 'description' => 'true = keep the item page out of search engines, the sitemap, llms.txt and site search'],
+                    'zverejnit_od' => $text('Scheduled publishing of a hidden item YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)')], ['kolekce'])],
             ['seznam_novinek', 'Seznam novinek (nejnovější první).', $s(['stav' => $text('vse | vydane | plan | koncepty'), 'kategorie' => $text('název nebo adresa kategorie'), 'hledat' => $text('text v titulku'), 'limit' => $number('1-50, výchozí 20')])],
             ['nacti_novinku', 'Celá novinka včetně textu a štítků.', $s(['id' => $number('ID novinky (idc)')], ['id'])],
             ['vytvor_novinku', 'Založí novinku. Bez "vydat": true vznikne koncept.', $s($newsItem, ['titulek', 'kategorie'])],
@@ -200,6 +204,12 @@ final class Tools
                     'language' => $text('language version of the part (empty = default)'), 'variant' => $text('header or footer variant (empty = the default version)')], ['part', 'template'])],
             ['publish_look', 'Publishes the draft look – design system, shared classes and menus changed by update_design_system, save_classes and save_menu (administrators; only when the user explicitly asks, after they saw the preview). The published look is kept as a version first.', $s([])],
             ['discard_look', 'Throws the draft look away – the published look stays (administrators; only when the user explicitly asks).', $s([])],
+            ['site_audit', 'Site audit (read-only): links to pages that do not exist, broken external links in news, pages and item pages without a description, duplicate titles, menu items pointing at hidden pages, builder checks (buttons without a link, images without alt, heading outline) and frequent 404s without a redirect. Each finding says where it is (target: page / collection+item / part / component / popup / news / menu / redirect_from) and, for builds, the element id – fix it with the usual tools, then run the audit again.',
+                $s(['kind' => $text('only one kind: link | menu | description | title | build | not_found (optional)')])],
+            ['list_item_versions', 'Earlier versions of a collection item (the last 20 saves: name, address, field values and SEO fields). restore_item_version brings one back.',
+                $s(['collection' => $text('collection slug'), 'id' => $number('item ID')], ['collection', 'id'])],
+            ['restore_item_version', 'Brings an earlier version of a collection item back (the current one goes to the history first). Only when the user asks.',
+                $s(['collection' => $text('collection slug'), 'id' => $number('item ID'), 'version' => $number('version ID from list_item_versions')], ['collection', 'id', 'version'])],
             ['list_look_versions', 'Earlier published looks (the last 20), with what the next publishing changed. restore_look_version brings one back into the draft.', $s([])],
             ['restore_look_version', 'Loads an earlier published look into the draft look (administrators) – check it with preview_link site: true, then publish_look.', $s(['id' => $number('version ID from list_look_versions')], ['id'])],
             ['list_newsletters', 'Newsletters (Newsletter extension; users with the Newsletters section): drafts, scheduled, being sent and sent, with counts of recipients, sent and failed e-mails, the number of confirmed subscribers and sending_problem – why the site cannot send now (no SMTP server, cron not running).', $s([])],
@@ -242,7 +252,8 @@ final class Tools
     private const array CONTENT_TOOLS = ['list_trash' => '', 'restore_from_trash' => '', 'trash_news' => 'novinky', 'delete_collection_item' => '', 'delete_collection' => '',
         'update_category' => 'novinky', 'delete_category' => 'novinky', 'delete_popup' => '', 'list_components' => '', 'save_component' => '', 'delete_component' => '',
         'save_section' => '', 'delete_section' => '', 'update_media' => '', 'delete_media' => '', 'update_enquiry' => 'poptavky', 'delete_enquiry' => 'poptavky',
-        'publish_look' => '', 'discard_look' => '', 'list_look_versions' => '', 'restore_look_version' => '', 'apply_part_template' => ''];
+        'publish_look' => '', 'discard_look' => '', 'list_look_versions' => '', 'restore_look_version' => '', 'apply_part_template' => '',
+        'list_item_versions' => '', 'restore_item_version' => '', 'site_audit' => ''];
 
     /** Site parts by their English names (MCP) => Czech types. */
     private const array PART_NAMES = ['header' => 'hlavicka', 'footer' => 'paticka', 'news_item' => 'novinka', 'news_list' => 'vypis', 'not_found' => 'nenalezeno'];
@@ -270,7 +281,7 @@ final class Tools
     {
         return in_array($name, ['obnov_verzi', 'zahod_koncept', 'uloz_variantu', 'vytvor_kolekci', 'uprav_kolekci', 'uloz_polozku_kolekce', 'uloz_popup', 'stavba_z_html', 'stavba_uloz', 'stavba_uprav', 'uloz_tridy', 'nahraj_soubor', 'uprav_nastaveni', 'uloz_presmerovani', 'smaz_stranku', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'uloz_menu', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter',
             'restore_from_trash', 'trash_news', 'delete_collection_item', 'delete_collection', 'update_category', 'delete_category', 'delete_popup', 'save_component', 'delete_component',
-            'save_section', 'delete_section', 'update_media', 'delete_media', 'update_enquiry', 'delete_enquiry', 'publish_look', 'discard_look', 'restore_look_version', 'apply_part_template'], true);
+            'save_section', 'delete_section', 'update_media', 'delete_media', 'update_enquiry', 'delete_enquiry', 'publish_look', 'discard_look', 'restore_look_version', 'apply_part_template', 'restore_item_version'], true);
     }
 
     /** @param array<string, mixed> $a */
@@ -600,7 +611,8 @@ final class Tools
 
             case 'seznam_kolekci':
                 return array_map(fn (array $k): array => ['kolekce' => $k['seo_link'], 'nazev' => $k['nazev'], 'detail' => (bool) $k['detail'], 'pole' => $k['pole'],
-                    'polozek' => (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ?', [$k['idk']])], Collections::all($db));
+                    'polozek' => (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NULL', [$k['idk']])]
+                    + (($sd = \Kaleta\Builder\CollectionSchema::of($k)) !== null ? ['structured_data' => ['type' => $sd['typ'], 'fields' => $sd['pole'], 'currency' => $sd['mena']]] : []), Collections::all($db));
 
             case 'vytvor_kolekci':
                 $adminOnly();
@@ -610,7 +622,8 @@ final class Tools
                 }
                 $seo = $this->availableCollectionSlug((string) ($a['adresa'] ?? '') !== '' ? (string) $a['adresa'] : $collectionName, 0);
                 $field = Collections::sanitizeFields($a['pole'] ?? []);
-                $db->insert('kolekce', ['nazev' => $collectionName, 'seo_link' => $seo, 'detail' => empty($a['detail']) ? 0 : 1, 'pole' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')]);
+                $db->insert('kolekce', ['nazev' => $collectionName, 'seo_link' => $seo, 'detail' => empty($a['detail']) ? 0 : 1, 'pole' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s'),
+                    'schema_org' => self::collectionSchema($a['schema_org'] ?? null, $field)]);
 
                 return ['kolekce' => $seo, 'pole' => $field];
 
@@ -630,6 +643,9 @@ final class Tools
                 if (is_array($a['pole'] ?? null)) {
                     $changes['pole'] = (string) json_encode(Collections::sanitizeFields($a['pole']), JSON_UNESCAPED_UNICODE);
                 }
+                if (array_key_exists('schema_org', $a)) {
+                    $changes['schema_org'] = self::collectionSchema($a['schema_org'], json_decode($changes['pole'] ?? '', true) ?: $collection['pole']);
+                }
                 $db->update('kolekce', $changes, ['idk' => $collection['idk']]);
                 \Kaleta\Front\Cache::clear();
                 $newVersion = (array) $db->one('SELECT * FROM {kolekce} WHERE idk = ?', [$collection['idk']]);
@@ -639,7 +655,7 @@ final class Tools
             case 'seznam_polozek_kolekce':
                 $collection = $this->collection((string) ($a['kolekce'] ?? ''));
 
-                $whereParts = ['idk = ?'];
+                $whereParts = ['idk = ?', 'smazano IS NULL']; // the trash is in list_trash
                 $args = [$collection['idk']];
                 if (isset($a['jazyk']) && is_string($a['jazyk'])) {
                     $whereParts[] = 'jazyk = ?';
@@ -661,7 +677,8 @@ final class Tools
                 $pageNumber = max(1, (int) ($a['strana'] ?? 1));
 
                 return ['celkem' => count($rows), 'strana' => $pageNumber, 'stran' => max(1, (int) ceil(count($rows) / 50)), 'polozky' => array_map(fn (array $r): array => ['id' => (int) $r['idp'], 'nazev' => $r['nazev'], 'seo_link' => $r['seo_link'], 'poradi' => (int) $r['poradi'], 'zobrazit' => (bool) $r['zobrazit'],
-                    'jazyk' => $r['jazyk'], 'data' => json_decode((string) $r['data'], true) ?: new \stdClass()], array_slice($rows, ($pageNumber - 1) * 50, 50))];
+                    'jazyk' => $r['jazyk'], 'data' => json_decode((string) $r['data'], true) ?: new \stdClass()]
+                    + array_filter(['seo_titulek' => $r['seo_titulek'], 'popis' => $r['popis'], 'obrazek' => $r['obrazek'], 'noindex' => (bool) $r['noindex'], 'zverejnit_od' => $r['zverejnit_od']]), array_slice($rows, ($pageNumber - 1) * 50, 50))];
 
             case 'uloz_polozku_kolekce':
                 if (!$auth->hasModule('collections')) {
@@ -671,6 +688,10 @@ final class Tools
                 $previous = isset($a['id']) ? $db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ?', [(int) $a['id'], $collection['idk']]) : null;
                 if (isset($a['id']) && $previous === null) {
                     throw new \InvalidArgumentException('Položka v kolekci není. Použij seznam_polozek_kolekce.');
+                }
+                if ($previous !== null && $previous['smazano'] !== null) {
+                    // saving would put it back on the site while it still waits in the trash to be deleted
+                    throw new \InvalidArgumentException('The item is in the trash. Bring it back with restore_from_trash first.');
                 }
                 // on update the name is optional – the current one stays
                 $itemName = mb_substr(trim((string) ($a['nazev'] ?? $previous['nazev'] ?? '')), 0, 200);
@@ -695,7 +716,18 @@ final class Tools
                     + (array_key_exists('jazyk', $a) ? ['jazyk' => $itemLanguage] : [])
                     + (array_key_exists('poradi', $a) ? ['poradi' => max(-9999, min(9999, (int) $a['poradi']))] : [])
                     + (array_key_exists('zobrazit', $a) ? ['zobrazit' => (int) (bool) $a['zobrazit']] : []);
+                // SEO and scheduled publishing (1.9): only what was sent changes, the rest stays
+                $pageKeys = ['seo_titulek', 'popis', 'obrazek', 'noindex', 'zverejnit_od'];
+                if (array_intersect($pageKeys, array_keys($a)) !== []) {
+                    $fields = Collections::pageFields(array_intersect_key($a, array_flip($pageKeys)) + ($previous ?? []), (bool) ($row['zobrazit'] ?? $previous['zobrazit'] ?? 0));
+                    $row = array_intersect_key($fields, array_flip(array_intersect(['seo_titulek', 'popis', 'obrazek', 'noindex'], array_keys($a)))) + $row;
+                    if (array_key_exists('zverejnit_od', $a)) {
+                        $row['zverejnit_od'] = $fields['zverejnit_od'];
+                        $row['zobrazit'] = $fields['zobrazit'];
+                    }
+                }
                 if ($previous !== null) {
+                    Collections::saveVersion($this->app, $previous, $row);
                     $db->update('kolekce_polozky', $row, ['idp' => $previous['idp']]);
                     $idp = (int) $previous['idp'];
                 } else {
@@ -1153,6 +1185,18 @@ final class Tools
         }
     }
 
+    /** Structured data of a collection from Claude (English or Czech keys) as stored in ka_kolekce.schema_org; null = none. */
+    private static function collectionSchema(mixed $input, array $fields): ?string
+    {
+        $input = is_array($input) ? ['typ' => $input['type'] ?? $input['typ'] ?? '', 'pole' => $input['fields'] ?? $input['pole'] ?? [], 'mena' => $input['currency'] ?? $input['mena'] ?? ''] : null;
+        $clean = \Kaleta\Builder\CollectionSchema::sanitize($input, $fields);
+        if ($input !== null && $input['typ'] !== '' && $clean === null) {
+            throw new \InvalidArgumentException('Unknown structured data type. Use one of: ' . implode(', ', array_keys(\Kaleta\Builder\CollectionSchema::TYPES)) . '.');
+        }
+
+        return $clean === null ? null : (string) json_encode($clean, JSON_UNESCAPED_UNICODE);
+    }
+
     /**
      * Tools of 1.6: the trash, deleting and the rest of what the admin can do. Every delete checks the same permission as
      * the admin; the descriptions tell Claude to delete only when the user explicitly asks.
@@ -1390,6 +1434,35 @@ final class Tools
 
                 return ['published' => $summary];
 
+            case 'site_audit':
+                $need($auth->isAdmin() || $auth->hasModule('pages'), 'The site audit is for administrators and editors of pages.');
+                $findings = (new \Kaleta\Core\Audit($this->app))->run();
+                if (is_string($a['kind'] ?? null) && $a['kind'] !== '') {
+                    $findings = array_values(array_filter($findings, fn (array $f): bool => $f['kind'] === $a['kind']));
+                }
+                $counts = array_count_values(array_column($findings, 'kind'));
+
+                return ['total' => count($findings), 'by_kind' => $counts ?: new \stdClass(), 'findings' => $findings];
+
+            case 'list_item_versions':
+            case 'restore_item_version':
+                $need($auth->hasModule('collections'), 'Collection items can be changed only by an editor or an administrator.');
+                $k = $collection();
+                $item = $db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$id, $k['idk']]) ?? throw new \InvalidArgumentException('The item is not in the collection. Use list_collection_items.');
+                if ($name === 'list_item_versions') {
+                    return ['versions' => array_map(fn (array $v): array => ['id' => (int) $v['idr'], 'saved' => substr((string) $v['datum'], 0, 16), 'by' => (string) ($v['kdo'] ?? '')],
+                        \Kaleta\Builder\Publisher::listAll($db, ['cast' => 'polozka:' . $id]))];
+                }
+                $version = \Kaleta\Builder\Collections::loadVersion($db, $id, (int) ($a['version'] ?? 0)) ?? throw new \InvalidArgumentException('The version does not exist. Use list_item_versions.');
+                if ($db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$k['idk'], $item['jazyk'], $version['seo_link'] ?? '', $id]) !== null) {
+                    unset($version['seo_link']); // the address is taken by another item meanwhile
+                }
+                \Kaleta\Builder\Collections::saveVersion($this->app, $item, $version);
+                $db->update('kolekce_polozky', $version + ['zmeneno' => date('Y-m-d H:i:s')], ['idp' => $id]);
+                \Kaleta\Front\Cache::clear();
+
+                return ['restored' => $id, 'name' => $version['nazev'] ?? $item['nazev']];
+
             case 'list_look_versions':
                 return ['versions' => \Kaleta\Core\Look::versions($db), 'draft' => \Kaleta\Core\Look::summary($db, $this->app->settings())];
 
@@ -1466,6 +1539,8 @@ final class Tools
             'part_templates' => array_map(fn (string $type): array => array_column(array_map(fn (array $t): array => ['key' => $t['klic'], 'text' => $admin($t['nazev']) . ' – ' . $admin($t['popis'])],
                 \Kaleta\Builder\PartTemplates::forType($type, \Kaleta\Core\Extensions::enabled($siteSettings))), 'text', 'key'), self::PART_NAMES)
                 + ['note' => 'apply_part_template puts one into the draft of the part; the look comes from the design system.'],
+            'collection_schema' => array_map(fn (array $t): array => array_keys($t[1]), \Kaleta\Builder\CollectionSchema::TYPES)
+                + ['note' => 'structured_data of create_collection / update_collection: the type and which field fills each property; name, url, description and image come from the item. An offer needs a price field and currency. FAQPage: the item name is the question, the answer field the answer.'],
             'site_classes' => array_column($db->all('SELECT nazev FROM {tridy} ORDER BY nazev'), 'nazev'),
             'design_system' => DesignSystem::load($siteSettings) + ['presets' => array_map(fn (array $p): string => $admin($p[0]) . ' – ' . $admin($p[1]), DesignSystem::PRESETS),
                 'heading_fonts' => array_keys(SiteIdentity::TITLE_FONTS), 'text_fonts' => array_keys(SiteIdentity::TEXT_FONTS),
@@ -1793,7 +1868,7 @@ final class Tools
         }
         if ($target['druh'] === 'kolekce') {
             $language = $r['sablona_jazyk'];
-            $item = $this->app->db()->value('SELECT seo_link FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? ORDER BY zobrazit DESC, poradi, idp LIMIT 1', [$r['idk'], $language]);
+            $item = $this->app->db()->value('SELECT seo_link FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND smazano IS NULL ORDER BY zobrazit DESC, poradi, idp LIMIT 1', [$r['idk'], $language]);
 
             return $this->app->request->origin() . $this->app->url(($language !== '' ? $language . '/' : '') . $r['seo_link'] . '/' . ($item ?? '_ukazka'));
         }

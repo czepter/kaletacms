@@ -100,8 +100,9 @@ final class Health
         if ($leftover !== []) {
             $add(t('Operation'), t('Custom layout'), 'varovani', t('%s in the layout/ folder is no longer used – since 1.6 the look comes only from Site appearance and the builder. Move what you need into shared classes and site parts, then delete the folder.', implode(', ', $leftover)));
         }
-        if (Extensions::isEnabled($siteSettings, 'api')) {
-            $add(t('Operation'), t('Public API'), 'varovani', t('deprecated since 1.8 and removed in Kaleta 2.0 – for news use the feed /feed.json or /rss.xml, for building and editing the site the Claude connection (MCP)'));
+        // what Kaleta 2.0 removes, found on this site (1.9) – a whole release to react
+        foreach (self::deprecations($app) as [$name, $info]) {
+            $add(t('Before Kaleta 2.0'), $name, 'varovani', $info);
         }
         $given = (int) $db->value('SELECT COUNT(*) FROM {webhook_deliveries} WHERE delivered IS NULL AND next_attempt IS NULL AND created > NOW() - INTERVAL 7 DAY');
         if ($given > 0 || $siteSettings->get('webhook_url') !== '' || $siteSettings->get('webhook_enquiries') !== '') {
@@ -153,5 +154,75 @@ final class Health
         return match (strtoupper(substr(trim($ini), -1))) {
             'G' => $number * 1024 ** 3, 'M' => $number * 1024 ** 2, 'K' => $number * 1024, default => $number,
         };
+    }
+
+    /**
+     * Compatibility layers removed in Kaleta 2.0 that this site still uses: the public API, settings rows under old
+     * keys, the old per-page pop-up element in builds, and old class names or helpers in custom PHP code.
+     *
+     * @return list<array{0: string, 1: string}> name and what to do
+     */
+    public static function deprecations(App $app): array
+    {
+        $db = $app->db();
+        $out = [];
+        if (Extensions::isEnabled($app->settings(), 'api')) {
+            $out[] = [t('Public API'), t('deprecated since 1.8 and removed in Kaleta 2.0 – for news use the feed /feed.json or /rss.xml, for building and editing the site the Claude connection (MCP)')];
+        }
+        $old = array_keys(Settings::LEGACY_KEYS);
+        $rows = $old === [] ? [] : array_column($db->all('SELECT promenna FROM {nastaveni} WHERE promenna IN (' . implode(',', array_fill(0, count($old), '?')) . ') LIMIT 10', $old), 'promenna');
+        if ($rows !== []) {
+            $out[] = [t('Settings under old names'), t('%s – they are moved to the new names automatically on the next update of the database; if they stay, save Settings once.', implode(', ', $rows))];
+        }
+        $modals = [];
+        $sources = ['stranky' => ['titulek', 'stavba', 'stavba_koncept', 'smazano IS NULL'], 'casti' => ['typ', 'stavba', 'stavba_koncept', '1 = 1'], 'komponenty' => ['nazev', 'stavba', 'stavba_koncept', '1 = 1'],
+            'kolekce' => ['nazev', 'stavba', 'stavba_koncept', '1 = 1'], 'kolekce_sablony' => ['jazyk', 'stavba', 'stavba_koncept', '1 = 1'], 'popupy' => ['nazev', 'stavba', 'stavba_koncept', '1 = 1']];
+        foreach ($sources as $table => [$name, $published, $draft, $where]) {
+            foreach ($db->all("SELECT {$name} AS nazev FROM {{$table}} WHERE {$where} AND ({$published} LIKE ? OR {$draft} LIKE ?) LIMIT 10", ['%"typ":"okno"%', '%"typ":"okno"%']) as $r) {
+                $modals[] = (string) $r['nazev'];
+            }
+        }
+        if ($modals !== []) {
+            $out[] = [t('Pop-up element on a page'), t('%s use the old Modal element – Kaleta 2.0 removes it. Make a site pop-up instead (Appearance → Pop-ups) with the trigger “click on a link”.', implode(', ', array_slice(array_unique($modals), 0, 10)))];
+        }
+        $custom = self::customCodeUsages();
+        if ($custom !== []) {
+            $out[] = [t('Old names in custom code'), t('%s use old class names or helpers that Kaleta 2.0 removes – rename them (the list is in system/class-aliases.php and system/src/helpers.php).', implode(', ', $custom))];
+        }
+
+        return $out;
+    }
+
+    /** @return list<string> custom PHP files (outside the core folders) that use old class names or helpers – at most 10 */
+    private static function customCodeUsages(): array
+    {
+        $aliases = array_keys((array) require KALETA_SYSTEM . '/class-aliases.php');
+        $skip = ['system', 'tools', 'docs', 'dist', 'storage', 'media', 'image', 'vendor', 'node_modules', '.git'];
+        $found = [];
+        $checked = 0;
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveCallbackFilterIterator(
+            new \RecursiveDirectoryIterator(KALETA_ROOT, \FilesystemIterator::SKIP_DOTS),
+            fn (\SplFileInfo $f): bool => !($f->isDir() && in_array($f->getFilename(), $skip, true) && dirname($f->getPathname()) === KALETA_ROOT) && !str_starts_with($f->getFilename(), '.'),
+        ));
+        foreach ($iterator as $file) {
+            $relative = ltrim(substr($file->getPathname(), strlen(KALETA_ROOT)), '/');
+            if (!$file->isFile() || $file->getExtension() !== 'php' || in_array($relative, ['index.php', 'admin.php', 'install.php', 'config.php', 'config.sample.php'], true)
+                || $file->getSize() > 1_000_000 || ++$checked > 300) {
+                continue;
+            }
+            $code = (string) file_get_contents($file->getPathname());
+            $uses = preg_match('/(?<![\w>$:])(bez_diakritiky|cislo|pocet|datum|datum_slovy)\s*\(/', $code) === 1;
+            foreach ($uses ? [] : $aliases as $alias) {
+                if (str_contains($code, $alias) || str_contains($code, str_replace('\\', '\\\\', $alias))) {
+                    $uses = true;
+                    break;
+                }
+            }
+            if ($uses && count($found) < 10) {
+                $found[] = $relative;
+            }
+        }
+
+        return $found;
     }
 }

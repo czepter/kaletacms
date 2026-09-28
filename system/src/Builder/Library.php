@@ -432,19 +432,78 @@ final class Library
         'tiraz' => ['Imprint (legal notice)', ['nadpis-stranky', 'tiraz']],
     ];
 
-    /** Skeleton of a privacy policy for the enquiry form (HTML in the site language); the administrator fills in the square brackets. */
-    public static function privacyPolicyText(): string
+    /**
+     * Skeleton of a privacy policy (HTML in the current site language). Since 1.9 it follows the site: sections only for
+     * the features that are switched on (enquiries, newsletter, statistics, analytics and marketing codes, the consent
+     * record, maps, a CRM webhook), and the company details, periods and services already filled in. What the site does
+     * not know stays in square brackets. It is a template with a disclaimer at the top, never legal advice.
+     */
+    public static function privacyPolicyText(?\Kaleta\Core\Settings $s = null): string
     {
-        $o = fn (string $heading, string $text): string => '<h2>' . e(t($heading)) . '</h2><p>' . e(t($text)) . '</p>';
+        $o = fn (string $heading, string ...$texts): string => '<h2>' . e(t($heading)) . '</h2>' . implode('', array_map(fn (string $x): string => '<p>' . $x . '</p>', array_filter($texts)));
+        $x = fn (string $text, mixed ...$args): string => e(t($text, ...$args));
+        $on = fn (string $extension): bool => $s === null ? $extension === 'poptavky' : \Kaleta\Core\Extensions::isEnabled($s, $extension);
+        $get = fn (string $key): string => $s === null ? '' : trim($s->get($key));
+        $address = trim($get('company_street') . ', ' . trim($get('company_postcode') . ' ' . $get('company_city')), ', ');
 
-        return '<p>' . e(t('This policy explains how [COMPANY NAME], company ID [ID], registered at [ADDRESS], processes the personal data you entrust to us.')) . '</p>'
-            . $o('What data we process', 'Your name, e-mail, phone and the content of the message you fill in the enquiry form.')
-            . $o('Why and on what basis', 'So that we can reply and prepare an offer – these are steps prior to entering into a contract and our legitimate interest in answering your enquiry.')
-            . $o('How long', 'We delete enquiries automatically after [NUMBER] months unless they lead to a contract.')
-            . $o('Who has access to the data', 'Only us and our hosting provider [HOSTING NAME], who runs the website for us.')
-            . $o('Cookies and analytics', 'The website measures traffic without cookies. It uses third-party cookies only with your consent.')
-            . $o('Your rights', 'You have the right to access, rectify and erase your data, to restrict processing and to object. You can lodge a complaint with the data protection authority.')
-            . $o('Contact', 'Write to us at [E-MAIL] or call [PHONE].');
+        $html = '<p><em>' . $x('This text is a starting template generated from the features switched on on the website, not legal advice. Check it against how you really process data and against the rules of your country before you publish it.') . '</em></p>'
+            . '<p>' . $x('This policy explains how [COMPANY NAME], company ID [ID], registered at [ADDRESS], processes the personal data you entrust to us.') . '</p>';
+        if ($on('poptavky')) {
+            $months = (int) ($s?->int('enquiries_months') ?? 0);
+            $html .= $o('What data we process', $x('Your name, e-mail, phone and the content of the message you fill in the enquiry form.'))
+                . $o('Why and on what basis', $x('So that we can reply and prepare an offer – these are steps prior to entering into a contract and our legitimate interest in answering your enquiry.'))
+                . $o('How long', $months > 0 ? str_replace(t('[NUMBER]'), (string) $months, $x('We delete enquiries automatically after [NUMBER] months unless they lead to a contract.')) : $x('We delete enquiries automatically after [NUMBER] months unless they lead to a contract.'));
+        }
+        if ($on('newsletter')) {
+            // a named mailing service is a processor; a generic webhook is described by the administrator
+            $service = (\Kaleta\Core\Newsletter::SERVICES[$get('newsletter_service')][1] ?? false) ? \Kaleta\Core\Newsletter::SERVICES[$get('newsletter_service')][0] : '';
+            $html .= $o('Newsletter', $x('If you subscribe to our newsletter, we keep your e-mail address and the time of your consent. You confirm the subscription in an e-mail (double opt-in) and can unsubscribe with one click in every newsletter; after that we delete the address.'),
+                $service !== '' ? $x('We send the newsletter through %s, who processes the addresses for us.', $service) : '');
+        }
+        $webhook = (string) parse_url($get('webhook_enquiries'), PHP_URL_HOST);
+        $html .= $o('Who has access to the data', $x('Only us and our hosting provider [HOSTING NAME], who runs the website for us.'),
+            $on('poptavky') && $webhook !== '' ? $x('We pass enquiries to %s, where we handle them further.', $webhook) : '');
+        $analytics = [];
+        if ($on('statistika')) {
+            $analytics[] = $x('The website measures traffic without cookies. It uses third-party cookies only with your consent.');
+        }
+        if ($get('ga4_id') !== '') {
+            $analytics[] = $x('With your consent, the website uses Google Analytics (Google Ireland Limited) to measure traffic; it stores cookies in your browser.');
+        }
+        if ($get('matomo_url') !== '') {
+            $analytics[] = $x('The website measures traffic with Matomo, run at %s.', (string) parse_url($get('matomo_url'), PHP_URL_HOST));
+        }
+        if ($get('plausible_domain') !== '') {
+            $analytics[] = $x('The website measures traffic with Plausible Analytics without cookies and without personal data.');
+        }
+        if ($get('marketing_code') !== '') {
+            $analytics[] = $x('With your consent, the website loads marketing codes (for example advertising pixels) that store cookies.');
+        }
+        if ($s !== null && $s->bool('cookies_log') && $s->get('cookies_mode') === 'vestavena') {
+            $analytics[] = $x('We keep a record of the consent you give in the cookie bar for %d months, without your name or IP address.', max(1, $s->int('cookies_log_months')));
+        }
+        if ($get('company_map') !== '') {
+            $analytics[] = $x('Maps load from the map provider only after you click them.');
+        }
+        if ($analytics !== []) {
+            $html .= $o('Cookies and analytics', ...$analytics);
+        }
+        $html .= $o('Your rights', $x('You have the right to access, rectify and erase your data, to restrict processing and to object. You can lodge a complaint with the data protection authority.'))
+            . $o('Contact', $x('Write to us at [E-MAIL] or call [PHONE].'));
+
+        // what the site already knows goes in; the rest stays in brackets for the administrator
+        $email = $get('company_email'); // the public company e-mail – the site e-mail is never published
+
+        // the placeholders are translated with the text ([NÁZEV FIRMY] in Czech), so they are looked up the same way
+        $known = ['[COMPANY NAME]' => $get('company_name'), '[ID]' => $get('company_id'), '[ADDRESS]' => $address, '[E-MAIL]' => $email, '[PHONE]' => $get('company_phone')];
+        $fill = [];
+        foreach ($known as $placeholder => $value) {
+            if ($value !== '') {
+                $fill[e(t($placeholder))] = e($value);
+            }
+        }
+
+        return strtr($html, $fill);
     }
 
     /** Replacement of a section with an element of a disabled extension: contact without a form has at least the company details and opening hours. */

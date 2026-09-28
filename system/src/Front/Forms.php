@@ -10,7 +10,6 @@ use Kaleta\Core\Mail;
 use Kaleta\Core\Response;
 use Kaleta\Builder\SiteParts;
 use Kaleta\Builder\Components;
-use Kaleta\Stavitel\Prvky;
 use Kaleta\Builder\Elements\Form;
 use Kaleta\Builder\Build;
 

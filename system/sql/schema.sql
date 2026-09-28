@@ -483,6 +483,7 @@ CREATE TABLE ka_kolekce (
     seo_link       VARCHAR(110) NOT NULL,
     pole           TEXT NOT NULL,
     detail         TINYINT(1) NOT NULL DEFAULT 0,
+    schema_org     TEXT NULL,                           -- structured data of item pages: {"typ": "Service|Person|Product|Event|FAQPage", "pole": {property: field key}} (1.9)
     stavba         MEDIUMTEXT NULL,
     stavba_koncept MEDIUMTEXT NULL,
     zmeneno        DATETIME NULL,
@@ -496,8 +497,13 @@ CREATE TABLE ka_kolekce_polozky (
     nazev    VARCHAR(200) NOT NULL,
     seo_link VARCHAR(160) NOT NULL,
     data     MEDIUMTEXT NOT NULL,
+    seo_titulek VARCHAR(200) NOT NULL DEFAULT '',       -- custom <title>, empty = the name (1.9)
+    popis    VARCHAR(300) NOT NULL DEFAULT '',          -- meta description, empty = from the first text field
+    obrazek  VARCHAR(255) NOT NULL DEFAULT '',          -- image for sharing (og:image), empty = the first image field
+    noindex  TINYINT(1) NOT NULL DEFAULT 0,
     poradi   INT NOT NULL DEFAULT 100,
     zobrazit TINYINT(1) NOT NULL DEFAULT 1,
+    zverejnit_od DATETIME NULL,                         -- a hidden item publishes itself at this moment
     jazyk    CHAR(2) NOT NULL DEFAULT '',
     datum    DATETIME NOT NULL,
     zmeneno  DATETIME NULL,
@@ -505,6 +511,7 @@ CREATE TABLE ka_kolekce_polozky (
     PRIMARY KEY (idp),
     UNIQUE KEY ux_kolekce_polozky_seo (idk, jazyk, seo_link),
     KEY ix_kolekce_polozky (idk, zobrazit, poradi),
+    KEY ix_kolekce_polozky_zverejnit (zverejnit_od),
     CONSTRAINT fk_kolekce_polozky FOREIGN KEY (idk) REFERENCES ka_kolekce (idk) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 

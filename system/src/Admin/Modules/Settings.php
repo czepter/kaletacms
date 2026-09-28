@@ -226,12 +226,7 @@ class Settings extends Module
         if ($path === null) {
             return $this->error('Backup does not exist.', 404);
         }
-
-        return new Response((string) file_get_contents($path), 200, [
-            'Content-Type' => 'application/octet-stream',
-            'Content-Disposition' => 'attachment; filename="' . basename($path) . '"',
-            'Content-Length' => (string) filesize($path),
-        ]);
+        $this->sendFile($path, basename($path)); // streamed: a large backup does not have to fit in memory
     }
 
     protected function actionDeleteBackup(): Response
@@ -327,32 +322,49 @@ class Settings extends Module
         return $this->back(t('The system has been updated to version %s. The database will update itself the next time the administration loads.', $version), '', ['tab' => 'backups']);
     }
 
-    /** Backup of uploaded media: a ZIP of the media/ folder for download. */
+    /**
+     * Backup of uploaded media: a ZIP of the media/ folder for download. Files are only stored, not compressed (images
+     * are compressed already), so even a large library is packed quickly; the ZIP is sent in chunks and deleted after.
+     * A library too large for one request belongs to the off-site copy (RemoteBackup::syncMedia) or FTP.
+     */
     protected function actionMediaBackup(): Response
     {
+        if (!$this->request->isPost()) {
+            return $this->back('', '', ['tab' => 'backups']);
+        }
         if (!class_exists(\ZipArchive::class) || !is_dir(KALETA_ROOT . '/media')) {
             return $this->back('The zip extension is missing on the server – download the media via FTP.', '', ['tab' => 'backups'], 'chyba');
         }
+        $files = [];
+        foreach (\Kaleta\Core\SiteExport::mediaFiles() as $path => $size) {
+            // variants for srcset and the WebP/AVIF siblings (foto.jpg.webp) can be recreated at any time - only originals go to the backup,
+            // including an original uploaded as WebP (foto.webp, one extension)
+            if (!preg_match('/(-1200|-nahled)\.[a-z]+$|\.[a-z0-9]+\.(webp|avif)$/i', basename($path))) {
+                $files[$path] = $size;
+            }
+        }
+        if ($files === []) {
+            return $this->back('There is nothing in the media/ folder yet.', '', ['tab' => 'backups'], 'chyba');
+        }
+        $free = @disk_free_space(KALETA_ROOT . '/storage/cache');
+        if (array_sum($files) > \Kaleta\Core\SiteExport::MAX_MEDIA || ($free !== false && array_sum($files) * 1.1 > $free)) {
+            return $this->back('The media are too large to pack in one go. Turn on the off-site copy (it copies the media bit by bit) or download the media/ folder over FTP.', '', ['tab' => 'backups'], 'chyba');
+        }
+        @set_time_limit(300);
         $file = KALETA_ROOT . '/storage/cache/media-' . bin2hex(random_bytes(6)) . '.zip';
         $zip = new \ZipArchive();
         $zip->open($file, \ZipArchive::CREATE);
-        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(KALETA_ROOT . '/media', \FilesystemIterator::SKIP_DOTS)) as $item) {
-            // variants for srcset and the WebP/AVIF siblings (foto.jpg.webp) can be recreated at any time - only originals go to the backup,
-            // including an original uploaded as WebP (foto.webp, one extension)
-            if ($item->isFile() && !preg_match('/(-1200|-nahled)\.[a-z]+$|\.[a-z0-9]+\.(webp|avif)$/i', $item->getFilename()) && !str_starts_with($item->getFilename(), '.')) {
-                $zip->addFile($item->getPathname(), substr($item->getPathname(), strlen(KALETA_ROOT) + 1));
-            }
+        foreach (array_keys($files) as $path) {
+            $zip->addFile(KALETA_ROOT . '/' . $path, $path);
+            $zip->setCompressionName($path, \ZipArchive::CM_STORE);
         }
-        $zip->close();
-        if (!is_file($file)) {
-            return $this->back('There is nothing in the media/ folder yet.', '', ['tab' => 'backups'], 'chyba');
+        if (!$zip->close() || !is_file($file)) {
+            @unlink($file);
+
+            return $this->back('The archive could not be finished – the disk is probably full.', '', ['tab' => 'backups'], 'chyba');
         }
         register_shutdown_function(static fn () => @unlink($file));
-        header('Content-Type: application/zip');
-        header('Content-Disposition: attachment; filename="media-' . date('Ymd') . '.zip"');
-        header('Content-Length: ' . filesize($file));
-        readfile($file);
-        exit;
+        $this->sendFile($file, 'media-' . date('Ymd') . '.zip', 'application/zip');
     }
 
     /** Test e-mail to the site e-mail - verifies that the server can send mail. */

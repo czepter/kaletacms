@@ -581,6 +581,9 @@ expect "MCP: a collection item goes to the trash, hidden" "$(sq "SELECT CONCAT(s
 check "collection trash in the admin" 200 "/admin.php?module=collections&action=items&id=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'kos-test'")&stav=kos" "Polozka"
 mcp list_trash '{}' > "$WORK/response"
 expect "MCP: list_trash shows the item" "$(mcp_value collection_items 0 name)" "Polozka"
+mcp save_collection_item "{\"collection\":\"kos-test\",\"id\":$ITEM,\"visible\":true}" | grep -q 'is in the trash' && [ "$(sq "SELECT zobrazit FROM ka_kolekce_polozky WHERE idp = $ITEM")" = 0 ] \
+  && echo "  ok     MCP: an item in the trash cannot be published by saving it (1.9)" || { echo "  CHYBA  MCP saved an item from the trash"; ERRORS=$((ERRORS+1)); }
+mcp list_collection_items '{"collection":"kos-test"}' | grep -q 'Polozka' && { echo "  CHYBA  list_collection_items lists the trash"; ERRORS=$((ERRORS+1)); } || echo "  ok     list_collection_items leaves the trash out"
 mcp restore_from_trash "{\"type\":\"collection_item\",\"id\":$ITEM}" > /dev/null
 expect "MCP: restored from the trash as hidden" "$(sq "SELECT CONCAT(smazano IS NULL, zobrazit) FROM ka_kolekce_polozky WHERE idp = $ITEM")" "10"
 mcp delete_collection '{"collection":"kos-test"}' > /dev/null
@@ -1185,6 +1188,60 @@ grep -q 'Petr Svoboda' "$WORK/response" && grep -q 'celkem\\":1' "$WORK/response
 IDPS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idp FROM ka_kolekce_polozky WHERE nazev = 'Petr Svoboda'")
 mcp uloz_polozku_kolekce "{\"kolekce\":\"tym\",\"id\":$IDPS,\"data\":{\"funkce\":\"Vedouci dilny\"}}" > /dev/null
 expect "kolekce přes MCP: úprava položky bez názvu název zachová" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(nazev, '|', data LIKE '%Vedouci dilny%') FROM ka_kolekce_polozky WHERE idp = $IDPS")" "Petr Svoboda|1"
+
+echo "== 1.9: collection items as pages, structured data, site audit, privacy template, deprecations"
+JANA=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE seo_link = 'jana-novakova' AND jazyk = ''")
+mcp save_collection_item "{\"collection\":\"tym\",\"id\":$JANA,\"seo_title\":\"Jana Nováková, jednatelka\",\"description\":\"Vede dílnu dvacet let.\",\"share_image\":\"javascript:x\"}" > /dev/null
+rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" "$B/tym/jana-novakova"
+grep -q '<title>Jana Nováková, jednatelka – ' "$WORK/response" && grep -q '<meta name="description" content="Vede dílnu dvacet let.">' "$WORK/response" && ! grep -q 'javascript:x' "$WORK/response" \
+  && echo "  ok     item page: its own SEO title and description, an unsafe image dropped" || { echo "  CHYBA  item SEO fields: $(grep -o '<title>[^<]*' "$WORK/response")"; ERRORS=$((ERRORS+1)); }
+mcp list_item_versions "{\"collection\":\"tym\",\"id\":$JANA}" > "$WORK/response"; VER=$(mcp_value versions 0 id)
+mcp restore_item_version "{\"collection\":\"tym\",\"id\":$JANA,\"version\":$VER}" > /dev/null
+expect "item versions: the earlier version comes back, the newer one goes to the history" "$(sq "SELECT CONCAT(seo_titulek = '', '|', (SELECT COUNT(*) FROM ka_stavba_revize WHERE cast = 'polozka:$JANA') >= 2) FROM ka_kolekce_polozky WHERE idp = $JANA")" "1|1"
+mcp save_collection_item "{\"collection\":\"tym\",\"id\":$JANA,\"noindex\":true}" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s "$B/tym/jana-novakova" | grep -q 'content="noindex' && ! curl -s "$B/sitemap.xml" | grep -q '/tym/jana-novakova' && ! curl -s "$B/llms.txt" | grep -q '/tym/jana-novakova' \
+  && echo "  ok     a noindex item is out of search engines, the sitemap and llms.txt" || { echo "  CHYBA  noindex item"; ERRORS=$((ERRORS+1)); }
+mcp save_collection_item "{\"collection\":\"tym\",\"id\":$JANA,\"noindex\":false}" > /dev/null
+mcp save_collection_item '{"collection":"tym","name":"Planovany Clen","publish_at":"2099-01-01 08:00"}' > "$WORK/response"; PLAN=$(mcp_value id)
+expect "a scheduled item waits hidden" "$(sq "SELECT CONCAT(zobrazit, '|', zverejnit_od IS NOT NULL) FROM ka_kolekce_polozky WHERE idp = $PLAN")" "0|1"
+sq "UPDATE ka_kolekce_polozky SET zverejnit_od = NOW() - INTERVAL 1 MINUTE WHERE idp = $PLAN" > /dev/null; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "the scheduled item publishes itself" "$(sq "SELECT CONCAT(zobrazit, '|', zverejnit_od IS NULL) FROM ka_kolekce_polozky WHERE idp = $PLAN")" "1|1"
+IDK_TYM=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'tym'")
+check "the item form has SEO fields, scheduling and the history" 200 "/admin.php?module=collections&action=item&id=$IDK_TYM&polozka=$JANA" 'Historie položky'
+grep -q 'name="seo_titulek"' "$WORK/response" && grep -q 'name="zverejnit_od"' "$WORK/response" && echo "  ok     item form fields" || { echo "  CHYBA  item form fields"; ERRORS=$((ERRORS+1)); }
+mcp update_collection '{"collection":"tym","structured_data":{"type":"Person","fields":{"jobTitle":"funkce"}}}' > /dev/null
+rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" "$B/tym/zuzana-zelena"
+grep -q '"@type":"Person","name":"Zuzana Zelena"' "$WORK/response" && grep -q '"jobTitle":"Jednatelka"' "$WORK/response" \
+  && echo "  ok     structured data of a collection: item pages are a Person" || { echo "  CHYBA  collection structured data"; grep -o '"@graph".\{0,600\}' "$WORK/response" | head -c 800; ERRORS=$((ERRORS+1)); }
+mcp update_collection '{"collection":"tym","structured_data":{"type":"Recipe"}}' | grep -q 'Unknown structured data type' && echo "  ok     MCP: an unknown schema type is refused" || { echo "  CHYBA  MCP unknown schema type"; ERRORS=$((ERRORS+1)); }
+check "the collection form offers structured data" 200 "/admin.php?module=collections&action=edit&id=$IDK_TYM" "Strukturovaná data pro vyhledávače"
+mcp list_collections '{}' | grep -q 'jobTitle' && echo "  ok     MCP: list_collections shows the structured data" || { echo "  CHYBA  list_collections structured data"; ERRORS=$((ERRORS+1)); }
+# site audit
+mcp create_page '{"title":"Audit test","text":"<p><a href=\"/neexistuje-audit\">x</a> <a href=\"/tym/zuzana-zelena\">ok</a></p>","visible":true}' > /dev/null
+check "Administration → Site audit finds a broken internal link" 200 "/admin.php?module=audit" "Odkaz /neexistuje-audit vede na stránku, která neexistuje"
+grep -q '/tym/zuzana-zelena vede' "$WORK/response" && { echo "  CHYBA  the audit reports a working item link"; ERRORS=$((ERRORS+1)); } || echo "  ok     a link to an existing item is fine"
+mcp site_audit '{"kind":"link"}' > "$WORK/response"
+grep -q 'neexistuje-audit' "$WORK/response" && grep -q '\\"page\\":' "$WORK/response" && echo "  ok     MCP: site_audit with the target to fix" || { echo "  CHYBA  MCP site_audit"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp_list() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'; }
+mcp_list | php -r '$t = array_column(json_decode(stream_get_contents(STDIN), true)["result"]["tools"], null, "name"); exit(($t["site_audit"]["annotations"]["readOnlyHint"] ?? false) === true && ($t["restore_item_version"]["annotations"]["readOnlyHint"] ?? true) === false ? 0 : 1);' \
+  && echo "  ok     MCP: site_audit is read-only, restore_item_version writes" || { echo "  CHYBA  MCP annotations of 1.9 tools"; ERRORS=$((ERRORS+1)); }
+# privacy policy from the enabled features
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=new"; TOKEN=$(csrf)
+save_page -d ids=0 --data-urlencode "titulek=Zásady test" -d sablona=zasady -d zobrazit=0 -d v_menu=0 -d text= > /dev/null
+expect "privacy template: a disclaimer and only the enabled features" "$(sq "SELECT CONCAT(text LIKE '%nikoli právní rada%', '|', text LIKE '%poptávkovém formuláři%' OR text LIKE '%formuláře%', '|', text LIKE '%[ADDRESS]%' OR text LIKE '%[ADRESA]%' OR text LIKE '%sídlem%') FROM ka_stranky WHERE titulek = 'Zásady test'")" "1|1|1"
+# deprecations in Health
+check "Health: Before Kaleta 2.0 lists the public API" 200 "/admin.php?module=settings&tab=health" "Před Kaletou 2.0"
+grep -q 'Veřejné API' "$WORK/response" && echo "  ok     Health: the deprecated API is in the report" || { echo "  CHYBA  Health deprecation report"; ERRORS=$((ERRORS+1)); }
+mkdir -p "$WORK/web/vlastni" && printf '<?php\necho datum_slovy();\n' > "$WORK/web/vlastni/skript.php"
+check "Health: old helpers in custom code" 200 "/admin.php?module=settings&tab=health" "vlastni/skript.php"
+rm -rf "$WORK/web/vlastni"
+# streamed backup download and the media ZIP only on POST
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; TOKEN=$(csrf)
+LAST_BACKUP=$(ls -t "$WORK"/web/storage/zalohy/ | grep '^kaleta-' | head -1)
+curl -s -b "$JAR" -o "$WORK/backup-download" "$B/admin.php?module=settings&action=download_backup&soubor=$LAST_BACKUP"
+expect "a backup downloads whole (streamed)" "$(wc -c < "$WORK/backup-download" | tr -d ' ')" "$(wc -c < "$WORK/web/storage/zalohy/$LAST_BACKUP" | tr -d ' ')"
+expect "the media ZIP is not built by a GET" "$(curl -s -b "$JAR" -o /dev/null -w '%{content_type}' "$B/admin.php?module=settings&action=media_backup" | tr 'A-Z' 'a-z')" "text/html; charset=utf-8"
+expect "the media ZIP by POST, with the originals" "$(curl -s -b "$JAR" -o "$WORK/media.zip" -w '%{content_type}' -X POST "$B/admin.php?module=settings&action=media_backup" -d "_csrf=$TOKEN")|$([ "$(unzip -Z1 "$WORK/media.zip" 2>/dev/null | grep -c '^media/')" -gt 0 ] && echo files)" "application/zip|files"
 
 echo "== moving a site: import of a Kaleta export into a new installation (1.8)"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; TOKEN=$(csrf)

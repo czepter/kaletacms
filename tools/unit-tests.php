@@ -193,7 +193,8 @@ $parity = [
         'assistant' => 'admin: AI helper – Claude writes the text itself', 'translate' => 'admin: AI translation – Claude translates and uses create_news'],
     'collections' => $builderParity + ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'items' => $readOnly, 'item' => $readOnly,
         'save' => 'update_collection', 'delete' => 'delete_collection', 'save_item' => 'save_collection_item', 'delete_item' => 'delete_collection_item',
-        'restore_item' => 'restore_from_trash', 'delete_item_permanently' => 'admin: the trash empties itself after 30 days', 'duplicate_item' => 'admin: a copy of an item – Claude saves a new one'],
+        'restore_item' => 'restore_from_trash', 'delete_item_permanently' => 'admin: the trash empties itself after 30 days', 'duplicate_item' => 'admin: a copy of an item – Claude saves a new one',
+        'restore_item_version' => 'restore_item_version'],
     'enquiries' => ['list' => $readOnly, 'detail' => $readOnly, 'csv' => $readOnly, 'attachment' => $readOnly, 'note' => 'update_enquiry', 'status' => 'update_enquiry',
         'bulk' => 'update_enquiry', 'delete' => 'delete_enquiry', 'settings' => 'admin: how long enquiries are kept'],
     'subscribers' => ['list' => $readOnly, 'csv' => $readOnly, 'delete' => 'admin: subscribers’ addresses stay out of MCP', 'sync' => 'admin: mailing service keys', 'retry' => 'admin: mailing service keys'],
@@ -213,7 +214,7 @@ $parity = [
         'delete' => 'delete_popup', 'reset' => 'admin: resetting the counters'],
     'users' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'admin: accounts and permissions', 'delete' => 'admin: accounts and permissions', 'password_link' => 'admin: accounts and permissions'],
     'roles' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'admin: accounts and permissions', 'delete' => 'admin: accounts and permissions'],
-    'stats' => ['list' => $readOnly], 'changelog' => ['list' => $readOnly],
+    'stats' => ['list' => $readOnly], 'changelog' => ['list' => $readOnly], 'audit' => ['list' => 'site_audit'],
     'redirects' => ['list' => $readOnly, 'save' => 'save_redirect', 'delete' => 'save_redirect', 'clear' => 'admin: clearing the list of 404 addresses'],
     'transfer' => ['list' => $readOnly, 'preview' => $readOnly, 'download' => $readOnly, 'export' => $readOnly, 'upload' => 'admin: WordPress import', 'select' => 'admin: WordPress import',
         'run' => 'admin: WordPress import', 'progress' => 'admin: WordPress import', 'images' => 'admin: WordPress import', 'delete_file' => 'admin: WordPress import', 'delete_export' => 'admin: site export',
@@ -311,7 +312,7 @@ check('Part templates: the newsletter sign-up only with the Newsletter extension
     array_column(Kaleta\Builder\PartTemplates::forType('vypis', []), 'klic')], [false, ['jednoduchy']]);
 // MCP in English: every tool has an English name, every fixed message a translation, parameters and results are converted
 $mcpSource = (string) file_get_contents(KALETA_ROOT . '/system/src/Mcp/Tools.php');
-preg_match_all("/^\s+\['([a-z_]+)', '/m", substr($mcpSource, 0, (int) strpos($mcpSource, 'public function zavolej')), $mcpTools);
+preg_match_all("/^\s+\['([a-z_]+)', '/m", substr($mcpSource, 0, (int) strpos($mcpSource, 'public function call(')), $mcpTools);
 check('MCP: každý nástroj má anglický název', array_values(array_diff($mcpTools[1], Kaleta\Mcp\Translator::czechTools())), []);
 preg_match_all("/Exception\('((?:[^'\\\\]|\\\\.)*)'\)/", $mcpSource . file_get_contents(KALETA_ROOT . '/system/src/Builder/Edits.php'), $mcpMessages);
 check('MCP: pevná hlášení mají anglický překlad', array_values(array_filter(array_map('stripslashes', $mcpMessages[1]), fn (string $z): bool => Kaleta\Mcp\Translator::message($z) === $z && preg_match('/[ěščřžýáíéůúťďňĚŠČŘŽÝÁÍÉŮÚ]/u', $z) === 1)), []); // tools added in English (newsletters) need none
@@ -400,6 +401,22 @@ check('Seo::faq', Seo::faq("Kdy to začne?\nV pondělí.\n\nKolik to stojí?\nNi
 check('Seo::faq: prázdný vstup', Seo::faq(null), []);
 
 /* ---------- backups to S3: AWS Signature V4 signing (the value verified by an independent computation) ---------- */
+// 1.9: structured data of collection item pages – only mapped fields, an offer needs a price and a currency
+$sdFields = [['klic' => 'cena', 'popisek' => 'Cena', 'typ' => 'text'], ['klic' => 'druh', 'popisek' => 'Druh', 'typ' => 'text'], ['klic' => 'zacatek', 'popisek' => 'Začátek', 'typ' => 'datum']];
+check('Strukturovaná data kolekce: neznámé pole a typ se zahodí', [Kaleta\Builder\CollectionSchema::sanitize(['typ' => 'Service', 'pole' => ['price' => 'cena', 'serviceType' => 'neni', 'hack' => 'druh'], 'mena' => 'eur'], $sdFields),
+    Kaleta\Builder\CollectionSchema::sanitize(['typ' => 'Recipe'], $sdFields)], [['typ' => 'Service', 'pole' => ['price' => 'cena'], 'mena' => 'EUR'], null]);
+$sdCollection = ['pole' => $sdFields, 'schema_org' => '{"typ":"Service","pole":{"price":"cena","serviceType":"druh"},"mena":"EUR"}'];
+check('Strukturovaná data kolekce: služba s nabídkou', Kaleta\Builder\CollectionSchema::forItem($sdCollection, ['nazev' => 'Revize', 'data' => ['cena' => '1 200,50', 'druh' => '<b>Elektro</b>']], 'https://x.test/sluzby/revize', 'Popis', '', 'https://x.test/#firma'),
+    ['@type' => 'Service', 'name' => 'Revize', 'url' => 'https://x.test/sluzby/revize', 'description' => 'Popis', 'serviceType' => 'Elektro', 'provider' => ['@id' => 'https://x.test/#firma'],
+        'offers' => ['@type' => 'Offer', 'price' => '1200.50', 'priceCurrency' => 'EUR', 'url' => 'https://x.test/sluzby/revize']]);
+check('Strukturovaná data kolekce: událost bez začátku ne, bez typu nic', [Kaleta\Builder\CollectionSchema::forItem(['pole' => $sdFields, 'schema_org' => '{"typ":"Event","pole":{"startDate":"zacatek"}}'], ['nazev' => 'A', 'data' => []], 'u', '', '', 'i'),
+    Kaleta\Builder\CollectionSchema::forItem(['pole' => $sdFields], ['nazev' => 'A', 'data' => []], 'u', '', '', 'i')], [null, null]);
+check('Položky jako stránky: SEO pole a plán zveřejnění', [Kaleta\Builder\Collections::pageFields(['obrazek' => 'javascript:alert(1)', 'noindex' => '1', 'zverejnit_od' => '2099-01-01T08:00', 'popis' => str_repeat('a', 400)], false),
+    Kaleta\Builder\Collections::pageFields(['zverejnit_od' => '2001-01-01 08:00'], false)['zobrazit']],
+    [['seo_titulek' => '', 'popis' => str_repeat('a', 300), 'obrazek' => '', 'noindex' => 1, 'zverejnit_od' => '2099-01-01 08:00:00', 'zobrazit' => 0], 1]);
+$privacy = Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Builder\Library::privacyPolicyText());
+check('Zásady ochrany údajů: šablona s upozorněním, bez nastavení jen poptávky', [str_contains($privacy, 'not legal advice'), str_contains($privacy, 'enquiry form'), str_contains($privacy, 'newsletter'),
+    str_contains(Kaleta\Core\Language::runWith('cs', fn (): string => Kaleta\Builder\Library::privacyPolicyText()), 'nikoli právní rada')], [true, true, false, true]);
 // import of a Kaleta export (1.8): which files from the archive may go into media/, which names are exports
 check('Import Kalety: soubory do media/', array_map(Kaleta\Core\SiteImport::mediaTarget(...), ['media/2026/09/foto.jpg', 'media/2026/09/foto.jpg.webp', 'media/x.php', 'media/../config.php',
     'media/.htaccess', 'obsah.json', 'media/2026/09/dokument.pdf', 'media/a/b.phtml', 'media/2026/09/logo.svg']),

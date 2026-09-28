@@ -61,7 +61,9 @@ final class Notifications
     {
         $db = $app->db();
         // scheduled pages: a hidden page publishes itself at the given time
-        if ($db->run('UPDATE {stranky} SET zobrazit = 1, zverejnit_od = NULL WHERE zverejnit_od IS NOT NULL AND zverejnit_od <= NOW() AND smazano IS NULL')->rowCount() > 0) {
+        // scheduled collection items (1.9) likewise
+        $items = $db->run('UPDATE {kolekce_polozky} SET zobrazit = 1, zverejnit_od = NULL WHERE zverejnit_od IS NOT NULL AND zverejnit_od <= NOW() AND smazano IS NULL')->rowCount();
+        if ($db->run('UPDATE {stranky} SET zobrazit = 1, zverejnit_od = NULL WHERE zverejnit_od IS NOT NULL AND zverejnit_od <= NOW() AND smazano IS NULL')->rowCount() + $items > 0) {
             \Kaleta\Front\Cache::clear();
         }
         $newsItems = $db->all('SELECT idc, seo_link, jazyk, noindex FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND oznameno IS NULL ORDER BY datum LIMIT 5');

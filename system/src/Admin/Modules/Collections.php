@@ -69,6 +69,10 @@ final class Collections extends Module
         // the key of an existing field does not change (item values are stored under it); new fields get it from the label
         $field = KolekceObsahu::sanitizeFields(is_array($_POST['pole'] ?? null) ? array_values($_POST['pole']) : []);
         $data = ['nazev' => $name, 'seo_link' => $seo, 'detail' => $r->postBool('detail') ? 1 : 0, 'pole' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')];
+        if (is_array($_POST['schema'] ?? null)) {
+            $schema = \Kaleta\Builder\CollectionSchema::sanitize($_POST['schema'], $field);
+            $data['schema_org'] = $schema === null ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE);
+        }
         if ($previous !== null) {
             $this->db->update('kolekce', $data, ['idk' => $id]);
         } else {
@@ -116,14 +120,17 @@ final class Collections extends Module
             return $this->error('The collection does not exist.', 404);
         }
         $idp = $this->request->getInt('polozka');
-        $p = $idp > 0 ? $this->db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ?', [$idp, $k['idk']]) : null;
+        // an item in the trash is not edited (saving would publish it again) – it comes back through Restore first
+        $p = $idp > 0 ? $this->db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$idp, $k['idk']]) : null;
         if ($idp > 0 && $p === null) {
             return $this->error('The item does not exist.', 404);
         }
-        $p ??= ['idp' => 0, 'nazev' => '', 'seo_link' => '', 'data' => '{}', 'poradi' => 100, 'zobrazit' => 1, 'jazyk' => '', 'datum' => date('Y-m-d H:i:s')];
+        $p ??= ['idp' => 0, 'nazev' => '', 'seo_link' => '', 'data' => '{}', 'poradi' => 100, 'zobrazit' => 1, 'jazyk' => '', 'datum' => date('Y-m-d H:i:s'),
+            'seo_titulek' => '', 'popis' => '', 'obrazek' => '', 'noindex' => 0, 'zverejnit_od' => null];
         $p['data'] = json_decode((string) $p['data'], true) ?: [];
 
-        return $this->view('item', $p['nazev'] !== '' ? $p['nazev'] : t('New item'), ['k' => $k, 'p' => $p]);
+        return $this->view('item', $p['nazev'] !== '' ? $p['nazev'] : t('New item'), ['k' => $k, 'p' => $p,
+            'versions' => $p['idp'] > 0 ? \Kaleta\Builder\Publisher::listAll($this->db, ['cast' => 'polozka:' . (int) $p['idp']]) : []]);
     }
 
     protected function actionSaveItem(): Response
@@ -145,9 +152,11 @@ final class Collections extends Module
         $language = Language::column($this->app->settings(), $r->post('jazyk'));
         $seo = \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $this->db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$k['idk'], $language, $a, $idp]) !== null);
         $row = ['idk' => $k['idk'], 'nazev' => $name, 'seo_link' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
-            'poradi' => max(-9999, min(9999, $r->postInt('poradi'))), 'zobrazit' => $r->postBool('zobrazit') ? 1 : 0,
-            'jazyk' => $language, 'zmeneno' => date('Y-m-d H:i:s')];
-        if ($idp > 0 && $this->db->value('SELECT idp FROM {kolekce_polozky} WHERE idp = ? AND idk = ?', [$idp, $k['idk']]) !== null) {
+            'poradi' => max(-9999, min(9999, $r->postInt('poradi'))), 'jazyk' => $language, 'zmeneno' => date('Y-m-d H:i:s')]
+            + KolekceObsahu::pageFields($_POST, $r->postBool('zobrazit'));
+        $previous = $idp > 0 ? $this->db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$idp, $k['idk']]) : null;
+        if ($previous !== null) {
+            KolekceObsahu::saveVersion($this->app, $previous, $row);
             $this->db->update('kolekce_polozky', $row, ['idp' => $idp]);
         } else {
             $idp = $this->db->insert('kolekce_polozky', $row + ['datum' => date('Y-m-d H:i:s')]);
@@ -164,15 +173,37 @@ final class Collections extends Module
     protected function actionDuplicateItem(): Response
     {
         $idk = $this->request->postInt('idk');
-        $p = $this->request->isPost() ? $this->db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ?', [$this->request->postInt('idp'), $idk]) : null;
+        $p = $this->request->isPost() ? $this->db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$this->request->postInt('idp'), $idk]) : null;
         if ($p === null) {
             return $this->back('', 'items', ['id' => $idk]);
         }
         $seo = \Kaleta\Core\Slug::makeUnique($p['seo_link'] . '-kopie', fn (string $a): bool => $this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ?', [$idk, $p['jazyk'], $a]) !== null);
         $id = $this->db->insert('kolekce_polozky', ['idk' => $idk, 'nazev' => mb_substr(t('%s (copy)', $p['nazev']), 0, 200), 'seo_link' => $seo, 'data' => $p['data'],
+            'seo_titulek' => $p['seo_titulek'], 'popis' => $p['popis'], 'obrazek' => $p['obrazek'], 'noindex' => $p['noindex'],
             'poradi' => $p['poradi'], 'zobrazit' => 0, 'jazyk' => $p['jazyk'], 'datum' => date('Y-m-d H:i:s')]);
 
         return $this->back('The copy of the item is hidden – edit it and publish it.', 'item', ['id' => $idk, 'polozka' => $id]);
+    }
+
+    /** An earlier version of the item back (1.9); the current one goes to the history first. */
+    protected function actionRestoreItemVersion(): Response
+    {
+        $idk = $this->request->postInt('idk');
+        $idp = $this->request->postInt('idp');
+        $item = $this->request->isPost() ? $this->db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$idp, $idk]) : null;
+        $version = $item === null ? null : KolekceObsahu::loadVersion($this->db, $idp, $this->request->postInt('idr'));
+        if ($version === null) {
+            return $this->back('The version does not exist.', 'items', ['id' => $idk], 'chyba');
+        }
+        // the address of a restored version may be taken by another item in the meantime
+        if ($this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$idk, $item['jazyk'], $version['seo_link'] ?? '', $idp]) !== null) {
+            unset($version['seo_link']);
+        }
+        KolekceObsahu::saveVersion($this->app, $item, $version);
+        $this->db->update('kolekce_polozky', $version + ['zmeneno' => date('Y-m-d H:i:s')], ['idp' => $idp]);
+        \Kaleta\Front\Cache::clear();
+
+        return $this->back('The earlier version of the item is back; the one before it is in the history.', 'item', ['id' => $idk, 'polozka' => $idp]);
     }
 
     /** To the trash: the item disappears from the site at once and can be restored for 30 days. */
@@ -284,7 +315,7 @@ final class Collections extends Module
         $k = $target['radek'];
         $language = $k['sablona_jazyk'];
         // preview on the first item in the template's language (an additional language has URLs /<language>/…)
-        $seo = $this->db->value('SELECT seo_link FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND zobrazit = 1 ORDER BY poradi, nazev LIMIT 1', [$k['idk'], $language]);
+        $seo = $this->db->value('SELECT seo_link FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL ORDER BY poradi, nazev LIMIT 1', [$k['idk'], $language]);
         $url = $this->app->url(($language !== '' ? $language . '/' : '') . $k['seo_link'] . '/' . ($seo ?? '_ukazka'));
 
         return [

@@ -43,7 +43,7 @@ final class Faq extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $html = '';
-        $faq = $p['obsah']['faq'] && !str_starts_with($k->source, 'cast:');
+        $faq = $p['obsah']['faq'] && !str_starts_with($k->source, 'cast:') && !str_starts_with($k->source, 'popup:'); // a pop-up is not the page's content
         $group = $p['obsah']['jedna'] ? ' name="faq-' . e($p['id']) . '"' : '';
         foreach ($p['obsah']['polozky'] as $i => $item) {
             if ($item['otazka'] === '') {

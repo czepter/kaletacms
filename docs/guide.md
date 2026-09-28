@@ -10,7 +10,7 @@ For whoever runs the site: from installation through the page builder to connect
    its own style and Home, About us, Services and Contact pages built from ready-made sections with sample texts.
 3. Choose **what you want switched on**: News, Forms and enquiries, Newsletter, Statistics, Redirects, language versions,
    the AI assistant… Extensions can be switched on and off at any time in the admin (**Extensions**); switching off deletes nothing.
-4. The installation also creates a hidden draft **Privacy policy** page in the site language, linked from the footer, the cookie bar and the form consent. Fill in the details in square brackets and publish it.
+4. The installation also creates a hidden draft **Privacy policy** page in the site language, linked from the footer, the cookie bar and the form consent. Fill in the details in square brackets and publish it. A new page from the **Privacy policy** template (Pages → New page) follows what the site has switched on – enquiries, newsletter, statistics, analytics and marketing codes, maps – and fills in your company details. It is always a template to check, not legal advice.
 5. After logging in, **First steps** on the **Dashboard** guide you through: site appearance, company details, pages,
    the privacy policy and email.
 
@@ -155,6 +155,16 @@ language has its own **Detail template (DE)**. It starts as a copy of the defaul
 items in that language use the default one. The breadcrumbs lead to the translation of the page with the collection's
 address (for `/compare`, e.g. `/de/vergleich`).
 
+**Item pages are full pages (1.9).** Each item has **Search engines and sharing** like a page: its own title for search
+engines, a description, a sharing image and *Hide from search engines (noindex)* – a noindex item stays reachable but is
+left out of search engines, the sitemap, `llms.txt` and site search. Without them the name, the beginning of the first
+longer text and the first image are used. A hidden item can **publish itself** at a set time, and every save keeps the
+previous version in the **Item history** (the last 20), one click brings it back.
+
+**Structured data for search engines:** in the collection settings say what the items are – a service, a person, a
+product, an event or a question with an answer – and which fields fill the properties (price, job title, start…).
+Item pages then carry schema.org data next to your company details. An offer needs a price field and a currency.
+
 ## 7. Forms and enquiries
 
 The **Form** element (or the *Enquiry form* section) adds an enquiry form. In the Content panel you set the fields (text,
@@ -288,7 +298,20 @@ its components (including components inside components). **Pages → Import** on
 adds the missing classes (a class the site already has keeps its own look) and the components, and reuses a component
 imported before.
 
-## 12. Backups, updates, export
+## 12. Site audit and System status
+
+**Administration → Site audit** goes through the whole site and lists what to fix, each with a link to where you fix it:
+links to pages that do not exist (in pages, site parts, templates, components, pop-ups, the menu, items and news) and
+broken external links found in the background, pages and item pages without a description, duplicate titles, menu
+items pointing at hidden or deleted pages, the builder checks (buttons without a link, images without a description,
+the heading outline) and addresses that often end in “page not found” and have no redirect. Claude runs the same audit
+with `site_audit` and can fix what it finds.
+
+**Settings → System status → Before Kaleta 2.0** lists what version 2.0 removes and this site still uses: the public
+API, settings stored under old names, the old per-page pop-up element and old class names or helpers in custom PHP
+code. Kaleta 1.9 gives you a whole release to change them.
+
+## 13. Backups, updates, export
 
 **Settings → Backups and updates:** signed updates and automatic database backups – every day something changed on the
 site, otherwise once a week; the last 10 are kept. **Off-site copies** upload each backup to an FTPS server or S3 storage

@@ -127,6 +127,11 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 - **Webhooky** (1.8, `Core\Webhook`): volání se uloží do `ka_webhook_deliveries` a odejde po odeslání odpovědi (`Webhook::afterResponse` v index.php
   a admin.php), opakování `Webhook::RETRY_DELAYS` z úloh na pozadí a cronu. Podpis `X-Kaleta-Signature: sha256=HMAC(timestamp.body, webhook_secret)`;
   adresy a klíč nikdy přes MCP. Testy přesměrují volání na falešný server přes `webhook_test_url`.
+- **Položky kolekcí jako stránky** (1.9): sloupce `seo_titulek`, `popis`, `obrazek`, `noindex`, `zverejnit_od` (`Collections::pageFields`, plán v `Notifications::process`),
+  verze v `ka_stavba_revize` pod `cast = 'polozka:<idp>'` (`Collections::saveVersion/loadVersion`); noindex a koš mimo sitemap, llms.txt a hledání.
+  Strukturovaná data kolekce `ka_kolekce.schema_org` (`Builder\CollectionSchema`, uzel v `Seo::structuredData` přes `$meta['polozka']`).
+- **Audit webu** (1.9, `Core\Audit`, modul `audit`, MCP `site_audit`): interní odkazy přes `Audit::resolves`, popisy, titulky, menu, `Check::builds`, 404.
+  **Před Kaletou 2.0** v Health: `Health::deprecations` (API, staré klíče nastavení, prvek `okno`, staré názvy ve vlastním PHP).
 - **Zálohy mimo server** (`Core\RemoteBackup`): záloha databáze i přírůstková kopie `media/` (`syncMedia`, manifest `storage/zalohy/media-kopie.json`)
   na FTPS nebo S3; automatická záloha denně při změně (`ka_protokol`, nové poptávky), jinak týdně. Testy: falešné S3 přes `backup_test_url`.
 - **Pošta** vždy přes `Core\Mail::send()` (fronta `ka_posta`). **Nahrávání:** obrázky `Core\Images`, přílohy `Core\Files` (whitelist přípon).
