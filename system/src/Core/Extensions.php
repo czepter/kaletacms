@@ -16,7 +16,7 @@ final class Extensions
     public const array CATALOG = [
         'novinky' => ['Novinky', 'News and blog: the /novinky listing with categories and tags, RSS, the News element in the builder and a link in the automatic menu.', true],
         'poptavky' => ['Forms and enquiries', 'The Form element in the builder and the Enquiries inbox: submitted enquiries are stored, arrive by e-mail and can be passed to a colleague or a CRM.', true],
-        'newsletter' => ['Newsletter', 'The Newsletter sign-up element in the builder: visitors enter an e-mail and confirm it by a link (double opt-in). The site sends confirmed subscribers to your mailing service (Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing, webhook), or you export them to CSV.', false],
+        'newsletter' => ['Newsletter', 'The Newsletter sign-up element in the builder: visitors enter an e-mail and confirm it by a link (double opt-in). Send them your latest news in an e-mail styled by the design system (through an SMTP server, while cron runs), pass confirmed subscribers to your mailing service (Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing, webhook), or export them to CSV.', false],
         'statistika' => ['Statistics', 'Your own cookie-free traffic analytics.', true],
         'presmerovani' => ['Redirects', '301 redirects from old addresses – essential after moving from another site.', true],
         'jazyky' => ['Language versions of the site', 'A site in several languages: each further version (e.g. /cs/…) has its own pages, categories and news, a language switcher and hreflang tags. Pick the languages in Settings → General.', false],

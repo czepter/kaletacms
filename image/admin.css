@@ -1192,3 +1192,8 @@ body.login {
 /* chart tooltip (image/admin.js, [data-tip]) */
 .tip { position: fixed; z-index: 1000; transform: translate(-50%, -100%); padding: 6px 9px; border-radius: 6px; background: var(--text); color: var(--plocha); font-size: 12px; line-height: 1.3; white-space: nowrap; pointer-events: none; box-shadow: 0 4px 14px rgb(0 0 0 / 0.18); }
 [data-tip]:focus-visible { outline: 2px solid var(--akcent); outline-offset: 1px; }
+
+/* newsletter preview: the e-mail as subscribers get it */
+.rozesilka-nahled { display: block; width: 100%; max-width: 760px; height: 900px; border: 1px solid var(--linka, #d0d5dd); border-radius: 0.5rem; background: #fff; }
+.volby-pod-sebou label { display: block; margin-bottom: 6px; }
+input[type="number"].textpole.cislo-kratke { width: 4.5em; }

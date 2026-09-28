@@ -161,6 +161,12 @@ final class Translator
         'save_redirect' => ['uloz_presmerovani', 'Adds or changes a redirect (administrators): from an old path on the site to a new path or https address. Code 301 = permanent (default), 302 = temporary.',
             ['from' => ['z', 'old path, e.g. /docs or /about'], 'to' => ['na', 'new path (/guide) or https://…'], 'code' => ['typ', '301 or 302'], 'delete' => ['smazat', 'true = delete the redirect from the old path']]],
         'trash_page' => ['smaz_stranku', 'Moves a page to the trash (only when the user explicitly asks; editors or administrators). It can be restored for 30 days in the admin. The home page cannot be deleted.', ['id' => ['id', 'Page ID']]],
+        // tools added after 1.1 are English only (the name, parameters and results are the same on both sides)
+        'list_newsletters' => ['list_newsletters', '', []],
+        'draft_newsletter' => ['draft_newsletter', '', []],
+        'send_test_newsletter' => ['send_test_newsletter', '', []],
+        'send_newsletter' => ['send_newsletter', '', []],
+        'delete_newsletter' => ['delete_newsletter', '', []],
     ];
 
     /** Parameter values in English => Czech (by the Czech parameter; for some tools only there). */
@@ -392,6 +398,10 @@ final class Translator
             if (!isset($byName[$cs])) {
                 continue; // tool of a disabled extension
             }
+            if ($en === $cs) {
+                $result[] = $byName[$cs]; // English only: the definition as it is
+                continue;
+            }
             $schema = $byName[$cs]['inputSchema'];
             $properties = [];
             $required = [];
@@ -555,7 +565,7 @@ final class Translator
     /** Tool result with English keys and statuses. */
     public static function result(string $name, mixed $v): mixed
     {
-        if ($name === 'builder_schema' || !is_array($v)) {
+        if ($name === 'builder_schema' || !is_array($v) || (self::TOOLS[$name][0] ?? '') === $name) {
             return $v; // the schema describes the builder data model – it stays as it is
         }
         if ($name === 'list_popups') {
@@ -665,6 +675,7 @@ final class Translator
             . '(7) A header or footer only for some pages (a campaign without the menu): save_part_variant, then the *_build tools with the variant parameter; overview with list_site_parts. list_build_versions and restore_build_version bring back an older published version (into the draft). '
             . '(8) Pop-ups (a newsletter sign-up, a download, an announcement bar): save_popup with a template creates one (inactive), build its content with the *_build tools and the popup parameter, set type, trigger, frequency and rules with save_popup; activate it (active: true) only after publishing and only when the user asks. list_popups shows views, closes and conversions. '
             . '(9) Translating into another language version (the admin switches languages on): create_page with language, translation_of and copy_build, then get_build with texts_only and edit_build “update” operations for the texts and links (internal links point to the translated pages); the header and footer with the part and language parameters (they start as a copy of the default language); save_menu with language; a collection item translation with the same slug and language; a collection item template with collection and language. '
+            . '(10) Newsletters (Newsletter extension): draft_newsletter writes one e-mail styled by the design system – subject, introduction, the latest or chosen news items and a button; check the returned text, send_test_newsletter sends it to the user, and send_newsletter goes to all subscribers only when the user explicitly asks (it cannot be taken back). '
             . 'Builds are saved as drafts – publish (publish_build) and make pages visible only when the user explicitly asks. '
             . 'A new news item is a draft; only a user with the publishing permission can publish it, and only when explicitly asked. A new page is hidden until the user explicitly wants it visible. '
             . 'BOUNDARIES: this connection changes only content (pages, news, categories, collections, site parts) and the look (design system, classes). Do not change the system code, themes '

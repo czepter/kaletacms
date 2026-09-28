@@ -2757,4 +2757,5 @@ return [
     'Create link' => 'Vytvořit odkaz',
     'Share preview' => 'Sdílet náhled',
     'Anyone with the link can see the draft without signing in – including changes you make later. Search engines do not index it.' => 'Kdo dostane odkaz, uvidí koncept bez přihlášení – i změny, které uděláte později. Vyhledávače ho neindexují.',
+    'The Newsletter sign-up element in the builder: visitors enter an e-mail and confirm it by a link (double opt-in). Send them your latest news in an e-mail styled by the design system (through an SMTP server, while cron runs), pass confirmed subscribers to your mailing service (Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing, webhook), or export them to CSV.' => 'Prvek Odběr novinek v builderu: návštěvník zadá e-mail a potvrdí ho odkazem (double opt-in). Novinky jim pošlete e-mailem ve vzhledu design systému (přes SMTP server, když běží cron), potvrzené odběratele předáte do mailingové služby (Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing, webhook), nebo je vyexportujete do CSV.',
 ];

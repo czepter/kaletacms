@@ -10,7 +10,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 
 - **Jednoduchost nad abstrakcí.** Kód má přečíst i poučený laik. Žádné DI kontejnery, ORM, build kroky ani npm. Nová závislost = silný důvod.
 - **Firemní web, ne magazín.** Žádné redakční workflow (korektura, zámky, předávka), rubriky, komentáře, čtenáři, předplatné, reklama,
-  newsletter ani push – fáze 0 je odstranila, nevracej je. Co firmy potřebují navíc (formuláře a poptávky, údaje o firmě, kolekce,
+  ani push – fáze 0 je odstranila, nevracej je (newsletter se vrátil v 1.5 záměrně jen jako jedna šablona podle design systému). Co firmy potřebují navíc (formuláře a poptávky, údaje o firmě, kolekce,
   builder), přibývá podle `NAVRH.md`.
 - **Standardy webu 2026/2027 bez ohledu na staré prohlížeče:** CSS vrstvy, `clamp()`, container queries, `color-mix()`/OKLCH, `:has()`,
   Popover API, `<dialog>`, `<details>`, View Transitions. Interaktivita přednostně bez JavaScriptu. Žádné polyfilly, CDN ani cizí písma.
@@ -94,6 +94,13 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   a smazání v Odběratelích zařadí úlohu do `ka_odber_fronta`, odešle ji `Notifications::runInBackground` (opakování 5 min → 12 h, pak `ka_odberatele.sync = chyba`).
   Adaptéry Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing a webhook jsou v `Newsletter::apply()`; testy je přesměrují na falešný server
   nastavením `newsletter_test_url` (jen `http://127.0.0.1:<port>`, jen přes databázi).
+- **Newslettery** (`Core\Mailing`, modul `newsletters`, tabulky `ka_newsletters` a `ka_newsletter_queue`, anglické sloupce): jedna šablona
+  `views/email/newsletter.php` (tabulky, inline styly z design systému) – žádný e-mailový builder. Odesílá jen SMTP (`mail_mode = smtp`) a jen
+  cron: `/ulohy` zapíše `tasks_last_run` a pošle dávku (`Mailing::processQueue`, nejvýš 100 a `newsletter_hourly_limit` za hodinu); bez cronu
+  do 30 minut odeslání odmítne. Při startu se vykreslený e-mail zmrazí (`html`, `text` s `{{unsubscribe}}`), každý příjemce dostane vlastní
+  odkaz a `List-Unsubscribe` + `List-Unsubscribe-Post` (RFC 8058). Příjemci nejdou do `ka_posta` (`Mail::deliverNow`), fronta se den po
+  dokončení smaže. MCP: `list_newsletters`, `draft_newsletter`, `send_test_newsletter`, `send_newsletter` (právo vydávat), `delete_newsletter` –
+  jen anglicky (v `Translator::TOOLS` se stejným jménem na obou stranách). Testy: `tools/fake-smtp.php` v `tools/test.sh`.
 - **Firma** (`Front\Company`, Nastavení → Firma, klíče `firma_*`): prvek `udaje` (Údaje firmy) je vypisuje na webu, `Seo` z nich skládá
   Organization/LocalBusiness (`@id` …#firma) s adresou, otevírací dobou a geo. Otevírací doba se píše lidsky po řádcích, `Company::parseOpeningHours()` ji rozebere.
 - **Kolekce** (`Builder\Collections`, tabulky `ka_kolekce` + `ka_kolekce_polozky`, admin `Modules\Collections`, MCP `seznam_kolekci`, `vytvor_kolekci`,

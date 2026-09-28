@@ -9,8 +9,8 @@ use Kaleta\Core\Response;
 
 /**
  * News subscribers (the Newsletter extension): who subscribed with the Newsletter subscription element and whether they
- * confirmed the subscription. Kaleta does not send the mailings – confirmed addresses are exported to CSV, with an
- * unsubscribe link, for the mailing tool.
+ * confirmed the subscription. Newsletters go to them from the Newsletters module (Core\Mailing); confirmed addresses can
+ * also go to a mailing service or be exported to CSV, with an unsubscribe link, for another tool.
  */
 final class Subscribers extends Module
 {

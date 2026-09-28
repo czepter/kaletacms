@@ -74,6 +74,17 @@ final class Mail
         return $sent;
     }
 
+    /**
+     * Sends one message right away, without the mail log and the retry queue – newsletters keep their own queue and
+     * their recipients must not end up in the log (Core\Mailing).
+     *
+     * @param array<string, string> $headers
+     */
+    public static function deliverNow(Settings $siteSettings, string $recipient, string $subject, string $text, string $html, array $headers = []): bool
+    {
+        return self::deliver($siteSettings, $recipient, $subject, $text, $html, $headers);
+    }
+
     /** @param array<string, string> $headers */
     private static function deliver(Settings $siteSettings, string $recipient, string $subject, string $text, string $html = '', array $headers = []): bool
     {

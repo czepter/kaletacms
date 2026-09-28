@@ -245,6 +245,7 @@ final class Kernel
                 return new Response(t('Invalid token.') . "\n", 403, ['Content-Type' => 'text/plain; charset=utf-8']);
             }
             $done = [];
+            $this->app->settings()->set('tasks_last_run', (string) time()); // newsletters are sent only while cron runs
             try {
                 \Kaleta\Core\Notifications::process($this->app);
                 $done[] = 'oznameni';
@@ -253,6 +254,8 @@ final class Kernel
                 \Kaleta\Core\Backup::createAutomatic($this->app->db(), $this->app->settings());
                 $done[] = 'zalohy';
                 $done[] = 'posta:' . \Kaleta\Core\Mail::processQueue($this->app->settings(), 30);
+                \Kaleta\Core\Newsletter::processQueue($this->app);
+                $done[] = 'newsletter:' . \Kaleta\Core\Mailing::processQueue($this->app);
             } catch (\Throwable $e) {
                 $done[] = 'chyba: ' . $e->getMessage();
             }

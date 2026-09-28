@@ -95,6 +95,13 @@ final class Health
             ? t('have not run yet – the first visit to the site will start them')
             : ($before <= 30 ? t('last run %d min ago', $before) : ($before < 120 ? t('last run %d min ago', $before) : t('last run %d h ago', (int) round($before / 60)))
                 . ' – ' . t('on a low-traffic site set up cron; you will find the address further down this page')));
+        $cron = $siteSettings->int('tasks_last_run');
+        $cronMinutes = $cron > 0 ? (int) floor((time() - $cron) / 60) : null;
+        $add(t('Operation'), t('Cron'), $cronMinutes !== null && $cronMinutes <= Mailing::CRON_MINUTES ? 'ok' : 'varovani', match (true) {
+            $cronMinutes === null => t('not set up – scheduled work waits for visits, and newsletters cannot be sent; you will find the address further down this page'),
+            $cronMinutes <= Mailing::CRON_MINUTES => t('last run %d min ago', $cronMinutes),
+            default => t('last run %s – newsletters are not being sent until cron runs again', format_date((new \DateTimeImmutable())->setTimestamp($cron), true)),
+        });
         $update = (new Updater($siteSettings))->state();
         $add(t('Operation'), t('Updates'), !$update['nastaveno'] || $update['chyba'] !== null || $update['nova'] !== null ? 'varovani' : 'ok', match (true) {
             !$update['nastaveno'] => t('no update source is set'),

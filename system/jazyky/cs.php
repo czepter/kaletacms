@@ -2757,4 +2757,7 @@ return [
     'Create link' => 'Vytvořit odkaz',
     'Share preview' => 'Sdílet náhled',
     'Anyone with the link can see the draft without signing in – including changes you make later. Search engines do not index it.' => 'Kdo dostane odkaz, uvidí koncept bez přihlášení – i změny, které uděláte později. Vyhledávače ho neindexují.',
+    'Read more' => 'Číst dál',
+    'Unsubscribe' => 'Odhlásit odběr',
+    'You receive this e-mail because you subscribed to news from %s.' => 'Tento e-mail dostáváte, protože jste se přihlásili k odběru novinek z webu %s.',
 ];

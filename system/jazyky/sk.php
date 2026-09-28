@@ -1571,4 +1571,7 @@ return [
     'Appearance' => 'Vzhľad',
     'Match device' => 'Podľa zariadenia',
     'Light' => 'Svetlý',
+    'Read more' => 'Čítať ďalej',
+    'Unsubscribe' => 'Odhlásiť odber',
+    'You receive this e-mail because you subscribed to news from %s.' => 'Tento e-mail dostávate, pretože ste sa prihlásili na odber noviniek z webu %s.',
 ];

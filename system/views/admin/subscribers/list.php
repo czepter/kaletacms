@@ -15,7 +15,7 @@ use Kaleta\Core\Newsletter;
 
 $admin = $app->auth()->isAdmin();
 ?>
-<p class="smltxt"><?= e(t('Addresses from the Newsletter sign-up element. Only people who confirmed by the link in the e-mail count as subscribers. Send with your own tool – the export includes the unsubscribe link.')) ?></p>
+<p class="smltxt"><?= e(t('Addresses from the Newsletter sign-up element. Only people who confirmed by the link in the e-mail count as subscribers. Send them news under Newsletters, or with your own tool – the export includes the unsubscribe link.')) ?></p>
 <?php if ($service !== ''): ?>
 <div class="hlaska">
 	<p><?= e(t('Confirmed subscribers go to %s automatically; those who unsubscribe are removed from it.', t(Newsletter::SERVICES[$service][0]))) ?>

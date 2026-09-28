@@ -1,11 +1,12 @@
 // Kaleta – browser test (called by tools/test-browser.sh): walks the admin, the builder, the news editor, the menu
 // editor and the public site in Chrome and fails on any uncaught script error or console error.
-// Env: BASE, PASSWORD (admin), CHROME (browser binary), NODE_PATH (folder with playwright-core).
+// Env: BASE, PASSWORD (admin), CHROME (browser binary), NODE_PATH (folder with playwright-core), SHOTS (optional folder
+// for screenshots of new screens, to look at them).
 import { createRequire } from 'node:module';
 
 const require = createRequire(`${process.env.NODE_PATH}/`);
 const { chromium } = require('playwright-core');
-const { BASE, PASSWORD, CHROME } = process.env;
+const { BASE, PASSWORD, CHROME, SHOTS } = process.env;
 
 const browser = await chromium.launch({ executablePath: CHROME, headless: true });
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-GB' });
@@ -47,7 +48,7 @@ for (const url of ['/admin.php', '/admin.php?module=pages', '/admin.php?module=p
   '/admin.php?module=news', '/admin.php?module=collections', '/admin.php?module=categories', '/admin.php?module=tags', '/admin.php?module=media',
   '/admin.php?module=appearance', '/admin.php?module=parts', '/admin.php?module=components', '/admin.php?module=popups', '/admin.php?module=users',
   '/admin.php?module=roles', '/admin.php?module=stats', '/admin.php?module=redirects', '/admin.php?module=changelog', '/admin.php?module=transfer',
-  '/admin.php?module=extensions', '/admin.php?module=enquiries', '/admin.php?module=subscribers', '/admin.php?module=settings',
+  '/admin.php?module=extensions', '/admin.php?module=enquiries', '/admin.php?module=subscribers', '/admin.php?module=newsletters', '/admin.php?module=settings',
   '/admin.php?module=settings&tab=seo', '/admin.php?module=settings&tab=backups', '/admin.php?module=settings&tab=health', '/admin.php?action=account']) {
   await step(`open ${url}`, () => visit(url));
 }
@@ -98,6 +99,29 @@ await step('news editor: type and format', async () => {
     await page.keyboard.press('Control+A');
     const bold = page.locator('button[data-prikaz="bold"], button[title*="Bold"]').first();
     if (await bold.count()) { await bold.click(); }
+  }
+});
+
+await step('newsletter: draft and preview', async () => {
+  await visit('/admin.php?module=newsletters&action=new');
+  await page.fill('input[name="subject"]', 'Spring news from our workshop');
+  await page.fill('input[name="preheader"]', 'Two new projects and a spring offer');
+  await page.fill('textarea[name="intro"]', 'Hello,\n\nhere is what we have been working on this spring. The full offer is at https://example.com/offer');
+  await page.fill('input[name="button_label"]', 'See all news');
+  await page.fill('input[name="button_url"]', '/news');
+  await Promise.all([page.waitForNavigation(), page.locator('form.formular input[type="submit"]').first().click()]);
+  const preview = page.locator('iframe.rozesilka-nahled');
+  await preview.waitFor();
+  await page.frameLocator('iframe.rozesilka-nahled').locator('h1').waitFor({ timeout: 5000 });
+  if (SHOTS) {
+    await page.screenshot({ path: `${SHOTS}/newsletter-admin.png`, fullPage: true });
+    const src = await preview.getAttribute('src');
+    for (const [name, width] of [['newsletter-email', 700], ['newsletter-email-phone', 390]]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(new URL(src, BASE).href, { waitUntil: 'networkidle' });
+      await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
   }
 });
 

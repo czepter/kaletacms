@@ -156,6 +156,22 @@ SmartEmailing nebo jakoukoli jinou přes webhook (Make, Zapier, n8n). Zadejte kl
 se pak přidá do seznamu a odhlášený se z něj odebere. Přenos běží na pozadí a nepovedené pokusy se opakují; v
 **Odběratelích** vidíte stav každé adresy a stávající odběratele pošlete do služby jedním tlačítkem.
 
+**Obsah → Newslettery** pošlou potvrzeným odběratelům novinky přímo z webu. E-mailový builder tu není: jedna šablona
+se řídí vaším design systémem – barvami, písmy, zaoblením a logem – a obsahuje předmět, text náhledu, úvod, nejnovější
+(nebo vybrané) novinky, nepovinné tlačítko a údaje o firmě s odkazem na odhlášení. Uložte koncept, prohlédněte si náhled,
+pošlete si zkoušku a pak newsletter odešlete hned nebo v nastavený čas (odeslání vyžaduje právo vydávat). Nejdřív je
+potřeba nastavit dvě věci a obrazovka vám řekne, když chybějí:
+
+- **SMTP server** v **Nastavení → Pošta** – Brevo, Amazon SES, Mailgun nebo vlastní schránku; hromadná pošta přes
+  funkci `mail()` hostingu by skončila ve spamu. **Newslettery: e-mailů za hodinu** nastavte podle limitu své služby;
+- **cron**, který každých pár minut volá adresu úloh z **Nastavení → Stav systému**: e-maily odcházejí po dávkách při
+  každém volání, takže se newsletter nezasekne ani na málo navštěvovaném webu.
+
+Každý e-mail nese vlastní odkaz na odhlášení a odhlášení jedním klikem v poštovním programu. Nic nesleduje otevření;
+odkazy na váš web nesou parametry `utm`, takže **Statistika** ukáže návštěvy, které newsletter přivedl. Seznam příjemců
+se drží jen po dobu odesílání – potom zůstanou jen počty a data. Koncept newsletteru a zkoušku umí i Claude; odběratelům
+ho pošle jen na váš pokyn.
+
 ## 8. Údaje o firmě
 
 **Nastavení → Firma:** obchodní firma, druh podniku, IČO, DIČ, adresa, telefon, **otevírací doba** (po řádcích, např.

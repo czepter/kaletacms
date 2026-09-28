@@ -115,6 +115,8 @@ final class Settings
         'smtp_user' => '',
         'smtp_password' => '',           // type "tajne": never written back into the form
         'notification_check' => '0',   // when the check for newly published news items last ran
+        'tasks_last_run' => '0',       // when cron last called /ulohy (newsletters are sent only while cron runs)
+        'newsletter_hourly_limit' => '300', // newsletters: at most this many e-mails per hour (the SMTP relay's limit)
         'data_cleanup' => '0',         // when the daily cleanup of personal data last ran (Core\Notifications)
         'ai_provider' => 'anthropic', // anthropic | openai | google | mistral (Core\Assistant::PROVIDERS)
         'ai_key' => '',              // API key of the AI assistant (never written back into the form)

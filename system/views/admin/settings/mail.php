@@ -33,6 +33,9 @@ $field('smtp_user', 'Přihlašovací jméno', 'text', 'Usually the full e-mail a
 <?php endif ?>
 	</div>
 </div>
+<?php
+$field('newsletter_hourly_limit', 'Newsletters: e-mails per hour', 'cislo', 'Newsletters go out in batches while cron runs. Keep to the sending limit of your SMTP service – free plans often allow only a few hundred e-mails a day.', 'min="10" max="100000"');
+?>
 </fieldset>
 <details class="pokrocile"<?= $values['mail_from'] !== '' || $values['mail_reply_to'] !== '' ? ' open' : '' ?>>
 <summary><?= e(t('Sender and replies')) ?></summary>

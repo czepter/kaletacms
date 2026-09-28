@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-kaleta_test}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8099}"
 WORK="$(mktemp -d)"; JAR="$WORK/cookies.txt"; B="http://127.0.0.1:$PORT"; ERRORS=0
-cleanup() { for pid in "${SERVER_PID:-}" "${CHANNEL_PID:-}" "${SERVICE_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
+cleanup() { for pid in "${SERVER_PID:-}" "${CHANNEL_PID:-}" "${SERVICE_PID:-}" "${SMTP_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
 trap cleanup EXIT
 
 echo "== syntaxe PHP"
@@ -886,6 +886,75 @@ case "$(last_request)" in 'POST /ecomail/lists/chyba/subscribe eco-klic '*'"skip
 mcp uprav_nastaveni '{}' | grep -q 'newsletter_klic\|eco-klic' && { echo "  CHYBA  MCP ukazuje klíč mailingové služby"; ERRORS=$((ERRORS+1)); } || echo "  ok     klíč mailingové služby MCP neukazuje"
 kill "$SERVICE_PID" 2>/dev/null || true
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna LIKE 'newsletter\_%'; DELETE FROM ka_odber_fronta; DELETE FROM ka_odberatele"
+
+echo "== newsletters (fake SMTP server)"
+SMTP_PORT=$((PORT + 3)); mkdir -p "$WORK/smtp"
+php "$ROOT/tools/fake-smtp.php" "$SMTP_PORT" "$WORK/smtp" > /dev/null 2>&1 & SMTP_PID=$!
+db() { "${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "$1"; }
+tok() { php -r 'echo bin2hex(random_bytes(16));'; }
+# eml <file>: headers, the decoded subject and the decoded text and HTML parts of a captured message
+eml() { php -r '[$h, $b] = explode("\r\n\r\n", file_get_contents($argv[1]), 2); echo $h, "\n"; preg_match("/^Subject: (.*)$/m", $h, $s); echo "Subject-Decoded: ", mb_decode_mimeheader(trim($s[1] ?? "")), "\n";
+  preg_match_all("/base64\r\n\r\n([A-Za-z0-9+\/=\r\n]+)/", $b, $p); foreach ($p[1] as $x) { echo base64_decode($x), "\n"; }' "$1"; }
+mail_to() { grep -l "^X-Rcpt-To: $1" "$WORK"/smtp/*.eml 2>/dev/null | tail -1; }
+newsletter_action() { curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=newsletters"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=newsletters&action=$1" -d "_csrf=$(csrf)" "${@:2}"; }
+ANNA=$(tok); PETR=$(tok)
+db "UPDATE ka_uzivatele SET email = 'admin@example.cz' WHERE user = 'admin'; DELETE FROM ka_odberatele; INSERT INTO ka_odberatele (email, stav, token, datum, potvrzeno) VALUES
+  ('anna@example.cz', 1, '$ANNA', NOW(), NOW()), ('petr@example.cz', 1, '$PETR', NOW(), NOW()), ('odmitnout@example.cz', 1, '$(tok)', NOW(), NOW()), ('ceka@example.cz', 0, '$(tok)', NOW(), NULL);
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('tasks_last_run', '0')"
+check "newsletters: empty list" 200 "/admin.php?module=newsletters" "Napsat newsletter"
+check "newsletters: new draft form" 200 "/admin.php?module=newsletters&action=new" 'name="subject"'
+newsletter_action save -d id=0 --data-urlencode "subject=Jarní novinky" --data-urlencode "preheader=Co je nového" --data-urlencode $'intro=Dobrý den,\n\nposíláme novinky. Více na https://example.cz/akce' \
+  -d news_mode=latest -d news_count=2 --data-urlencode "button_label=Všechny novinky" -d button_url=/novinky
+NL=$(db "SELECT id FROM ka_newsletters ORDER BY id DESC LIMIT 1")
+expect "newsletter draft saved" "$(db "SELECT CONCAT(status, '|', subject, '|', news_count) FROM ka_newsletters WHERE id = $NL")" "draft|Jarní novinky|2"
+check "newsletter: e-mail preview" 200 "/admin.php?module=newsletters&action=preview&id=$NL" "utm_source=newsletter&amp;utm_medium=email&amp;utm_campaign=jarni-novinky"
+expect "preview: 2 news items, linked address, button and unsubscribe" "$(grep -c 'Číst dál' "$WORK/response")|$(grep -c 'href="https://example.cz/akce"' "$WORK/response")|$(grep -c 'Všechny novinky' "$WORK/response")|$(grep -c 'Odhlásit odběr' "$WORK/response")" "2|1|1|1"
+newsletter_action send -d "id=$NL" -d when=now
+expect "no sending without an SMTP server" "$(db "SELECT status FROM ka_newsletters WHERE id = $NL")" "draft"
+db "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$SMTP_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz')"
+newsletter_action send -d "id=$NL" -d when=now
+expect "no sending while cron does not run" "$(db "SELECT status FROM ka_newsletters WHERE id = $NL")" "draft"
+check "newsletter form tells why it cannot send" 200 "/admin.php?module=newsletters&action=edit&id=$NL" "Cron za posledních 30 minut"
+curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+newsletter_action test -d "id=$NL"
+F=$(mail_to admin@example.cz); [ -n "$F" ] && eml "$F" > "$WORK/eml.txt"
+expect "test e-mail to the signed-in user" "$(grep -c '^Subject-Decoded: \[Zkouška\] Jarní novinky$' "$WORK/eml.txt" 2>/dev/null)" "1"
+newsletter_action send -d "id=$NL" -d when=now
+expect "sending started for confirmed subscribers only" "$(db "SELECT CONCAT(status, '|', recipients, '|', html LIKE '%{{unsubscribe}}%') FROM ka_newsletters WHERE id = $NL")" "sending|3|1"
+curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
+expect "cron sends a batch: 2 delivered, the refused one waits for a retry" "$(db "SELECT CONCAT(status, '|', sent_count, '|', failed_count, '|', (SELECT COUNT(*) FROM ka_newsletter_queue WHERE newsletter_id = $NL AND next_attempt > NOW())) FROM ka_newsletters WHERE id = $NL")" "sending|2|0|1"
+F=$(mail_to anna@example.cz); [ -n "$F" ] && eml "$F" > "$WORK/eml.txt"
+expect "subscriber e-mail: one-click unsubscribe with the own link, no one else's" "$(grep -c "^List-Unsubscribe: <http://127.0.0.1:$PORT/odber?odhlasit=$ANNA>" "$WORK/eml.txt")|$(grep -c '^List-Unsubscribe-Post: List-Unsubscribe=One-Click' "$WORK/eml.txt")|$(grep -c "odhlasit=$ANNA" "$WORK/eml.txt")|$(grep -c "$PETR" "$WORK/eml.txt")" "1|1|3|0"
+expect "subscriber e-mail: subject, text part and HTML part" "$(grep -c '^Subject-Decoded: Jarní novinky$' "$WORK/eml.txt")|$(grep -c '^Všechny novinky: http' "$WORK/eml.txt")|$(grep -c '<h1 ' "$WORK/eml.txt")" "1|1|1"
+expect "newsletter recipients are not in the mail log" "$(db "SELECT COUNT(*) FROM ka_posta WHERE komu IN ('anna@example.cz', 'petr@example.cz')")" "0"
+db "UPDATE ka_newsletter_queue SET next_attempt = NOW() WHERE next_attempt IS NOT NULL"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+db "UPDATE ka_newsletter_queue SET next_attempt = NOW() WHERE next_attempt IS NOT NULL"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "a refused address is given up after three attempts, the newsletter is sent" "$(db "SELECT CONCAT(status, '|', sent_count, '|', failed_count, '|', finished_at IS NOT NULL) FROM ka_newsletters WHERE id = $NL")" "sent|2|1|1"
+check "newsletters: list with counts" 200 "/admin.php?module=newsletters" "Odesláno"
+check "a sent newsletter is read-only" 200 "/admin.php?module=newsletters&action=edit&id=$NL" "Příjemci"
+contains -c 'name="subject"' "$WORK/response" && { echo "  CHYBA  a sent newsletter can still be edited"; ERRORS=$((ERRORS+1)); } || echo "  ok     a sent newsletter has no form"
+curl -s -o /dev/null -X POST "$B/odber?odhlasit=$ANNA" -H 'Content-Type: application/x-www-form-urlencoded' -d 'List-Unsubscribe=One-Click'
+expect "one-click unsubscribe from the mail client (RFC 8058)" "$(db "SELECT COUNT(*) FROM ka_odberatele WHERE email = 'anna@example.cz'")" "0"
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | contains '"name":"draft_newsletter"' && echo "  ok     MCP: newsletter tools listed" || { echo "  CHYBA  MCP: newsletter tools missing"; ERRORS=$((ERRORS+1)); }
+db "DELETE FROM ka_odberatele WHERE email LIKE 'odmitnout%'"
+mcp draft_newsletter '{"subject":"Novinky přes Clauda","intro":"Ahoj,\n\nkrátká zpráva.","news_mode":"none","button_label":"Kontakt","button_url":"/kontakt"}' > "$WORK/response"
+NL2=$(mcp_value id)
+expect "MCP: draft_newsletter returns the text version" "$(mcp_value status)|$(mcp_value text | grep -c '^Kontakt: http://127.0.0.1')" "draft|1"
+mcp send_test_newsletter "{\"id\":$NL2}" > "$WORK/response"
+expect "MCP: test goes to the connected user" "$(mcp_value sent_to)" "admin@example.cz"
+mcp send_newsletter "{\"id\":$NL2,\"at\":\"2099-01-01 08:00\"}" > "$WORK/response"
+expect "MCP: send_newsletter schedules" "$(mcp_value status)|$(mcp_value scheduled_at)" "scheduled|2099-01-01 08:00"
+db "UPDATE ka_newsletters SET scheduled_at = NOW() - INTERVAL 1 MINUTE WHERE id = $NL2"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "a due scheduled newsletter goes out on the next cron call" "$(db "SELECT CONCAT(status, '|', recipients, '|', sent_count) FROM ka_newsletters WHERE id = $NL2")" "sent|1|1"
+mcp list_newsletters '{}' > "$WORK/response"
+expect "MCP: list_newsletters with subscribers and no sending problem" "$(mcp_value confirmed_subscribers)|$(mcp_value sending_problem)|$(mcp_value newsletters 0 status)" "1|null|sent"
+mcp delete_newsletter "{\"id\":$NL2}" > /dev/null
+expect "MCP: delete_newsletter" "$(db "SELECT COUNT(*) FROM ka_newsletters WHERE id = $NL2")" "0"
+db "UPDATE ka_newsletters SET finished_at = NOW() - INTERVAL 2 DAY WHERE id = $NL"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "recipients are kept only a day after sending" "$(db "SELECT COUNT(*) FROM ka_newsletter_queue WHERE newsletter_id = $NL")|$(db "SELECT sent_count FROM ka_newsletters WHERE id = $NL")" "0|2"
+check "health: cron check" 200 "/admin.php?module=settings&tab=health" "Cron"
+kill "$SMTP_PID" 2>/dev/null || true
+db "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', ''); DELETE FROM ka_odberatele; DELETE FROM ka_newsletters; DELETE FROM ka_newsletter_queue"
 
 echo "== média, tokeny DTCG, kolekce přes MCP"
 IDOM=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ido FROM ka_media WHERE obr_poloha LIKE '%.jpg' ORDER BY ido DESC LIMIT 1")

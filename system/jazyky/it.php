@@ -1597,4 +1597,7 @@ return [
     'Match device' => 'Come il dispositivo',
     'Light' => 'Chiaro',
     'Dark' => 'Scuro',
+    'Read more' => 'Leggi tutto',
+    'Unsubscribe' => 'Annulla l\'iscrizione',
+    'You receive this e-mail because you subscribed to news from %s.' => 'Ricevi questa e-mail perché ti sei iscritto alle novità di %s.',
 ];

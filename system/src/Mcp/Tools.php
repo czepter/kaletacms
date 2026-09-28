@@ -168,11 +168,27 @@ final class Tools
             ['seznam_presmerovani', 'Přesměrování starých adres (rozšíření Přesměrování) a nejčastější adresy, které skončily chybou 404.', $s([])],
             ['uloz_presmerovani', 'Přidá nebo změní přesměrování (správce): ze staré cesty na webu na novou cestu nebo https adresu. Typ 301 = natrvalo (výchozí), 302 = dočasně.',
                 $s(['z' => $text('stará cesta, např. /docs nebo /o-nas'), 'na' => $text('nová cesta (/guide) nebo https://…'), 'typ' => $number('301 nebo 302'), 'smazat' => ['type' => 'boolean', 'description' => 'true = přesměrování ze staré cesty smazat']], ['z'])],
+            ['list_newsletters', 'Newsletters (Newsletter extension; users with the Newsletters section): drafts, scheduled, being sent and sent, with counts of recipients, sent and failed e-mails, the number of confirmed subscribers and sending_problem – why the site cannot send now (no SMTP server, cron not running).', $s([])],
+            ['draft_newsletter', 'Creates a newsletter draft (without id) or changes a draft or a scheduled one (with id). There is no e-mail builder: one template styled by the design system (colours, fonts, logo) with the subject, an introduction, news items, an optional button and the company footer with an unsubscribe link. Returns the plain-text version to check; the admin shows the HTML preview.',
+                $s(['id' => $number('newsletter ID – only when changing it'), 'subject' => $text('subject of the e-mail, also its heading'), 'preheader' => $text('preview text next to the subject in the inbox (optional)'),
+                    'intro' => $text('introduction as plain text; an empty line starts a new paragraph, web addresses become links'),
+                    'news_mode' => $text('latest (the latest news_count items at the time of sending, default) | chosen (news_ids) | none'),
+                    'news_count' => $number('how many of the latest news items, 1–' . \Kaleta\Core\Mailing::MAX_NEWS . ', default 3'),
+                    'news_ids' => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'chosen news item IDs in order (list_news), with news_mode chosen'],
+                    'button_label' => $text('button text (optional, with button_url)'), 'button_url' => $text('button link: a path on the site (/contact) or https://…'),
+                    'language' => $text('language of the footer texts and the latest news on a multilingual site (code; empty = default)')])],
+            ['send_test_newsletter', 'Sends the newsletter as a test to the connected user\'s own e-mail address – subscribers get nothing. Use it before asking the user to send.', $s(['id' => $number('newsletter ID')], ['id'])],
+            ['send_newsletter', 'Sends the newsletter to all confirmed subscribers now, or schedules it with at. It cannot be taken back: only with the publishing permission and ONLY when the user explicitly asks to send it. Needs an SMTP server and a running cron (sending_problem in list_newsletters). unschedule: true turns a scheduled one back into a draft.',
+                $s(['id' => $number('newsletter ID'), 'at' => $text('YYYY-MM-DD HH:MM to schedule; empty = now'), 'unschedule' => ['type' => 'boolean', 'description' => 'true = cancel the scheduled sending']], ['id'])],
+            ['delete_newsletter', 'Deletes a newsletter – a draft, a scheduled or a sent one (not one being sent). Only when the user explicitly asks.', $s(['id' => $number('newsletter ID')], ['id'])],
             ['smaz_stranku', 'Přesune stránku do koše (jen na výslovný pokyn uživatele; editor nebo správce). Z koše jde 30 dní obnovit v administraci. Úvodní stránku smazat nejde.', $s(['id' => $number('ID stránky')], ['id'])],
         ];
 
         if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky')) {
             $tools = array_filter($tools, fn (array $n): bool => !in_array($n[0], self::NEWS_TOOLS, true));
+        }
+        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'newsletter')) {
+            $tools = array_filter($tools, fn (array $n): bool => !in_array($n[0], self::NEWSLETTER_TOOLS, true));
         }
 
         return array_values(array_map(fn (array $n): array => ['name' => $n[0], 'description' => $n[1], 'inputSchema' => $n[2]], $tools));
@@ -181,15 +197,18 @@ final class Tools
     /** @return list<string> Czech names of all tools (including disabled extensions) */
     public function names(): array
     {
-        return [...array_column($this->listAll(), 'name'), ...self::NEWS_TOOLS];
+        return array_values(array_unique([...array_column($this->listAll(), 'name'), ...self::NEWS_TOOLS, ...self::NEWSLETTER_TOOLS]));
     }
 
     /** Tools of the News extension – with the extension disabled they are neither offered nor run. */
     private const array NEWS_TOOLS = ['seznam_novinek', 'nacti_novinku', 'vytvor_novinku', 'uprav_novinku', 'seznam_kategorii', 'vytvor_kategorii'];
 
+    /** Newsletter tools (1.5; English names only – they never had Czech ones). */
+    private const array NEWSLETTER_TOOLS = ['list_newsletters', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter'];
+
     public function isWriteTool(string $name): bool
     {
-        return in_array($name, ['obnov_verzi', 'zahod_koncept', 'uloz_variantu', 'vytvor_kolekci', 'uprav_kolekci', 'uloz_polozku_kolekce', 'uloz_popup', 'stavba_z_html', 'stavba_uloz', 'stavba_uprav', 'uloz_tridy', 'nahraj_soubor', 'uprav_nastaveni', 'uloz_presmerovani', 'smaz_stranku', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'uloz_menu'], true);
+        return in_array($name, ['obnov_verzi', 'zahod_koncept', 'uloz_variantu', 'vytvor_kolekci', 'uprav_kolekci', 'uloz_polozku_kolekce', 'uloz_popup', 'stavba_z_html', 'stavba_uloz', 'stavba_uprav', 'uloz_tridy', 'nahraj_soubor', 'uprav_nastaveni', 'uloz_presmerovani', 'smaz_stranku', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'uloz_menu', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter'], true);
     }
 
     /** @param array<string, mixed> $a */
@@ -206,6 +225,9 @@ final class Tools
 
         if (in_array($name, self::NEWS_TOOLS, true) && !\Kaleta\Core\Extensions::isEnabled($siteSettings, 'novinky')) {
             throw new \DomainException('Novinky jsou na tomto webu vypnuté (Rozšíření).');
+        }
+        if (in_array($name, self::NEWSLETTER_TOOLS, true)) {
+            return $this->newsletterTool($name, $a);
         }
         switch ($name) {
             case 'info_o_webu':
@@ -967,6 +989,91 @@ final class Tools
     }
 
     /** Popup for MCP output. */
+    /**
+     * Newsletter tools: anyone with the Newsletters section writes drafts and sends tests to themselves; sending to
+     * subscribers needs the publishing permission.
+     *
+     * @param array<string, mixed> $a
+     */
+    private function newsletterTool(string $name, array $a): mixed
+    {
+        $auth = $this->app->auth();
+        $db = $this->app->db();
+        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'newsletter') || !$auth->hasModule('newsletters')) {
+            throw new \DomainException('Newsletters need the Newsletter extension and a user with access to the Newsletters section.');
+        }
+        $mailing = \Kaleta\Core\Mailing::class;
+        $byId = fn (): array => $mailing::byId($db, (int) ($a['id'] ?? 0)) ?? throw new \InvalidArgumentException('The newsletter does not exist. Use list_newsletters.');
+        switch ($name) {
+            case 'list_newsletters':
+                return ['newsletters' => array_map(fn (array $n): array => $this->newsletter($n), $mailing::all($db)),
+                    'confirmed_subscribers' => $mailing::confirmedCount($db), 'sending_problem' => $mailing::problem($this->app)];
+
+            case 'draft_newsletter':
+                $current = isset($a['id']) && (int) $a['id'] > 0 ? $byId() : null;
+                $id = $mailing::save($this->app, array_intersect_key($a, array_flip(['subject', 'preheader', 'intro', 'news_mode', 'news_count', 'news_ids', 'button_label', 'button_url', 'language'])), (int) ($current['id'] ?? 0));
+                $n = (array) $mailing::byId($db, $id);
+
+                return $this->newsletter($n) + ['text' => str_replace($mailing::UNSUBSCRIBE, '(unsubscribe link)', $mailing::render($this->app, $n)[1]),
+                    'sending_problem' => $mailing::problem($this->app)];
+
+            case 'send_test_newsletter':
+                $n = $byId();
+                $email = (string) ($auth->user()['email'] ?? '');
+                if ($email === '') {
+                    throw new \DomainException('The connected user has no e-mail address – add one under My account in the admin.');
+                }
+                if (!$mailing::sendTest($this->app, $n, $email)) {
+                    throw new \DomainException('The test e-mail could not be sent: ' . \Kaleta\Core\Mail::$error);
+                }
+
+                return ['sent_to' => $email];
+
+            case 'send_newsletter':
+                $n = $byId();
+                if (!$auth->canPublish()) {
+                    throw new \DomainException('Sending to subscribers needs the publishing permission.');
+                }
+                if (!empty($a['unschedule'])) {
+                    $mailing::unschedule($this->app, (int) $n['id']);
+                } else {
+                    $mailing::send($this->app, (int) $n['id'], isset($a['at']) ? (string) $a['at'] : null);
+                }
+
+                return $this->newsletter((array) $mailing::byId($db, (int) $n['id']));
+
+            default: // delete_newsletter
+                $n = $byId();
+                $mailing::delete($this->app, (int) $n['id']);
+
+                return ['deleted' => (int) $n['id']];
+        }
+    }
+
+    /** @param array<string, mixed> $n */
+    private function newsletter(array $n): array
+    {
+        $output = ['id' => (int) $n['id'], 'subject' => $n['subject'], 'status' => $n['status']];
+        foreach (['preheader', 'intro', 'news_mode', 'news_count', 'news_ids', 'button_label', 'button_url', 'language'] as $key) {
+            if (array_key_exists($key, $n)) {
+                $output[$key] = match ($key) {
+                    'news_count' => (int) $n[$key],
+                    'news_ids' => array_map('intval', array_filter(explode(',', (string) $n[$key]))),
+                    default => $n[$key],
+                };
+            }
+        }
+        if ($n['status'] === 'scheduled') {
+            $output['scheduled_at'] = substr((string) $n['scheduled_at'], 0, 16);
+        }
+        if (in_array($n['status'], ['sending', 'sent'], true)) {
+            $output += ['recipients' => (int) $n['recipients'], 'sent' => (int) $n['sent_count'], 'failed' => (int) $n['failed_count'],
+                'started_at' => substr((string) $n['started_at'], 0, 16), 'finished_at' => $n['finished_at'] !== null ? substr((string) $n['finished_at'], 0, 16) : null];
+        }
+
+        return $output + ['admin' => $this->app->request->origin() . $this->app->url('admin.php?module=newsletters&action=edit&id=' . (int) $n['id'])];
+    }
+
     private function popup(array $p, bool $withPreview = false): array
     {
         $output = ['id' => $p['idpp'], 'nazev' => $p['nazev'], 'adresa' => $p['adresa'], 'odkaz' => '#popup-' . $p['adresa'], 'typ' => $p['typ'], 'spoustec' => $p['spoustec'],

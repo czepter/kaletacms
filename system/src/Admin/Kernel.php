@@ -25,6 +25,7 @@ final class Kernel
         Modules\Collections::class,
         Modules\Enquiries::class,
         Modules\Subscribers::class,
+        Modules\Newsletters::class,
         Modules\Categories::class,
         Modules\Tags::class,
         Modules\Media::class,

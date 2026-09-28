@@ -114,7 +114,7 @@ NEWS=$(sql "SELECT idc FROM ka_novinky LIMIT 1")
 for u in "" "module=pages" "module=pages&action=new" "module=pages&action=builder&id=1" "module=enquiries" "module=parts" "module=parts&action=builder&typ=hlavicka&jazyk=" \
   "module=components" "module=collections" "module=collections&action=new" "module=news" "module=news&action=new" "module=news&action=edit&id=$NEWS" "module=categories" "module=categories&action=new" \
   "module=tags" "module=media" "module=stats" "module=appearance" "module=menu" "module=users" "module=users&action=new" "module=roles" "module=roles&action=new" "module=redirects" \
-  "module=changelog" "module=transfer" "module=extensions" "module=subscribers" "action=account" "module=settings&tab=general" "module=settings&tab=company" "module=settings&tab=seo" \
+  "module=changelog" "module=transfer" "module=extensions" "module=subscribers" "module=newsletters" "module=newsletters&action=new" "action=account" "module=settings&tab=general" "module=settings&tab=company" "module=settings&tab=seo" \
   "module=settings&tab=analytics" "module=settings&tab=cookies" "module=settings&tab=mail" "module=settings&tab=backups" "module=settings&tab=health" \
   "module=popups" "module=popups&action=new"; do
   page "admin.php?$u" "/admin.php?$u" 200 "$JAR"

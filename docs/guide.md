@@ -159,6 +159,22 @@ SmartEmailing, or any other service through a webhook (Make, Zapier, n8n). Enter
 subscriber is then added to the list, and an unsubscribed one removed from it. The transfer runs in the background and
 failed attempts are repeated; **Subscribers** shows the state of each address and can send all existing ones at once.
 
+**Content → Newsletters** sends your latest news to confirmed subscribers straight from the site. There is no e-mail
+builder: one template follows your design system – colours, fonts, corner radius and logo – and holds a subject, a
+preview text, an introduction, the latest (or chosen) news items, an optional button and your company details with an
+unsubscribe link. Save the draft, check the preview, send a test to yourself, then send now or at a set time (sending
+needs the publishing permission). Two things must be set up first, and the screen tells you when they are missing:
+
+- an **SMTP server** in **Settings → Mail** – Brevo, Amazon SES, Mailgun or your own mailbox; bulk mail through the
+  hosting's `mail()` would end up in spam. Set **Newsletters: e-mails per hour** to your service's limit;
+- **cron** calling the tasks address from **Settings → Health** every few minutes: the e-mails go out in batches on each
+  call, so a newsletter never stalls on a quiet site.
+
+Every e-mail carries the subscriber's own unsubscribe link and one-click unsubscribe for mail clients. Nothing tracks
+opens; links to your site carry `utm` parameters, so **Statistics** show the visits a newsletter brought. The list of
+recipients is kept only while sending – afterwards only the counts and dates remain. Claude can draft newsletters and send
+tests too, and sends to subscribers only when you ask.
+
 ## 8. Company details
 
 **Settings → Company:** registered name, business type, company ID, VAT ID, address, phone, **opening hours** (one per
