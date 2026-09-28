@@ -17,7 +17,7 @@ use Kaleta\Core\Response;
  */
 final class Roles extends Module
 {
-    public const string IDENT = 'role';
+    public const string IDENT = 'roles';
     public const string NAME = 'Role';
     public const string GROUP = 'Správa';
     public const string ICON = 'uzivatele';
@@ -30,26 +30,26 @@ final class Roles extends Module
         Auth::EDITOR => ['Spravuje obsah všech', 'Upravuje a vydává novinky všech autorů.'],
     ];
 
-    protected function akceVypis(): Response
+    protected function actionList(): Response
     {
         $role = $this->db->all('SELECT r.*, (SELECT COUNT(*) FROM {uzivatele} u WHERE u.role = r.idr) AS clenu FROM {role} r ORDER BY r.nazev');
 
         return $this->view('list', 'Role', ['role' => $role, 'names' => self::configurable()]);
     }
 
-    protected function akceNovy(): Response
+    protected function actionNew(): Response
     {
         return $this->form(['idr' => 0, 'nazev' => '', 'popis' => '', 'uroven' => Auth::AUTHOR, 'moduly' => '']);
     }
 
-    protected function akceEdit(): Response
+    protected function actionEdit(): Response
     {
         $role = $this->db->one('SELECT * FROM {role} WHERE idr = ?', [$this->request->getInt('id')]);
 
         return $role === null ? $this->error('Role neexistuje.', 404) : $this->form($role);
     }
 
-    protected function akceUloz(): Response
+    protected function actionSave(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back();
@@ -87,7 +87,7 @@ final class Roles extends Module
         return $this->back('Role byla uložena.');
     }
 
-    protected function akceSmaz(): Response
+    protected function actionDelete(): Response
     {
         if ($this->request->isPost()) {
             // členové si ponechají dosavadní práva, jen už je role při další změně nepřepíše

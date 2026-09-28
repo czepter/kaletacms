@@ -17,7 +17,7 @@
 	var MAX_FILE = parseInt(SCRIPT.getAttribute('data-max-soubor') || '0', 10); // limit serveru na soubor v bajtech (0 = bez limitu)
 	var MAX_SIDE = parseInt(SCRIPT.getAttribute('data-max-strana') || '2000', 10);
 	var CSRF = (document.querySelector('input[name="_csrf"]') || {}).value || '';
-	var GALLERY = ADMIN + '?modul=intergal';
+	var GALLERY = ADMIN + '?module=media';
 	var NEWS_ID = parseInt((document.querySelector('form[data-koncept] input[name="idc"]') || {}).value || '0', 10);
 	var LANGUAGE = document.documentElement.lang || 'cs'; // formát data a času podle jazyka stránky
 	var time = function (t, timeOnly) { return window.kaletaCas ? window.kaletaCas(t, timeOnly) : new Date(t).toLocaleString(LANGUAGE); }; // image/admin.js
@@ -131,7 +131,7 @@
 		data.append('_csrf', CSRF);
 		data.append('sekce', folder && /^\d+$/.test(folder.value) ? folder.value : '0');
 		files.forEach(function (s) { data.append('soubory[]', s); });
-		return fetch(GALLERY + '&akce=nahraj&format=json', { method: 'POST', body: data, credentials: 'same-origin' })
+		return fetch(GALLERY + '&action=upload&format=json', { method: 'POST', body: data, credentials: 'same-origin' })
 			.then(function (r) { return r.json(); })
 			.then(function (j) {
 				if (j.chyby && j.chyby.length) { announce(j.chyby.join('\n')); }
@@ -207,7 +207,7 @@
 			var search = modal.querySelector('input[type=search]').value.trim();
 			if (search !== '') { query += '&hledat=' + encodeURIComponent(search); }
 			grid.textContent = T('Načítám…');
-			fetch(GALLERY + '&akce=seznam' + query, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+			fetch(GALLERY + '&action=listing' + query, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
 				var selection = modal.querySelector('select');
 				selection.textContent = '';
 				[['', T('Všechna média')]].concat(NEWS_ID ? [['clanek', T('V tomto textu')]] : [], [['0', T('Nezařazené')]], j.slozky.map(function (s) { return [String(s.id), T('Složka: ') + s.nazev]; })).forEach(function (v) {
@@ -229,7 +229,7 @@
 			tl.textContent = T('Načíst další');
 			tl.addEventListener('click', function () {
 				tl.disabled = true;
-				fetch(GALLERY + '&akce=seznam' + query + '&strana=' + pageNumber, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+				fetch(GALLERY + '&action=listing' + query + '&strana=' + pageNumber, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
 					tl.remove();
 					j.obrazky.forEach(function (o) { add(o, false); });
 					additional(query, pageNumber + 1, j.obrazky.length);
@@ -320,7 +320,7 @@
 				clearTimeout(timer);
 				if (q.length < 2) { results.textContent = ''; return; }
 				timer = setTimeout(function () {
-					fetch(ADMIN + '?modul=novinky&akce=hledej_json&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+					fetch(ADMIN + '?module=news&action=search_json&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
 						results.textContent = j.clanky.length ? '' : T('Nic nenalezeno.');
 						j.clanky.forEach(function (c) {
 							var b = document.createElement('button');

@@ -23,7 +23,7 @@ $role = [
 <?php if (($summary ?? '') !== ''): ?>
 <p class="hlaska"><strong><?= e(t('Co teď smí:')) ?></strong> <?= e($summary) ?></p>
 <?php endif ?>
-<form class="formular" method="post" action="<?= e($module->url('uloz')) ?>" autocomplete="off">
+<form class="formular" method="post" action="<?= e($module->url('save')) ?>" autocomplete="off">
 <?= $csrf ?>
 <input type="hidden" name="idu" value="<?= (int) $author['idu'] ?>">
 <div class="radek">
@@ -67,7 +67,7 @@ $role = [
 	</label>
 <?php endforeach ?>
 </div>
-<p class="napoveda"><a href="<?= e($app->url('admin.php?modul=role')) ?>"><?= e(t('Vlastní role')) ?></a> – <?= e(t('pojmenovaná sada sekcí, třeba jen Poptávky pro obchodníka.')) ?></p>
+<p class="napoveda"><a href="<?= e($app->url('admin.php?module=roles')) ?>"><?= e(t('Vlastní role')) ?></a> – <?= e(t('pojmenovaná sada sekcí, třeba jen Poptávky pro obchodníka.')) ?></p>
 <?php if ($isSelf): ?>
 <p class="napoveda"><?= e(t('Vlastní účet nemůžete zbavit práv správce.')) ?></p>
 <?php endif ?>
@@ -105,5 +105,5 @@ $role = [
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($author['idu'] ? 'Uložit' : 'Přidat uživatele')) ?>"></p>
 </form>
 <?php if ($author['idu'] && $author['email'] !== '' && !$author['blokovat']): ?>
-<div class="navigace-radek akce-dole"><form class="vradku" method="post" action="<?= e($module->url('odkaz_hesla')) ?>" data-potvrdit="<?= e(t('Poslat uživateli e-mailem odkaz na nastavení nového hesla?')) ?>"><?= $csrf ?><input type="hidden" name="idu" value="<?= (int) $author['idu'] ?>"><input type="hidden" name="user" value="<?= e($author['user']) ?>"><button class="navigace" type="submit"><?= e(t('Poslat odkaz na nové heslo')) ?></button></form></div>
+<div class="navigace-radek akce-dole"><form class="vradku" method="post" action="<?= e($module->url('password_link')) ?>" data-potvrdit="<?= e(t('Poslat uživateli e-mailem odkaz na nastavení nového hesla?')) ?>"><?= $csrf ?><input type="hidden" name="idu" value="<?= (int) $author['idu'] ?>"><input type="hidden" name="user" value="<?= e($author['user']) ?>"><button class="navigace" type="submit"><?= e(t('Poslat odkaz na nové heslo')) ?></button></form></div>
 <?php endif ?>

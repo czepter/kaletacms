@@ -23,17 +23,18 @@ clients. They keep their Czech names; the rename tool never touches string liter
 
 Renamed later, each with a migration or an alias so old links and data keep working:
 
-- admin URLs `?modul=` and `akce=` and the permission idents stored with roles (phase 4);
 - settings keys in `ka_nastaveni` (phase 5: the value is copied, the old key is read as a fallback for two releases);
 - UI source strings `t('…')`, now Czech sentences (phase 6: English source, Czech moves to a dictionary).
 
-Old class names keep working through `system/class-aliases.php` until 2.0.
+Old class names keep working through `system/class-aliases.php` until 2.0. Old admin URLs of 1.3 (bookmarks, links in
+sent e-mails; parameters modul, akce, zalozka with Czech values) are translated by `Admin\LegacyUrls` and redirected to the
+current ones (`?module=pages&action=save&tab=backups`); the idents stored with user and role permissions were migrated (0025).
 
 ## Conventions
 
 - Classes are nouns in PascalCase, methods start with a verb, booleans with `is`/`has`/`can`: `jeAktivni` → `isActive`,
   `maModul` → `hasModule`, `smiPublikovat` → `canPublish`.
-- Admin actions keep the `action` prefix: `akceUloz` → `actionSave` (together with the `akce=` URLs in phase 4).
+- Admin actions keep the `action` prefix: `akceUloz` → `actionSave`, URL `?action=save`.
 - No new abbreviations. Kept: `id`, `url`, `html`, `css`, `db`, `ai`, `mcp`, `seo`, `utm`, `sha`, `max`, `min`.
 - One Czech word with two meanings gets two English words; the table says which is which (`adresa`, `stav`, `značka`).
 - A Czech inflected form maps like its base word: `stranky`, `stranku`, `strance` → `page`/`pages`.

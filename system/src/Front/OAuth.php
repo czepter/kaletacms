@@ -14,7 +14,7 @@ use Kaleta\Core\Response;
  *   /.well-known/oauth-protected-resource   metadata chráněného zdroje (RFC 9728) – kdo vydává tokeny pro /mcp
  *   /.well-known/oauth-authorization-server metadata autorizačního serveru (RFC 8414)
  *   /oauth/register                         dynamická registrace klienta (RFC 7591)
- *   /oauth/authorize                        začátek přihlášení → souhlas v administraci (admin.php?akce=oauth)
+ *   /oauth/authorize                        začátek přihlášení → souhlas v administraci (admin.php?action=oauth)
  *   /oauth/token                            výměna kódu za tokeny (PKCE S256) a obnova tokenu
  *
  * Aplikace dostane stejná práva jako uživatel, který ji povolil. Přístupový token platí hodinu, obnovovací 30 dní a při
@@ -145,7 +145,7 @@ final class OAuth
             'challenge' => $r->get('code_challenge'), 'cas' => time(),
         ]);
 
-        return Response::redirect($this->app->url('admin.php?akce=oauth'));
+        return Response::redirect($this->app->url('admin.php?action=oauth'));
     }
 
     /**

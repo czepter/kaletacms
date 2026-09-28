@@ -10,7 +10,7 @@ use Kaleta\Core\Response;
 use Kaleta\Core\Extensions;
 
 /**
- * Administrace. Adresy: admin.php?modul=<ident>&akce=<akce>
+ * Administrace. Adresy: admin.php?module=<ident>&action=<akce>
  */
 final class Kernel
 {
@@ -63,10 +63,10 @@ final class Kernel
 
         // každá změna v administraci zneplatní cache stránek webu; průběžné požadavky editorů (rozepsaný stav, asistent,
         // koncept stavby) web nemění - kdyby cache mazaly, při práci by byla pořád studená
-        if ($request->isPost() && !in_array($request->get('akce'), ['koncept', 'asistent', 'stavba_uloz', 'nahled', 'stavba_ai_text'], true)) {
+        if ($request->isPost() && !in_array($request->get('action'), ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text'], true)) {
             \Kaleta\Front\Cache::clear();
         }
-        $action = $request->get('akce');
+        $action = $request->get('action');
         // adresa webu: starší instalace ji ještě nemá - zapíše se podle adresy, na které pracuje přihlášený administrátor
         if ($app->settings()->get('adresa_webu') === '' && $app->auth()->isAdmin()) {
             $app->settings()->set('adresa_webu', $request->origin());
@@ -74,7 +74,7 @@ final class Kernel
         $request->setOrigin($app->settings()->get('adresa_webu'));
         $app->applyTimezone();
         if ($app->auth()->user() === null) {
-            return $action === 'heslo' ? (new PasswordReset($app))->handle() : $this->login();
+            return $action === 'password' ? (new PasswordReset($app))->handle() : $this->login();
         }
         if ($action === 'logout' && $request->isPost()) {
             $app->auth()->logout();
@@ -109,24 +109,24 @@ final class Kernel
             Modules\Pages::emptyTrash($app->db());
         }
 
-        $ident = $request->get('modul');
+        $ident = $request->get('module');
         // povinné dvoufázové přihlášení: kdo ho ještě nemá, smí jen do Můj účet (a odhlásit se), dokud ho nezapne
-        if ($app->auth()->isMissingRequired2fa($app->settings()) && !in_array($action, ['ucet', 'token'], true)) {
+        if ($app->auth()->isMissingRequired2fa($app->settings()) && !in_array($action, ['account', 'token'], true)) {
             $app->session->flash('chyba', t('Web vyžaduje dvoufázové přihlášení. Zapněte si ho prosím níže – do té doby je administrace zamčená.'));
 
-            return Response::redirect($app->url('admin.php?akce=ucet'));
+            return Response::redirect($app->url('admin.php?action=account'));
         }
         if ($action === 'token') {
             // editor po novém přihlášení v jiné záložce si tu vezme platný token formulářů a pokračuje v ukládání
             return Response::json(['csrf' => $app->session->csrfToken()]);
         }
-        if ($action === 'ucet') {
+        if ($action === 'account') {
             return (new Account($this))->handle();
         }
         if ($action === 'oauth') {
             return $this->handleOAuthConsent();
         }
-        if ($action === 'pruvodce_skryt' && $request->isPost() && $app->auth()->isAdmin()) {
+        if ($action === 'hide_first_steps' && $request->isPost() && $app->auth()->isAdmin()) {
             $app->settings()->set('pruvodce_skryt', '1');
 
             return Response::redirect($app->url('admin.php'));
@@ -147,10 +147,10 @@ final class Kernel
             return $this->page('Chyba', $app->view->render('admin/error', ['text' => 'K tomuto modulu nemáte přístup.']), 403);
         }
 
-        $response = (new $class($this))->handle($action === '' ? 'vypis' : $action);
+        $response = (new $class($this))->handle($action === '' ? 'list' : $action);
         if ($request->isPost() && $response->status === 302 && $action !== 'poradi') {
             // každá provedená změna v administraci jde do protokolu
-            $description = $request->post('titulek') ?: ($request->post('nazev') ?: ($request->post('user') ?: $request->post('zalozka')));
+            $description = $request->post('titulek') ?: ($request->post('nazev') ?: ($request->post('user') ?: $request->post('tab')));
             ChangeLog::write($app, $ident, $action, $description);
         }
 
@@ -189,7 +189,7 @@ final class Kernel
             'heading' => t($heading),
             'content' => $content,
             'modules' => $app->auth()->user() !== null ? $this->modules() : [],
-            'active' => $app->request->get('modul'),
+            'active' => $app->request->get('module'),
             'user' => $app->auth()->user(),
             'flashes' => $app->session->takeFlashes(),
         ]), $status);
@@ -209,29 +209,29 @@ final class Kernel
 
         $modules = $this->modules();
         $warnings = [];
-        if (isset($modules['presmerovani'])) {
+        if (isset($modules['redirects'])) {
             $missing = (int) $db->value('SELECT COUNT(*) FROM {nenalezeno} WHERE naposledy > NOW() - INTERVAL 7 DAY AND pocet >= 3');
             if ($missing > 0) {
-                $warnings[] = [t('Návštěvníci za poslední týden opakovaně nenašli %d adres (chyba 404). Přesměrujte je na správné stránky.', $missing), $this->app->url('admin.php?modul=presmerovani')];
+                $warnings[] = [t('Návštěvníci za poslední týden opakovaně nenašli %d adres (chyba 404). Přesměrujte je na správné stránky.', $missing), $this->app->url('admin.php?module=redirects')];
             }
         }
         if ($this->app->auth()->isAdmin()) {
             $backup = \Kaleta\Core\Backup::listAll()[0]['cas'] ?? 0;
             if (time() - $backup > 8 * 86400) {
-                $warnings[] = [$backup === 0 ? t('Web zatím nemá žádnou zálohu databáze.') : t('Poslední záloha databáze je z %s.', format_date(date('Y-m-d H:i:s', $backup))), $this->app->url('admin.php?modul=config&zalozka=zalohy')];
+                $warnings[] = [$backup === 0 ? t('Web zatím nemá žádnou zálohu databáze.') : t('Poslední záloha databáze je z %s.', format_date(date('Y-m-d H:i:s', $backup))), $this->app->url('admin.php?module=settings&tab=backups')];
             }
         }
         // naposledy upravený obsah: stránky i novinky dohromady
         $edited = [];
-        if (isset($modules['stranky'])) {
+        if (isset($modules['pages'])) {
             foreach ($db->all('SELECT ids, titulek, zmeneno, zobrazit, stavba_koncept IS NOT NULL AS koncept FROM {stranky} WHERE smazano IS NULL AND zmeneno IS NOT NULL ORDER BY zmeneno DESC LIMIT 6') as $r) {
-                $edited[] = ['druh' => t('Stránka'), 'titulek' => $r['titulek'], 'kdy' => (string) $r['zmeneno'], 'url' => $this->app->url('admin.php?modul=stranky&akce=edit&id=' . (int) $r['ids']),
+                $edited[] = ['druh' => t('Stránka'), 'titulek' => $r['titulek'], 'kdy' => (string) $r['zmeneno'], 'url' => $this->app->url('admin.php?module=pages&action=edit&id=' . (int) $r['ids']),
                     'stav' => !$r['zobrazit'] ? t('skrytá') : ($r['koncept'] ? t('nepublikované změny') : '')];
             }
         }
-        if (isset($modules['novinky'])) {
+        if (isset($modules['news'])) {
             foreach ($db->all('SELECT c.idc, c.titulek, COALESCE(c.zmeneno, c.datum) AS kdy, c.visible, c.datum > NOW() AS plan FROM {novinky} c WHERE 1 = 1' . $aliasedScope . ' ORDER BY COALESCE(c.zmeneno, c.datum) DESC LIMIT 6') as $r) {
-                $edited[] = ['druh' => t('Novinka'), 'titulek' => $r['titulek'], 'kdy' => (string) $r['kdy'], 'url' => $this->app->url('admin.php?modul=novinky&akce=edit&id=' . (int) $r['idc']),
+                $edited[] = ['druh' => t('Novinka'), 'titulek' => $r['titulek'], 'kdy' => (string) $r['kdy'], 'url' => $this->app->url('admin.php?module=news&action=edit&id=' . (int) $r['idc']),
                     'stav' => !$r['visible'] ? t('koncept') : ($r['plan'] ? t('naplánovaná') : '')];
             }
         }
@@ -241,18 +241,18 @@ final class Kernel
             'firstSteps' => $this->firstSteps(),
             'warnings' => $warnings,
             // návštěvnost za 14 dní (vlastní měření bez cookies)
-            'traffic' => Extensions::isEnabled($this->app->settings(), 'statistika') && isset($modules['stat'])
+            'traffic' => Extensions::isEnabled($this->app->settings(), 'statistika') && isset($modules['stats'])
                 ? $db->all('SELECT den, navstevy, zobrazeni FROM {stat_dny} WHERE den > CURDATE() - INTERVAL 14 DAY ORDER BY den') : [],
             'counts' => array_filter([
                 // koncepty autorů novinek čekají na editora – dlaždice jen, když nějaké jsou
-                'Novinky od autorů čekají na vydání' => isset($modules['novinky']) && ($pending = Modules\News::countAwaitingPublication($this->app)) > 0 ? [$pending, 'admin.php?modul=novinky&stav=ke_vydani'] : null,
-                'Nové poptávky' => isset($modules['poptavky']) ? [(int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0'), 'admin.php?modul=poptavky'] : null,
-                'Zveřejněné stránky' => isset($modules['stranky']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL'), 'admin.php?modul=stranky'] : null,
-                'Stránky s nepublikovanými změnami' => isset($modules['stranky']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE stavba_koncept IS NOT NULL AND smazano IS NULL'), 'admin.php?modul=stranky'] : null,
-                'Vydané novinky' => isset($modules['novinky']) ? [(int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW(){$scope}"), 'admin.php?modul=novinky&stav=vydane'] : null,
-                'Koncepty novinek' => isset($modules['novinky']) ? [(int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 0{$scope}"), 'admin.php?modul=novinky&stav=koncepty'] : null,
+                'Novinky od autorů čekají na vydání' => isset($modules['news']) && ($pending = Modules\News::countAwaitingPublication($this->app)) > 0 ? [$pending, 'admin.php?module=news&stav=ke_vydani'] : null,
+                'Nové poptávky' => isset($modules['enquiries']) ? [(int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0'), 'admin.php?module=enquiries'] : null,
+                'Zveřejněné stránky' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL'), 'admin.php?module=pages'] : null,
+                'Stránky s nepublikovanými změnami' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE stavba_koncept IS NOT NULL AND smazano IS NULL'), 'admin.php?module=pages'] : null,
+                'Vydané novinky' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW(){$scope}"), 'admin.php?module=news&stav=vydane'] : null,
+                'Koncepty novinek' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 0{$scope}"), 'admin.php?module=news&stav=koncepty'] : null,
             ]),
-            'enquiries' => isset($modules['poptavky']) ? $db->all('SELECT idp, datum, formular, email, stav FROM {poptavky} ORDER BY idp DESC LIMIT 5') : [],
+            'enquiries' => isset($modules['enquiries']) ? $db->all('SELECT idp, datum, formular, email, stav FROM {poptavky} ORDER BY idp DESC LIMIT 5') : [],
             'edited' => array_slice($edited, 0, 8),
         ];
     }
@@ -272,14 +272,14 @@ final class Kernel
         $db = $app->db();
         $steps = [
             // hotovo až po vlastní volbě: vzhled a stránky ze startovacího webu se nepočítají
-            ['Dejte webu tvář', 'Logo, hlavní barva a písmo.', 'admin.php?modul=vzhled', $s->get('logo_webu') !== '' || $s->bool('vzhled_ulozen') || $s->get('brand_akcent') !== ''],
-            ['Vyplňte údaje o firmě', 'Adresa, telefon a otevírací doba se ukážou na kontaktu, v patičce i vyhledávačům.', 'admin.php?modul=config&zalozka=firma', $s->get('firma_ulice') !== '' && ($s->get('firma_telefon') !== '' || $s->get('firma_email') !== '' || $s->get('email_webu') !== '')],
-            ['Připravte stránky', 'O nás, Služby, Kontakt – a v Nastavení vyberte, která bude úvodní.', 'admin.php?modul=stranky', (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1') >= 3 && $s->int('titulni_stranka') > 0
+            ['Dejte webu tvář', 'Logo, hlavní barva a písmo.', 'admin.php?module=appearance', $s->get('logo_webu') !== '' || $s->bool('vzhled_ulozen') || $s->get('brand_akcent') !== ''],
+            ['Vyplňte údaje o firmě', 'Adresa, telefon a otevírací doba se ukážou na kontaktu, v patičce i vyhledávačům.', 'admin.php?module=settings&tab=company', $s->get('firma_ulice') !== '' && ($s->get('firma_telefon') !== '' || $s->get('firma_email') !== '' || $s->get('email_webu') !== '')],
+            ['Připravte stránky', 'O nás, Služby, Kontakt – a v Nastavení vyberte, která bude úvodní.', 'admin.php?module=pages', (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1') >= 3 && $s->int('titulni_stranka') > 0
                 && $db->value('SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND zmeneno IS NOT NULL LIMIT 1') !== null],
-            ['Doplňte zásady ochrany osobních údajů', 'Formulář s poptávkou sbírá osobní údaje – návštěvník musí vědět, jak s nimi naložíte. Kostru stránky máte připravenou jako skrytou: doplňte údaje v hranatých závorkách a stránku zveřejněte.', 'admin.php?modul=stranky',
+            ['Doplňte zásady ochrany osobních údajů', 'Formulář s poptávkou sbírá osobní údaje – návštěvník musí vědět, jak s nimi naložíte. Kostru stránky máte připravenou jako skrytou: doplňte údaje v hranatých závorkách a stránku zveřejněte.', 'admin.php?module=pages',
                 // hotovo, až stránka existuje a nemá v sobě hranaté závorky ke kostře z instalace ([NÁZEV FIRMY]…)
                 $db->value("SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND (seo_link LIKE '%soukromi%' OR seo_link LIKE '%osobni%' OR seo_link LIKE '%gdpr%' OR seo_link LIKE '%privacy%') AND text NOT LIKE '%[%]%' LIMIT 1") !== null],
-            ['Nastavte poštu', 'Odkud web odesílá e-maily (formuláře, obnova hesla).', 'admin.php?modul=config&zalozka=posta', $s->get('posta_rezim') === 'smtp' || $s->get('posta_od') !== ''],
+            ['Nastavte poštu', 'Odkud web odesílá e-maily (formuláře, obnova hesla).', 'admin.php?module=settings&tab=mail', $s->get('posta_rezim') === 'smtp' || $s->get('posta_od') !== ''],
         ];
         $result = array_map(fn (array $k): array => ['nazev' => $k[0], 'popis' => $k[1], 'url' => $app->url($k[2]), 'hotovo' => (bool) $k[3]], $steps);
 
@@ -289,7 +289,7 @@ final class Kernel
     /** Kam po přihlášení: čeká-li připojení aplikace přes OAuth (konektor Claude), rovnou na souhlas, jinak na přehled. */
     private function resolveAfterSignIn(): string
     {
-        return $this->app->url(is_array($this->app->session->get('oauth_ceka')) ? 'admin.php?akce=oauth' : 'admin.php');
+        return $this->app->url(is_array($this->app->session->get('oauth_ceka')) ? 'admin.php?action=oauth' : 'admin.php');
     }
 
     private function login(): Response

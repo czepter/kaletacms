@@ -20,7 +20,7 @@ final class Users extends Module
     public const string ICON = 'uzivatele';
     public const bool ADMIN_ONLY = true;
 
-    protected function akceVypis(): Response
+    protected function actionList(): Response
     {
         $authors = $this->db->all('SELECT u.*, r.nazev AS nazev_role, (SELECT COUNT(*) FROM {novinky} c WHERE c.autor = u.idu AND c.smazano IS NULL) AS pocet_clanku FROM {uzivatele} u LEFT JOIN {role} r ON r.idr = u.role ORDER BY u.user');
         $modules = [];
@@ -35,19 +35,19 @@ final class Users extends Module
         return $this->view('list', 'Uživatelé', ['authors' => $authors]);
     }
 
-    protected function akceNovy(): Response
+    protected function actionNew(): Response
     {
         return $this->form(['idu' => 0, 'user' => '', 'jmeno' => '', 'email' => '', 'url' => '', 'admin' => Auth::AUTHOR, 'role' => null, 'blokovat' => 0]);
     }
 
-    protected function akceEdit(): Response
+    protected function actionEdit(): Response
     {
         $author = $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ?', [$this->request->getInt('id')]);
 
         return $author === null ? $this->error('Uživatel neexistuje.', 404) : $this->form($author);
     }
 
-    protected function akceUloz(): Response
+    protected function actionSave(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back();
@@ -143,7 +143,7 @@ final class Users extends Module
     }
 
     /** Správce pošle uživateli odkaz na nastavení nového hesla (platí 3 dny). */
-    protected function akceOdkazHesla(): Response
+    protected function actionPasswordLink(): Response
     {
         $user = $this->request->isPost() ? $this->db->one("SELECT * FROM {uzivatele} WHERE idu = ? AND email <> '' AND blokovat = 0", [$this->request->postInt('idu')]) : null;
         if ($user === null) {
@@ -177,7 +177,7 @@ final class Users extends Module
         }
         $names = [];
         foreach (Kernel::MODULES as $class) {
-            if ($class::IDENT !== 'novinky' && !$class::ADMIN_ONLY && !$class::FOR_ALL_USERS && in_array($class::IDENT, $modules, true)) {
+            if ($class::IDENT !== 'news' && !$class::ADMIN_ONLY && !$class::FOR_ALL_USERS && in_array($class::IDENT, $modules, true)) {
                 $names[] = t($class::NAME);
             }
         }
@@ -201,7 +201,7 @@ final class Users extends Module
             if ($class::ADMIN_ONLY || $class::FOR_ALL_USERS) {
                 continue;
             }
-            if ($role >= Auth::EDITOR || $class::IDENT === 'novinky') {
+            if ($role >= Auth::EDITOR || $class::IDENT === 'news') {
                 $modules[] = $class::IDENT;
             }
         }
@@ -209,7 +209,7 @@ final class Users extends Module
         return $modules;
     }
 
-    protected function akceSmaz(): Response
+    protected function actionDelete(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back();

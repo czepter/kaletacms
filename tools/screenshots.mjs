@@ -43,9 +43,9 @@ if (SITE === 'firemni') {
 
   await shot('admin-dashboard', '/admin.php');
   await shot('admin-dashboard-dark', '/admin.php', { dark: true });
-  await shot('admin-pages', '/admin.php?modul=stranky');
+  await shot('admin-pages', '/admin.php?module=pages');
   // builder: the hero heading selected, its content on the right; then its style on a phone
-  await shot('admin-builder', '/admin.php?modul=stranky&akce=stavitel&id=1', {
+  await shot('admin-builder', '/admin.php?module=pages&action=builder&id=1', {
     before: async () => { await page.waitForTimeout(1500); await canvas().locator('h1').first().click(); await page.waitForTimeout(600); },
   });
   await shot('admin-builder-dark', null, { dark: true });
@@ -58,10 +58,10 @@ if (SITE === 'firemni') {
       await page.waitForTimeout(600);
     },
   });
-  await shot('admin-site-parts', '/admin.php?modul=casti&akce=stavitel&typ=hlavicka&jazyk=', { before: async () => page.waitForTimeout(1500) });
-  await shot('admin-appearance', '/admin.php?modul=vzhled');
-  await shot('admin-enquiries', '/admin.php?modul=poptavky');
-  await shot('admin-extensions', '/admin.php?modul=rozsireni');
+  await shot('admin-site-parts', '/admin.php?module=parts&action=builder&typ=hlavicka&jazyk=', { before: async () => page.waitForTimeout(1500) });
+  await shot('admin-appearance', '/admin.php?module=appearance');
+  await shot('admin-enquiries', '/admin.php?module=enquiries');
+  await shot('admin-extensions', '/admin.php?module=extensions');
 
   // Claude connector: the consent screen a site owner sees when connecting Claude (OAuth dynamic registration + PKCE)
   const client = await (await fetch(`${BASE}/oauth/register`, {

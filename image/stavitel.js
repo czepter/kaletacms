@@ -110,7 +110,7 @@
 	}
 	/** Po novém přihlášení (jiná záložka) má relace nový token formulářů – editor si ho vyzvedne. */
 	function refreshToken() {
-		return fetch(D.adresy.admin + '?akce=token', { credentials: 'same-origin' }).then((r) => r.json()).then((j) => { if (j.csrf) { csrf = j.csrf; return true; } return false; }).catch(() => false);
+		return fetch(D.adresy.admin + '?action=token', { credentials: 'same-origin' }).then((r) => r.json()).then((j) => { if (j.csrf) { csrf = j.csrf; return true; } return false; }).catch(() => false);
 	}
 
 	function confirmAction(message, button) {

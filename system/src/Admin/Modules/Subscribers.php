@@ -13,13 +13,13 @@ use Kaleta\Core\Response;
  */
 final class Subscribers extends Module
 {
-    public const string IDENT = 'odberatele';
+    public const string IDENT = 'subscribers';
     public const string EXTENSION = 'newsletter';
     public const string NAME = 'Odběratelé';
     public const string GROUP = 'Obsah';
     public const string ICON = 'newsletter';
 
-    protected function akceVypis(): Response
+    protected function actionList(): Response
     {
         $search = mb_substr($this->request->get('hledat'), 0, 100);
         $pageNumber = max(1, $this->request->getInt('strana', 1));
@@ -36,7 +36,7 @@ final class Subscribers extends Module
         ]);
     }
 
-    protected function akceSmaz(): Response
+    protected function actionDelete(): Response
     {
         $o = $this->request->isPost() ? $this->db->one('SELECT email, stav FROM {odberatele} WHERE ido = ?', [$this->request->postInt('ido')]) : null;
         if ($o !== null) {
@@ -50,7 +50,7 @@ final class Subscribers extends Module
     }
 
     /** Po napojení služby: všechny potvrzené, kteří v ní ještě nejsou, do fronty – a hned první dávku. */
-    protected function akceSynchronizuj(): Response
+    protected function actionSync(): Response
     {
         if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
             return $this->back();
@@ -62,7 +62,7 @@ final class Subscribers extends Module
     }
 
     /** Nepovedené přenosy zkusit znovu hned. */
-    protected function akceZnovu(): Response
+    protected function actionRetry(): Response
     {
         if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
             return $this->back();
@@ -74,7 +74,7 @@ final class Subscribers extends Module
     }
 
     /** Potvrzení odběratelé do CSV (UTF-8 s BOM, středník) i s odkazem na odhlášení. */
-    protected function akceCsv(): Response
+    protected function actionCsv(): Response
     {
         $f = fopen('php://temp', 'w+');
         fwrite($f, "\xEF\xBB\xBF");
@@ -87,7 +87,7 @@ final class Subscribers extends Module
         rewind($f);
         $csv = (string) stream_get_contents($f);
         fclose($f);
-        \Kaleta\Admin\ChangeLog::write($this->app, 'odberatele', 'export CSV', '');
+        \Kaleta\Admin\ChangeLog::write($this->app, 'subscribers', 'export CSV', '');
 
         return new Response($csv, 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="odberatele-' . date('Y-m-d') . '.csv"']);
     }

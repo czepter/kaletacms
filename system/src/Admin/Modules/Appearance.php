@@ -16,13 +16,13 @@ use Kaleta\Builder\DesignSystem;
  */
 final class Appearance extends Module
 {
-    public const string IDENT = 'vzhled';
+    public const string IDENT = 'appearance';
     public const string NAME = 'Vzhled webu';
     public const string GROUP = 'Vzhled';
     public const string ICON = 'identita';
     public const bool ADMIN_ONLY = true;
 
-    protected function akceVypis(): Response
+    protected function actionList(): Response
     {
         $siteSettings = $this->app->settings();
         $ds = DesignSystem::load($siteSettings);
@@ -36,7 +36,7 @@ final class Appearance extends Module
         ]);
     }
 
-    protected function akceUloz(): Response
+    protected function actionSave(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back();
@@ -70,7 +70,7 @@ final class Appearance extends Module
     }
 
     /** Design tokeny ke stažení ve formátu DTCG (Figma, Tokens Studio, Style Dictionary). */
-    protected function akceTokeny(): Response
+    protected function actionTokens(): Response
     {
         $json = (string) json_encode(DesignSystem::toDtcg(DesignSystem::load($this->app->settings())), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
@@ -78,7 +78,7 @@ final class Appearance extends Module
     }
 
     /** Import tokenů DTCG: z exportu Kalety celý vzhled, z jiného nástroje barvy. */
-    protected function akceTokenyImport(): Response
+    protected function actionTokensImport(): Response
     {
         $file = $_FILES['tokeny'] ?? null;
         $content = $this->request->isPost() && is_array($file) && ($file['error'] ?? 1) === UPLOAD_ERR_OK && (int) $file['size'] < 1_000_000 ? (string) file_get_contents((string) $file['tmp_name']) : '';
@@ -96,7 +96,7 @@ final class Appearance extends Module
     }
 
     /** Živý náhled: CSS tokenů a kontrola čitelnosti pro rozpracovaný formulář (JSON). Nic neukládá. */
-    protected function akceNahled(): Response
+    protected function actionPreview(): Response
     {
         $ds = $this->parseForm();
 

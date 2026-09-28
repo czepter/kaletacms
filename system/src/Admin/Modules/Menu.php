@@ -21,7 +21,7 @@ final class Menu extends Module
     public const string ICON = 'menu';
     public const bool ADMIN_ONLY = true;
 
-    protected function akceVypis(): Response
+    protected function actionList(): Response
     {
         [$location, $language] = $this->selection();
         $saved = MenuWebu::load($this->db, $location, $language);
@@ -40,7 +40,7 @@ final class Menu extends Module
         ]);
     }
 
-    protected function akceUloz(): Response
+    protected function actionSave(): Response
     {
         [$location, $language] = $this->selection();
         if ($this->request->isPost()) {
@@ -55,7 +55,7 @@ final class Menu extends Module
     }
 
     /** Hlavní menu se vrátí k automatickému skládání ze stránek „v menu“; menu v patičce se vyprázdní. */
-    protected function akceAutomaticky(): Response
+    protected function actionAutomatic(): Response
     {
         [$location, $language] = $this->selection();
         if ($this->request->isPost()) {

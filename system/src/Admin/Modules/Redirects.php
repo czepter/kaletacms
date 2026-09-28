@@ -14,7 +14,7 @@ use Kaleta\Core\Response;
  */
 final class Redirects extends Module
 {
-    public const string IDENT = 'presmerovani';
+    public const string IDENT = 'redirects';
     public const string NAME = 'Přesměrování';
     public const string GROUP = 'Správa';
     public const string ICON = 'presmerovani';
@@ -38,7 +38,7 @@ final class Redirects extends Module
 
     private const int PER_PAGE = 50;
 
-    protected function akceVypis(): Response
+    protected function actionList(): Response
     {
         $search = mb_substr(trim($this->request->get('hledat')), 0, 100);
         $whereParts = $search !== '' ? 'WHERE z_adresy LIKE ? OR na_adresu LIKE ?' : '';
@@ -55,7 +55,7 @@ final class Redirects extends Module
         ]);
     }
 
-    protected function akceUloz(): Response
+    protected function actionSave(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back();
@@ -80,7 +80,7 @@ final class Redirects extends Module
     }
 
     /** Vyprázdní přehled nenalezených adres. */
-    protected function akceVycisti(): Response
+    protected function actionClear(): Response
     {
         if ($this->request->isPost()) {
             $this->db->run('DELETE FROM {nenalezeno}');
@@ -89,7 +89,7 @@ final class Redirects extends Module
         return $this->back('Přehled nenalezených adres je prázdný.');
     }
 
-    protected function akceSmaz(): Response
+    protected function actionDelete(): Response
     {
         if ($this->request->isPost()) {
             $this->db->delete('presmerovani', ['idp' => $this->request->postInt('idp')]);

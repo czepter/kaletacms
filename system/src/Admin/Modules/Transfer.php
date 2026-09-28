@@ -22,13 +22,13 @@ use Kaleta\Core\WpFile;
  */
 final class Transfer extends Module
 {
-    public const string IDENT = 'prenos';
+    public const string IDENT = 'transfer';
     public const string NAME = 'Import a export';
     public const string GROUP = 'Správa';
     public const string ICON = 'b-archiv';
     public const bool ADMIN_ONLY = true;
 
-    protected function akceVypis(): Response
+    protected function actionList(): Response
     {
         $files = [];
         foreach (WpFile::listAll() as $s) {
@@ -47,7 +47,7 @@ final class Transfer extends Module
     /* ---------- import: 1. soubor ---------- */
 
     /** Nahrání exportu formulářem; soubor skončí ve storage/import/ stejně jako ten nahraný přes FTP. */
-    protected function akceNahraj(): Response
+    protected function actionUpload(): Response
     {
         $file = $this->request->file('soubor');
         if (!$this->request->isPost() || $file === null || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) {
@@ -72,7 +72,7 @@ final class Transfer extends Module
     }
 
     /** Výběr souboru, který už ve storage/import/ leží (nahraný přes FTP nebo dříve). */
-    protected function akceVyber(): Response
+    protected function actionSelect(): Response
     {
         $file = $this->request->post('soubor');
         $path = WpFile::path($file);
@@ -92,10 +92,10 @@ final class Transfer extends Module
     {
         WpImport::saveState(WpImport::newState($file));
 
-        return $this->back('', 'prubeh', ['soubor' => $file]);
+        return $this->back('', 'progress', ['soubor' => $file]);
     }
 
-    protected function akceSmazSoubor(): Response
+    protected function actionDeleteFile(): Response
     {
         $path = WpFile::path($this->request->post('soubor'));
         if ($this->request->isPost() && $path !== null) {
@@ -108,11 +108,11 @@ final class Transfer extends Module
 
     /* ---------- import: 2. náhled a volby ---------- */
 
-    protected function akceNahled(): Response
+    protected function actionPreview(): Response
     {
         $state = $this->state();
         if ($state === null || $state['faze'] === 'analyza') {
-            return $this->back('', $state === null ? '' : 'prubeh', $state === null ? [] : ['soubor' => $state['soubor']]);
+            return $this->back('', $state === null ? '' : 'progress', $state === null ? [] : ['soubor' => $state['soubor']]);
         }
         $settings = $this->app->settings();
 
@@ -125,7 +125,7 @@ final class Transfer extends Module
     }
 
     /** Uloží volby z náhledu a spustí import. */
-    protected function akceSpust(): Response
+    protected function actionRun(): Response
     {
         $state = $this->state();
         if (!$this->request->isPost() || $state === null || $state['faze'] === 'analyza') {
@@ -142,7 +142,7 @@ final class Transfer extends Module
         $state['vysledek'] = WpImport::newState($state['soubor'])['vysledek'];
         WpImport::saveState($state);
 
-        return $this->back('', 'prubeh', ['soubor' => $state['soubor']]);
+        return $this->back('', 'progress', ['soubor' => $state['soubor']]);
     }
 
     /* ---------- import: 3. průběh po dávkách (náhled, obsah i obrázky) ---------- */
@@ -151,7 +151,7 @@ final class Transfer extends Module
      * GET jen ukáže, kde import je; POST udělá jednu dávku. Dokud není hotovo, šablona formulář sama znovu odešle.
      * Zámek na stavovém souboru brání tomu, aby dvě okna prohlížeče importovala současně.
      */
-    protected function akcePrubeh(): Response
+    protected function actionProgress(): Response
     {
         $state = $this->state();
         if ($state === null) {
@@ -174,7 +174,7 @@ final class Transfer extends Module
             }
         }
         if ($state['faze'] === 'nahled' && $error === '') {
-            return $this->back('', 'nahled', ['soubor' => $state['soubor']]);
+            return $this->back('', 'preview', ['soubor' => $state['soubor']]);
         }
 
         return $this->view('progress', 'Import z WordPressu', [
@@ -196,7 +196,7 @@ final class Transfer extends Module
     }
 
     /** Výslovné spuštění stahování obrázků ze starého webu (až po importu obsahu). */
-    protected function akceObrazky(): Response
+    protected function actionImages(): Response
     {
         $state = $this->state();
         if (!$this->request->isPost() || $state === null || !in_array($state['faze'], ['hotovo', 'obrazky-hotovo'], true) || !ImageDownloader::isAvailable()) {
@@ -205,7 +205,7 @@ final class Transfer extends Module
         (new WpImport($this->db, $this->app->settings(), $this->request->basePath(), $this->app->auth()->id()))->startImages($state);
         WpImport::saveState($state);
 
-        return $this->back('', 'prubeh', ['soubor' => $state['soubor']]);
+        return $this->back('', 'progress', ['soubor' => $state['soubor']]);
     }
 
     /** @return array<string, mixed>|null stav importu souboru z adresy nebo formuláře */
@@ -218,7 +218,7 @@ final class Transfer extends Module
 
     /* ---------- export ---------- */
 
-    protected function akceExport(): Response
+    protected function actionExport(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back();
@@ -239,7 +239,7 @@ final class Transfer extends Module
      * Stažení exportu. Archiv může mít stovky MB, proto se neposílá přes Response (ta drží celé tělo v paměti),
      * ale po kouscích přímo ze souboru. Přístup hlídá administrace (modul je jen pro správce), název souboru Core\ExportWebu::cesta().
      */
-    protected function akceStahni(): Response
+    protected function actionDownload(): Response
     {
         $path = SiteExport::path($this->request->get('soubor'));
         if ($path === null) {
@@ -258,7 +258,7 @@ final class Transfer extends Module
         exit;
     }
 
-    protected function akceSmazExport(): Response
+    protected function actionDeleteExport(): Response
     {
         $path = SiteExport::path($this->request->post('soubor'));
         if ($this->request->isPost() && $path !== null) {

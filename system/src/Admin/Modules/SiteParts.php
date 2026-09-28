@@ -18,16 +18,16 @@ use Kaleta\Builder\Publisher;
 final class SiteParts extends Module
 {
     use BuilderActions {
-        akceStavitel as protected openBuilder;
+        actionBuilder as protected openBuilder;
     }
 
-    public const string IDENT = 'casti';
+    public const string IDENT = 'parts';
     public const string NAME = 'Části webu';
     public const string GROUP = 'Vzhled';
     public const string ICON = 'casti';
     public const bool ADMIN_ONLY = true;
 
-    protected function akceVypis(): Response
+    protected function actionList(): Response
     {
         $siteSettings = $this->app->settings();
         $languages = array_merge([''], Language::additional($siteSettings));
@@ -49,7 +49,7 @@ final class SiteParts extends Module
     }
 
     /** Editor; část, která ještě není, se založí s konceptem podle toho, co dosud kreslila šablona. */
-    protected function akceStavitel(): Response
+    protected function actionBuilder(): Response
     {
         [$type, $language, $variant] = $this->readPartParams();
         if ($type !== null && $variant === '' && CastiWebu::row($this->db, $type, $language) === null) {
@@ -60,7 +60,7 @@ final class SiteParts extends Module
     }
 
     /** Část se vrátí na šablonu (varianta se smaže): publikovaná stavba jde do verzí, na webu se kreslí část z layoutu. */
-    protected function akceSablona(): Response
+    protected function actionTemplate(): Response
     {
         [$type, $language, $variant] = $this->readPartParams();
         $row = $this->request->isPost() && $type !== null ? CastiWebu::row($this->db, $type, $language, $variant) : null;
@@ -74,7 +74,7 @@ final class SiteParts extends Module
     }
 
     /** Formulář varianty záhlaví nebo patičky: název a stránky, na kterých platí. */
-    protected function akceVarianta(): Response
+    protected function actionVariant(): Response
     {
         [$type, $language, $variant] = $this->readPartParams();
         if ($type === null || !in_array($type, CastiWebu::WITH_VARIANTS, true)) {
@@ -90,7 +90,7 @@ final class SiteParts extends Module
     }
 
     /** Uložení varianty; nová začíná kopií výchozí podoby (nebo podoby ze šablony) jako koncept. */
-    protected function akceUlozVariantu(): Response
+    protected function actionSaveVariant(): Response
     {
         [$type, $language] = $this->readPartParams();
         if (!$this->request->isPost() || $type === null || !in_array($type, CastiWebu::WITH_VARIANTS, true)) {
@@ -98,12 +98,12 @@ final class SiteParts extends Module
         }
         $name = mb_substr(trim($this->request->post('nazev')), 0, 100);
         if ($name === '') {
-            return $this->back('Varianta musí mít název.', 'varianta', ['typ' => $type, 'jazyk' => $language], 'chyba');
+            return $this->back('Varianta musí mít název.', 'variant', ['typ' => $type, 'jazyk' => $language], 'chyba');
         }
         $variant = CastiWebu::saveVariant($this->db, $type, $language, $this->request->post('varianta'), $name, array_map('intval', $this->request->postList('stranky')), $this->contentLanguage($language));
         \Kaleta\Front\Cache::clear();
 
-        return \Kaleta\Core\Response::redirect($this->url('stavitel', ['typ' => $type, 'jazyk' => $language, 'varianta' => $variant]));
+        return \Kaleta\Core\Response::redirect($this->url('builder', ['typ' => $type, 'jazyk' => $language, 'varianta' => $variant]));
     }
 
     protected function loadBuildTarget(): ?array

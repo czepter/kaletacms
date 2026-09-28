@@ -13,7 +13,7 @@ use Kaleta\Core\Response;
  */
 final class Enquiries extends Module
 {
-    public const string IDENT = 'poptavky';
+    public const string IDENT = 'enquiries';
     public const string EXTENSION = 'poptavky';
     public const string NAME = 'Poptávky';
     public const string GROUP = 'Obsah';
@@ -22,7 +22,7 @@ final class Enquiries extends Module
     public const array STATUSES = [0 => 'nová', 1 => 'přečtená', 2 => 'vyřízená'];
     private const int PER_PAGE = 50;
 
-    protected function akceVypis(): Response
+    protected function actionList(): Response
     {
         self::deleteExpired($this->db, $this->app->settings());
         $filter = $this->request->get('stav');
@@ -53,7 +53,7 @@ final class Enquiries extends Module
         ]);
     }
 
-    protected function akceDetail(): Response
+    protected function actionDetail(): Response
     {
         $p = $this->db->one('SELECT * FROM {poptavky} WHERE idp = ?', [$this->request->getInt('id')]);
         if ($p === null) {
@@ -83,7 +83,7 @@ final class Enquiries extends Module
     }
 
     /** Interní poznámka a kdo poptávku vyřizuje. */
-    protected function akcePoznamka(): Response
+    protected function actionNote(): Response
     {
         $idp = $this->request->postInt('idp');
         if ($this->request->isPost()) {
@@ -96,7 +96,7 @@ final class Enquiries extends Module
     }
 
     /** Příloha z formuláře ke stažení (jen přihlášenému s přístupem k poptávkám). */
-    protected function akcePriloha(): Response
+    protected function actionAttachment(): Response
     {
         $p = $this->db->one('SELECT data FROM {poptavky} WHERE idp = ?', [$this->request->getInt('id')]);
         $item = ($p !== null ? (json_decode((string) $p['data'], true) ?: []) : [])[$this->request->getInt('pole')] ?? null;
@@ -111,7 +111,7 @@ final class Enquiries extends Module
     }
 
     /** Hromadně: označit jako vyřízené, nebo smazat (i s přílohami). */
-    protected function akceHromadne(): Response
+    protected function actionBulk(): Response
     {
         $ids = array_map('intval', $this->request->postList('oznacene'));
         if (!$this->request->isPost() || $ids === []) {
@@ -141,7 +141,7 @@ final class Enquiries extends Module
         }
     }
 
-    protected function akceStav(): Response
+    protected function actionStatus(): Response
     {
         if ($this->request->isPost()) {
             $state = $this->request->postInt('stav');
@@ -151,7 +151,7 @@ final class Enquiries extends Module
         return $this->back($this->request->postInt('stav') === 2 ? 'Poptávka je vyřízená.' : 'Poptávka je znovu otevřená.');
     }
 
-    protected function akceSmaz(): Response
+    protected function actionDelete(): Response
     {
         if ($this->request->isPost()) {
             self::deleteAttachments($this->db->all('SELECT data FROM {poptavky} WHERE idp = ?', [$this->request->postInt('idp')]));
@@ -162,7 +162,7 @@ final class Enquiries extends Module
     }
 
     /** Uložení doby, po které se poptávky samy mažou (jen správce). */
-    protected function akceNastaveni(): Response
+    protected function actionSettings(): Response
     {
         if ($this->request->isPost() && $this->app->auth()->isAdmin()) {
             $this->app->settings()->set('poptavky_mesice', (string) max(0, min(120, $this->request->postInt('mesice'))));
@@ -172,7 +172,7 @@ final class Enquiries extends Module
     }
 
     /** Všechny poptávky do CSV (UTF-8 s BOM, středník – otevře se rovnou v Excelu). */
-    protected function akceCsv(): Response
+    protected function actionCsv(): Response
     {
         $f = fopen('php://temp', 'w+');
         fwrite($f, "\xEF\xBB\xBF");
@@ -187,7 +187,7 @@ final class Enquiries extends Module
         rewind($f);
         $csv = (string) stream_get_contents($f);
         fclose($f);
-        \Kaleta\Admin\ChangeLog::write($this->app, 'poptavky', 'export CSV', '');
+        \Kaleta\Admin\ChangeLog::write($this->app, 'enquiries', 'export CSV', '');
 
         return new Response($csv, 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="poptavky-' . date('Y-m-d') . '.csv"']);
     }

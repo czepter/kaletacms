@@ -16,12 +16,12 @@ use Kaleta\Core\Settings;
  */
 final class Categories extends Module
 {
-    public const string IDENT = 'kategorie';
+    public const string IDENT = 'categories';
     public const string EXTENSION = 'novinky';
     public const string NAME = 'Kategorie';
     public const string GROUP = 'Obsah';
     public const string ICON = 'rubriky';
-    public const string PARENT = 'novinky';
+    public const string PARENT = 'news';
 
     /**
      * Kategorie seřazené podle pořadí a názvu, s počtem novinek.
@@ -52,26 +52,26 @@ final class Categories extends Module
         return $db->insert('kategorie', ['nazev' => $name, 'seo_link' => slugify($name), 'popis' => '']);
     }
 
-    protected function akceVypis(): Response
+    protected function actionList(): Response
     {
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
 
         return $this->view('list', 'Kategorie', ['category' => self::listAll($this->db, $column), 'siteLanguages' => $siteLanguages, 'language' => $language]);
     }
 
-    protected function akceNovy(): Response
+    protected function actionNew(): Response
     {
         return $this->form(['idt' => 0, 'nazev' => '', 'seo_link' => '', 'popis' => '', 'hodnost' => 100]);
     }
 
-    protected function akceEdit(): Response
+    protected function actionEdit(): Response
     {
         $category = $this->db->one('SELECT * FROM {kategorie} WHERE idt = ?', [$this->request->getInt('id')]);
 
         return $category === null ? $this->error('Kategorie neexistuje.', 404) : $this->form($category);
     }
 
-    protected function akceUloz(): Response
+    protected function actionSave(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back();
@@ -107,7 +107,7 @@ final class Categories extends Module
         return $this->back('Kategorie byla uložena.');
     }
 
-    protected function akceSmaz(): Response
+    protected function actionDelete(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back();

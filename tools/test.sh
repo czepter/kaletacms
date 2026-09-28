@@ -77,8 +77,8 @@ rm -f "$WORK"/web/storage/cache/stranky/*.html
 check "bez úvodní stránky je úvodem výpis novinek" 200 / "Vítejte v Kaletě"
 
 echo "== administrace"
-check "zapomenuté heslo – formulář" 200 "/admin.php?akce=heslo" "Poslat odkaz"
-check "zapomenuté heslo – neplatný odkaz" 400 "/admin.php?akce=heslo&token=$(printf 'a%.0s' $(seq 1 64))" "Odkaz už neplatí"
+check "zapomenuté heslo – formulář" 200 "/admin.php?action=password" "Poslat odkaz"
+check "zapomenuté heslo – neplatný odkaz" 400 "/admin.php?action=password&token=$(printf 'a%.0s' $(seq 1 64))" "Odkaz už neplatí"
 check "bez přihlášení je jen login" 200 /admin.php "Heslo"
 TOKEN=$(csrf)
 code=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$TOKEN" -d user=admin -d password=spatne-heslo-123); expect "špatné heslo odmítnuto" "$code" 401
@@ -87,13 +87,13 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('rozsireni','novinky,poptavky,newsletter,statistika,presmerovani,asistent,jazyky,api,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
 check "přehled" 200 /admin.php "Přehled"
 check "přehled: nadpis obrazovky je h1" 200 /admin.php "<h1>Přehled</h1>"
-grep -q '<li class=""><a href="/admin.php?modul=vzhled">' "$WORK/response" && grep -q '<li class=""><a href="/admin.php?modul=stranky"><strong>Připravte stránky' "$WORK/response" && echo "  ok     první kroky nepočítají vzhled a stránky ze startovacího webu za hotové" || { echo "  CHYBA  první kroky odškrtnuté startovacím webem"; ERRORS=$((ERRORS+1)); }
-check "administrace: nadpis h1 a hlavní menu v <nav>" 200 "/admin.php?modul=stranky" '<nav class="menu-obal" aria-label="Hlavní menu">'
-for m in stranky "stranky&akce=novy" poptavky casti komponenty "komponenty&akce=novy" kolekce "kolekce&akce=novy" novinky "novinky&akce=novy" "novinky&akce=odkazy" kategorie "kategorie&akce=novy" stitky intergal stat vzhled users "users&akce=novy" presmerovani protokol prenos rozsireni; do check "modul $m" 200 "/admin.php?modul=$m"; done
-check "uživatelé se shrnutím oprávnění" 200 "/admin.php?modul=users" "Smí všechno"
-for z in zakladni seo mereni cookies posta zalohy stav; do check "nastavení/$z" 200 "/admin.php?modul=config&zalozka=$z"; done
-check "nastavení: volba úvodní stránky" 200 "/admin.php?modul=config&zalozka=zakladni" 'name="titulni_stranka"'
-check "neznámý modul" 403 "/admin.php?modul=neexistuje"
+grep -q '<li class=""><a href="/admin.php?module=appearance">' "$WORK/response" && grep -q '<li class=""><a href="/admin.php?module=pages"><strong>Připravte stránky' "$WORK/response" && echo "  ok     první kroky nepočítají vzhled a stránky ze startovacího webu za hotové" || { echo "  CHYBA  první kroky odškrtnuté startovacím webem"; ERRORS=$((ERRORS+1)); }
+check "administrace: nadpis h1 a hlavní menu v <nav>" 200 "/admin.php?module=pages" '<nav class="menu-obal" aria-label="Hlavní menu">'
+for m in pages "pages&action=new" enquiries parts components "components&action=new" collections "collections&action=new" news "news&action=new" "news&action=links" categories "categories&action=new" tags media stats appearance users "users&action=new" redirects changelog transfer extensions; do check "modul $m" 200 "/admin.php?module=$m"; done
+check "uživatelé se shrnutím oprávnění" 200 "/admin.php?module=users" "Smí všechno"
+for z in general seo analytics cookies mail backups health; do check "nastavení/$z" 200 "/admin.php?module=settings&tab=$z"; done
+check "nastavení: volba úvodní stránky" 200 "/admin.php?module=settings&tab=general" 'name="titulni_stranka"'
+check "neznámý modul" 403 "/admin.php?module=neexistuje"
 check "API: novinky" 200 /api/novinky '"novinky"'
 check "API: stránky" 200 /api/stranky '/kontakt"'
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('jazyky_dalsi','en') ON DUPLICATE KEY UPDATE hodnota='en'"
@@ -101,45 +101,45 @@ check "anglická verze webu" 200 /en/ 'lang="en"'
 code=$(curl -s -o /dev/null -w '%{http_code}' "$B/en/novinky/vitejte-v-kalete"); expect "novinka jiné jazykové verze přesměruje" "$code" 301
 
 # neúspěšná validace novinky musí vrátit formulář s hláškou, ne chybu 500
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?modul=novinky&akce=novy"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=news&action=new"
 TOKEN=$(csrf)
-code=$(curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?modul=novinky&akce=uloz" -d "_csrf=$TOKEN" -d idc=0 -d titulek= -d tema=1)
+code=$(curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=news&action=save" -d "_csrf=$TOKEN" -d idc=0 -d titulek= -d tema=1)
 [ "$code" = 200 ] && grep -q 'name="titulek"' "$WORK/response" && echo "  ok     chyba ve formuláři novinky vrátí formulář" || { echo "  CHYBA  validace novinky: kód $code"; ERRORS=$((ERRORS+1)); }
 
 # novinky bez kategorie (zapnuté až po instalaci): „Nová novinka“ není slepá ulička – vznikne výchozí kategorie v jazyce webu
 "${MYSQL[@]}" "$DB_NAME" -e "SET FOREIGN_KEY_CHECKS=0; DROP TABLE IF EXISTS kat_zaloha; CREATE TABLE kat_zaloha AS SELECT * FROM ka_kategorie; DELETE FROM ka_kategorie; UPDATE ka_nastaveni SET hodnota='en' WHERE promenna='jazyk_webu'"
-check "nová novinka bez kategorie otevře editor" 200 "/admin.php?modul=novinky&akce=novy" 'name="titulek"'
+check "nová novinka bez kategorie otevře editor" 200 "/admin.php?module=news&action=new" 'name="titulek"'
 expect "výchozí kategorie založená v jazyce webu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(COUNT(*), ':', MAX(nazev)) FROM ka_kategorie")" "1:News"
 "${MYSQL[@]}" "$DB_NAME" -e "SET FOREIGN_KEY_CHECKS=0; DELETE FROM ka_kategorie; INSERT INTO ka_kategorie SELECT * FROM kat_zaloha; DROP TABLE kat_zaloha; UPDATE ka_nastaveni SET hodnota='cs' WHERE promenna='jazyk_webu'"
 
 # autor novinek: vidí jen své novinky a nevydává
 NEWS_ID=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idc FROM ka_novinky ORDER BY idc LIMIT 1")
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=users&akce=uloz" -d "_csrf=$TOKEN" -d idu=0 -d jmeno=Autor -d user=autor --data-urlencode "password=$PASSWORD" -d admin=0
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d idu=0 -d jmeno=Autor -d user=autor --data-urlencode "password=$PASSWORD" -d admin=0
 JAR2="$WORK/jar2"
 TOKEN2=$(curl -s -c "$JAR2" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
 curl -s -b "$JAR2" -c "$JAR2" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN2" -d user=autor --data-urlencode "password=$PASSWORD"
-code=$(curl -s -b "$JAR2" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?modul=novinky")
-[ "$code" = 200 ] && ! grep -q "akce=edit&amp;id=$NEWS_ID\"" "$WORK/response" && echo "  ok     autor nevidí cizí novinky" || { echo "  CHYBA  autor – výpis: kód $code"; ERRORS=$((ERRORS+1)); }
-expect "autor cizí novinku neotevře" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?modul=novinky&akce=edit&id=$NEWS_ID")" 404
-expect "autor nemá přístup ke stránkám" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?modul=stranky")" 403
-TOKEN2=$(curl -s -b "$JAR2" "$B/admin.php?modul=novinky&akce=novy" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
-curl -s -b "$JAR2" -c "$JAR2" -o /dev/null -X POST "$B/admin.php?modul=novinky&akce=uloz" -d "_csrf=$TOKEN2" -d idc=0 -d titulek=XSS-test -d tema=1 \
+code=$(curl -s -b "$JAR2" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=news")
+[ "$code" = 200 ] && ! grep -q "action=edit&amp;id=$NEWS_ID\"" "$WORK/response" && echo "  ok     autor nevidí cizí novinky" || { echo "  CHYBA  autor – výpis: kód $code"; ERRORS=$((ERRORS+1)); }
+expect "autor cizí novinku neotevře" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?module=news&action=edit&id=$NEWS_ID")" 404
+expect "autor nemá přístup ke stránkám" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?module=pages")" 403
+TOKEN2=$(curl -s -b "$JAR2" "$B/admin.php?module=news&action=new" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
+curl -s -b "$JAR2" -c "$JAR2" -o /dev/null -X POST "$B/admin.php?module=news&action=save" -d "_csrf=$TOKEN2" -d idc=0 -d titulek=XSS-test -d tema=1 \
   --data-urlencode 'uvod=<p onmouseover="alert(1)">Perex</p><script>alert(2)</script>' --data-urlencode 'text=<p><img src=x onerror=alert(3)><a href="javascript:alert(4)">odkaz</a></p>'
 expect "autor nevloží do novinky skript" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(uvod, text) REGEXP 'script|onerror|onmouseover|javascript' FROM ka_novinky WHERE titulek = 'XSS-test'")" "0"
 check "editor vidí na přehledu novinky od autorů, které čekají na vydání" 200 /admin.php "Novinky od autorů čekají na vydání"
-check "výpis novinek: filtr Čekají na vydání" 200 "/admin.php?modul=novinky&stav=ke_vydani" "XSS-test"
+check "výpis novinek: filtr Čekají na vydání" 200 "/admin.php?module=news&stav=ke_vydani" "XSS-test"
 
 echo "== firma"
-check "nastavení/firma" 200 "/admin.php?modul=config&zalozka=firma" 'name="firma_hodiny"'
+check "nastavení/firma" 200 "/admin.php?module=settings&tab=company" 'name="firma_hodiny"'
 TOKEN=$(csrf)
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=config&akce=uloz" -d "_csrf=$TOKEN" -d zalozka=firma --data-urlencode "firma_nazev=Testovací firma s.r.o." -d firma_typ=HomeAndConstructionBusiness \
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=company --data-urlencode "firma_nazev=Testovací firma s.r.o." -d firma_typ=HomeAndConstructionBusiness \
   -d firma_ico=12345678 -d firma_dic=CZ12345678 --data-urlencode "firma_ulice=Dlouhá 12" --data-urlencode "firma_mesto=Praha" --data-urlencode "firma_psc=110 00" -d firma_zeme=CZ \
   --data-urlencode "firma_telefon=+420 123 456 789" --data-urlencode "firma_hodiny=Po–Pá 8:00–17:00
 So 9–12" --data-urlencode "firma_mapa=https://mapy.cz/s/abc" --data-urlencode "firma_gps=50.0875, 14.4213"
 expect "údaje firmy uloženy" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'firma_ico'")" 12345678
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=config&akce=uloz" -d "_csrf=$TOKEN" -d zalozka=firma -d firma_typ=LocalBusiness -d firma_zeme=CZ --data-urlencode "firma_hodiny=kdykoli"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d zalozka=firma -d firma_typ=LocalBusiness -d firma_zeme=CZ --data-urlencode "firma_hodiny=kdykoli"
 expect "nesrozumitelná otevírací doba odmítnuta" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota LIKE '%8:00%' AND hodnota NOT LIKE '%kdykoli%' FROM ka_nastaveni WHERE promenna = 'firma_hodiny'")" 1
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=config&akce=uloz" -d "_csrf=$TOKEN" -d zalozka=firma --data-urlencode "firma_nazev=Testovací firma s.r.o." -d firma_typ=HomeAndConstructionBusiness \
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=company --data-urlencode "firma_nazev=Testovací firma s.r.o." -d firma_typ=HomeAndConstructionBusiness \
   -d firma_ico=12345678 -d firma_dic=CZ12345678 --data-urlencode "firma_ulice=Dlouhá 12" --data-urlencode "firma_mesto=Praha" --data-urlencode "firma_psc=110 00" -d firma_zeme=CZ \
   --data-urlencode "firma_telefon=+420 123 456 789" --data-urlencode "firma_hodiny=Po–Pá 8:00–17:00" --data-urlencode "firma_mapa=https://mapy.cz/s/abc" --data-urlencode "firma_gps=50.0875, 14.4213"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
@@ -151,20 +151,20 @@ grep -q 'Dlouhá 12<br>110 00 Praha' "$WORK/response" && grep -q 'href="tel:+420
   && echo "  ok     kontakt vypisuje údaje firmy z Nastavení" || { echo "  CHYBA  údaje firmy na kontaktu"; ERRORS=$((ERRORS+1)); }
 
 echo "== vzhled webu (design systém)"
-check "vzhled s předvolbami a náhledem" 200 "/admin.php?modul=vzhled" 'data-predvolba'
+check "vzhled s předvolbami a náhledem" 200 "/admin.php?module=appearance" 'data-predvolba'
 TOKEN=$(csrf)
-curl -s -b "$JAR" -o "$WORK/response" -X POST "$B/admin.php?modul=vzhled&akce=nahled" -d "_csrf=$TOKEN" --data-urlencode 'ds[barvy][primarni]=#ff00aa' -d 'ds[zaklad_min]=18'
+curl -s -b "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=appearance&action=preview" -d "_csrf=$TOKEN" --data-urlencode 'ds[barvy][primarni]=#ff00aa' -d 'ds[zaklad_min]=18'
 grep -q 'ka-barva-primarni: #ff00aa' "$WORK/response" && grep -q '"kontrasty"' "$WORK/response" && echo "  ok     živý náhled vrátí tokeny a kontrasty" || { echo "  CHYBA  náhled vzhledu"; ERRORS=$((ERRORS+1)); }
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=vzhled&akce=uloz" -d "_csrf=$TOKEN" -d layout=zakladni -d tmavy_rezim=vypnuto --data-urlencode 'ds[barvy][primarni]=#9a3412' --data-urlencode 'ds[barvy][text]=red;}body{' -d 'ds[pismo_titulky]=klasicke' -d 'ds[sirka]=1280'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=appearance&action=save" -d "_csrf=$TOKEN" -d layout=zakladni -d tmavy_rezim=vypnuto --data-urlencode 'ds[barvy][primarni]=#9a3412' --data-urlencode 'ds[barvy][text]=red;}body{' -d 'ds[pismo_titulky]=klasicke' -d 'ds[sirka]=1280'
 curl -s -o "$WORK/response" "$B/"
 grep -q 'ka-barva-primarni: #9a3412' "$WORK/response" && grep -q 'ka-sirka: 80rem' "$WORK/response" && grep -q 'ka-pismo-titulky: Georgia' "$WORK/response" && echo "  ok     uložený vzhled je hned na webu" || { echo "  CHYBA  uložení vzhledu"; ERRORS=$((ERRORS+1)); }
 grep -q 'body{' "$WORK/response" && { echo "  CHYBA  do CSS proniklo neplatné zadání barvy"; ERRORS=$((ERRORS+1)); } || echo "  ok     neplatná barva se nahradí výchozí"
 
 echo "== builder stránek"
 IDS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'o-nas'")
-check "builder se otevře a převede textovou stránku" 200 "/admin.php?modul=stranky&akce=stavitel&id=$IDS" 'id="stavitel-data"'
+check "builder se otevře a převede textovou stránku" 200 "/admin.php?module=pages&action=builder&id=$IDS" 'id="stavitel-data"'
 TOKEN=$(csrf)
-page_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?modul=stranky&akce=$1&id=$IDS" -d "_csrf=$TOKEN" "${@:2}"; }
+page_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=$1&id=$IDS" -d "_csrf=$TOKEN" "${@:2}"; }
 BUILD='{"v":1,"deti":[{"id":"sek1","typ":"sekce","deti":[{"id":"nad1","typ":"nadpis","znacka":"h1","obsah":{"text":"Builder test"},"styl":{"zaklad":{"barva":"primarni"},"mobil":{"velikost_pisma":"2"}},"tridy":["karta"]},{"id":"faq1","typ":"faq","obsah":{"polozky":[{"otazka":"Kolik to stojí?","odpoved":"<p>Záleží na rozsahu.</p>"}]}},{"id":"txt1","typ":"text","obsah":{"html":"<h2>Jak to funguje</h2><p>Krok za krokem.</p><h2>Jak to funguje</h2><h3 id=\"vlastni\">Vlastní</h3>"}},{"id":"zly1","typ":"skript"}]}]}'
 code=$(page_action stavba_uloz --data-urlencode "stavba=$BUILD")
 [ "$code" = 200 ] && grep -q '"ok":true' "$WORK/response" && grep -q 'Neznámý typ prvku' "$WORK/response" && echo "  ok     uložení konceptu vrátí vyčištěnou stavbu a chyby" || { echo "  CHYBA  stavba_uloz: kód $code"; ERRORS=$((ERRORS+1)); }
@@ -173,8 +173,8 @@ expect "uložení z cizí verze odmítnuto (souběžná úprava)" "$(page_action
 grep -q '"konflikt":true' "$WORK/response" && grep -q 'Builder test' "$WORK/response" && echo "  ok     konflikt vrátí novější verzi ze serveru" || { echo "  CHYBA  odpověď konfliktu"; ERRORS=$((ERRORS+1)); }
 expect "publikování z cizí verze odmítnuto" "$(page_action stavba_publikuj -d verze=0000000000000000)" 409
 expect "přepsání cizí verze na přání" "$(page_action stavba_uloz -d verze=0000000000000000 -d prepsat=1 --data-urlencode "stavba=$BUILD")" 200
-expect "builder bez CSRF odmítnut" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?modul=stranky&akce=stavba_uloz&id=$IDS" --data-urlencode "stavba=$BUILD")" 400
-expect "knihovna sekcí jen přes POST" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?modul=stranky&akce=stavba_sekce&id=$IDS&klic=faq")" 404
+expect "builder bez CSRF odmítnut" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=build_save&id=$IDS" --data-urlencode "stavba=$BUILD")" 400
+expect "knihovna sekcí jen přes POST" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=pages&action=build_section&id=$IDS&klic=faq")" 404
 code=$(page_action "stavba_sekce&klic=vyhody"); [ "$code" = 200 ] && grep -q '"karta"' "$WORK/response" && echo "  ok     sekce z knihovny založí své třídy" || { echo "  CHYBA  stavba_sekce: kód $code"; ERRORS=$((ERRORS+1)); }
 code=$(page_action stavba_trida -d nazev=karta --data-urlencode 'styl={"zaklad":{"pozadi":"plocha","odsazeni_y":"l"}}' --data-urlencode 'css=letter-spacing: 0.01em; background: url(x)')
 [ "$code" = 200 ] && grep -q 'Nepovolená deklarace' "$WORK/response" && echo "  ok     třída uložena, nebezpečné CSS zahozeno" || { echo "  CHYBA  stavba_trida: kód $code"; ERRORS=$((ERRORS+1)); }
@@ -201,8 +201,8 @@ expect "předchozí publikovaná verze je v historii" "$("${MYSQL[@]}" "$DB_NAME
 IDR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idr FROM ka_stavba_revize WHERE ids = $IDS AND stavba LIKE '%Builder test%'")
 page_action stavba_obnov -d "idr=$IDR" > /dev/null; grep -q 'Builder test' "$WORK/response" && echo "  ok     obnovení verze do konceptu" || { echo "  CHYBA  stavba_obnov"; ERRORS=$((ERRORS+1)); }
 page_action stavba_zahod > /dev/null; grep -q 'Druhá verze' "$WORK/response" && echo "  ok     zahození změn vrátí publikovanou stavbu" || { echo "  CHYBA  stavba_zahod"; ERRORS=$((ERRORS+1)); }
-expect "autor novinek do builderu nesmí" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?modul=stranky&akce=stavitel&id=$IDS")" 403
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=stavba_text" -d "_csrf=$TOKEN" -d "ids=$IDS"
+expect "autor novinek do builderu nesmí" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?module=pages&action=builder&id=$IDS")" 403
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=build_text" -d "_csrf=$TOKEN" -d "ids=$IDS"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/o-nas"; grep -q "<h1>Druhá verze</h1>" "$WORK/response" && grep -q 'class="obal obsah"' "$WORK/response" && echo "  ok     návrat k textu zachová obsah stavby bez rozložení" || { echo "  CHYBA  stavba_text"; ERRORS=$((ERRORS+1)); }
 
@@ -291,10 +291,10 @@ check "Uložený starý popis kategorie" 200 "/novinky/kategorie/kategorie-xss" 
 ! grep -q '<script>alert(3)' "$WORK/response" && echo "  ok     Výpis čistí i dřív uložený popis kategorie" || { echo "  CHYBA  výpis kategorie vypsal skript"; ERRORS=$((ERRORS+1)); }
 
 echo "== části webu v builderu"
-check "části webu" 200 "/admin.php?modul=casti" "Záhlaví"
-check "záhlaví se otevře v builderu s koncept podle šablony" 200 "/admin.php?modul=casti&akce=stavitel&typ=hlavicka&jazyk=" 'id="stavitel-data"'
+check "části webu" 200 "/admin.php?module=parts" "Záhlaví"
+check "záhlaví se otevře v builderu s koncept podle šablony" 200 "/admin.php?module=parts&action=builder&typ=hlavicka&jazyk=" 'id="stavitel-data"'
 TOKEN=$(csrf)
-part_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?modul=casti&akce=$1&typ=$2&jazyk=" -d "_csrf=$TOKEN" "${@:3}"; }
+part_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=parts&action=$1&typ=$2&jazyk=" -d "_csrf=$TOKEN" "${@:3}"; }
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/o-nas"; grep -q 'header class="hlavicka"' "$WORK/response" && ! grep -q 'ka-nav' "$WORK/response" && echo "  ok     nepublikované záhlaví kreslí šablona" || { echo "  CHYBA  nepublikované záhlaví je na webu"; ERRORS=$((ERRORS+1)); }
 check "náhled konceptu záhlaví pro editor" 200 "/o-nas?cast=hlavicka&stavba=koncept&editor=1" 'data-ka-typ="navigace"'
@@ -304,7 +304,7 @@ curl -s -o "$WORK/response" "$B/o-nas"
 grep -q 'class="ka-nav"' "$WORK/response" && ! grep -q 'header class="hlavicka"' "$WORK/response" && grep -q 'href="/o-nas" aria-current="page"' "$WORK/response" && echo "  ok     záhlaví z builderu na webu s aktivní položkou menu" || { echo "  CHYBA  záhlaví z builderu"; ERRORS=$((ERRORS+1)); }
 [ "$(grep -o '<style>' "$WORK/response" | wc -l | tr -d ' ')" = 1 ] && [ "$(grep -o '@layer stavitel {' "$WORK/response" | wc -l | tr -d ' ')" = 1 ] && echo "  ok     stránka a části webu mají jedno CSS" || { echo "  CHYBA  CSS částí webu se opakuje"; ERRORS=$((ERRORS+1)); }
 WRAPPER='{"v":1,"deti":[{"id":"obs1","typ":"obsah"},{"id":"sek9","typ":"sekce","deti":[{"id":"nad9","typ":"nadpis","obsah":{"text":"Pod článkem"}}]}]}'
-check "obálka novinky v builderu" 200 "/admin.php?modul=casti&akce=stavitel&typ=novinka&jazyk=" 'id="stavitel-data"'
+check "obálka novinky v builderu" 200 "/admin.php?module=parts&action=builder&typ=novinka&jazyk=" 'id="stavitel-data"'
 part_action stavba_uloz novinka --data-urlencode "stavba=$WRAPPER" > /dev/null; part_action stavba_publikuj novinka > /dev/null
 curl -s -o "$WORK/response" "$B/novinky/vitejte-v-kalete"; grep -q 'Pod článkem' "$WORK/response" && grep -q '<main id="obsah" class="stavba">' "$WORK/response" && grep -q 'class="obal obsah"' "$WORK/response" && grep -q 'Vítejte' "$WORK/response" && echo "  ok     obálka kolem novinky" || { echo "  CHYBA  obálka novinky"; ERRORS=$((ERRORS+1)); }
 part_action stavba_uloz hlavicka --data-urlencode 'stavba={"v":1,"deti":[{"typ":"sekce","znacka":"header","deti":[{"typ":"logo"}]}]}' > /dev/null; part_action stavba_publikuj hlavicka > /dev/null
@@ -314,7 +314,7 @@ curl -s -o "$WORK/response" "$B/o-nas"; grep -q 'header class="hlavicka"' "$WORK
 mcp stavba_uloz '{"cast":"paticka","stavba":{"v":1,"deti":[{"typ":"sekce","znacka":"footer","deti":[{"typ":"udaje","obsah":{"udaj":"copyright"}}]}]},"publikovat":true}' > "$WORK/response"
 grep -q 'publikováno' "$WORK/response" && echo "  ok     MCP: patička ze stavby" || { echo "  CHYBA  MCP patička"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 curl -s -o "$WORK/response" "$B/o-nas"; grep -q "<p class=\"ka-udaj\">&copy; $(date +%Y) Testovací firma</p>" "$WORK/response" && ! grep -q 'footer class="paticka"' "$WORK/response" && echo "  ok     patička z MCP na webu" || { echo "  CHYBA  patička z MCP na webu"; ERRORS=$((ERRORS+1)); }
-expect "autor novinek k částem webu nesmí" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?modul=casti")" 403
+expect "autor novinek k částem webu nesmí" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?module=parts")" 403
 
 echo "== formuláře a poptávky"
 curl -s -o "$WORK/formular.html" "$B/kontakt"
@@ -342,24 +342,24 @@ case "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdro
 case "$(submit_form -d zdroj=stranka:999 -d p0=A)" in *formular=*) echo "  CHYBA  neexistující formulář přijat"; ERRORS=$((ERRORS+1));; *) echo "  ok     neexistující formulář nic neuloží";; esac
 expect "robot ani chyby poptávku nepřidaly" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_poptavky")" 1
 IDP=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idp FROM ka_poptavky")
-check "poptávky v administraci" 200 "/admin.php?modul=poptavky" "jana@example.cz"
-check "detail poptávky" 200 "/admin.php?modul=poptavky&akce=detail&id=$IDP" "Chci kuchyň na míru."
+check "poptávky v administraci" 200 "/admin.php?module=enquiries" "jana@example.cz"
+check "detail poptávky" 200 "/admin.php?module=enquiries&action=detail&id=$IDP" "Chci kuchyň na míru."
 grep -q '>Tester</option>' "$WORK/response" && ! grep -q '>Autor</option>' "$WORK/response" && echo "  ok     poptávku vyřizuje jen ten, kdo má přístup k Poptávkám" || { echo "  CHYBA  výběr Vyřizuje nabízí uživatele bez přístupu k Poptávkám"; ERRORS=$((ERRORS+1)); }
 expect "otevřená poptávka je přečtená" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stav FROM ka_poptavky")" 1
-curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?modul=poptavky&akce=csv"; grep -q 'Chci kuchyň na míru.' "$WORK/response" && echo "  ok     export poptávek do CSV" || { echo "  CHYBA  CSV poptávek"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries&action=csv"; grep -q 'Chci kuchyň na míru.' "$WORK/response" && echo "  ok     export poptávek do CSV" || { echo "  CHYBA  CSV poptávek"; ERRORS=$((ERRORS+1)); }
 check "poděkování po odeslání (na místě formuláře)" 200 "/kontakt?formular=$FORM_ELEMENT&vysledek=ok" 'class="ka-formular-hotovo"'
 
 echo "== kolekce"
-check "kolekce" 200 "/admin.php?modul=kolekce" "Kolekce"
+check "kolekce" 200 "/admin.php?module=collections" "Kolekce"
 TOKEN=$(csrf)
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=kolekce&akce=uloz" -d "_csrf=$TOKEN" -d idk=0 --data-urlencode "nazev=Tým" -d detail=1 \
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=save" -d "_csrf=$TOKEN" -d idk=0 --data-urlencode "nazev=Tým" -d detail=1 \
   --data-urlencode "pole[0][popisek]=Funkce" -d "pole[0][typ]=text" --data-urlencode "pole[1][popisek]=Foto" -d "pole[1][typ]=obrazek" --data-urlencode "pole[2][popisek]=Medailonek" -d "pole[2][typ]=html"
 IDK=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idk FROM ka_kolekce WHERE seo_link = 'tym'")
 expect "kolekce založena s poli" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT pole LIKE '%\"funkce\"%' AND pole LIKE '%\"medailonek\"%' FROM ka_kolekce WHERE idk = $IDK")" 1
-save_item() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=kolekce&akce=uloz_polozku" -d "_csrf=$TOKEN" -d "idk=$IDK" -d idp=0 "$@"; }
+save_item() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=save_item" -d "_csrf=$TOKEN" -d "idk=$IDK" -d idp=0 "$@"; }
 save_item --data-urlencode "nazev=Jana Nováková" --data-urlencode "data[funkce]=Jednatelka" --data-urlencode "data[medailonek]=<p>Dvacet let <b>v oboru</b>.</p><script>x</script>" -d poradi=1 -d zobrazit=1
 save_item --data-urlencode "nazev=Skrytý Člen" --data-urlencode "data[funkce]=Tajný" -d poradi=2
-check "položky kolekce" 200 "/admin.php?modul=kolekce&akce=polozky&id=$IDK" "Jana Nováková"
+check "položky kolekce" 200 "/admin.php?module=collections&action=items&id=$IDK" "Jana Nováková"
 mcp stavba_uloz "{\"id\":$IDZ,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"id\":\"smy1\",\"typ\":\"kolekce\",\"obsah\":{\"kolekce\":\"tym\"},\"deti\":[{\"id\":\"kar1\",\"typ\":\"kontejner\",\"styl\":{\"zaklad\":{\"pozadi\":\"plocha\"}},\"deti\":[{\"typ\":\"nadpis\",\"znacka\":\"h3\",\"obsah\":{\"text\":\"{{nazev}}\"}},{\"typ\":\"text\",\"obsah\":{\"html\":\"<p>{{funkce}}</p>{{medailonek}}\"}},{\"typ\":\"tlacitko\",\"obsah\":{\"text\":\"Profil\",\"odkaz\":\"{{url}}\"}}]}]}]}]}}" > "$WORK/response"
 grep -q 'publikováno' "$WORK/response" || { echo "  CHYBA  MCP stránka s výpisem kolekce"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 rm -f "$WORK"/web/storage/cache/stranky/*.html
@@ -372,7 +372,7 @@ check "detail položky kolekce" 200 /tym/jana-novakova "Jednatelka"
 check "detail má nadpis položky" 200 /tym/jana-novakova "<h1>Jana Nováková</h1>"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$B/tym/skryty-clen"); expect "skrytá položka nemá detail" "$code" 404
 check "mapa webu obsahuje detail položky" 200 /sitemap.xml "/tym/jana-novakova"
-check "šablona detailu v builderu" 200 "/admin.php?modul=kolekce&akce=stavitel&id=$IDK" 'id="stavitel-data"'
+check "šablona detailu v builderu" 200 "/admin.php?module=collections&action=builder&id=$IDK" 'id="stavitel-data"'
 mcp seznam_kolekci '{}' > "$WORK/response"; grep -q 'kolekce\\":\\"tym' "$WORK/response" && grep -q 'medailonek' "$WORK/response" && echo "  ok     MCP: seznam kolekcí s poli" || { echo "  CHYBA  MCP seznam_kolekci"; ERRORS=$((ERRORS+1)); }
 mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Petr Svoboda","data":{"funkce":"Mistr truhlář"},"zobrazit":true}' > /dev/null
 mcp save_collection_item '{"collection":"tym","name":"Text JSON","values":"{\"funkce\":\"Z textu\"}"}' > "$WORK/response"
@@ -413,7 +413,7 @@ grep -q '<h1>Profile: Zdenek Zeman EN</h1>' "$WORK/response" && grep -q 'href="/
 grep -q 'class="logo"[^>]*><img src="/image/kaleta-logo.svg"' "$WORK/response" && ! grep -q 'src="/en/image/' "$WORK/response" && echo "  ok     logo a obrázky šablony na jazykové verzi bez předpony jazyka" || { echo "  CHYBA  adresa loga s předponou jazyka"; ERRORS=$((ERRORS+1)); }
 expect "verze šablony jazyka zvlášť" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stavba_revize WHERE cast = 'kolekce:$IDK:en'")" 1
 mcp seznam_stranek '{}' | grep -q 'en\\/team' && echo "  ok     MCP: seznam stránek ukazuje adresu s předponou jazyka" || { echo "  CHYBA  MCP adresa stránky jazykové verze"; ERRORS=$((ERRORS+1)); }
-check "šablona detailu jazyka v builderu" 200 "/admin.php?modul=kolekce&akce=stavitel&id=$IDK&jazyk=en" 'en\/tym\/zdenek'
+check "šablona detailu jazyka v builderu" 200 "/admin.php?module=collections&action=builder&id=$IDK&jazyk=en" 'en\/tym\/zdenek'
 # překlad přes MCP: stránka jako kopie stavby originálu, texty podle id, záhlaví a patička jazyka začínají kopií výchozího
 mcp vytvor_stranku '{"titulek":"Bez originalu","adresa":"bez-originalu","kopie_stavby":true}' | grep -q 'potřebuje preklad_z' \
   && expect "kopie stavby bez originálu stránku nezaloží" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stranky WHERE seo_link = 'bez-originalu'")" 0 || { echo "  CHYBA  kopie stavby bez preklad_z"; ERRORS=$((ERRORS+1)); }
@@ -455,13 +455,13 @@ curl -s -o "$WORK/response" "$B/z-html?f-vyp1=Mistr+truhl%C3%A1%C5%99"; grep -q 
   && echo "  ok     výpis kolekce: filtr návštěvníka" || { echo "  CHYBA  filtr výpisu kolekce"; ERRORS=$((ERRORS+1)); }
 
 echo "== komponenty"
-check "komponenty" 200 "/admin.php?modul=komponenty" "Komponenty"
+check "komponenty" 200 "/admin.php?module=components" "Komponenty"
 TOKEN=$(csrf)
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=komponenty&akce=uloz" -d "_csrf=$TOKEN" -d idm=0 --data-urlencode "nazev=Karta služby" \
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=components&action=save" -d "_csrf=$TOKEN" -d idm=0 --data-urlencode "nazev=Karta služby" \
   --data-urlencode "vlastnosti[0][popisek]=Nadpis" -d "vlastnosti[0][typ]=text" --data-urlencode "vlastnosti[0][vychozi]=Výchozí nadpis" --data-urlencode "vlastnosti[1][popisek]=Odkaz" -d "vlastnosti[1][typ]=odkaz" -d "vlastnosti[1][vychozi]=/kontakt"
 IDM=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idm FROM ka_komponenty ORDER BY idm DESC LIMIT 1")
-component_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?modul=komponenty&akce=$1&id=$IDM" -d "_csrf=$TOKEN" "${@:2}"; }
-check "komponenta v builderu" 200 "/admin.php?modul=komponenty&akce=stavitel&id=$IDM" 'id="stavitel-data"'
+component_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=components&action=$1&id=$IDM" -d "_csrf=$TOKEN" "${@:2}"; }
+check "komponenta v builderu" 200 "/admin.php?module=components&action=builder&id=$IDM" 'id="stavitel-data"'
 component_action stavba_uloz --data-urlencode 'stavba={"v":1,"deti":[{"id":"kse1","typ":"sekce","deti":[{"id":"kna1","typ":"nadpis","znacka":"h3","obsah":{"text":"{{nadpis}}"},"styl":{"zaklad":{"barva":"primarni"}}},{"typ":"tlacitko","obsah":{"text":"Více","odkaz":"{{odkaz}}"}},{"typ":"komponenta","obsah":{"komponenta":"'"$IDM"'"}}]}]}' > /dev/null
 expect "publikování komponenty" "$(component_action stavba_publikuj)" 200
 check "náhled komponenty pro editor" 200 "/_komponenta/$IDM?stavba=koncept&editor=1" "Výchozí nadpis"
@@ -472,7 +472,7 @@ grep -q '<h3 class="s-kna1">První karta</h3>' "$WORK/response" && grep -q '<h3 
   && echo "  ok     komponenta na stránce: vlastní i výchozí hodnoty, bez značek, nebezpečný odkaz pryč" || { echo "  CHYBA  komponenta na stránce"; ERRORS=$((ERRORS+1)); }
 ! grep -q 'id="s-kna1"' "$WORK/response" && ! grep -q 'data-ka-id' "$WORK/response" && [ "$(grep -o '\.s-kna1 {' "$WORK/response" | wc -l | tr -d ' ')" = 1 ] \
   && echo "  ok     komponenta dvakrát na stránce: styl jednou, bez duplicitního id" || { echo "  CHYBA  styl komponenty"; ERRORS=$((ERRORS+1)); }
-check "komponenty ukazují počet použití" 200 "/admin.php?modul=komponenty" "1×"
+check "komponenty ukazují počet použití" 200 "/admin.php?module=components" "1×"
 grep -q 'data-potvrdit="Komponentu „Karta služby“ používá: stránka „' "$WORK/response" && echo "  ok     potvrzení smazání komponenty vyjmenuje, kde je použitá" || { echo "  CHYBA  potvrzení smazání komponenty"; ERRORS=$((ERRORS+1)); }
 # formulář uvnitř komponenty: odeslání ho musí najít (dřív se hledal jen ve stavbě stránky)
 component_action stavba_uloz --data-urlencode 'stavba={"v":1,"deti":[{"id":"kse1","typ":"sekce","deti":[{"id":"kfo1","typ":"formular","obsah":{"nazev":"Poptávka z komponenty"}}]}]}' > /dev/null; component_action stavba_publikuj > /dev/null
@@ -480,24 +480,24 @@ rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/formular.html" "$B/z-html"
 location=$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$(field_value zdroj)" -d prvek=kfo1 -d zpet=/z-html -d "as_cas=$(field_value as_cas)" -d "as_podpis=$(field_value as_podpis)")
 case "$location" in *"formular=kfo1"*) echo "  ok     formulář v komponentě se odešle";; *) echo "  CHYBA  formulář v komponentě: $location"; ERRORS=$((ERRORS+1));; esac
-code=$(curl -s -b "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?modul=komponenty&akce=z_prvku" -d "_csrf=$TOKEN" --data-urlencode "nazev=Výzva" --data-urlencode 'prvek={"typ":"sekce","deti":[{"typ":"nadpis","obsah":{"text":"Zavolejte nám"}}]}')
+code=$(curl -s -b "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=components&action=from_element" -d "_csrf=$TOKEN" --data-urlencode "nazev=Výzva" --data-urlencode 'prvek={"typ":"sekce","deti":[{"typ":"nadpis","obsah":{"text":"Zavolejte nám"}}]}')
 [ "$code" = 200 ] && grep -q '"ok":true' "$WORK/response" && echo "  ok     uložení prvku jako komponenty" || { echo "  CHYBA  z_prvku: $code"; ERRORS=$((ERRORS+1)); }
 
 check "náhled hotové sekce pro panel builderu" 200 /_sekce/cenik "Vyberte si balíček"
 expect "náhled sekce jen pro přihlášené" "$(curl -s -o /dev/null -w '%{http_code}' "$B/_sekce/cenik")" 404
 
 echo "== varianty záhlaví"
-check "formulář varianty" 200 "/admin.php?modul=casti&akce=varianta&typ=hlavicka&jazyk=" 'Název varianty'
+check "formulář varianty" 200 "/admin.php?module=parts&action=variant&typ=hlavicka&jazyk=" 'Název varianty'
 TOKEN=$(csrf)
-location=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?modul=casti&akce=uloz_variantu&typ=hlavicka&jazyk=" -d "_csrf=$TOKEN" --data-urlencode "nazev=Landing page" -d "stranky[]=$IDZ")
+location=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=parts&action=save_variant&typ=hlavicka&jazyk=" -d "_csrf=$TOKEN" --data-urlencode "nazev=Landing page" -d "stranky[]=$IDZ")
 case "$location" in *"varianta=landing-page"*) echo "  ok     varianta založena a otevřena v builderu";; *) echo "  CHYBA  založení varianty: $location"; ERRORS=$((ERRORS+1));; esac
-variant_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?modul=casti&akce=$1&typ=hlavicka&jazyk=&varianta=landing-page" -d "_csrf=$TOKEN" "${@:2}"; }
+variant_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=parts&action=$1&typ=hlavicka&jazyk=&varianta=landing-page" -d "_csrf=$TOKEN" "${@:2}"; }
 variant_action stavba_uloz --data-urlencode 'stavba={"v":1,"deti":[]}' > /dev/null
 expect "publikování varianty" "$(variant_action stavba_publikuj)" 200
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/z-html"; ! grep -q 'header class="hlavicka"' "$WORK/response" && ! grep -q 'ka-nav' "$WORK/response" && echo "  ok     stránka s prázdnou variantou je bez záhlaví" || { echo "  CHYBA  varianta záhlaví na stránce"; ERRORS=$((ERRORS+1)); }
 curl -s -o "$WORK/response" "$B/kontakt"; grep -q 'header class="hlavicka"' "$WORK/response" && echo "  ok     ostatní stránky mají výchozí záhlaví" || { echo "  CHYBA  varianta se projevila i jinde"; ERRORS=$((ERRORS+1)); }
-check "varianta v seznamu částí" 200 "/admin.php?modul=casti" "Landing page"
+check "varianta v seznamu částí" 200 "/admin.php?module=parts" "Landing page"
 
 echo "== Claude (MCP): varianty, verze, stránky a poptávky jako v administraci"
 # hodnota z odpovědi MCP: mcpv klíč [klíč…] (pole a objekty jako JSON)
@@ -526,8 +526,8 @@ mcp seznam_poptavek '{"stav":"vse"}' > "$WORK/response"
 expect "MCP: poptávky s kampaní" "$(mcp_value 0 email)|$(mcp_value 0 kampan)" "jana@example.cz|newsletter / email / jaro"
 
 echo "== pop-up okna"
-check "pop-up okna v administraci" 200 "/admin.php?modul=popupy" "Zatím žádná pop-up okna"
-check "nové okno ze vzoru" 200 "/admin.php?modul=popupy&akce=novy" 'name="vzor" value="newsletter"'
+check "pop-up okna v administraci" 200 "/admin.php?module=popups" "Zatím žádná pop-up okna"
+check "nové okno ze vzoru" 200 "/admin.php?module=popups&action=new" 'name="vzor" value="newsletter"'
 mcp uloz_popup '{"vzor":"prazdny","nazev":"Akce okno"}' > "$WORK/response"; IDPP=$(mcp_value id)
 expect "MCP: okno založené vypnuté a nepublikované" "$(mcp_value adresa)|$(mcp_value aktivni)|$(mcp_value publikovano)|$(mcp_value spoustec)" "akce-okno|||klik"
 mcp uloz_popup "{\"id\":$IDPP,\"aktivni\":true}" | grep -q 'nejdřív publikuj' && echo "  ok     MCP: nepublikované okno nejde zapnout" || { echo "  CHYBA  zapnutí nepublikovaného okna"; ERRORS=$((ERRORS+1)); }
@@ -548,7 +548,7 @@ curl -s -o /dev/null -X POST "$B/popup" -d "id=$IDPP" -d udalost=zobrazeni; curl
 expect "počitadla okna bez cookies" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazeni, '/', zavreni, '/', konverze) FROM ka_popupy WHERE idpp = $IDPP")" "1/0/1"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$B/_popup/$IDPP?stavba=koncept"); expect "koncept okna bez přihlášení není" "$code" 404
 curl -s -o "$WORK/response" "$POPUP_PREVIEW"; grep -q 'data-otevrit="1"' "$WORK/response" && grep -q 'noindex' "$WORK/response" && echo "  ok     podepsaný náhled okno rovnou otevře" || { echo "  CHYBA  náhled okna: $POPUP_PREVIEW"; ERRORS=$((ERRORS+1)); }
-check "okno v builderu" 200 "/admin.php?modul=popupy&akce=stavitel&id=$IDPP" 'id="stavitel-data"'
+check "okno v builderu" 200 "/admin.php?module=popups&action=builder&id=$IDPP" 'id="stavitel-data"'
 check "plátno okna v builderu" 200 "/_popup/$IDPP?stavba=koncept&editor=1" 'ka-popup--editor'
 curl -s -b "$JAR" "$B/o-nas" | grep -q "data-popup=\"$IDPP\"" && ! curl -s -b "$JAR" "$B/o-nas?stavba=koncept&editor=1" | grep -q "data-popup=" \
   && echo "  ok     plátno builderu stránky je bez pop-up oken webu" || { echo "  CHYBA  pop-up okno v plátně builderu"; ERRORS=$((ERRORS+1)); }
@@ -569,17 +569,17 @@ check "úprava stránky na místě" 200 "/o-nas?upravit=text" "ka-upravit-text"
 curl -s -o "$WORK/response" "$B/novinky/vitejte-v-kalete?upravit=text"; grep -q "ka-upravit" "$WORK/response" && { echo "  CHYBA  úprava na místě je vidět bez přihlášení"; ERRORS=$((ERRORS+1)); } || echo "  ok     úprava na místě bez přihlášení není"
 
 echo "== import z WordPressu a export"
-check "import a export" 200 "/admin.php?modul=prenos" "WordPress"
+check "import a export" 200 "/admin.php?module=transfer" "WordPress"
 TOKEN=$(csrf)
-wp_batch() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?modul=prenos&akce=prubeh&soubor=wordpress-sample.xml" -d "_csrf=$TOKEN"; }
+wp_batch() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=transfer&action=progress&soubor=wordpress-sample.xml" -d "_csrf=$TOKEN"; }
 wp_import() { # náhled (čtení souboru) → volby → import; ukázkový soubor se vejde do jedné dávky
   wp_batch
-  curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=prenos&akce=spust" -d "_csrf=$TOKEN" -d soubor=wordpress-sample.xml -d koncepty=1 -d stranky=1 -d stavitel=1 -d presmerovani=1 -d rubrika=0
+  curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=run" -d "_csrf=$TOKEN" -d soubor=wordpress-sample.xml -d koncepty=1 -d stranky=1 -d stavitel=1 -d presmerovani=1 -d rubrika=0
   wp_batch
 }
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=prenos&akce=nahraj" -F "_csrf=$TOKEN" -F "soubor=@$ROOT/tools/fixtures/wordpress-sample.xml"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=upload" -F "_csrf=$TOKEN" -F "soubor=@$ROOT/tools/fixtures/wordpress-sample.xml"
 wp_batch
-check "import z WordPressu – náhled upozorní na nepřevoditelný typ" 200 "/admin.php?modul=prenos&akce=nahled&soubor=wordpress-sample.xml" "nav_menu_item"
+check "import z WordPressu – náhled upozorní na nepřevoditelný typ" 200 "/admin.php?module=transfer&action=preview&soubor=wordpress-sample.xml" "nav_menu_item"
 wp_import
 grep -q "Import obsahu je hotový" "$WORK/response" && echo "  ok     import z WordPressu doběhl" || { echo "  CHYBA  import z WordPressu nedoběhl"; ERRORS=$((ERRORS+1)); }
 check "importovaná novinka" 200 /novinky/lavka-pres-bystrinu "Lávka přes Bystřinu"
@@ -592,65 +592,65 @@ curl -s -o "$WORK/response" "$B/novinky/lavka-pres-bystrinu"; grep -qE "podvrh|o
 code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/2026/05/lavka-pres-bystrinu/"); expect "stará adresa WordPressu přesměruje na novinku" "$code" "301 $B/novinky/lavka-pres-bystrinu"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$B/?p=102"); expect "stará adresa /?p=102 přesměruje" "$code" 301
 # druhý import téhož souboru nesmí nic zdvojit
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=prenos&akce=vyber" -d "_csrf=$TOKEN" -d soubor=wordpress-sample.xml
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=select" -d "_csrf=$TOKEN" -d soubor=wordpress-sample.xml
 wp_import
 COUNTS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM ka_novinky WHERE seo_link LIKE 'lavka-pres-bystrinu%' OR seo_link LIKE 'slavnosti-syra%' OR seo_link LIKE 'rozpocet-obce%'), '/', (SELECT COUNT(*) FROM ka_stranky WHERE seo_link LIKE 'o-zpravodaji%'))")
 expect "opakovaný import nic nezdvojil (novinky/stránky)" "$COUNTS" "4/1"
 check "složka importu není přístupná z webu" 403 /storage/import/wordpress-sample.xml
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=prenos&akce=export" -d "_csrf=$TOKEN"
-check "export webu je v seznamu" 200 "/admin.php?modul=prenos" "akce=stahni"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=export" -d "_csrf=$TOKEN"
+check "export webu je v seznamu" 200 "/admin.php?module=transfer" "action=download"
 EXPORT=$(grep -o 'export-[0-9]*-[0-9]*\.[a-z]*' "$WORK/response" | head -1)
-curl -s -b "$JAR" -o "$WORK/export" "$B/admin.php?modul=prenos&akce=stahni&soubor=$EXPORT"
+curl -s -b "$JAR" -o "$WORK/export" "$B/admin.php?module=transfer&action=download&soubor=$EXPORT"
 if [ "${EXPORT##*.}" = zip ]; then unzip -p "$WORK/export" obsah.json > "$WORK/obsah.json" 2>/dev/null || true; else cp "$WORK/export" "$WORK/obsah.json"; fi
 grep -q '"format":"kaleta-export"' "$WORK/obsah.json" && grep -q '"novinky"' "$WORK/obsah.json" && ! grep -qE '"password"|smtp_heslo|tajny_klic|ai_klic' "$WORK/obsah.json" && echo "  ok     export obsahuje data a žádná tajemství" || { echo "  CHYBA  export"; ERRORS=$((ERRORS+1)); }
 grep -q '"kolekce_polozky":\[' "$WORK/obsah.json" && grep -q 'Jana Nováková' "$WORK/obsah.json" && grep -q '"tridy":\[' "$WORK/obsah.json" && grep -q '"casti":\[' "$WORK/obsah.json" && ! grep -q 'Chci kuchyň' "$WORK/obsah.json" \
   && grep -q '"adresa":"akce-okno"' "$WORK/obsah.json" && ! grep -q '"zobrazeni":' "$WORK/obsah.json" \
   && echo "  ok     export obsahuje builder, kolekce a pop-up okna, poptávky ani počitadla ne" || { echo "  CHYBA  export builderu a kolekcí"; ERRORS=$((ERRORS+1)); }
-curl -s -o "$WORK/response" "$B/admin.php?modul=prenos&akce=stahni&soubor=$EXPORT"; grep -q "Heslo" "$WORK/response" && echo "  ok     export jen pro přihlášeného správce" || { echo "  CHYBA  export jde stáhnout bez přihlášení"; ERRORS=$((ERRORS+1)); }
+curl -s -o "$WORK/response" "$B/admin.php?module=transfer&action=download&soubor=$EXPORT"; grep -q "Heslo" "$WORK/response" && echo "  ok     export jen pro přihlášeného správce" || { echo "  CHYBA  export jde stáhnout bez přihlášení"; ERRORS=$((ERRORS+1)); }
 
 echo "== koš novinek"
 IDC=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idc FROM ka_novinky WHERE seo_link = 'vitejte-v-kalete'")
-check "výpis novinek" 200 "/admin.php?modul=novinky" "Smazat označené"
+check "výpis novinek" 200 "/admin.php?module=news" "Smazat označené"
 TOKEN=$(csrf)
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=novinky&akce=smaz" -d "_csrf=$TOKEN" -d "smaz[]=$IDC"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=news&action=delete" -d "_csrf=$TOKEN" -d "smaz[]=$IDC"
 check "novinka v koši není na webu" 404 /novinky/vitejte-v-kalete
 check "novinka v koši není ani v náhledu" 404 "/novinky/vitejte-v-kalete?nahled=1"
-check "záložka Koš" 200 "/admin.php?modul=novinky&stav=kos" "Vítejte"
-check "novinka v koši nejde upravit" 404 "/admin.php?modul=novinky&akce=edit&id=$IDC"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=novinky&akce=obnov" -d "_csrf=$TOKEN" -d "smaz[]=$IDC"
+check "záložka Koš" 200 "/admin.php?module=news&stav=kos" "Vítejte"
+check "novinka v koši nejde upravit" 404 "/admin.php?module=news&action=edit&id=$IDC"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=news&action=restore" -d "_csrf=$TOKEN" -d "smaz[]=$IDC"
 expect "obnovená novinka se vrátí jako koncept" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(visible, '/', smazano IS NULL) FROM ka_novinky WHERE idc = $IDC")" "0/1"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_novinky SET visible = 1, smazano = NOW() - INTERVAL 31 DAY WHERE idc = $IDC"
 check "vstup do administrace vysype starý koš" 200 /admin.php "Přehled"
 expect "novinka starší 30 dní v koši je smazaná natrvalo" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_novinky WHERE idc = $IDC")" "0"
 
 echo "== přesměrování po změně adresy kategorie a stránky"
-check "formulář kategorie" 200 "/admin.php?modul=kategorie" "Kategorie"
+check "formulář kategorie" 200 "/admin.php?module=categories" "Kategorie"
 TOKEN=$(csrf)
 IDT=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idt FROM ka_kategorie WHERE seo_link = 'aktuality'")
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=kategorie&akce=uloz" -d "_csrf=$TOKEN" -d "idt=$IDT" -d nazev=Aktuality -d seo_link=aktuality-firmy -d hodnost=100
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=categories&action=save" -d "_csrf=$TOKEN" -d "idt=$IDT" -d nazev=Aktuality -d seo_link=aktuality-firmy -d hodnost=100
 code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/novinky/kategorie/aktuality"); expect "stará adresa kategorie přesměruje na novou" "$code" "301 $B/novinky/kategorie/aktuality-firmy"
 IDS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'kontakt'")
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=uloz" -d "_csrf=$TOKEN" -d "ids=$IDS" -d titulek=Kontakt -d seo_link=kontakty -d zobrazit=1 -d v_menu=1 -d "text=<p>Adresa.</p>"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=save" -d "_csrf=$TOKEN" -d "ids=$IDS" -d titulek=Kontakt -d seo_link=kontakty -d zobrazit=1 -d v_menu=1 -d "text=<p>Adresa.</p>"
 code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/kontakt"); expect "stará adresa stránky přesměruje na novou" "$code" "301 $B/kontakty"
 
 echo "== stránky: SEO, koš, duplikace"
 IDS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'kontakty'")
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=uloz" -d "_csrf=$TOKEN" -d "ids=$IDS" -d titulek=Kontakt -d seo_link=kontakty -d zobrazit=1 -d v_menu=1 -d "text=<p>Adresa.</p>" \
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=save" -d "_csrf=$TOKEN" -d "ids=$IDS" -d titulek=Kontakt -d seo_link=kontakty -d zobrazit=1 -d v_menu=1 -d "text=<p>Adresa.</p>" \
   --data-urlencode "seo_titulek=Kontakt na truhlárnu" -d obrazek=media/2026/01/sdileni.jpg -d noindex=1
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/kontakty"
 grep -q '<title>Kontakt na truhlárnu' "$WORK/response" && grep -q 'og:image" content="http[^"]*/media/2026/01/sdileni.jpg"' "$WORK/response" && grep -q 'noindex, follow' "$WORK/response" \
   && echo "  ok     stránka: vlastní titulek, úplná adresa obrázku pro sdílení, noindex" || { echo "  CHYBA  SEO stránky"; ERRORS=$((ERRORS+1)); }
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=duplikuj" -d "_csrf=$TOKEN" -d "ids=$IDS"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=duplicate" -d "_csrf=$TOKEN" -d "ids=$IDS"
 expect "duplikát stránky je skrytý a má volnou adresu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', seo_link) FROM ka_stranky ORDER BY ids DESC LIMIT 1")" "0/kontakty-kopie"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=smaz" -d "_csrf=$TOKEN" -d "ids=$IDS"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=delete" -d "_csrf=$TOKEN" -d "ids=$IDS"
 check "stránka v koši není na webu" 404 /kontakty
-check "záložka Koš u stránek" 200 "/admin.php?modul=stranky&stav=kos" "Kontakt"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=obnov" -d "_csrf=$TOKEN" -d "ids=$IDS"
+check "záložka Koš u stránek" 200 "/admin.php?module=pages&stav=kos" "Kontakt"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=restore" -d "_csrf=$TOKEN" -d "ids=$IDS"
 expect "obnovená stránka je skrytá" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', smazano IS NULL) FROM ka_stranky WHERE ids = $IDS")" "0/1"
 IDU=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'o-nas'")
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='$IDU' WHERE promenna='titulni_stranka'"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=smaz" -d "_csrf=$TOKEN" -d "ids=$IDU"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=delete" -d "_csrf=$TOKEN" -d "ids=$IDU"
 expect "úvodní stránku nejde smazat" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT smazano IS NULL FROM ka_stranky WHERE ids = $IDU")" "1"
 # rozpracovaná jazyková verze (bez zveřejněného překladu úvodu) se v přepínači, hreflang ani mapě webu nenabízí
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zobrazit = 1, smazano = NULL WHERE ids = $IDU"; rm -f "$WORK"/web/storage/cache/stranky/*.html
@@ -675,7 +675,7 @@ mcp stavba_uloz '{"cast":"paticka","publikovat":true,"stavba":{"v":1,"deti":[{"t
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='0' WHERE promenna='titulni_stranka'"
 
 echo "== podstránky, plán, historie, šablony, export"
-save_page() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?modul=stranky&akce=uloz" -d "_csrf=$TOKEN" "$@"; }
+save_page() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=pages&action=save" -d "_csrf=$TOKEN" "$@"; }
 save_page -d ids=0 --data-urlencode "titulek=Služby firmy" -d seo_link=sluzby-firmy -d zobrazit=1 -d v_menu=0 -d "text=<p>S</p>" > /dev/null
 IDR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'sluzby-firmy'")
 save_page -d ids=0 --data-urlencode "titulek=Kuchyně" -d "nadrazena=$IDR" -d zobrazit=1 -d v_menu=0 -d "text=<p>Kuchyně na míru</p>" > /dev/null
@@ -692,17 +692,17 @@ expect "naplánovaná stránka čeká skrytá" "$("${MYSQL[@]}" "$DB_NAME" -N -e
 curl -s -o /dev/null "$B/novinky?x=$RANDOM"; sleep 1
 expect "naplánovaná stránka se v čase sama zveřejní" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zobrazit FROM ka_stranky WHERE seo_link = 'akce'")" "1"
 location=$(save_page -d ids=0 --data-urlencode "titulek=Nabídka" -d sablona=landing -d zobrazit=0 -d v_menu=0 -d text=)
-case "$location" in *akce=stavitel*) echo "  ok     nová stránka ze šablony jde rovnou do builderu";; *) echo "  CHYBA  šablona stránky: $location"; ERRORS=$((ERRORS+1));; esac
+case "$location" in *action=builder*) echo "  ok     nová stránka ze šablony jde rovnou do builderu";; *) echo "  CHYBA  šablona stránky: $location"; ERRORS=$((ERRORS+1));; esac
 expect "šablona složí koncept ze sekcí" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stavba_koncept LIKE '%\"typ\":\"sekce\"%' FROM ka_stranky WHERE seo_link = 'nabidka'")" "1"
 IDN=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'nabidka'")
-curl -s -b "$JAR" -o "$WORK/stranka.json" "$B/admin.php?modul=stranky&akce=export&id=$IDN"
+curl -s -b "$JAR" -o "$WORK/stranka.json" "$B/admin.php?module=pages&action=export&id=$IDN"
 grep -q '"format": "kaleta-stranka"' "$WORK/stranka.json" && echo "  ok     export stránky do JSON" || { echo "  CHYBA  export stránky"; ERRORS=$((ERRORS+1)); }
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=import" -F "_csrf=$TOKEN" -F "soubor=@$WORK/stranka.json;type=application/json"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=import" -F "_csrf=$TOKEN" -F "soubor=@$WORK/stranka.json;type=application/json"
 expect "import stránky vytvoří skrytou kopii se stavbou" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', stavba_koncept IS NOT NULL) FROM ka_stranky WHERE seo_link = 'nabidka-2'")" "0/1"
 
 echo "== builder: vlastní CSS, atributy, animace, moje sekce, přejmenování třídy"
 IDV=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'nase-sluzby'")
-version_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?modul=stranky&akce=$1&id=$IDV" -d "_csrf=$TOKEN" "${@:2}"; }
+version_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=$1&id=$IDV" -d "_csrf=$TOKEN" "${@:2}"; }
 version_action stavba_uloz --data-urlencode 'stavba={"v":1,"deti":[{"id":"sv1","typ":"sekce","tridy":["karta"],"css":"backdrop-filter: blur(4px); background: url(x)","atributy":{"data-sledovat":"cta","onclick":"x"},"styl":{"zaklad":{"animace":"ka-vyjet","prechod":"linear-gradient(135deg, var(--ka-barva-primarni), var(--ka-barva-sekundarni))","okraj_vlevo":"auto"},"aktivni":{"pruhlednost":"0.8"}},"deti":[{"typ":"nadpis","obsah":{"text":"Test"}}]}]}' > /dev/null
 grep -q 'Nepovolená deklarace' "$WORK/response" && grep -q 'Atribut může být jen' "$WORK/response" && echo "  ok     vlastní CSS a atributy prvku se čistí" || { echo "  CHYBA  čištění CSS a atributů"; ERRORS=$((ERRORS+1)); }
 version_action stavba_publikuj > /dev/null
@@ -720,43 +720,43 @@ expect "přejmenovaná třída ve stavbách" "$("${MYSQL[@]}" "$DB_NAME" -N -e "
 echo "== média, přesměrování, poptávky, uživatelé, písma"
 php -r '$i = imagecreatetruecolor(1600, 900); imagefill($i, 0, 0, imagecolorallocate($i, 200, 80, 40)); imagejpeg($i, "'"$WORK"'/foto.jpg");'
 printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10" onload="alert(1)"><script>alert(2)</script><rect width="20" height="10" fill="red"/></svg>' > "$WORK/logo.svg"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=intergal&akce=nahraj" -F "_csrf=$TOKEN" -F "soubory[]=@$WORK/foto.jpg;type=image/jpeg" -F "soubory[]=@$WORK/logo.svg;type=image/svg+xml"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=media&action=upload" -F "_csrf=$TOKEN" -F "soubory[]=@$WORK/foto.jpg;type=image/jpeg" -F "soubory[]=@$WORK/logo.svg;type=image/svg+xml"
 SVG=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obr_poloha FROM ka_media WHERE obr_poloha LIKE '%.svg' ORDER BY ido DESC LIMIT 1")
 [ -n "$SVG" ] && ! grep -q 'onload\|<script' "$WORK/web/$SVG" && grep -q '<rect' "$WORK/web/$SVG" && echo "  ok     SVG nahrané a vyčištěné" || { echo "  CHYBA  SVG v Médiích"; ERRORS=$((ERRORS+1)); }
 # soubor nad upload_max_filesize (ale pod post_max_size): srozumitelná hláška s limitem v MB, ne zkratka z php.ini
 UPLOAD_LIMIT=$(php -r '$b = fn ($v) => (int) $v * (["k" => 1024, "m" => 1048576, "g" => 1073741824][strtolower(substr(trim($v), -1))] ?? 1); echo $b(ini_get("upload_max_filesize")), " ", $b(ini_get("post_max_size"));')
 if [ "${UPLOAD_LIMIT% *}" -gt 0 ] && [ $(( ${UPLOAD_LIMIT% *} + 4096 )) -lt "${UPLOAD_LIMIT#* }" ]; then
   head -c $(( ${UPLOAD_LIMIT% *} + 1024 )) /dev/zero > "$WORK/velky.zip"
-  curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?modul=intergal&akce=nahraj&format=json" -F "_csrf=$TOKEN" -F "soubory[]=@$WORK/velky.zip"
+  curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=media&action=upload&format=json" -F "_csrf=$TOKEN" -F "soubory[]=@$WORK/velky.zip"
   grep -q 'nejvýš [0-9,]* MB' "$WORK/response" && echo "  ok     soubor nad limit serveru: hláška s limitem v MB" || { echo "  CHYBA  hláška o limitu nahrávání"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 fi
 IDO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ido FROM ka_media WHERE obr_poloha LIKE '%.jpg' ORDER BY ido DESC LIMIT 1")
 PHOTO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obr_poloha FROM ka_media WHERE ido = $IDO")
 expect "nahraný obrázek nedostane popis (alt) ze jména souboru" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT('[', nazev, ']') FROM ka_media WHERE ido = $IDO")" "[]"
 php -r '$i = imagecreatetruecolor(800, 800); imagefill($i, 0, 0, imagecolorallocate($i, 20, 120, 200)); imagejpeg($i, "'"$WORK"'/nova.jpg");'
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=intergal&akce=nahradit" -F "_csrf=$TOKEN" -F "ido=$IDO" -F "soubor=@$WORK/nova.jpg;type=image/jpeg"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=media&action=replace" -F "_csrf=$TOKEN" -F "ido=$IDO" -F "soubor=@$WORK/nova.jpg;type=image/jpeg"
 expect "náhrada souboru zachová adresu a změní rozměry" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(obr_poloha, ' ', obr_width, 'x', obr_height) FROM ka_media WHERE ido = $IDO")" "$PHOTO 800x800"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=intergal&akce=uloz" -d "_csrf=$TOKEN" -d "ido=$IDO" -d nazev=Foto -d ohnisko_x=20 -d ohnisko_y=80
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=media&action=save" -d "_csrf=$TOKEN" -d "ido=$IDO" -d nazev=Foto -d ohnisko_x=20 -d ohnisko_y=80
 expect "ohnisko ořezu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ohnisko FROM ka_media WHERE ido = $IDO")" "20% 80%"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=presmerovani&akce=uloz" -d "_csrf=$TOKEN" -d z_adresy=/akce-leto -d na_adresu=/kontakty -d typ=302
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=redirects&action=save" -d "_csrf=$TOKEN" -d z_adresy=/akce-leto -d na_adresu=/kontakty -d typ=302
 code=$(curl -s -o /dev/null -w '%{http_code}' "$B/akce-leto"); expect "dočasné přesměrování 302" "$code" "302"
-check "hledání v přesměrováních" 200 "/admin.php?modul=presmerovani&hledat=akce-leto" "akce-leto"
-check "protokol s filtrem" 200 "/admin.php?modul=protokol&kde=stranky" "Protokol"
-IDU2=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?modul=users&akce=uloz" -d "_csrf=$TOKEN" -d idu=0 -d user=pozvany --data-urlencode email=pozvany@example.cz -d admin=2 -d pozvat=1)
+check "hledání v přesměrováních" 200 "/admin.php?module=redirects&hledat=akce-leto" "akce-leto"
+check "protokol s filtrem" 200 "/admin.php?module=changelog&kde=stranky" "Protokol"
+IDU2=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d idu=0 -d user=pozvany --data-urlencode email=pozvany@example.cz -d admin=2 -d pozvat=1)
 expect "pozvaný uživatel má odkaz na heslo s delší platností" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obnova_otisk <> '' AND obnova_cas > NOW() FROM ka_uzivatele WHERE user = 'pozvany'")" "1"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=role&akce=uloz" -d "_csrf=$TOKEN" -d idr=0 -d nazev=Obchodník -d uroven=0 -d 'moduly[]=poptavky' -d 'moduly[]=kolekce'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=roles&action=save" -d "_csrf=$TOKEN" -d idr=0 -d nazev=Obchodník -d uroven=0 -d 'moduly[]=enquiries' -d 'moduly[]=collections'
 IDR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT MAX(idr) FROM ka_role")
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=users&akce=uloz" -d "_csrf=$TOKEN" -d idu=0 -d user=obchodnik --data-urlencode "password=$PASSWORD" -d "admin=r$IDR"
-expect "vlastní role dá uživateli své sekce" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(p.ident_modulu ORDER BY p.ident_modulu) FROM ka_uzivatele u JOIN ka_uzivatele_prava p ON p.fk_id_user = u.idu WHERE u.user = 'obchodnik' AND u.role = $IDR")" "kolekce,poptavky"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=role&akce=uloz" -d "_csrf=$TOKEN" -d "idr=$IDR" -d nazev=Obchodník -d uroven=1 -d 'moduly[]=poptavky'
-expect "změna role se přenese na členy" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(u.admin, ':', GROUP_CONCAT(p.ident_modulu)) FROM ka_uzivatele u JOIN ka_uzivatele_prava p ON p.fk_id_user = u.idu WHERE u.user = 'obchodnik' GROUP BY u.idu")" "1:poptavky"
-check "přehled rolí" 200 "/admin.php?modul=role" "Obchodník"
-check "uživatelé ukazují vlastní roli" 200 "/admin.php?modul=users" "Obchodník"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d idu=0 -d user=obchodnik --data-urlencode "password=$PASSWORD" -d "admin=r$IDR"
+expect "vlastní role dá uživateli své sekce" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(p.ident_modulu ORDER BY p.ident_modulu) FROM ka_uzivatele u JOIN ka_uzivatele_prava p ON p.fk_id_user = u.idu WHERE u.user = 'obchodnik' AND u.role = $IDR")" "collections,enquiries"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=roles&action=save" -d "_csrf=$TOKEN" -d "idr=$IDR" -d nazev=Obchodník -d uroven=1 -d 'moduly[]=enquiries'
+expect "změna role se přenese na členy" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(u.admin, ':', GROUP_CONCAT(p.ident_modulu)) FROM ka_uzivatele u JOIN ka_uzivatele_prava p ON p.fk_id_user = u.idu WHERE u.user = 'obchodnik' GROUP BY u.idu")" "1:enquiries"
+check "přehled rolí" 200 "/admin.php?module=roles" "Obchodník"
+check "uživatelé ukazují vlastní roli" 200 "/admin.php?module=users" "Obchodník"
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('vynutit_2fa', 'spravci') ON DUPLICATE KEY UPDATE hodnota = 'spravci'"
-code=$(curl -s -b "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/admin.php?modul=stranky"); case "$code" in "302 "*akce=ucet*) echo "  ok     povinné dvoufázové přihlášení pustí jen do Můj účet";; *) echo "  CHYBA  vynucení 2FA: $code"; ERRORS=$((ERRORS+1));; esac
+code=$(curl -s -b "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/admin.php?module=pages"); case "$code" in "302 "*action=account*) echo "  ok     povinné dvoufázové přihlášení pustí jen do Můj účet";; *) echo "  CHYBA  vynucení 2FA: $code"; ERRORS=$((ERRORS+1));; esac
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'vynutit_2fa'"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?akce=ucet" -d "_csrf=$TOKEN" -d co=totp_start
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?akce=ucet"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?action=account" -d "_csrf=$TOKEN" -d co=totp_start
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account"
 grep -q '<svg class="qr"' "$WORK/response" && grep -q 'class="totp-klic"' "$WORK/response" && echo "  ok     zapnutí 2FA ukáže QR kód i klíč k ručnímu zadání" || { echo "  CHYBA  QR kód při zapínání 2FA"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = JSON_SET(IF(hodnota = '' OR hodnota IS NULL, '{}', hodnota), '$.vlastni_pisma', JSON_ARRAY(JSON_OBJECT('nazev', 'Znacka Sans', 'soubor', 'media/2026/01/znacka.woff2', 'tucny', '')), '$.pismo_titulky', 'vlastni-1') WHERE promenna = 'design_system'"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
@@ -766,20 +766,20 @@ expect "statistika po stránkách" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COU
 curl -s -o "$WORK/response" "$B/kontakty"; grep -q 'image/web.js' "$WORK/response" && echo "  CHYBA  web.js i na stránce, která ho nepotřebuje" && ERRORS=$((ERRORS+1)) || echo "  ok     web.js jen tam, kde je potřeba"
 
 echo "== menu"
-check "editor menu" 200 "/admin.php?modul=menu" 'data-menu-seznam'
+check "editor menu" 200 "/admin.php?module=menu" 'data-menu-seznam'
 IDO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'o-nas'")
 MENU='[{"typ":"stranka","ids":'$IDO',"text":"O firmě","deti":[{"typ":"odkaz","text":"Kariéra","url":"https://example.cz/kariera","nove_okno":true}]},{"typ":"novinky"},{"typ":"odkaz","text":"Zlý","url":"javascript:alert(1)"}]'
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=menu&akce=uloz&umisteni=hlavni" -d "_csrf=$TOKEN" --data-urlencode "polozky=$MENU"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=menu&akce=uloz&umisteni=paticka" -d "_csrf=$TOKEN" --data-urlencode 'polozky=[{"typ":"odkaz","text":"Zásady ochrany soukromí","url":"/zasady"}]'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&umisteni=hlavni" -d "_csrf=$TOKEN" --data-urlencode "polozky=$MENU"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&umisteni=paticka" -d "_csrf=$TOKEN" --data-urlencode 'polozky=[{"typ":"odkaz","text":"Zásady ochrany soukromí","url":"/zasady"}]'
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/novinky"
 grep -q '<li class="podmenu"><a href="[^"]*/o-nas">O firmě</a><ul><li><a href="https://example.cz/kariera" target="_blank" rel="noopener">Kariéra</a>' "$WORK/response" && grep -q 'aria-current="page">Novinky' "$WORK/response" && ! grep -q 'javascript:' "$WORK/response" \
   && echo "  ok     menu s podmenu na webu, nebezpečný odkaz vypadl" || { echo "  CHYBA  menu na webu"; ERRORS=$((ERRORS+1)); }
 grep -q 'image/web\.js' "$WORK/response" && echo "  ok     stránka s podmenu načte web.js (Esc podmenu zavře)" || { echo "  CHYBA  stránka s podmenu bez web.js"; ERRORS=$((ERRORS+1)); }
 mcp nacti_menu '{"umisteni":"paticka"}' > "$WORK/response"; grep -q 'Zásady ochrany soukromí' "$WORK/response" && echo "  ok     menu v patičce (MCP)" || { echo "  CHYBA  menu v patičce"; ERRORS=$((ERRORS+1)); }
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=uloz" -d "_csrf=$TOKEN" -d "ids=$IDS" -d titulek=Kontakt -d seo_link=kontakty -d zobrazit=1 -d v_menu=1 -d "text=<p>Adresa.</p>"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=save" -d "_csrf=$TOKEN" -d "ids=$IDS" -d titulek=Kontakt -d seo_link=kontakty -d zobrazit=1 -d v_menu=1 -d "text=<p>Adresa.</p>"
 expect "zaškrtnutá stránka se přidá na konec sestaveného menu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT polozky LIKE '%\"ids\":$IDS%' FROM ka_menu WHERE umisteni = 'hlavni'")" "1"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=menu&akce=automaticky&umisteni=hlavni" -d "_csrf=$TOKEN"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=automatic&umisteni=hlavni" -d "_csrf=$TOKEN"
 expect "návrat k automatickému menu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'hlavni'")" "0"
 
 echo "== ikony, manifest, cache"
@@ -842,8 +842,8 @@ check "odkaz z e-mailu jen nabídne potvrzení" 200 "/odber?potvrdit=$SUB_TOKEN"
 expect "otevření odkazu (skener pošty) odběr nepotvrdí" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stav FROM ka_odberatele WHERE email = 'odber@example.cz'")" "0"
 curl -s -o "$WORK/response" -X POST "$B/odber?potvrdit=$SUB_TOKEN"; grep -q "Odběr je potvrzený" "$WORK/response" && echo "  ok     potvrzení odběru tlačítkem" || { echo "  CHYBA  potvrzení odběru"; ERRORS=$((ERRORS+1)); }
 expect "odběratel je potvrzený" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stav FROM ka_odberatele WHERE email = 'odber@example.cz'")" "1"
-check "odběratelé v administraci" 200 "/admin.php?modul=odberatele" "odber@example.cz"
-curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?modul=odberatele&akce=csv"; grep -q "odber@example.cz;.*odber?odhlasit=$SUB_TOKEN" "$WORK/response" && echo "  ok     export odběratelů s odkazem na odhlášení" || { echo "  CHYBA  export odběratelů"; head -3 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+check "odběratelé v administraci" 200 "/admin.php?module=subscribers" "odber@example.cz"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=subscribers&action=csv"; grep -q "odber@example.cz;.*odber?odhlasit=$SUB_TOKEN" "$WORK/response" && echo "  ok     export odběratelů s odkazem na odhlášení" || { echo "  CHYBA  export odběratelů"; head -3 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = REPLACE(hodnota, 'newsletter,', '') WHERE promenna = 'rozsireni'"
 check "odhlášení jde i s vypnutým Newsletterem" 200 "/odber?odhlasit=$SUB_TOKEN" "Odhlásit odběr"
 curl -s -o "$WORK/response" -X POST "$B/odber?odhlasit=$SUB_TOKEN"; grep -q "Odhlášeno" "$WORK/response" && echo "  ok     odhlášení tlačítkem" || { echo "  CHYBA  odhlášení"; ERRORS=$((ERRORS+1)); }
@@ -864,12 +864,12 @@ PHP
 (cd "$WORK/sluzba" && exec php -S "127.0.0.1:$SERVICE_PORT" router.php > /dev/null 2>&1) & SERVICE_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$SERVICE_PORT/_log" && break; sleep 0.2; done
 set_service() { "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('newsletter_sluzba','$1'),('newsletter_klic','$2'),('newsletter_seznam','$3'),('newsletter_webhook','$4'),('newsletter_test_url','http://127.0.0.1:$SERVICE_PORT'); DELETE FROM ka_odber_fronta; DELETE FROM ka_odberatele; INSERT INTO ka_odberatele (email, stav, token, datum, potvrzeno) VALUES ('sluzba@example.cz', 1, '$(php -r 'echo bin2hex(random_bytes(16));')', NOW(), NOW())"; : > "$WORK/sluzba/pozadavky.log"; }
-subscriber_action() { curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?modul=odberatele"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=odberatele&akce=$1" -d "_csrf=$(csrf)" "${@:2}"; }
+subscriber_action() { curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=subscribers"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=subscribers&action=$1" -d "_csrf=$(csrf)" "${@:2}"; }
 last_request() { tail -1 "$WORK/sluzba/pozadavky.log"; }
 set_service brevo brevo-klic 7 ''; subscriber_action synchronizuj
 case "$(last_request)" in 'POST /brevo/v3/contacts brevo-klic {"email":"sluzba@example.cz","listIds":[7],"updateEnabled":true}') echo "  ok     Brevo: přidání do seznamu";; *) echo "  CHYBA  Brevo: $(last_request)"; ERRORS=$((ERRORS+1));; esac
 expect "odběratel ve službě" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(sync, '/', (SELECT COUNT(*) FROM ka_odber_fronta)) FROM ka_odberatele")" "ok/0"
-check "stav služby u odběratelů" 200 "/admin.php?modul=odberatele" "odesláno"
+check "stav služby u odběratelů" 200 "/admin.php?module=subscribers" "odesláno"
 IDOD=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ido FROM ka_odberatele"); subscriber_action smaz -d "ido=$IDOD"; subscriber_action znovu
 case "$(last_request)" in 'POST /brevo/v3/contacts/lists/7/contacts/remove brevo-klic {"emails":["sluzba@example.cz"]}') echo "  ok     Brevo: smazaný odběratel odebrán ze seznamu";; *) echo "  CHYBA  Brevo odebrání: $(last_request)"; ERRORS=$((ERRORS+1));; esac
 set_service mailchimp 'abc123-us21' 'aud1' ''; subscriber_action synchronizuj
@@ -889,15 +889,15 @@ kill "$SERVICE_PID" 2>/dev/null || true
 
 echo "== média, tokeny DTCG, kolekce přes MCP"
 IDOM=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ido FROM ka_media WHERE obr_poloha LIKE '%.jpg' ORDER BY ido DESC LIMIT 1")
-check "média: hledání a řazení" 200 "/admin.php?modul=intergal&hledat=jpg&razeni=velikost" 'data-popis-media='
-reply=$(curl -s -b "$JAR" -c "$JAR" -X POST "$B/admin.php?modul=intergal&akce=uloz_popis" -d "_csrf=$TOKEN" -d "ido=$IDOM" --data-urlencode "popis=Dilna zevnitr")
+check "média: hledání a řazení" 200 "/admin.php?module=media&hledat=jpg&razeni=velikost" 'data-popis-media='
+reply=$(curl -s -b "$JAR" -c "$JAR" -X POST "$B/admin.php?module=media&action=save_caption" -d "_csrf=$TOKEN" -d "ido=$IDOM" --data-urlencode "popis=Dilna zevnitr")
 expect "popis obrázku bez znovunačtení" "$reply|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT nazev FROM ka_media WHERE ido = $IDOM")" '{"ok":true}|Dilna zevnitr'
-curl -s -b "$JAR" -o "$WORK/tokeny.json" "$B/admin.php?modul=vzhled&akce=tokeny"
+curl -s -b "$JAR" -o "$WORK/tokeny.json" "$B/admin.php?module=appearance&action=tokens"
 grep -q '"\$type": "color"' "$WORK/tokeny.json" && grep -q '"cz.kaleta"' "$WORK/tokeny.json" && echo "  ok     export tokenů DTCG" || { echo "  CHYBA  export tokenů"; ERRORS=$((ERRORS+1)); }
 printf '{"color":{"primary":{"$type":"color","$value":"#aa3300"}}}' > "$WORK/cizi.tokens.json"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=vzhled&akce=tokeny_import" -F "_csrf=$TOKEN" -F "tokeny=@$WORK/cizi.tokens.json"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=appearance&action=tokens_import" -F "_csrf=$TOKEN" -F "tokeny=@$WORK/cizi.tokens.json"
 expect "import barev z cizích tokenů" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'design_system'")" "#aa3300"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=vzhled&akce=tokeny_import" -F "_csrf=$TOKEN" -F "tokeny=@$WORK/tokeny.json"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=appearance&action=tokens_import" -F "_csrf=$TOKEN" -F "tokeny=@$WORK/tokeny.json"
 expect "import vlastního exportu vrátí vzhled" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) <> '#aa3300' FROM ka_nastaveni WHERE promenna = 'design_system'")" "1"
 mcp seznam_polozek_kolekce '{"kolekce":"tym","pole":"funkce","hodnota":"Mistr truhlář"}' > "$WORK/response"
 grep -q 'Petr Svoboda' "$WORK/response" && grep -q 'celkem\\":1' "$WORK/response" && echo "  ok     kolekce přes MCP: filtr podle pole" || { echo "  CHYBA  kolekce přes MCP s filtrem"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -906,17 +906,17 @@ mcp uloz_polozku_kolekce "{\"kolekce\":\"tym\",\"id\":$IDPS,\"data\":{\"funkce\"
 expect "kolekce přes MCP: úprava položky bez názvu název zachová" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(nazev, '|', data LIKE '%Vedouci dilny%') FROM ka_kolekce_polozky WHERE idp = $IDPS")" "Petr Svoboda|1"
 
 echo "== záloha a obnova databáze"
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?modul=config&zalozka=zalohy"; TOKEN=$(csrf)
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=config&akce=zalohuj" -d "_csrf=$TOKEN"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=backup" -d "_csrf=$TOKEN"
 BACKUP=$(ls -t "$WORK"/web/storage/zalohy/ 2>/dev/null | grep -v predobnovou | head -1 || true)
 [ -n "$BACKUP" ] && echo "  ok     záloha vytvořena" || { echo "  CHYBA  záloha nevznikla"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = 'Po zaloze' WHERE promenna = 'nazev_webu'"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=config&akce=obnov_zalohu" -d "_csrf=$TOKEN" -d "soubor=$BACKUP"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=restore_backup" -d "_csrf=$TOKEN" -d "soubor=$BACKUP"
 expect "obnova vrátí stav ze zálohy" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota <> 'Po zaloze' FROM ka_nastaveni WHERE promenna = 'nazev_webu'")" "1"
 BROKEN_BACKUP="kaleta-poskozena.sql"; [[ "$BACKUP" == *.gz ]] && BROKEN_BACKUP="kaleta-poskozena.sql.gz"
 if [[ "$BACKUP" == *.gz ]]; then { gzip -dc "$WORK/web/storage/zalohy/$BACKUP" | head -c 4000 || true; } | gzip > "$WORK/web/storage/zalohy/$BROKEN_BACKUP"; else head -c 4000 "$WORK/web/storage/zalohy/$BACKUP" > "$WORK/web/storage/zalohy/$BROKEN_BACKUP"; fi
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = 'Pred poskozenou' WHERE promenna = 'nazev_webu'"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=config&akce=obnov_zalohu" -d "_csrf=$TOKEN" -d "soubor=$BROKEN_BACKUP"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=restore_backup" -d "_csrf=$TOKEN" -d "soubor=$BROKEN_BACKUP"
 expect "poškozená záloha databázi nezmění" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'nazev_webu'")" "Pred poskozenou"
 
 echo "== role přes MCP, obnova hesla, zámek účtu"
@@ -927,8 +927,8 @@ grep -q 'nemáš přístup' "$WORK/response" && expect "vlastní role bez Novine
 FAKE_REFRESH="$(printf 'c%.0s' $(seq 1 64))"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET obnova_otisk = '$(php -r 'echo hash("sha256", $argv[1]);' "$FAKE_REFRESH")', obnova_cas = NOW() + INTERVAL 1 DAY WHERE user = 'obchodnik'"
 JAR3="$WORK/jar3"
-TOKEN3=$(curl -s -c "$JAR3" "$B/admin.php?akce=heslo&token=$FAKE_REFRESH" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//' || true)
-curl -s -b "$JAR3" -c "$JAR3" -o /dev/null -X POST "$B/admin.php?akce=heslo" -d "_csrf=$TOKEN3" -d "token=$FAKE_REFRESH" --data-urlencode "password=Nove-heslo-123" --data-urlencode "password2=Nove-heslo-123"
+TOKEN3=$(curl -s -c "$JAR3" "$B/admin.php?action=password&token=$FAKE_REFRESH" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//' || true)
+curl -s -b "$JAR3" -c "$JAR3" -o /dev/null -X POST "$B/admin.php?action=password" -d "_csrf=$TOKEN3" -d "token=$FAKE_REFRESH" --data-urlencode "password=Nove-heslo-123" --data-urlencode "password2=Nove-heslo-123"
 expect "obnova hesla zruší tokeny napojení" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_api_tokeny t JOIN ka_uzivatele u ON u.idu = t.idu WHERE u.user = 'obchodnik'")" "0"
 JAR4="$WORK/jar4"
 TOKEN4=$(curl -s -c "$JAR4" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//' || true)
@@ -949,15 +949,15 @@ expect "registrace odmítne http adresu návratu" "$(curl -s -o /dev/null -w '%{
 VERIFIER="$(printf 'v%.0s' $(seq 1 50))"; CHALLENGE=$(printf %s "$VERIFIER" | openssl dgst -binary -sha256 | openssl base64 | tr '+/' '-_' | tr -d '=')
 expect "cizí adresa návratu se nepřesměruje" "$(curl -s -o /dev/null -w '%{http_code}' "$B/oauth/authorize?response_type=code&client_id=$CLIENT&redirect_uri=https://zly.example/&code_challenge=$CHALLENGE&code_challenge_method=S256")" 400
 code=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/oauth/authorize?response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=$CHALLENGE&code_challenge_method=S256&state=xyz&scope=mcp")
-case "$code" in "302 "*akce=oauth) echo "  ok     přihlášení vede na souhlas v administraci";; *) echo "  CHYBA  authorize: $code"; ERRORS=$((ERRORS+1));; esac
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -D "$WORK/hlavicky" "$B/admin.php?akce=oauth"; grep -q 'Povolit přístup' "$WORK/response" && echo "  ok     stránka souhlasu" || { echo "  CHYBA  stránka souhlasu"; ERRORS=$((ERRORS+1)); }
+case "$code" in "302 "*action=oauth) echo "  ok     přihlášení vede na souhlas v administraci";; *) echo "  CHYBA  authorize: $code"; ERRORS=$((ERRORS+1));; esac
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -D "$WORK/hlavicky" "$B/admin.php?action=oauth"; grep -q 'Povolit přístup' "$WORK/response" && echo "  ok     stránka souhlasu" || { echo "  CHYBA  stránka souhlasu"; ERRORS=$((ERRORS+1)); }
 grep -qi "form-action 'self' https://claude.ai;" "$WORK/hlavicky" && ! grep -qi "x-kaleta-form-action" "$WORK/hlavicky" && echo "  ok     CSP souhlasu povolí návrat do aplikace (form-action)" || { echo "  CHYBA  CSP form-action na stránce souhlasu"; grep -i "content-security" "$WORK/hlavicky"; ERRORS=$((ERRORS+1)); }
 OAUTH_CSRF=$(csrf)
-REDIRECT=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?akce=oauth" -d "_csrf=$OAUTH_CSRF" -d povolit=1)
+REDIRECT=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?action=oauth" -d "_csrf=$OAUTH_CSRF" -d povolit=1)
 AUTH_CODE=$(printf %s "$REDIRECT" | grep -o 'code=[a-f0-9]*' | sed 's/code=//' || true)
 case "$REDIRECT" in "$REDIRECT_URI?code="*"state=xyz"*) echo "  ok     souhlas vrátí kód a state do aplikace";; *) echo "  CHYBA  návrat po souhlasu: $REDIRECT"; ERRORS=$((ERRORS+1));; esac
 expect "špatný code_verifier (PKCE) neprojde" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/token" -d grant_type=authorization_code -d "code=$AUTH_CODE" -d "redirect_uri=$REDIRECT_URI" -d "client_id=$CLIENT" -d code_verifier=spatny-overovac-spatny-overovac-spatny-overovac)" 400
-REDIRECT=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' "$B/oauth/authorize?response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=$CHALLENGE&code_challenge_method=S256&state=abc" && curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?akce=oauth" -d "_csrf=$OAUTH_CSRF" -d povolit=1)
+REDIRECT=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' "$B/oauth/authorize?response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=$CHALLENGE&code_challenge_method=S256&state=abc" && curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?action=oauth" -d "_csrf=$OAUTH_CSRF" -d povolit=1)
 AUTH_CODE=$(printf %s "$REDIRECT" | grep -o 'code=[a-f0-9]*' | sed 's/code=//' || true)
 curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=authorization_code -d "code=$AUTH_CODE" -d "redirect_uri=$REDIRECT_URI" -d "client_id=$CLIENT" -d "code_verifier=$VERIFIER"
 ACCESS_TOKEN=$(grep -o '"access_token":"[a-z0-9_]*"' "$WORK/response" | sed 's/.*:"//;s/"//' || true); REFRESH_TOKEN=$(grep -o '"refresh_token":"[a-z0-9_]*"' "$WORK/response" | sed 's/.*:"//;s/"//' || true)
@@ -972,12 +972,12 @@ expect "obnovovací token se po použití vymění" "$(curl -s -o /dev/null -w '
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kontrola_ip WHERE typ = 'login'" # limit přihlášení z IP vyčerpal test zámku účtu
 JAR5="$WORK/jar5"
 curl -s -c "$JAR5" -b "$JAR5" -o /dev/null "$B/oauth/authorize?response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=$CHALLENGE&code_challenge_method=S256&state=nove"
-TOKEN5=$(curl -s -b "$JAR5" -c "$JAR5" "$B/admin.php?akce=oauth" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//' || true)
+TOKEN5=$(curl -s -b "$JAR5" -c "$JAR5" "$B/admin.php?action=oauth" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//' || true)
 code=$(curl -s -b "$JAR5" -c "$JAR5" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php" -d "_csrf=$TOKEN5" -d user=admin --data-urlencode "password=$PASSWORD")
-case "$code" in *akce=oauth) echo "  ok     nepřihlášený se po přihlášení vrátí na souhlas";; *) echo "  CHYBA  návrat na souhlas po přihlášení: $code"; ERRORS=$((ERRORS+1));; esac
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?akce=ucet"; grep -q 'Připojené aplikace' "$WORK/response" && echo "  ok     připojená aplikace v Můj účet" || { echo "  CHYBA  připojené aplikace"; ERRORS=$((ERRORS+1)); }
+case "$code" in *action=oauth) echo "  ok     nepřihlášený se po přihlášení vrátí na souhlas";; *) echo "  CHYBA  návrat na souhlas po přihlášení: $code"; ERRORS=$((ERRORS+1));; esac
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account"; grep -q 'Připojené aplikace' "$WORK/response" && echo "  ok     připojená aplikace v Můj účet" || { echo "  CHYBA  připojené aplikace"; ERRORS=$((ERRORS+1)); }
 OAUTH_CSRF=$(csrf)
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?akce=ucet" -d "_csrf=$OAUTH_CSRF" -d "odpojit_klient=$CLIENT"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?action=account" -d "_csrf=$OAUTH_CSRF" -d "odpojit_klient=$CLIENT"
 expect "odpojení aplikace smaže její tokeny" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_api_tokeny WHERE klient = '$CLIENT'")" "0"
 
 echo "== dvoufázové přihlášení (TOTP a záložní kódy)"
@@ -1006,11 +1006,16 @@ curl -s -o "$WORK/response" "$B/sitemap.xml"; ! grep -q "/novinky" "$WORK/respon
 curl -s -o "$WORK/response" "$B/o-nas"; ! grep -q 'rss.xml' "$WORK/response" && echo "  ok     bez novinek ani odkaz na RSS" || { echo "  CHYBA  odkaz na RSS při vypnutých novinkách"; ERRORS=$((ERRORS+1)); }
 curl -s -o "$WORK/response" "$B/o-nas"; ! grep -q 'href="[^"]*/novinky"' "$WORK/response" && echo "  ok     menu bez odkazu na novinky" || { echo "  CHYBA  menu odkazuje na vypnuté novinky"; ERRORS=$((ERRORS+1)); }
 expect "odeslání formuláře nejde" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/formular" -d x=1)" 404
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"; ! grep -q 'modul=novinky"' "$WORK/response" && ! grep -q 'modul=poptavky"' "$WORK/response" && echo "  ok     administrace bez novinek a poptávek" || { echo "  CHYBA  administrace ukazuje vypnutá rozšíření"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"; ! grep -q 'module=news"' "$WORK/response" && ! grep -q 'module=enquiries"' "$WORK/response" && echo "  ok     administrace bez novinek a poptávek" || { echo "  CHYBA  administrace ukazuje vypnutá rozšíření"; ERRORS=$((ERRORS+1)); }
 mcp stavba_schema '{}' > "$WORK/response"; ! grep -q '\\"formular\\":' "$WORK/response" && ! grep -q 'seznam_novinek' <(curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}') \
   && echo "  ok     builder a MCP nenabízejí prvky ani nástroje vypnutých rozšíření" || { echo "  CHYBA  schéma nebo MCP s vypnutými rozšířeními"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='$EXTENSIONS' WHERE promenna='rozsireni'"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
+
+echo "== old admin URLs of 1.3 (bookmarks, links in e-mails)"
+expect "old module and action redirect to the current URL" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/admin.php?modul=stranky&akce=novy")" "301 $B/admin.php?module=pages&action=new"
+expect "old settings tab redirects to the current one" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/admin.php?modul=config&zalozka=zalohy")" "301 $B/admin.php?module=settings&tab=backups"
+check "the redirect target works" 200 "/admin.php?module=settings&tab=backups"
 
 echo "== instalace aktualizace (testovací klíč a kanál)"
 cat > "$WORK/vydani-test.php" <<'PHP'
@@ -1042,9 +1047,9 @@ php "$WORK/vydani-test.php" "$WORK/web" "$CHANNEL_PORT"
 (cd "$WORK/kanal" && exec php -S "127.0.0.1:$CHANNEL_PORT" > /dev/null 2>&1) & CHANNEL_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$CHANNEL_PORT/ok.json" && break; sleep 0.2; done
 echo "# vlastni uprava spravce" >> "$WORK/web/.htaccess"
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?modul=config&zalozka=zalohy"; TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; TOKEN=$(csrf)
 update_from() { "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('aktualizace_url','http://127.0.0.1:$CHANNEL_PORT/$1') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'aktualizace_cache'"
-  curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=config&akce=aktualizuj" -d "_csrf=$TOKEN"; }
+  curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN"; }
 update_from zly.json
 [ ! -f "$WORK/web/layout/zakladni/test-aktualizace.txt" ] && echo "  ok     balíček s cizím podpisem se nenainstaluje" || { echo "  CHYBA  nainstalován balíček s neplatným podpisem"; ERRORS=$((ERRORS+1)); }
 update_from ok.json

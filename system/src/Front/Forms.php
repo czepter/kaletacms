@@ -212,7 +212,7 @@ final class Forms
         $url = rtrim($siteSettings->get('adresa_webu') !== '' ? $siteSettings->get('adresa_webu') : $this->app->request->origin(), '/');
         $text = implode("\n\n", array_map(fn (array $d): string => $d[0] . ":\n" . $d[1], $data))
             . ($campaign !== '' ? "\n\n" . t('Kampaň') . ":\n" . self::campaignText($campaign) : '')
-            . "\n\n—\n" . t('Poptávka v administraci: %s', $url . $this->app->url('admin.php?modul=poptavky&akce=detail&id=' . $idp));
+            . "\n\n—\n" . t('Poptávka v administraci: %s', $url . $this->app->url('admin.php?module=enquiries&action=detail&id=' . $idp));
         Mail::send($siteSettings, $recipient, t('%s: %s', $element['obsah']['nazev'], $siteSettings->get('nazev_webu')), $text, '', $email !== '' ? ['Reply-To' => $email] : []);
     }
 }

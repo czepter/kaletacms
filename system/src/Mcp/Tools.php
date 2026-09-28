@@ -214,7 +214,7 @@ final class Tools
                     'stranek' => (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL'),
                     'novinek_vydanych' => (int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL'),
                     'uzivatel' => $auth->user()['user'], 'role' => \Kaleta\Core\Auth::TYPES[(int) $auth->user()['admin']], 'smi_vydavat' => $auth->canPublish(),
-                    'smi_upravovat_stranky' => $auth->hasModule('stranky'),
+                    'smi_upravovat_stranky' => $auth->hasModule('pages'),
                 ];
 
             case 'seznam_stranek':
@@ -225,11 +225,11 @@ final class Tools
                     . $this->app->url(($r['jazyk'] !== '' ? $r['jazyk'] . '/' : '') . ((int) $r['ids'] === $home || ($home > 0 && (int) $r['preklad_z'] === $home) ? '' : $r['seo_link'])),
                     'uvodni' => (int) $r['ids'] === $home, 'zobrazena' => (bool) $r['zobrazit'], 'v_menu' => (bool) $r['v_menu'], 'jazyk' => $r['jazyk']],
                     // bez sekce Stránky (autor novinek) jen zveřejněné stránky – na ty smí odkazovat, koncepty nevidí
-                    $db->all('SELECT ids, titulek, seo_link, zobrazit, v_menu, jazyk, preklad_z FROM {stranky} WHERE smazano IS NULL' . ($auth->hasModule('stranky') ? '' : ' AND zobrazit = 1') . ' ORDER BY jazyk, poradi, titulek'));
+                    $db->all('SELECT ids, titulek, seo_link, zobrazit, v_menu, jazyk, preklad_z FROM {stranky} WHERE smazano IS NULL' . ($auth->hasModule('pages') ? '' : ' AND zobrazit = 1') . ' ORDER BY jazyk, poradi, titulek'));
 
             case 'nacti_stranku':
                 $page = $this->page((int) ($a['id'] ?? 0));
-                if (!$page['zobrazit'] && !$auth->hasModule('stranky')) {
+                if (!$page['zobrazit'] && !$auth->hasModule('pages')) {
                     throw new \InvalidArgumentException('Stránka neexistuje. Použij nástroj seznam_stranek.');
                 }
 
@@ -237,7 +237,7 @@ final class Tools
 
             case 'vytvor_stranku':
             case 'uprav_stranku':
-                if (!$auth->hasModule('stranky')) {
+                if (!$auth->hasModule('pages')) {
                     throw new \DomainException('Stránky smí upravovat editor nebo správce.');
                 }
 
@@ -433,7 +433,7 @@ final class Tools
                     'stav' => 'uloženo – stavbu varianty uprav stavba_* s parametrem varianta a publikuj; do publikování platí výchozí podoba'];
 
             case 'seznam_poptavek':
-                if (!\Kaleta\Core\Extensions::isEnabled($siteSettings, 'poptavky') || !$auth->hasModule('poptavky')) {
+                if (!\Kaleta\Core\Extensions::isEnabled($siteSettings, 'poptavky') || !$auth->hasModule('enquiries')) {
                     throw new \DomainException('Poptávky smí číst jen uživatel s právem k Poptávkám (rozšíření Formuláře a poptávky musí být zapnuté).');
                 }
                 $whereParts = [];
@@ -528,7 +528,7 @@ final class Tools
                     $whereParts[] = 'jazyk = ?';
                     $args[] = $a['jazyk'];
                 }
-                if (!empty($a['jen_zobrazene']) || !$auth->hasModule('kolekce')) {
+                if (!empty($a['jen_zobrazene']) || !$auth->hasModule('collections')) {
                     $whereParts[] = 'zobrazit = 1'; // bez sekce Kolekce jen zveřejněné položky
                 }
                 if (is_string($a['hledat'] ?? null) && trim($a['hledat']) !== '') {
@@ -547,7 +547,7 @@ final class Tools
                     'jazyk' => $r['jazyk'], 'data' => json_decode((string) $r['data'], true) ?: new \stdClass()], array_slice($rows, ($pageNumber - 1) * 50, 50))];
 
             case 'uloz_polozku_kolekce':
-                if (!$auth->hasModule('kolekce')) {
+                if (!$auth->hasModule('collections')) {
                     throw new \DomainException('Kolekce smí upravovat editor nebo správce.');
                 }
                 $collection = $this->collection((string) ($a['kolekce'] ?? ''));
@@ -625,7 +625,7 @@ final class Tools
 
             case 'vytvor_novinku':
             case 'uprav_novinku':
-                if (!$auth->hasModule('novinky')) {
+                if (!$auth->hasModule('news')) {
                     throw new \DomainException('K novinkám nemáš přístup (role uživatele).');
                 }
 
@@ -635,7 +635,7 @@ final class Tools
                 return array_map(fn (array $r): array => ['id' => (int) $r['idt'], 'nazev' => $r['nazev'], 'adresa' => $r['seo_link'], 'jazyk' => $r['jazyk'], 'novinek' => (int) $r['pocet_clanku']], Categories::listAll($db));
 
             case 'vytvor_kategorii':
-                if (!$auth->canPublish() || !$auth->hasModule('kategorie')) {
+                if (!$auth->canPublish() || !$auth->hasModule('categories')) {
                     throw new \DomainException('Kategorie smí zakládat editor nebo správce.');
                 }
                 $displayName = mb_substr(trim((string) ($a['nazev'] ?? '')), 0, 100);
@@ -716,7 +716,7 @@ final class Tools
                 if (!\Kaleta\Core\Extensions::isEnabled($siteSettings, 'presmerovani')) {
                     throw new \DomainException('Rozšíření Přesměrování je vypnuté (Rozšíření v administraci).');
                 }
-                if (!$auth->hasModule('presmerovani')) {
+                if (!$auth->hasModule('redirects')) {
                     throw new \DomainException('Přesměrování smí spravovat jen role se sekcí Přesměrování.');
                 }
                 if ($name === 'uloz_presmerovani') {
@@ -744,7 +744,7 @@ final class Tools
                     'nenalezeno' => $db->all('SELECT cesta, pocet, naposledy FROM {nenalezeno} ORDER BY pocet DESC LIMIT 30')];
 
             case 'smaz_stranku':
-                if (!$auth->canPublish() || !$auth->hasModule('stranky')) {
+                if (!$auth->canPublish() || !$auth->hasModule('pages')) {
                     throw new \DomainException('Stránku smí smazat editor nebo správce.');
                 }
                 $page = $this->page((int) ($a['id'] ?? 0));
@@ -826,7 +826,7 @@ final class Tools
 
         return ['id' => $id, 'stav' => !$saved['visible'] ? 'koncept' : (strtotime($saved['datum']) > time() ? 'naplánováno' : 'vydáno'),
             'nahled' => $this->app->request->origin() . $this->app->url('novinky/' . $saved['seo_link'] . '?nahled=1'),
-            'uprava_v_administraci' => $this->app->request->origin() . $this->app->url('admin.php?modul=novinky&akce=edit&id=' . $id)];
+            'uprava_v_administraci' => $this->app->request->origin() . $this->app->url('admin.php?module=news&action=edit&id=' . $id)];
     }
 
     /**
@@ -945,7 +945,7 @@ final class Tools
 
         return ['id' => $id, 'stav' => $saved['zobrazit'] ? 'zveřejněná' : ($saved['zverejnit_od'] !== null ? 'skrytá, zveřejní se ' . substr((string) $saved['zverejnit_od'], 0, 16) : 'skrytá'),
             'adresa' => $this->app->request->origin() . $this->app->url(($saved['jazyk'] !== '' ? $saved['jazyk'] . '/' : '') . $saved['seo_link']),
-            'uprava_v_administraci' => $this->app->request->origin() . $this->app->url('admin.php?modul=stranky&akce=edit&id=' . $id)];
+            'uprava_v_administraci' => $this->app->request->origin() . $this->app->url('admin.php?module=pages&action=edit&id=' . $id)];
     }
 
     /** @return array<string, mixed> */
@@ -966,7 +966,7 @@ final class Tools
             'hodnota' => $p['hodnota'], 'cetnost' => $p['cetnost'], 'dni' => $p['dni'], 'pravidla' => $p['pravidla'], 'aktivni' => (bool) $p['aktivni'],
             'publikovano' => $p['stavba'] !== null, 'zmeny' => $p['stavba_koncept'] !== null && $p['stavba_koncept'] !== $p['stavba'], 'poradi' => $p['poradi'],
             'zobrazeni' => $p['zobrazeni'], 'zavreni' => $p['zavreni'], 'konverze' => $p['konverze'],
-            'stavitel' => $this->app->request->origin() . $this->app->url('admin.php?modul=popupy&akce=stavitel&id=' . $p['idpp'])];
+            'stavitel' => $this->app->request->origin() . $this->app->url('admin.php?module=popups&action=builder&id=' . $p['idpp'])];
         if ($withPreview) {
             $output['nahled'] = $this->targetPreviewUrl(['druh' => 'popup', 'radek' => $p], 60);
         }
@@ -1096,7 +1096,7 @@ final class Tools
             return ['druh' => 'cast', 'radek' => $row, 'stavba' => $row['stavba'], 'koncept' => $row['stavba_koncept'], 'jazyk' => Language::ofContent($siteSettings, $language),
                 'revize' => ['cast' => SiteParts::versionKey($type, $language, $variant)]];
         }
-        if (!$auth->hasModule('stranky')) {
+        if (!$auth->hasModule('pages')) {
             throw new \DomainException('Stránky smí upravovat editor nebo správce.');
         }
         if (!isset($a['id']) && $create) {
@@ -1175,10 +1175,10 @@ final class Tools
             $this->publishTarget($target);
         }
         $params = match ($target['druh']) {
-            'stranka' => 'modul=stranky&akce=stavitel&id=' . (int) $r['ids'],
-            'kolekce' => 'modul=kolekce&akce=stavitel&id=' . (int) $r['idk'] . ($r['sablona_jazyk'] !== '' ? '&jazyk=' . $r['sablona_jazyk'] : ''),
-            'popup' => 'modul=popupy&akce=stavitel&id=' . (int) $r['idpp'],
-            default => 'modul=casti&akce=stavitel&typ=' . $r['typ'] . '&jazyk=' . $r['jazyk'],
+            'stranka' => 'module=pages&action=builder&id=' . (int) $r['ids'],
+            'kolekce' => 'module=collections&action=builder&id=' . (int) $r['idk'] . ($r['sablona_jazyk'] !== '' ? '&jazyk=' . $r['sablona_jazyk'] : ''),
+            'popup' => 'module=popups&action=builder&id=' . (int) $r['idpp'],
+            default => 'module=parts&action=builder&typ=' . $r['typ'] . '&jazyk=' . $r['jazyk'],
         };
 
         return $this->describeTarget($target) + ['stav' => $publish ? 'publikováno' : 'koncept – na webu se ukáže po publikování', 'prvku' => $this->countElements($build['deti']),

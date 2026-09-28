@@ -10,7 +10,7 @@ use Kaleta\Core\Response;
 /** Protokol změn - přehled akcí v administraci (jen pro administrátora). */
 final class ChangeLog extends Module
 {
-    public const string IDENT = 'protokol';
+    public const string IDENT = 'changelog';
     public const string NAME = 'Protokol změn';
     public const string GROUP = 'Správa';
     public const string ICON = 'protokol';
@@ -18,7 +18,7 @@ final class ChangeLog extends Module
 
     private const int PER_PAGE = 100;
 
-    protected function akceVypis(): Response
+    protected function actionList(): Response
     {
         $who = $this->request->getInt('kdo');
         $whereParts = $this->request->get('kde');

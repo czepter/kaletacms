@@ -16,7 +16,7 @@
  * @var string $newToken  právě vytvořený token (zobrazí se jen jednou)
  * @var string $mcpUrl
  */
-$action = e($app->url('admin.php?akce=ucet'));
+$action = e($app->url('admin.php?action=account'));
 ?>
 <?php if ($backupCodes !== []): ?>
 <div class="hlaska hlaska-ok">

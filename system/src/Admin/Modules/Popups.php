@@ -20,29 +20,29 @@ final class Popups extends Module
 {
     use BuilderActions;
 
-    public const string IDENT = 'popupy';
+    public const string IDENT = 'popups';
     public const string NAME = 'Pop-up okna';
     public const string GROUP = 'Vzhled';
     public const string ICON = 'popupy';
     public const bool ADMIN_ONLY = true;
 
-    protected function akceVypis(): Response
+    protected function actionList(): Response
     {
         return $this->view('list', 'Pop-up okna', ['popups' => Okna::all($this->db)]);
     }
 
-    protected function akceNovy(): Response
+    protected function actionNew(): Response
     {
         return $this->view('new', 'Nové pop-up okno', []);
     }
 
     /** Nové okno z hotového vzoru: koncept stavby v jazyce webu, typ a spouštěč ze vzoru, vypnuté – rovnou do builderu. */
-    protected function akceZaloz(): Response
+    protected function actionCreate(): Response
     {
         $r = $this->request;
         $pattern = Okna::LIBRARY[$r->post('vzor')] ?? null;
         if (!$r->isPost() || $pattern === null) {
-            return $this->back('', 'novy');
+            return $this->back('', 'new');
         }
         $name = mb_substr(trim($r->post('nazev')), 0, 100) ?: t($pattern[0]);
         $id = $this->db->insert('popupy', [
@@ -51,17 +51,17 @@ final class Popups extends Module
             'stavba_koncept' => Build::toJson(Okna::libraryBuild((string) $r->post('vzor'), Language::defaults($this->app->settings()))), 'zmeneno' => date('Y-m-d H:i:s'),
         ]);
 
-        return Response::redirect($this->url('stavitel', ['id' => $id]));
+        return Response::redirect($this->url('builder', ['id' => $id]));
     }
 
-    protected function akceEdit(): Response
+    protected function actionEdit(): Response
     {
         $p = Okna::byId($this->db, $this->request->getInt('id'));
 
         return $p === null ? $this->error('Pop-up okno neexistuje.', 404) : $this->view('form', $p['nazev'], ['p' => $p] + $this->options());
     }
 
-    protected function akceUloz(): Response
+    protected function actionSave(): Response
     {
         $r = $this->request;
         $p = $r->isPost() ? Okna::byId($this->db, $r->postInt('idpp')) : null;
@@ -101,7 +101,7 @@ final class Popups extends Module
     }
 
     /** Zapnout nebo vypnout okno na webu; zapnout jde jen publikované. */
-    protected function akcePrepni(): Response
+    protected function actionToggle(): Response
     {
         $p = $this->request->isPost() ? Okna::byId($this->db, $this->request->postInt('idpp')) : null;
         if ($p === null) {
@@ -118,7 +118,7 @@ final class Popups extends Module
         return $this->back($p['aktivni'] ? 'Okno je vypnuté – na webu se už neukáže.' : 'Okno je zapnuté a ukáže se na webu podle pravidel.', $action, $args);
     }
 
-    protected function akceVynuluj(): Response
+    protected function actionReset(): Response
     {
         if ($this->request->isPost()) {
             $this->db->update('popupy', ['zobrazeni' => 0, 'zavreni' => 0, 'konverze' => 0], ['idpp' => $this->request->postInt('idpp')]);
@@ -127,7 +127,7 @@ final class Popups extends Module
         return $this->back('Počitadla okna jsou vynulovaná.');
     }
 
-    protected function akceSmaz(): Response
+    protected function actionDelete(): Response
     {
         if ($this->request->isPost()) {
             $this->db->delete('popupy', ['idpp' => $this->request->postInt('idpp')]);

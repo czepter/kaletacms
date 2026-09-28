@@ -43,23 +43,23 @@ await step('sign in', async () => {
   await Promise.all([page.waitForNavigation(), page.press('input[name="password"]', 'Enter')]);
 });
 
-for (const url of ['/admin.php', '/admin.php?modul=stranky', '/admin.php?modul=stranky&akce=novy', '/admin.php?modul=stranky&akce=edit&id=1',
-  '/admin.php?modul=novinky', '/admin.php?modul=kolekce', '/admin.php?modul=kategorie', '/admin.php?modul=stitky', '/admin.php?modul=intergal',
-  '/admin.php?modul=vzhled', '/admin.php?modul=casti', '/admin.php?modul=komponenty', '/admin.php?modul=popupy', '/admin.php?modul=users',
-  '/admin.php?modul=role', '/admin.php?modul=stat', '/admin.php?modul=presmerovani', '/admin.php?modul=protokol', '/admin.php?modul=prenos',
-  '/admin.php?modul=rozsireni', '/admin.php?modul=poptavky', '/admin.php?modul=odberatele', '/admin.php?modul=config',
-  '/admin.php?modul=config&zalozka=seo', '/admin.php?modul=config&zalozka=zalohy', '/admin.php?modul=config&zalozka=stav', '/admin.php?akce=ucet']) {
+for (const url of ['/admin.php', '/admin.php?module=pages', '/admin.php?module=pages&action=new', '/admin.php?module=pages&action=edit&id=1',
+  '/admin.php?module=news', '/admin.php?module=collections', '/admin.php?module=categories', '/admin.php?module=tags', '/admin.php?module=media',
+  '/admin.php?module=appearance', '/admin.php?module=parts', '/admin.php?module=components', '/admin.php?module=popups', '/admin.php?module=users',
+  '/admin.php?module=roles', '/admin.php?module=stats', '/admin.php?module=redirects', '/admin.php?module=changelog', '/admin.php?module=transfer',
+  '/admin.php?module=extensions', '/admin.php?module=enquiries', '/admin.php?module=subscribers', '/admin.php?module=settings',
+  '/admin.php?module=settings&tab=seo', '/admin.php?module=settings&tab=backups', '/admin.php?module=settings&tab=health', '/admin.php?action=account']) {
   await step(`open ${url}`, () => visit(url));
 }
 
 await step('appearance: change a colour and preview', async () => {
-  await visit('/admin.php?modul=vzhled');
+  await visit('/admin.php?module=appearance');
   const colour = page.locator('input[type="color"]:visible').first();
   if (await colour.count()) { await colour.fill('#335577'); await page.waitForTimeout(800); }
 });
 
 await step('builder: select, style, mobile, edit text', async () => {
-  await visit('/admin.php?modul=stranky&akce=stavitel&id=1');
+  await visit('/admin.php?module=pages&action=builder&id=1');
   await page.waitForTimeout(1500);
   await canvas().locator('h1').first().click();
   await page.waitForTimeout(500);
@@ -83,13 +83,13 @@ await step('builder: element tree and search', async () => {
 });
 
 await step('builder: site header', async () => {
-  await visit('/admin.php?modul=casti&akce=stavitel&typ=hlavicka&jazyk=');
+  await visit('/admin.php?module=parts&action=builder&typ=hlavicka&jazyk=');
   await page.waitForTimeout(1500);
   await canvas().locator('nav, header').first().click().catch(() => {});
 });
 
 await step('news editor: type and format', async () => {
-  await visit('/admin.php?modul=novinky&akce=novy');
+  await visit('/admin.php?module=news&action=new');
   await page.fill('input[name="titulek"]', 'Browser test');
   const editor = page.locator('[contenteditable="true"]').first();
   if (await editor.count()) {
@@ -102,7 +102,7 @@ await step('news editor: type and format', async () => {
 });
 
 await step('menu editor', async () => {
-  await visit('/admin.php?modul=menu');
+  await visit('/admin.php?module=menu');
   const add = page.getByRole('button', { name: /Add|Přidat/ }).first();
   if (await add.count()) { await add.click().catch(() => {}); }
 });

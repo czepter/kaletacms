@@ -111,41 +111,41 @@ PRIVACY=$(sql "SELECT CONCAT(titulek, '|', zobrazit, '|', text LIKE '%This polic
 login "$JAR" admin "$PASSWORD"
 public_site firemni
 NEWS=$(sql "SELECT idc FROM ka_novinky LIMIT 1")
-for u in "" "modul=stranky" "modul=stranky&akce=novy" "modul=stranky&akce=stavitel&id=1" "modul=poptavky" "modul=casti" "modul=casti&akce=stavitel&typ=hlavicka&jazyk=" \
-  "modul=komponenty" "modul=kolekce" "modul=kolekce&akce=novy" "modul=novinky" "modul=novinky&akce=novy" "modul=novinky&akce=edit&id=$NEWS" "modul=kategorie" "modul=kategorie&akce=novy" \
-  "modul=stitky" "modul=intergal" "modul=stat" "modul=vzhled" "modul=menu" "modul=users" "modul=users&akce=novy" "modul=role" "modul=role&akce=novy" "modul=presmerovani" \
-  "modul=protokol" "modul=prenos" "modul=rozsireni" "modul=odberatele" "akce=ucet" "modul=config&zalozka=zakladni" "modul=config&zalozka=firma" "modul=config&zalozka=seo" \
-  "modul=config&zalozka=mereni" "modul=config&zalozka=cookies" "modul=config&zalozka=posta" "modul=config&zalozka=zalohy" "modul=config&zalozka=stav" \
-  "modul=popupy" "modul=popupy&akce=novy"; do
+for u in "" "module=pages" "module=pages&action=new" "module=pages&action=builder&id=1" "module=enquiries" "module=parts" "module=parts&action=builder&typ=hlavicka&jazyk=" \
+  "module=components" "module=collections" "module=collections&action=new" "module=news" "module=news&action=new" "module=news&action=edit&id=$NEWS" "module=categories" "module=categories&action=new" \
+  "module=tags" "module=media" "module=stats" "module=appearance" "module=menu" "module=users" "module=users&action=new" "module=roles" "module=roles&action=new" "module=redirects" \
+  "module=changelog" "module=transfer" "module=extensions" "module=subscribers" "action=account" "module=settings&tab=general" "module=settings&tab=company" "module=settings&tab=seo" \
+  "module=settings&tab=analytics" "module=settings&tab=cookies" "module=settings&tab=mail" "module=settings&tab=backups" "module=settings&tab=health" \
+  "module=popups" "module=popups&action=new"; do
   page "admin.php?$u" "/admin.php?$u" 200 "$JAR"
 done
 
 # messages after saving: settings, menu, an upload over the server limit and a news item saved by its author
 TOKEN=$(token "$WORK/page.html")
-curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/page.html" -X POST "$B/admin.php?modul=config&akce=uloz" -d "_csrf=$TOKEN" -d zalozka=firma --data-urlencode "firma_nazev=Acme Ltd" -d firma_zeme=GB
+curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/page.html" -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=company --data-urlencode "firma_nazev=Acme Ltd" -d firma_zeme=GB
 check "message after saving settings" "$WORK/page.html"
-curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/page.html" -X POST "$B/admin.php?modul=menu&akce=uloz&umisteni=paticka" -d "_csrf=$TOKEN" --data-urlencode 'polozky=[{"typ":"novinky","text":""}]'
+curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/page.html" -X POST "$B/admin.php?module=menu&action=save&umisteni=paticka" -d "_csrf=$TOKEN" --data-urlencode 'polozky=[{"typ":"novinky","text":""}]'
 check "message after saving a menu" "$WORK/page.html"
 head -c $((3 * 1024 * 1024)) /dev/zero > "$WORK/big.jpg"
-curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/page.html" -X POST "$B/admin.php?modul=intergal&akce=nahraj" -F "_csrf=$TOKEN" -F "soubory[]=@$WORK/big.jpg;type=image/jpeg"
+curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/page.html" -X POST "$B/admin.php?module=media&action=upload" -F "_csrf=$TOKEN" -F "soubory[]=@$WORK/big.jpg;type=image/jpeg"
 check "message after an upload over the server limit" "$WORK/page.html"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=users&akce=uloz" -d "_csrf=$TOKEN" -d idu=0 -d jmeno=Tom -d user=tom --data-urlencode "password=$PASSWORD" -d admin=0
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d idu=0 -d jmeno=Tom -d user=tom --data-urlencode "password=$PASSWORD" -d admin=0
 login "$WORK/jar-tom" tom "$PASSWORD"
-curl -s -b "$WORK/jar-tom" -o "$WORK/page.html" "$B/admin.php?modul=novinky&akce=novy"
+curl -s -b "$WORK/jar-tom" -o "$WORK/page.html" "$B/admin.php?module=news&action=new"
 check "author: new news item" "$WORK/page.html"
-curl -s -L -b "$WORK/jar-tom" -c "$WORK/jar-tom" -o "$WORK/page.html" -X POST "$B/admin.php?modul=novinky&akce=uloz" -d "_csrf=$(token "$WORK/page.html")" -d idc=0 -d titulek=Draft -d tema=1 -d 'uvod=<p>Lead</p>'
+curl -s -L -b "$WORK/jar-tom" -c "$WORK/jar-tom" -o "$WORK/page.html" -X POST "$B/admin.php?module=news&action=save" -d "_csrf=$(token "$WORK/page.html")" -d idc=0 -d titulek=Draft -d tema=1 -d 'uvod=<p>Lead</p>'
 check "author: message after saving a news item" "$WORK/page.html"
 
 # pop-ups: a new one from a template (content in the site language), its settings, the list and the message after turning it on
-curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?modul=popupy&akce=novy"; TOKEN=$(token "$WORK/page.html")
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=popupy&akce=zaloz" -d "_csrf=$TOKEN" -d vzor=magnet -d nazev=
+curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=popups&action=new"; TOKEN=$(token "$WORK/page.html")
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=popups&action=create" -d "_csrf=$TOKEN" -d vzor=magnet -d nazev=
 PP=$(sql "SELECT idpp FROM ka_popupy ORDER BY idpp DESC LIMIT 1")
-page "pop-up settings" "/admin.php?modul=popupy&akce=edit&id=$PP" 200 "$JAR"
-page "pop-up in the builder" "/admin.php?modul=popupy&akce=stavitel&id=$PP" 200 "$JAR"
+page "pop-up settings" "/admin.php?module=popups&action=edit&id=$PP" 200 "$JAR"
+page "pop-up in the builder" "/admin.php?module=popups&action=builder&id=$PP" 200 "$JAR"
 page "pop-up template on the builder canvas" "/_popup/$PP?stavba=koncept&editor=1" 200 "$JAR"
-curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/page.html" -X POST "$B/admin.php?modul=popupy&akce=prepni" -d "_csrf=$TOKEN" -d "idpp=$PP"
+curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/page.html" -X POST "$B/admin.php?module=popups&action=toggle" -d "_csrf=$TOKEN" -d "idpp=$PP"
 check "message: an unpublished pop-up cannot be turned on" "$WORK/page.html"
-page "pop-up list" "/admin.php?modul=popupy" 200 "$JAR"
+page "pop-up list" "/admin.php?module=popups" 200 "$JAR"
 
 # a site without news: the empty list
 sql "UPDATE ka_novinky SET visible = 0"; rm -rf "$WORK/web/storage/cache/stranky"

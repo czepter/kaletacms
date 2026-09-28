@@ -19,16 +19,16 @@ use Kaleta\Builder\Build;
 final class Components extends Module
 {
     use BuilderActions {
-        akceStavitel as protected openBuilder;
+        actionBuilder as protected openBuilder;
     }
 
-    public const string IDENT = 'komponenty';
+    public const string IDENT = 'components';
     public const string NAME = 'Komponenty';
     public const string GROUP = 'Vzhled';
     public const string ICON = 'komponenta';
     public const bool ADMIN_ONLY = true;
 
-    protected function akceVypis(): Response
+    protected function actionList(): Response
     {
         $components = KomponentyStavby::all($this->db);
         foreach ($components as &$k) {
@@ -40,19 +40,19 @@ final class Components extends Module
         return $this->view('list', 'Komponenty', ['components' => $components]);
     }
 
-    protected function akceNovy(): Response
+    protected function actionNew(): Response
     {
         return $this->view('form', 'Nová komponenta', ['k' => ['idm' => 0, 'nazev' => '', 'vlastnosti' => []]]);
     }
 
-    protected function akceEdit(): Response
+    protected function actionEdit(): Response
     {
         $k = KomponentyStavby::byId($this->db, $this->request->getInt('id'));
 
         return $k === null ? $this->error('Komponenta neexistuje.', 404) : $this->view('form', $k['nazev'], ['k' => $k]);
     }
 
-    protected function akceUloz(): Response
+    protected function actionSave(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back();
@@ -60,7 +60,7 @@ final class Components extends Module
         $id = $this->request->postInt('idm');
         $name = mb_substr(trim($this->request->post('nazev')), 0, 100);
         if ($name === '') {
-            return $this->back('Komponenta musí mít název.', $id > 0 ? 'edit' : 'novy', $id > 0 ? ['id' => $id] : [], 'chyba');
+            return $this->back('Komponenta musí mít název.', $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $id] : [], 'chyba');
         }
         $data = ['nazev' => $name, 'vlastnosti' => (string) json_encode(KomponentyStavby::sanitizeProperties(is_array($_POST['vlastnosti'] ?? null) ? $_POST['vlastnosti'] : []), JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')];
         if ($id > 0 && KomponentyStavby::byId($this->db, $id) !== null) {
@@ -73,7 +73,7 @@ final class Components extends Module
         return $this->back('Komponenta byla uložena.');
     }
 
-    protected function akceSmaz(): Response
+    protected function actionDelete(): Response
     {
         if ($this->request->isPost()) {
             $this->db->delete('komponenty', ['idm' => $this->request->postInt('idm')]);
@@ -84,7 +84,7 @@ final class Components extends Module
     }
 
     /** Z builderu: vybraný prvek se stane komponentou (JSON). Editor ho pak nahradí jejím použitím. */
-    protected function akceZPrvku(): Response
+    protected function actionFromElement(): Response
     {
         $element = $this->request->isPost() ? json_decode((string) ($_POST['prvek'] ?? ''), true) : null;
         $name = mb_substr(trim($this->request->post('nazev')), 0, 100);
@@ -108,7 +108,7 @@ final class Components extends Module
 
     /* ---------- úprava v builderu ---------- */
 
-    protected function akceStavitel(): Response
+    protected function actionBuilder(): Response
     {
         return $this->openBuilder();
     }

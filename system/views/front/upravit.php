@@ -31,7 +31,7 @@
 		<div class="ka-upravit-lista">
 			<button class="ka-tl" type="submit"><?= e(t('Uložit')) ?></button>
 			<a class="ka-tl ka-tl-vedlejsi" href="<?= e($zpet) ?>"><?= e(t('Zrušit')) ?></a>
-			<a class="ka-upravit-vse" href="<?= e($app->url('admin.php?modul=' . ($typ === 'novinka' ? 'novinky' : 'stranky') . '&akce=edit&id=' . (int) ($zaznam['idc'] ?? $zaznam['ids']))) ?>"><?= e(t('Všechna nastavení v administraci')) ?></a>
+			<a class="ka-upravit-vse" href="<?= e($app->url('admin.php?module=' . ($typ === 'novinka' ? 'novinky' : 'stranky') . '&action=edit&id=' . (int) ($zaznam['idc'] ?? $zaznam['ids']))) ?>"><?= e(t('Všechna nastavení v administraci')) ?></a>
 		</div>
 	</form>
 </article>

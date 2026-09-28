@@ -12,7 +12,7 @@ use Kaleta\Core\Response;
 /**
  * Předek modulů administrace.
  *
- * Akce z adresy (admin.php?modul=novinky&akce=edit) volá metodu akceEdit().
+ * Akce z adresy (admin.php?module=news&action=edit) volá metodu akceEdit().
  * Výchozí akce je "vypis". Nový modul = jedna třída + šablony ve views/admin/<ident>/.
  */
 abstract class Module
@@ -54,7 +54,7 @@ abstract class Module
 
     public function handle(string $action): Response
     {
-        $method = 'akce' . str_replace('_', '', ucwords($action, '_'));
+        $method = 'action' . str_replace('_', '', ucwords($action, '_'));
         if (!preg_match('/^[a-z][a-z_]*$/', $action) || !method_exists($this, $method)) {
             return $this->error('Neznámá akce.', 404);
         }
@@ -83,7 +83,7 @@ abstract class Module
     /** @param array<string, scalar> $params */
     public function url(string $action = '', array $params = []): string
     {
-        $query = ['modul' => static::IDENT] + ($action !== '' ? ['akce' => $action] : []) + $params;
+        $query = ['module' => static::IDENT] + ($action !== '' ? ['action' => $action] : []) + $params;
 
         return $this->app->url('admin.php?' . http_build_query($query));
     }

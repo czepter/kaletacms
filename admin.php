@@ -1,23 +1,31 @@
 <?php
 /**
  * Kaleta - administrace.
- * Adresy mají tvar admin.php?modul=novinky&akce=edit&id=5
+ * URLs look like admin.php?module=news&action=edit&id=5 (1.3 and older: ?module=news&action=edit, see Admin\LegacyUrls).
  */
 
 declare(strict_types=1);
 
 require __DIR__ . '/system/bootstrap.php';
 
+// old URLs (bookmarks, links in e-mails, forms open during an update): current names before anything reads them
+[$_GET, $legacyUrl] = Kaleta\Admin\LegacyUrls::normalize($_GET);
+[$_POST] = Kaleta\Admin\LegacyUrls::normalize($_POST); // e.g. the settings tab of a form opened before the update
+if ($legacyUrl && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
+    header('Location: ' . strtok((string) ($_SERVER['REQUEST_URI'] ?? 'admin.php'), '?') . ($_GET !== [] ? '?' . http_build_query($_GET) : ''), true, 301);
+    exit;
+}
+
 $app = Kaleta\Core\App::boot();
 $response = (new Kaleta\Admin\Kernel($app))->handle();
 // formulář smí odeslat jen na vlastní web; výjimka je souhlas s připojením aplikace (OAuth): po odeslání prohlížeč přejde
 // na adresu návratu aplikace (claude.ai, localhost u Claude Code) a CSP form-action hlídá i tohle přesměrování
 $headers = $response->headers;
-$odeslatNa = "'self'" . (preg_match('#^https?://[a-z0-9.\[\]:-]+$#i', $headers['X-Kaleta-Form-Action'] ?? '') ? ' ' . $headers['X-Kaleta-Form-Action'] : '');
+$formTargets = "'self'" . (preg_match('#^https?://[a-z0-9.\[\]:-]+$#i', $headers['X-Kaleta-Form-Action'] ?? '') ? ' ' . $headers['X-Kaleta-Form-Action'] : '');
 unset($headers['X-Kaleta-Form-Action']);
 // administrace: nic z ní nepatří do mezipaměti prohlížeče ani proxy a smí spouštět jen vlastní skripty (žádné inline, žádné cizí)
 (new Kaleta\Core\Response($response->body, $response->status, $headers + [
     'Cache-Control' => 'no-store, private',
     'Content-Security-Policy' => "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' https:; "
-        . "frame-src 'self' https:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action {$odeslatNa}; frame-ancestors 'self'",
+        . "frame-src 'self' https:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action {$formTargets}; frame-ancestors 'self'",
 ] + ($app->request->isHttps() ? ['Strict-Transport-Security' => 'max-age=15552000'] : [])))->send();

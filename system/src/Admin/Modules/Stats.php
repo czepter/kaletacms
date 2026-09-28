@@ -12,13 +12,13 @@ use Kaleta\Core\Response;
  */
 final class Stats extends Module
 {
-    public const string IDENT = 'stat';
+    public const string IDENT = 'stats';
     public const string NAME = 'Statistika';
     public const string GROUP = 'Správa';
     public const string ICON = 'statistika';
     public const string EXTENSION = 'statistika';
 
-    protected function akceVypis(): Response
+    protected function actionList(): Response
     {
         $days = in_array($this->request->getInt('dni'), [7, 30, 90], true) ? $this->request->getInt('dni') : 30;
         $rows = $this->db->pairs('SELECT den, CONCAT(navstevy, ":", zobrazeni) FROM {stat_dny} WHERE den > CURDATE() - INTERVAL ? DAY', [$days]);

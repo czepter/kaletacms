@@ -326,7 +326,7 @@ final class Auth
      */
     public function canEditArticle(array $newsItem): bool
     {
-        if (!$this->hasModule('novinky')) {
+        if (!$this->hasModule('news')) {
             return false;
         }
         $authors = $this->managedAuthors();

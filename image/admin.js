@@ -418,7 +418,7 @@
 	// přihlášení se při otevřené administraci udržuje (jinak by po nečinnosti odeslání formuláře selhalo a rozepsaný text by se ztratil)
 	if (document.querySelector('form[method="post"]')) {
 		setInterval(function () {
-			if (document.visibilityState === 'visible') { fetch('admin.php?akce=token', { credentials: 'same-origin' }).catch(function () { /* bez spojení nic */ }); }
+			if (document.visibilityState === 'visible') { fetch('admin.php?action=token', { credentials: 'same-origin' }).catch(function () { /* bez spojení nic */ }); }
 		}, 10 * 60 * 1000);
 	}
 	// uložení potvrdila hláška o úspěchu: rozepsané kopie odeslaných formulářů (image/editor.js) už nejsou potřeba

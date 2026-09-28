@@ -14,11 +14,11 @@
 <div class="prehled-hlavicka">
 	<h1><?= e(t('Přehled')) ?></h1>
 	<p class="navigace-radek">
-<?php if (isset($modules['stranky'])): ?>
-		<a class="tl" href="<?= e($app->url('admin.php?modul=stranky&akce=novy')) ?>"><?= e(t('Nová stránka')) ?></a>
+<?php if (isset($modules['pages'])): ?>
+		<a class="tl" href="<?= e($app->url('admin.php?module=pages&action=new')) ?>"><?= e(t('Nová stránka')) ?></a>
 <?php endif ?>
-<?php if (isset($modules['novinky'])): ?>
-		<a class="navigace" href="<?= e($app->url('admin.php?modul=novinky&akce=novy')) ?>"><?= e(t('Napsat novinku')) ?></a>
+<?php if (isset($modules['news'])): ?>
+		<a class="navigace" href="<?= e($app->url('admin.php?module=news&action=new')) ?>"><?= e(t('Napsat novinku')) ?></a>
 <?php endif ?>
 		<a class="navigace" href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= e(t('Zobrazit web')) ?></a>
 	</p>
@@ -30,7 +30,7 @@
 <section class="pruvodce" aria-label="<?= e(t('První kroky')) ?>">
 	<div class="pruvodce-hlava">
 		<h2><?= e(t('První kroky')) ?> <small><?= $finished ?> / <?= count($firstSteps) ?></small></h2>
-		<form method="post" action="<?= e($app->url('admin.php?akce=pruvodce_skryt')) ?>"><?= $app->session->csrfField() ?><button class="navigace" type="submit"><?= e(t('Skrýt')) ?></button></form>
+		<form method="post" action="<?= e($app->url('admin.php?action=hide_first_steps')) ?>"><?= $app->session->csrfField() ?><button class="navigace" type="submit"><?= e(t('Skrýt')) ?></button></form>
 	</div>
 	<ol class="pruvodce-kroky">
 <?php foreach ($firstSteps as $k): ?>
@@ -58,7 +58,7 @@
 		<rect x="<?= $x * 20 + 2 ?>" y="<?= 66 - $v ?>" width="16" height="<?= $v ?>" rx="2" data-tip="<?= e(t('%s: %s návštěv', format_date($day), $count)) ?>" aria-label="<?= e(t('%s: %s návštěv', format_date($day), $count)) ?>" tabindex="0"></rect>
 <?php $x++; endforeach ?>
 	</svg>
-	<p class="smltxt"><a href="<?= e($app->url('admin.php?modul=stat')) ?>"><?= e(t('Celá statistika')) ?></a></p>
+	<p class="smltxt"><a href="<?= e($app->url('admin.php?module=stats')) ?>"><?= e(t('Celá statistika')) ?></a></p>
 </section>
 <?php endif ?>
 <?php if ($enquiries !== []): ?>
@@ -69,7 +69,7 @@
 <tbody>
 <?php foreach ($enquiries as $p): ?>
 <tr<?= (int) $p['stav'] === 0 ? '' : ' class="nevydany"' ?>>
-	<td><a href="<?= e($app->url('admin.php?modul=poptavky&akce=detail&id=' . (int) $p['idp'])) ?>"><?= e($p['formular'] !== '' ? $p['formular'] : t('Poptávka')) ?></a><?= (int) $p['stav'] === 0 ? ' <span class="stitek stitek-koncept">' . e(t('nová')) . '</span>' : '' ?></td>
+	<td><a href="<?= e($app->url('admin.php?module=enquiries&action=detail&id=' . (int) $p['idp'])) ?>"><?= e($p['formular'] !== '' ? $p['formular'] : t('Poptávka')) ?></a><?= (int) $p['stav'] === 0 ? ' <span class="stitek stitek-koncept">' . e(t('nová')) . '</span>' : '' ?></td>
 	<td><?= e($p['email']) ?></td>
 	<td class="cislo"><?= e(format_date($p['datum'], true)) ?></td>
 </tr>

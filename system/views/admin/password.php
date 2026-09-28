@@ -31,7 +31,7 @@
 <p class="hlaska hlaska-chyba" role="alert"><?= e($error) ?></p>
 <?php endif ?>
 <?php if ($step === 'heslo'): ?>
-<form method="post" action="<?= e($app->url('admin.php?akce=heslo')) ?>">
+<form method="post" action="<?= e($app->url('admin.php?action=password')) ?>">
 <?= $app->session->csrfField() ?>
 <input type="hidden" name="token" value="<?= e($token) ?>">
 <p><?= e(t('Účet: %s', $account)) ?></p>
@@ -43,14 +43,14 @@
 <?php elseif ($sent): ?>
 <p class="hlaska hlaska-ok" role="status"><?= e(t('Pokud takový účet existuje a má vyplněný e-mail, poslali jsme na něj odkaz pro nastavení nového hesla. Platí hodinu.')) ?></p>
 <?php elseif ($step === 'zadost'): ?>
-<form method="post" action="<?= e($app->url('admin.php?akce=heslo')) ?>">
+<form method="post" action="<?= e($app->url('admin.php?action=password')) ?>">
 <?= $app->session->csrfField() ?>
 <p><?= e(t('Zadejte přihlašovací jméno nebo e-mail svého účtu. Pošleme vám odkaz pro nastavení nového hesla.')) ?></p>
 <div class="login-pole"><label for="kdo"><?= e(t('Přihlašovací jméno nebo e-mail')) ?></label> <input class="textpole" type="text" id="kdo" name="kdo" size="20" maxlength="190" autocomplete="username" required autofocus></div>
 <p><input class="tl" type="submit" value="<?= e(t('Poslat odkaz')) ?>"></p>
 </form>
 <?php endif ?>
-<p class="login-odkaz"><a href="<?= e($app->url($step === 'neplatny' ? 'admin.php?akce=heslo' : 'admin.php')) ?>"><?= e(t($step === 'neplatny' ? 'Požádat o nový odkaz' : 'Zpět na přihlášení')) ?></a></p>
+<p class="login-odkaz"><a href="<?= e($app->url($step === 'neplatny' ? 'admin.php?action=password' : 'admin.php')) ?>"><?= e(t($step === 'neplatny' ? 'Požádat o nový odkaz' : 'Zpět na přihlášení')) ?></a></p>
 </div>
 </body>
 </html>

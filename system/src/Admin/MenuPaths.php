@@ -18,20 +18,20 @@ final class MenuPaths
      * @var list<array{0: list<string>, 1: string, 2: string}>
      */
     private const array PATHS = [
-        [['Nastavení', 'Zálohy a aktualizace'], 'config', 'modul=config&zalozka=zalohy'],
-        [['Nastavení', 'Stav systému'], 'config', 'modul=config&zalozka=stav'],
-        [['Nastavení', 'Soukromí a cookies'], 'config', 'modul=config&zalozka=cookies'],
-        [['Nastavení', 'SEO a GEO'], 'config', 'modul=config&zalozka=seo'],
-        [['Nastavení', 'Základní'], 'config', 'modul=config&zalozka=zakladni'],
-        [['Nastavení', 'Měření'], 'config', 'modul=config&zalozka=mereni'],
-        [['Nastavení', 'Pošta'], 'config', 'modul=config&zalozka=posta'],
-        [['Vzhled', 'Vzhled webu'], 'vzhled', 'modul=vzhled'],
-        [['Vzhled', 'Menu'], 'menu', 'modul=menu'],
-        [['Zálohy a aktualizace'], 'config', 'modul=config&zalozka=zalohy'],
-        [['Novinky', 'Koš'], 'novinky', 'modul=novinky&stav=kos'],
-        [['Vzhled webu'], 'vzhled', 'modul=vzhled'],
-        [['Stav systému'], 'config', 'modul=config&zalozka=stav'],
-        [['Můj účet'], '', 'akce=ucet'],
+        [['Nastavení', 'Zálohy a aktualizace'], 'settings', 'module=settings&tab=backups'],
+        [['Nastavení', 'Stav systému'], 'settings', 'module=settings&tab=health'],
+        [['Nastavení', 'Soukromí a cookies'], 'settings', 'module=settings&tab=cookies'],
+        [['Nastavení', 'SEO a GEO'], 'settings', 'module=settings&tab=seo'],
+        [['Nastavení', 'Základní'], 'settings', 'module=settings&tab=general'],
+        [['Nastavení', 'Měření'], 'settings', 'module=settings&tab=analytics'],
+        [['Nastavení', 'Pošta'], 'settings', 'module=settings&tab=mail'],
+        [['Vzhled', 'Vzhled webu'], 'appearance', 'module=appearance'],
+        [['Vzhled', 'Menu'], 'menu', 'module=menu'],
+        [['Zálohy a aktualizace'], 'settings', 'module=settings&tab=backups'],
+        [['Novinky', 'Koš'], 'news', 'module=news&stav=kos'],
+        [['Vzhled webu'], 'appearance', 'module=appearance'],
+        [['Stav systému'], 'settings', 'module=settings&tab=health'],
+        [['Můj účet'], '', 'action=account'],
     ];
 
     /**

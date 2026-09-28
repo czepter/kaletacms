@@ -53,7 +53,7 @@
 <script src="<?= e($app->url('image/klice.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
 <?php endif ?>
 <?php if (!$code): ?>
-<p class="login-odkaz"><a href="<?= e($app->url('admin.php?akce=heslo')) ?>"><?= e(t('Zapomenuté heslo?')) ?></a></p>
+<p class="login-odkaz"><a href="<?= e($app->url('admin.php?action=password')) ?>"><?= e(t('Zapomenuté heslo?')) ?></a></p>
 <?php endif ?>
 </div>
 </body>

@@ -15,7 +15,7 @@ use Kaleta\Core\Response;
  */
 final class Media extends Module
 {
-    public const string IDENT = 'intergal';
+    public const string IDENT = 'media';
     public const string NAME = 'Média';
     public const string GROUP = 'Obsah';
     public const string ICON = 'media';
@@ -25,7 +25,7 @@ final class Media extends Module
 
     private const int PER_PAGE = 40;
 
-    protected function akceVypis(): Response
+    protected function actionList(): Response
     {
         $pageNumber = max(1, $this->request->getInt('strana', 1));
         [$where, $params, $filter] = $this->filter();
@@ -44,7 +44,7 @@ final class Media extends Module
     }
 
     /** JSON seznam pro okno výběru obrázku v editoru; filtry stejné jako ve výpisu. */
-    protected function akceSeznam(): Response
+    protected function actionListing(): Response
     {
         [$where, $params] = $this->filter();
 
@@ -55,7 +55,7 @@ final class Media extends Module
     }
 
     /** Založení nebo přejmenování složky. */
-    protected function akceSlozka(): Response
+    protected function actionFolder(): Response
     {
         $name = mb_substr($this->request->post('nazev'), 0, 100);
         if (!$this->request->isPost() || $name === '') {
@@ -72,7 +72,7 @@ final class Media extends Module
     }
 
     /** Smazání složky; obrázky zůstávají a přejdou mezi nezařazené. */
-    protected function akceSlozkaSmaz(): Response
+    protected function actionFolderDelete(): Response
     {
         if ($this->request->isPost() && $this->app->auth()->isAdmin()) {
             $this->db->delete('media_slozky', ['ids' => $this->request->postInt('ids')]);
@@ -151,7 +151,7 @@ final class Media extends Module
     }
 
     /** Nahrání jednoho či více souborů; s parametrem format=json odpovídá editoru JSONem. */
-    protected function akceNahraj(): Response
+    protected function actionUpload(): Response
     {
         $json = $this->request->get('format') === 'json';
         $section = $this->db->value('SELECT ids FROM {media_slozky} WHERE ids = ?', [$this->request->postInt('sekce')]);
@@ -235,7 +235,7 @@ final class Media extends Module
     }
 
     /** Nový soubor místo starého se stejnou adresou: odkazy na webu zůstanou a ukážou novou verzi. */
-    protected function akceNahradit(): Response
+    protected function actionReplace(): Response
     {
         $ido = $this->request->postInt('ido');
         $image = $this->request->isPost() && $this->canEdit($ido) ? $this->db->one('SELECT * FROM {media} WHERE ido = ?', [$ido]) : null;
@@ -246,15 +246,15 @@ final class Media extends Module
         try {
             $new = Images::replace($image['obr_poloha'], $file);
         } catch (\RuntimeException $e) {
-            return $this->back(t($e->getMessage()), 'vypis', ['uprav' => $ido], 'chyba');
+            return $this->back(t($e->getMessage()), 'list', ['uprav' => $ido], 'chyba');
         }
         $this->db->update('media', $new + ['barva' => ''], ['ido' => $ido]);
         \Kaleta\Front\Cache::clear();
 
-        return $this->back('Soubor byl nahrazen – všude, kde je použitý, se ukazuje nová verze.', 'vypis', ['uprav' => $ido]);
+        return $this->back('Soubor byl nahrazen – všude, kde je použitý, se ukazuje nová verze.', 'list', ['uprav' => $ido]);
     }
 
-    protected function akceUloz(): Response
+    protected function actionSave(): Response
     {
         if ($this->request->isPost() && $this->canEdit($this->request->postInt('ido'))) {
             $x = max(0, min(100, $this->request->postInt('ohnisko_x', 50)));
@@ -272,7 +272,7 @@ final class Media extends Module
     }
 
     /** Popis pro nevidomé (alt = pole „nazev“, stejně jako v detailu a v editoru) přímo z mřížky – bez znovunačtení (image/admin.js). */
-    protected function akceUlozPopis(): Response
+    protected function actionSaveCaption(): Response
     {
         $ido = $this->request->postInt('ido');
         if (!$this->request->isPost() || !$this->canEdit($ido)) {
@@ -285,7 +285,7 @@ final class Media extends Module
     }
 
     /** Hromadná akce nad označenými obrázky: smazání, nebo přesun do složky. */
-    protected function akceHromadne(): Response
+    protected function actionBulk(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back();

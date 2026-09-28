@@ -6,7 +6,7 @@
  * @var list<array<string, mixed>> $authors
  */
 ?>
-<p class="navigace-radek"><a class="tl" href="<?= e($module->url('novy')) ?>"><?= e(t('Nový uživatel')) ?></a> <a class="navigace" href="<?= e($app->url('admin.php?modul=role')) ?>"><?= e(t('Role')) ?></a></p>
+<p class="navigace-radek"><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('Nový uživatel')) ?></a> <a class="navigace" href="<?= e($app->url('admin.php?module=roles')) ?>"><?= e(t('Role')) ?></a></p>
 <div class="tab-obal">
 <table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Uživatel')) ?></th><th scope="col"><?= e(t('Jméno')) ?></th><th scope="col"><?= e(t('E-mail')) ?></th><th scope="col"><?= e(t('Role')) ?></th><th scope="col"><?= e(t('Novinek')) ?></th><th scope="col"><?= e(t('Poslední přihlášení')) ?></th><th scope="col"><?= e(t('Akce')) ?></th></tr></thead>
@@ -22,7 +22,7 @@
 	<td class="akce">
 		<a href="<?= e($module->url('edit', ['id' => $a['idu']])) ?>"><?= e(t('Upravit')) ?></a>
 <?php if ((int) $a['idu'] !== $app->auth()->id()): ?>
-		/ <form class="vradku" method="post" action="<?= e($module->url('smaz')) ?>" data-potvrdit="<?= e(t('Opravdu smazat uživatele? Jeho novinky zůstanou zachované bez autora.')) ?>"><?= $csrf ?><input type="hidden" name="idu" value="<?= (int) $a['idu'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
+		/ <form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Opravdu smazat uživatele? Jeho novinky zůstanou zachované bez autora.')) ?>"><?= $csrf ?><input type="hidden" name="idu" value="<?= (int) $a['idu'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
 <?php endif ?>
 	</td>
 </tr>

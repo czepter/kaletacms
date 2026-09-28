@@ -11,7 +11,7 @@
  * @var list<array{typ:string, text:string}> $flashes
  */
 $icon = require __DIR__ . '/icons.php';
-$onDashboard = $active === '' && (string) $app->request->get('akce') === ''; // Můj účet (akce=ucet) není Přehled
+$onDashboard = $active === '' && (string) $app->request->get('action') === ''; // Můj účet (akce=ucet) není Přehled
 
 // paleta příkazů (Ctrl/⌘+K): jen to, kam přihlášený smí – seznam modulů už je podle práv
 $statements = [];
@@ -19,28 +19,28 @@ if ($user !== null) {
     $adminUrl = fn (string $query = ''): string => $app->url('admin.php' . ($query !== '' ? '?' . $query : ''));
     $statements[] = ['n' => t('Přehled'), 'u' => $adminUrl(), 's' => ''];
     foreach ($modules as $ident => $class) {
-        $statements[] = ['n' => t($class::NAME), 'u' => $adminUrl('modul=' . $ident), 's' => t($class::GROUP)];
+        $statements[] = ['n' => t($class::NAME), 'u' => $adminUrl('module=' . $ident), 's' => t($class::GROUP)];
     }
     $quick = [
-        'stranky' => [['Nová stránka', 'modul=stranky&akce=novy']],
-        'novinky' => [['Nová novinka', 'modul=novinky&akce=novy'], ['Nefunkční odkazy', 'modul=novinky&akce=odkazy']],
-        'kategorie' => [['Nová kategorie', 'modul=kategorie&akce=novy']],
-        'users' => [['Nový uživatel', 'modul=users&akce=novy']],
-        'prenos' => [['Import z WordPressu', 'modul=prenos']],
+        'pages' => [['Nová stránka', 'module=pages&action=new']],
+        'news' => [['Nová novinka', 'module=news&action=new'], ['Nefunkční odkazy', 'module=news&action=links']],
+        'categories' => [['Nová kategorie', 'module=categories&action=new']],
+        'users' => [['Nový uživatel', 'module=users&action=new']],
+        'transfer' => [['Import z WordPressu', 'module=transfer']],
     ];
     foreach ($quick as $ident => $items) {
         foreach (isset($modules[$ident]) ? $items : [] as [$name, $query]) {
             $statements[] = ['n' => t($name), 'u' => $adminUrl($query), 's' => t($modules[$ident]::NAME)];
         }
     }
-    foreach (isset($modules['config']) ? Kaleta\Admin\Modules\Settings::TABS : [] as $key => $name) {
-        $statements[] = ['n' => t('Nastavení') . ' → ' . t($name), 'u' => $adminUrl('modul=config&zalozka=' . $key), 's' => t('Nastavení')];
+    foreach (isset($modules['settings']) ? Kaleta\Admin\Modules\Settings::TABS : [] as $key => $name) {
+        $statements[] = ['n' => t('Nastavení') . ' → ' . t($name), 'u' => $adminUrl('module=settings&tab=' . $key), 's' => t('Nastavení')];
     }
     // stránky webu jdou v paletě najít podle názvu (novinky se hledají na serveru, je jich víc)
-    foreach (isset($modules['stranky']) ? $app->db()->all('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY poradi, titulek LIMIT 300') : [] as $pageRow) {
-        $statements[] = ['n' => $pageRow['titulek'], 'u' => $adminUrl('modul=stranky&akce=edit&id=' . (int) $pageRow['ids']), 's' => t('Stránka')];
+    foreach (isset($modules['pages']) ? $app->db()->all('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY poradi, titulek LIMIT 300') : [] as $pageRow) {
+        $statements[] = ['n' => $pageRow['titulek'], 'u' => $adminUrl('module=pages&action=edit&id=' . (int) $pageRow['ids']), 's' => t('Stránka')];
     }
-    $statements[] = ['n' => t('Můj účet'), 'u' => $adminUrl('akce=ucet'), 's' => ''];
+    $statements[] = ['n' => t('Můj účet'), 'u' => $adminUrl('action=account'), 's' => ''];
     $statements[] = ['n' => t('Zobrazit web'), 'u' => $app->url(''), 's' => ''];
 }
 ?>
@@ -71,21 +71,21 @@ if ($user !== null) {
 <?php if ($class::GROUP !== $group): $group = $class::GROUP; ?>
 		<li class="menu-skupina" aria-hidden="true"><?= e(t($group)) ?></li>
 <?php endif ?>
-		<li<?= $ident === $inMenu ? ' class="aktivni"' : '' ?>><a href="<?= e($app->url('admin.php?modul=' . $ident)) ?>"<?= $ident === $inMenu ? ' aria-current="page"' : '' ?>><?= $icon($class::ICON) ?><?= e(t($class::NAME)) ?></a></li>
+		<li<?= $ident === $inMenu ? ' class="aktivni"' : '' ?>><a href="<?= e($app->url('admin.php?module=' . $ident)) ?>"<?= $ident === $inMenu ? ' aria-current="page"' : '' ?>><?= $icon($class::ICON) ?><?= e(t($class::NAME)) ?></a></li>
 <?php endforeach ?>
 		<li class="menu-web"><a href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= $icon('web') ?><?= e(t('Zobrazit web')) ?></a></li>
-		<li class="menu-logout"><form method="post" action="<?= e($app->url('admin.php?akce=logout')) ?>"><?= $app->session->csrfField() ?><button type="submit"><?= $icon('odhlasit') ?><?= e(t('Odhlásit se')) ?></button></form></li>
+		<li class="menu-logout"><form method="post" action="<?= e($app->url('admin.php?action=logout')) ?>"><?= $app->session->csrfField() ?><button type="submit"><?= $icon('odhlasit') ?><?= e(t('Odhlásit se')) ?></button></form></li>
 	</ul>
 	</nav>
 </header>
 <section class="loginprouzek" aria-label="<?= e(t('Účet a nástroje')) ?>">
 	<button class="paleta-spustit" type="button" data-paleta title="<?= e(t('Rychlé hledání a příkazy')) ?>"><span><?= e(t('Hledat…')) ?></span> <kbd>Ctrl K</kbd></button>
 	<button class="tema-prepinac" type="button" data-tema-prepinac title="<?= e(t('Světlý / tmavý režim')) ?>" aria-label="<?= e(t('Přepnout světlý a tmavý režim')) ?>"><?= $icon('tema') ?></button>
-	<a class="prihlasen" href="<?= e($app->url('admin.php?akce=ucet')) ?>" title="<?= e(t('Můj účet')) ?>" aria-label="<?= e(t('Můj účet') . ' – ' . ($user['jmeno'] ?: $user['user'])) ?>"><span class="avatar" title="<?= e(($user['jmeno'] ?: $user['user']) . ' – ' . t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '')) ?>" aria-hidden="true"><?= e(mb_strtoupper(mb_substr($user['jmeno'] ?: $user['user'], 0, 1))) ?></span></a>
+	<a class="prihlasen" href="<?= e($app->url('admin.php?action=account')) ?>" title="<?= e(t('Můj účet')) ?>" aria-label="<?= e(t('Můj účet') . ' – ' . ($user['jmeno'] ?: $user['user'])) ?>"><span class="avatar" title="<?= e(($user['jmeno'] ?: $user['user']) . ' – ' . t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '')) ?>" aria-hidden="true"><?= e(mb_strtoupper(mb_substr($user['jmeno'] ?: $user['user'], 0, 1))) ?></span></a>
 </section>
 <?php endif ?>
 <?php if ($statements !== []): ?>
-<dialog class="paleta" id="paleta" aria-label="<?= e(t('Rychlé hledání a příkazy')) ?>"<?= isset($modules['novinky']) ? ' data-clanky="' . e($app->url('admin.php?modul=novinky&akce=hledej_json&uprava=1')) . '"' : '' ?>>
+<dialog class="paleta" id="paleta" aria-label="<?= e(t('Rychlé hledání a příkazy')) ?>"<?= isset($modules['news']) ? ' data-clanky="' . e($app->url('admin.php?module=news&action=search_json&uprava=1')) . '"' : '' ?>>
 	<input class="paleta-pole" type="search" autocomplete="off" spellcheck="false" placeholder="<?= e(t('Kam chcete jít? Napište název sekce, akce, stránky nebo novinky…')) ?>" aria-label="<?= e(t('Rychlé hledání a příkazy')) ?>" aria-controls="paleta-seznam">
 	<ul class="paleta-seznam" id="paleta-seznam" role="listbox"></ul>
 	<p class="paleta-napoveda"><kbd>↑</kbd> <kbd>↓</kbd> <?= e(t('výběr')) ?> · <kbd>Enter</kbd> <?= e(t('otevřít')) ?> · <kbd>Esc</kbd> <?= e(t('zavřít')) ?></p>

@@ -40,7 +40,7 @@ trait BuilderActions
     abstract protected function describeTarget(array $target): array;
 
     /** Editor stavby na celou obrazovku: plátno se skutečnou stránkou webu, strom, vlastnosti. */
-    protected function akceStavitel(): Response
+    protected function actionBuilder(): Response
     {
         $target = $this->loadBuildTarget();
         if ($target === null) {
@@ -89,19 +89,19 @@ trait BuilderActions
             'textNastaveni' => $e['textNastaveni'] ?? null, // popisek odkazu na nastavení cíle (jinak „Nastavení stránky“)
             'zpet' => $e['zpet'],
             'adresy' => array_map(fn (string $action): string => $this->url($action, $target['parametry']), [
-                'uloz' => 'stavba_uloz', 'publikuj' => 'stavba_publikuj', 'zahod' => 'stavba_zahod', 'sekce' => 'stavba_sekce', 'trida' => 'stavba_trida',
-                'revize' => 'stavba_revize', 'obnov' => 'stavba_obnov', 'aiSekce' => 'stavba_ai_sekce', 'aiText' => 'stavba_ai_text', 'ulozSekci' => 'stavba_uloz_sekci',
-                'sdilet' => 'stavba_sdilet',
-            ]) + ['smazSekci' => $app->auth()->isAdmin() ? $this->url('stavba_smaz_sekci', $target['parametry']) : null] + ['admin' => $app->url('admin.php'), 'nastaveni' => $e['nastaveni'],
-                'komponenta' => $app->auth()->isAdmin() ? $app->url('admin.php?modul=komponenty&akce=z_prvku') : null,
+                'uloz' => 'build_save', 'publikuj' => 'build_publish', 'zahod' => 'build_discard', 'sekce' => 'build_section', 'trida' => 'build_class',
+                'revize' => 'build_versions', 'obnov' => 'build_restore', 'aiSekce' => 'build_ai_section', 'aiText' => 'build_ai_text', 'ulozSekci' => 'build_save_section',
+                'sdilet' => 'build_share',
+            ]) + ['smazSekci' => $app->auth()->isAdmin() ? $this->url('build_delete_section', $target['parametry']) : null] + ['admin' => $app->url('admin.php'), 'nastaveni' => $e['nastaveni'],
+                'komponenta' => $app->auth()->isAdmin() ? $app->url('admin.php?module=components&action=from_element') : null,
                 'nahledSekce' => $app->url('_sekce/')],
         ];
 
-        return Response::html($app->view->render('admin/stranky/builder', ['app' => $app, 'data' => $data, 'title' => $target['titulek']]));
+        return Response::html($app->view->render('admin/pages/builder', ['app' => $app, 'data' => $data, 'title' => $target['titulek']]));
     }
 
     /** Průběžné ukládání konceptu z editoru (JSON). Vrací vyčištěnou stavbu a chyby, které editor ukáže. */
-    protected function akceStavbaUloz(): Response
+    protected function actionBuildSave(): Response
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
         if ($target === null) {
@@ -122,7 +122,7 @@ trait BuilderActions
     }
 
     /** Publikování: koncept se stane stavbou; předchozí publikovaná verze jde do historie. */
-    protected function akceStavbaPublikuj(): Response
+    protected function actionBuildPublish(): Response
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
         if ($target === null || ($target['koncept'] ?? $target['stavba']) === null) {
@@ -145,7 +145,7 @@ trait BuilderActions
      * Odkaz na náhled konceptu pro kolegu nebo klienta: otevře ho kdokoli bez přihlášení, platí jen pro tenhle cíl a zadaný
      * počet dní (1–7). Ukazuje koncept v okamžiku otevření, ne stav při vytvoření odkazu; vyhledávače ho neindexují.
      */
-    protected function akceStavbaSdilet(): Response
+    protected function actionBuildShare(): Response
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
         if ($target === null) {
@@ -161,7 +161,7 @@ trait BuilderActions
     }
 
     /** Zahodí rozpracované změny: editor se vrátí k publikované stavbě. */
-    protected function akceStavbaZahod(): Response
+    protected function actionBuildDiscard(): Response
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
         if ($target === null || $target['stavba'] === null) {
@@ -173,7 +173,7 @@ trait BuilderActions
     }
 
     /** Sekce z knihovny jako nové prvky (JSON) v jazyce cíle; chybějící třídy, které používá, se založí. */
-    protected function akceStavbaSekce(): Response
+    protected function actionBuildSection(): Response
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
         $section = $target !== null ? Library::section($this->request->get('klic'), $target['jazyk']) : null;
@@ -193,7 +193,7 @@ trait BuilderActions
     }
 
     /** Uloží vybraný prvek do vlastní knihovny sekcí (projde validátorem jako každá stavba). */
-    protected function akceStavbaUlozSekci(): Response
+    protected function actionBuildSaveSection(): Response
     {
         $name = mb_substr(trim($this->request->post('nazev')), 0, 100);
         $element = json_decode((string) ($_POST['prvek'] ?? ''), true);
@@ -210,7 +210,7 @@ trait BuilderActions
         return Response::json(['ok' => true, 'sekce' => self::listMySections($this->db)]);
     }
 
-    protected function akceStavbaSmazSekci(): Response
+    protected function actionBuildDeleteSection(): Response
     {
         if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
             return Response::json(['ok' => false, 'chyba' => t('Sekce smí odebrat jen správce.')], 403);
@@ -221,7 +221,7 @@ trait BuilderActions
     }
 
     /** Uložení nebo smazání sdílené třídy (JSON). */
-    protected function akceStavbaTrida(): Response
+    protected function actionBuildClass(): Response
     {
         if (!$this->request->isPost()) {
             return Response::json(['ok' => false], 405);
@@ -327,7 +327,7 @@ trait BuilderActions
     }
 
     /** Publikované verze (JSON pro dialog Verze). */
-    protected function akceStavbaRevize(): Response
+    protected function actionBuildVersions(): Response
     {
         $target = $this->loadBuildTarget();
 
@@ -336,7 +336,7 @@ trait BuilderActions
     }
 
     /** Starší verze se načte do konceptu; publikuje se až tlačítkem Publikovat. */
-    protected function akceStavbaObnov(): Response
+    protected function actionBuildRestore(): Response
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
         $build = $target !== null ? Publisher::load($this->db, $target['revize'], $this->request->postInt('idr')) : null;
@@ -399,7 +399,7 @@ trait BuilderActions
     }
 
     /** AI asistent: nová sekce podle popisu (JSON s prvky k vložení). */
-    protected function akceStavbaAiSekce(): Response
+    protected function actionBuildAiSection(): Response
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
         $assistant = new \Kaleta\Core\Assistant($this->app->settings());
@@ -421,7 +421,7 @@ trait BuilderActions
     }
 
     /** AI asistent: přepis textu prvku (kratší, delší, formálněji…). Nic neukládá – editor text vloží jako běžnou změnu. */
-    protected function akceStavbaAiText(): Response
+    protected function actionBuildAiText(): Response
     {
         $assistant = new \Kaleta\Core\Assistant($this->app->settings());
         if (!$this->request->isPost() || !$assistant->isReady()) {

@@ -114,6 +114,7 @@ for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$CHANNEL_PORT/ak
 
 echo "== update through the admin"
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('aktualizace_url','http://127.0.0.1:$CHANNEL_PORT/aktualizace.json') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'aktualizace_cache'"
+# the old release answers to its own URLs (the admin of a 1.3 site clicks Update there)
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?modul=config&zalozka=zalohy"; TOKEN=$(csrf)
 curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?modul=config&akce=aktualizuj" -d "_csrf=$TOKEN"
 if grep -q "99.0.0" "$WORK/response"; then echo "  ok     update installed"; else
@@ -136,8 +137,8 @@ grep -q "Testovací firma" <(curl -s "$B/") && echo "  ok     content kept" || {
 check "admin dashboard" /admin.php
 # releases before 1.1 migrate on the first admin load after the update, later ones during the update itself
 expect "database migrated to $LAST_MIGRATION" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'verze_db'")" "$LAST_MIGRATION"
-for m in $(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; foreach (Kaleta\Admin\Kernel::MODULES as $m) { echo $m::IDENT, "\n"; }'); do check "admin $m" "/admin.php?modul=$m"; done
-for z in zakladni seo stav zalohy; do check "admin settings/$z" "/admin.php?modul=config&zalozka=$z"; done
+for m in $(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; foreach (Kaleta\Admin\Kernel::MODULES as $m) { echo $m::IDENT, "\n"; }'); do check "admin $m" "/admin.php?module=$m"; done
+for z in general seo health backups; do check "admin settings/$z" "/admin.php?module=settings&tab=$z"; done
 grep -q 'name="password"' "$WORK/response" && { echo "  CHYBA  the update logged the admin out"; ERRORS=$((ERRORS+1)); } || echo "  ok     admin session survived"
 
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== application error log:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi

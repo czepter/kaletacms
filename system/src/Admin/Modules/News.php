@@ -17,7 +17,7 @@ use Kaleta\Core\Response;
  */
 final class News extends Module
 {
-    public const string IDENT = 'novinky';
+    public const string IDENT = 'news';
     public const string EXTENSION = 'novinky';
     public const string NAME = 'Novinky';
     public const string GROUP = 'Obsah';
@@ -37,7 +37,7 @@ final class News extends Module
         return $app->auth()->canPublish() ? (int) $app->db()->value('SELECT COUNT(*) FROM {novinky} c WHERE c.smazano IS NULL AND ' . self::AWAITING_PUBLICATION) : 0;
     }
 
-    protected function akceVypis(): Response
+    protected function actionList(): Response
     {
         $auth = $this->app->auth();
         $where = ['1 = 1'];
@@ -102,7 +102,7 @@ final class News extends Module
         ]);
     }
 
-    protected function akceNovy(): Response
+    protected function actionNew(): Response
     {
         // bez kategorie by novinka nešla uložit: založí se výchozí a editor se otevře rovnou (žádná slepá ulička)
         if (Categories::createDefault($this->db, $this->app->settings()) !== null) {
@@ -123,7 +123,7 @@ final class News extends Module
     }
 
     /** Kopie novinky jako koncept (i se štítky) – rychlý začátek podobné novinky. */
-    protected function akceDuplikuj(): Response
+    protected function actionDuplicate(): Response
     {
         $newsItem = $this->request->isPost() ? $this->load($this->request->postInt('idc')) : null;
         if ($newsItem === null) {
@@ -139,14 +139,14 @@ final class News extends Module
         return $this->back('Kopie novinky je uložená jako koncept.', 'edit', ['id' => $id]);
     }
 
-    protected function akceEdit(): Response
+    protected function actionEdit(): Response
     {
         $newsItem = $this->load($this->request->getInt('id'));
 
         return $newsItem === null ? $this->error('Novinka neexistuje nebo k ní nemáte přístup.', 404) : $this->form($newsItem);
     }
 
-    protected function akceUloz(): Response
+    protected function actionSave(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back();
@@ -246,7 +246,7 @@ final class News extends Module
      * Uložení z úpravy „přímo na webu“ (views/front/upravit.php): jen titulek, perex a text. Platí stejná pravidla jako
      * u běžného uložení - oprávnění přes nacti(), vydaná novinka jen s právem vydávat, revize, hledání, použití obrázků.
      */
-    protected function akceUlozText(): Response
+    protected function actionSaveText(): Response
     {
         $r = $this->request;
         $newsItem = $r->isPost() ? $this->load($r->postInt('id')) : null;
@@ -265,7 +265,7 @@ final class News extends Module
         $this->db->update('novinky', $data + ['zmeneno' => date('Y-m-d H:i:s')], ['idc' => $newsItem['idc']]);
         Media::recordUsage($this->db, (int) $newsItem['idc'], (string) $newsItem['obrazek'], $data['uvod'], $data['text']);
         \Kaleta\Core\Search::index($this->db, (int) $newsItem['idc']);
-        \Kaleta\Admin\ChangeLog::write($this->app, 'novinky', 'úprava přímo na webu', mb_substr($data['titulek'], 0, 80));
+        \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'úprava přímo na webu', mb_substr($data['titulek'], 0, 80));
         if ($newsItem['visible'] && !$newsItem['noindex'] && strtotime((string) $newsItem['datum']) <= time()) {
             (new \Kaleta\Front\Seo($this->app))->indexNow($this->app->newsItemUrl($newsItem['seo_link'], $newsItem['jazyk']));
         }
@@ -277,7 +277,7 @@ final class News extends Module
      * Průběžné ukládání rozepsané novinky na server (image/editor.js). Neukládá novinku - jen stav formuláře
      * přihlášeného uživatele, aby v psaní mohl pokračovat jinde. POST bez pole "pole" rozepsaný stav smaže.
      */
-    protected function akceKoncept(): Response
+    protected function actionDraft(): Response
     {
         if (!$this->request->isPost()) {
             return Response::json(['ok' => false], 405);
@@ -302,7 +302,7 @@ final class News extends Module
     }
 
     /** Hledání novinek podle titulku pro dialog odkazu v editoru a pro paletu příkazů (?uprava=1). */
-    protected function akceHledejJson(): Response
+    protected function actionSearchJson(): Response
     {
         $q = mb_substr(trim($this->request->get('q')), 0, 80);
         if (mb_strlen($q) < 2) {
@@ -325,7 +325,7 @@ final class News extends Module
      * AI asistent: návrh k rozepsané novince (titulky, perex, SEO popis, štítky, korektura, popis obrázku).
      * Pracuje s textem z formuláře, nic neukládá - o použití návrhu rozhoduje člověk.
      */
-    protected function akceAsistent(): Response
+    protected function actionAssistant(): Response
     {
         $assistant = new \Kaleta\Core\Assistant($this->app->settings());
         if (!$this->request->isPost() || !$assistant->isReady()) {
@@ -362,7 +362,7 @@ final class News extends Module
      * „Přeložit asistentem“: z uložené verze novinky ve výchozím jazyce založí koncept v kategorii cílového jazyka,
      * propojený s originálem. Překlad vždy čeká na přečtení člověkem – nikdy se nevydává sám.
      */
-    protected function akcePreloz(): Response
+    protected function actionTranslate(): Response
     {
         $newsItem = $this->request->isPost() ? $this->load($this->request->postInt('idc')) : null;
         if ($newsItem === null) {
@@ -420,7 +420,7 @@ final class News extends Module
     }
 
     /** Načte do editoru starší verzi novinky; uloží se až odesláním formuláře. */
-    protected function akceRevize(): Response
+    protected function actionVersions(): Response
     {
         $newsItem = $this->load($this->request->getInt('id'));
         $version = $newsItem === null ? null : $this->db->one('SELECT * FROM {novinky_revize} WHERE idr = ? AND idc = ?', [$this->request->getInt('idr'), $newsItem['idc']]);
@@ -433,7 +433,7 @@ final class News extends Module
     }
 
     /** Co se od uložené verze změnilo: porovnání starší verze se současným zněním. */
-    protected function akcePorovnej(): Response
+    protected function actionCompare(): Response
     {
         $newsItem = $this->load($this->request->getInt('id'));
         $version = $newsItem === null ? null : $this->db->one(
@@ -454,14 +454,14 @@ final class News extends Module
     }
 
     /** Nefunkční odkazy nalezené kontrolou na pozadí (Core\Odkazy). */
-    protected function akceOdkazy(): Response
+    protected function actionLinks(): Response
     {
         if ($this->request->isPost()) {
             // "zkontrolovat znovu": novinka se zařadí na začátek fronty
             $this->db->update('novinky', ['odkazy_cas' => null], ['idc' => $this->request->postInt('idc')]);
             $this->db->delete('odkazy_vadne', ['idc' => $this->request->postInt('idc')]);
 
-            return $this->back('Novinka se zkontroluje znovu během několika minut.', 'odkazy');
+            return $this->back('Novinka se zkontroluje znovu během několika minut.', 'links');
         }
 
         return $this->view('links', 'Nefunkční odkazy', [
@@ -472,7 +472,7 @@ final class News extends Module
         ]);
     }
 
-    protected function akceSmaz(): Response
+    protected function actionDelete(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back();
@@ -485,14 +485,14 @@ final class News extends Module
             }
             // koš: novinka zmizí z webu i z výpisů, ale 30 dní ji jde obnovit; vrátí se jako koncept, nikdy sama nevyjde
             $moved += $this->db->update('novinky', ['smazano' => date('Y-m-d H:i:s'), 'visible' => 0], ['idc' => $newsItem['idc']]);
-            \Kaleta\Admin\ChangeLog::write($this->app, 'novinky', 'do koše', mb_substr($newsItem['titulek'], 0, 80));
+            \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'do koše', mb_substr($newsItem['titulek'], 0, 80));
         }
 
         return $this->back(t('Do koše přesunuto novinek: %d. Obnovit je jde 30 dní (Novinky → Koš).', $moved), type: $moved > 0 ? 'ok' : 'chyba');
     }
 
     /** Obnovení z koše: novinka se vrátí jako koncept (ne vydaná). */
-    protected function akceObnov(): Response
+    protected function actionRestore(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back();
@@ -504,14 +504,14 @@ final class News extends Module
                 continue;
             }
             $restored += $this->db->update('novinky', ['smazano' => null], ['idc' => $newsItem['idc']]);
-            \Kaleta\Admin\ChangeLog::write($this->app, 'novinky', 'obnovení z koše', mb_substr($newsItem['titulek'], 0, 80));
+            \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'obnovení z koše', mb_substr($newsItem['titulek'], 0, 80));
         }
 
         return $this->back(t('Obnoveno novinek: %d. Vrátily se jako koncepty.', $restored), '', ['stav' => 'kos'], $restored > 0 ? 'ok' : 'chyba');
     }
 
     /** Smazání natrvalo z koše (jen ten, kdo smí vydávat). */
-    protected function akceSmazNatrvalo(): Response
+    protected function actionDeletePermanently(): Response
     {
         if (!$this->request->isPost() || !$this->app->auth()->canPublish()) {
             return $this->back();
@@ -521,7 +521,7 @@ final class News extends Module
             $newsItem = $this->load((int) $id, true);
             if ($newsItem !== null) {
                 $deleted += $this->db->delete('novinky', ['idc' => $newsItem['idc']]);
-                \Kaleta\Admin\ChangeLog::write($this->app, 'novinky', 'smazání natrvalo', mb_substr($newsItem['titulek'], 0, 80));
+                \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'smazání natrvalo', mb_substr($newsItem['titulek'], 0, 80));
             }
         }
 

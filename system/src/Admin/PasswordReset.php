@@ -11,7 +11,7 @@ use Kaleta\Core\Mail;
 use Kaleta\Core\Response;
 
 /**
- * Obnova zapomenutého hesla do administrace odkazem z e-mailu (admin.php?akce=heslo).
+ * Obnova zapomenutého hesla do administrace odkazem z e-mailu (admin.php?action=password).
  *
  * - Odpověď na žádost je vždy stejná, ať účet existuje nebo ne - stránka neprozradí, kdo web spravuje.
  * - V databázi je jen otisk tokenu; odkaz platí hodinu a jde použít jednou.
@@ -70,7 +70,7 @@ final class PasswordReset
         $token = bin2hex(random_bytes(32));
         $time = $reason === 'zadost' ? time() : time() + 71 * 3600;
         $app->db()->update('uzivatele', ['obnova_otisk' => hash('sha256', $token), 'obnova_cas' => date('Y-m-d H:i:s', $time)], ['idu' => $user['idu']]);
-        $link = rtrim($app->settings()->get('adresa_webu') ?: $app->request->origin(), '/') . $app->url('admin.php?akce=heslo&token=' . $token);
+        $link = rtrim($app->settings()->get('adresa_webu') ?: $app->request->origin(), '/') . $app->url('admin.php?action=password&token=' . $token);
         $language = (string) ($user['jazyk'] ?? '') !== '' ? (string) $user['jazyk'] : Language::defaults($app->settings());
         $siteSettings = $app->settings()->get('nazev_webu');
         [$subject, $text] = Language::runWith($language, fn (): array => match ($reason) {

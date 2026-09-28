@@ -27,7 +27,7 @@ $choice = ['umisteni' => $location, 'jazyk' => $language];
     ? ($automatic ? 'Menu se zatím skládá samo ze stránek zaškrtnutých „v navigaci“. Když ho tady upravíte a uložíte, bude platit tahle podoba.' : 'Pořadí měníte přetažením nebo šipkami. Šipkou vpravo zařadíte položku do podmenu té nad ní.')
     : 'Odkazy v patičce webu (zásady ochrany soukromí, kontakt, kariéra…). Použije je výchozí patička i prvek Navigace nastavený na menu v patičce.')) ?></p>
 
-<form method="post" action="<?= e($module->url('uloz', $choice)) ?>" class="menu-formular" data-menu>
+<form method="post" action="<?= e($module->url('save', $choice)) ?>" class="menu-formular" data-menu>
 <?= $csrf ?>
 <input type="hidden" name="polozky" value="">
 <script type="application/json" data-menu-data><?= json_encode(['polozky' => $items, 'stranky' => $pages], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
@@ -52,6 +52,6 @@ $choice = ['umisteni' => $location, 'jazyk' => $language];
 <p class="tlacitka"><button class="tl" type="submit"><?= e(t('Uložit menu')) ?></button></p>
 </form>
 <?php if (!$automatic || $location !== 'hlavni'): ?>
-<div class="navigace-radek akce-dole"><form class="vradku" method="post" action="<?= e($module->url('automaticky', $choice)) ?>" data-potvrdit="<?= e(t($location === 'hlavni' ? 'Vrátit menu k automatickému skládání ze stránek? Vaše úpravy se zahodí.' : 'Vyprázdnit menu v patičce?')) ?>"><?= $csrf ?><button class="navigace nebezpecne" type="submit"><?= e(t($location === 'hlavni' ? 'Vrátit na automatické menu' : 'Vyprázdnit menu')) ?></button></form></div>
+<div class="navigace-radek akce-dole"><form class="vradku" method="post" action="<?= e($module->url('automatic', $choice)) ?>" data-potvrdit="<?= e(t($location === 'hlavni' ? 'Vrátit menu k automatickému skládání ze stránek? Vaše úpravy se zahodí.' : 'Vyprázdnit menu v patičce?')) ?>"><?= $csrf ?><button class="navigace nebezpecne" type="submit"><?= e(t($location === 'hlavni' ? 'Vrátit na automatické menu' : 'Vyprázdnit menu')) ?></button></form></div>
 <?php endif ?>
 <script src="<?= e($app->url('image/menu.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>

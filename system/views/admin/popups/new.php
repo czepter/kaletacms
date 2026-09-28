@@ -1,0 +1,25 @@
+<?php
+/**
+ * Nové pop-up okno z hotového vzoru.
+ *
+ * @var Kaleta\Core\App $app
+ * @var Kaleta\Admin\Modules\Popups $module
+ * @var string $csrf
+ */
+use Kaleta\Builder\Popups;
+
+?>
+<form class="formular" method="post" action="<?= e($module->url('create')) ?>">
+<?= $csrf ?>
+<div class="radek"><label for="nazev"><?= e(t('Název okna')) ?></label><div><input class="textpole siroke" id="nazev" name="nazev" maxlength="100" placeholder="<?= e(t('např. Newsletter na blogu')) ?>"><span class="napoveda"><?= e(t('Jen pro vás v administraci a pro čtečky obrazovky. Z názvu vznikne adresa #popup-…')) ?></span></div></div>
+<fieldset>
+<legend><?= e(t('Začít od')) ?></legend>
+<div class="volby">
+<?php $first = true; foreach (Popups::LIBRARY as $key => [$name, $description, $type]): ?>
+<label><input type="radio" name="vzor" value="<?= e($key) ?>"<?= $first ? ' checked' : '' ?>> <strong><?= e(t($name)) ?></strong> (<?= e(mb_strtolower(t(Popups::TYPES[$type][0]))) ?>) – <?= e(t($description)) ?></label>
+<?php $first = false; endforeach ?>
+</div>
+</fieldset>
+<p class="napoveda"><?= e(t('Okno se založí vypnuté a otevře se v builderu. Na webu se ukáže, až ho publikujete a zapnete.')) ?></p>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Založit a otevřít v builderu')) ?>"> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Zpět')) ?></a></p>
+</form>

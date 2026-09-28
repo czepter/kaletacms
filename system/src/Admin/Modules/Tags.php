@@ -13,14 +13,14 @@ use Kaleta\Core\Response;
  */
 final class Tags extends Module
 {
-    public const string IDENT = 'stitky';
+    public const string IDENT = 'tags';
     public const string EXTENSION = 'novinky';
     public const string NAME = 'Štítky a témata';
     public const string GROUP = 'Obsah';
     public const string ICON = 'stitky';
-    public const string PARENT = 'novinky';
+    public const string PARENT = 'news';
 
-    protected function akceVypis(): Response
+    protected function actionList(): Response
     {
         $edit = $this->db->one('SELECT * FROM {stitky} WHERE ids = ?', [$this->request->getInt('uprav')]);
 
@@ -30,7 +30,7 @@ final class Tags extends Module
         ]);
     }
 
-    protected function akceUloz(): Response
+    protected function actionSave(): Response
     {
         $tag = $this->db->one('SELECT * FROM {stitky} WHERE ids = ?', [$this->request->postInt('ids')]);
         $name = mb_substr(trim($this->request->post('nazev')), 0, 80);
@@ -53,7 +53,7 @@ final class Tags extends Module
         return $this->back('Štítek byl uložen.');
     }
 
-    protected function akceSmaz(): Response
+    protected function actionDelete(): Response
     {
         if ($this->request->isPost()) {
             $this->db->delete('novinky_stitky', ['ids' => $this->request->postInt('ids')]);

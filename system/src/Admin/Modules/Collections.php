@@ -18,15 +18,15 @@ use Kaleta\Builder\Publisher;
 final class Collections extends Module
 {
     use BuilderActions {
-        akceStavitel as protected openBuilder;
+        actionBuilder as protected openBuilder;
     }
 
-    public const string IDENT = 'kolekce';
+    public const string IDENT = 'collections';
     public const string NAME = 'Kolekce';
     public const string GROUP = 'Obsah';
     public const string ICON = 'kolekce';
 
-    protected function akceVypis(): Response
+    protected function actionList(): Response
     {
         return $this->view('list', 'Kolekce', [
             'collection' => $this->db->all('SELECT k.idk, k.nazev, k.seo_link, k.detail, (SELECT COUNT(*) FROM {kolekce_polozky} p WHERE p.idk = k.idk) AS pocet FROM {kolekce} k ORDER BY k.nazev'),
@@ -35,21 +35,21 @@ final class Collections extends Module
 
     /* ---------- definice kolekce (správce) ---------- */
 
-    protected function akceNovy(): Response
+    protected function actionNew(): Response
     {
         return $this->admin() ?? $this->view('form', 'Nová kolekce', ['k' => ['idk' => 0, 'nazev' => '', 'seo_link' => '', 'detail' => 0, 'pole' => [
             ['klic' => '', 'popisek' => t('Popis'), 'typ' => 'radky'], ['klic' => '', 'popisek' => t('Obrázek'), 'typ' => 'obrazek'],
         ]]]);
     }
 
-    protected function akceEdit(): Response
+    protected function actionEdit(): Response
     {
         $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
 
         return $this->admin() ?? ($k === null ? $this->error('Kolekce neexistuje.', 404) : $this->view('form', $k['nazev'], ['k' => $k]));
     }
 
-    protected function akceUloz(): Response
+    protected function actionSave(): Response
     {
         if (($refusal = $this->admin()) !== null || !$this->request->isPost()) {
             return $refusal ?? $this->back();
@@ -59,11 +59,11 @@ final class Collections extends Module
         $previous = $id > 0 ? KolekceObsahu::byId($this->db, $id) : null;
         $name = mb_substr(trim($r->post('nazev')), 0, 100);
         if ($name === '') {
-            return $this->back('Kolekce musí mít název.', $id > 0 ? 'edit' : 'novy', $id > 0 ? ['id' => $id] : [], 'chyba');
+            return $this->back('Kolekce musí mít název.', $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $id] : [], 'chyba');
         }
         $seo = slugify($r->post('seo_link') !== '' ? $r->post('seo_link') : $name, 110);
         if (in_array($seo, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$seo]) || $this->db->value('SELECT idk FROM {kolekce} WHERE seo_link = ? AND idk <> ?', [$seo, $id]) !== null) {
-            return $this->back(t('Adresu „%s“ už používá systém nebo jiná kolekce.', $seo), $id > 0 ? 'edit' : 'novy', $id > 0 ? ['id' => $id] : [], 'chyba');
+            return $this->back(t('Adresu „%s“ už používá systém nebo jiná kolekce.', $seo), $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $id] : [], 'chyba');
         }
         // klíč existujícího pole se nemění (jsou pod ním uložené hodnoty položek); nová pole ho dostanou z popisku
         $field = KolekceObsahu::sanitizeFields(is_array($_POST['pole'] ?? null) ? array_values($_POST['pole']) : []);
@@ -75,10 +75,10 @@ final class Collections extends Module
         }
         \Kaleta\Front\Cache::clear();
 
-        return $this->back('Kolekce byla uložena.', 'polozky', ['id' => $id]);
+        return $this->back('Kolekce byla uložena.', 'items', ['id' => $id]);
     }
 
-    protected function akceSmaz(): Response
+    protected function actionDelete(): Response
     {
         if (($refusal = $this->admin()) !== null) {
             return $refusal;
@@ -92,7 +92,7 @@ final class Collections extends Module
 
     /* ---------- položky ---------- */
 
-    protected function akcePolozky(): Response
+    protected function actionItems(): Response
     {
         $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
         if ($k === null) {
@@ -106,7 +106,7 @@ final class Collections extends Module
                 $column !== null ? [$k['idk'], $column] : [$k['idk']])]);
     }
 
-    protected function akcePolozka(): Response
+    protected function actionItem(): Response
     {
         $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
         if ($k === null) {
@@ -123,7 +123,7 @@ final class Collections extends Module
         return $this->view('item', $p['nazev'] !== '' ? $p['nazev'] : t('Nová položka'), ['k' => $k, 'p' => $p]);
     }
 
-    protected function akceUlozPolozku(): Response
+    protected function actionSaveItem(): Response
     {
         $r = $this->request;
         $k = $r->isPost() ? KolekceObsahu::byId($this->db, $r->postInt('idk')) : null;
@@ -133,7 +133,7 @@ final class Collections extends Module
         $idp = $r->postInt('idp');
         $name = mb_substr(trim($r->post('nazev')), 0, 200);
         if ($name === '') {
-            return $this->back('Položka musí mít název.', 'polozka', ['id' => $k['idk'], 'polozka' => $idp], 'chyba');
+            return $this->back('Položka musí mít název.', 'item', ['id' => $k['idk'], 'polozka' => $idp], 'chyba');
         }
         $errors = [];
         $data = KolekceObsahu::sanitizeData($k['pole'], is_array($_POST['data'] ?? null) ? $_POST['data'] : [], $errors);
@@ -151,28 +151,28 @@ final class Collections extends Module
         }
         \Kaleta\Front\Cache::clear();
         if ($errors !== []) {
-            return $this->back(t('Položka je uložená, ale tato pole měla neplatnou hodnotu a zůstala prázdná: %s', implode(', ', $errors)), 'polozka', ['id' => $k['idk'], 'polozka' => $idp], 'chyba');
+            return $this->back(t('Položka je uložená, ale tato pole měla neplatnou hodnotu a zůstala prázdná: %s', implode(', ', $errors)), 'item', ['id' => $k['idk'], 'polozka' => $idp], 'chyba');
         }
 
-        return $this->back('Položka byla uložena.', 'polozky', ['id' => $k['idk']]);
+        return $this->back('Položka byla uložena.', 'items', ['id' => $k['idk']]);
     }
 
     /** Kopie položky (skrytá, s volnou adresou) – rychlý začátek podobné reference, člena týmu, produktu. */
-    protected function akceDuplikujPolozku(): Response
+    protected function actionDuplicateItem(): Response
     {
         $idk = $this->request->postInt('idk');
         $p = $this->request->isPost() ? $this->db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ?', [$this->request->postInt('idp'), $idk]) : null;
         if ($p === null) {
-            return $this->back('', 'polozky', ['id' => $idk]);
+            return $this->back('', 'items', ['id' => $idk]);
         }
         $seo = \Kaleta\Core\Slug::makeUnique($p['seo_link'] . '-kopie', fn (string $a): bool => $this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ?', [$idk, $p['jazyk'], $a]) !== null);
         $id = $this->db->insert('kolekce_polozky', ['idk' => $idk, 'nazev' => mb_substr(t('%s (kopie)', $p['nazev']), 0, 200), 'seo_link' => $seo, 'data' => $p['data'],
             'poradi' => $p['poradi'], 'zobrazit' => 0, 'jazyk' => $p['jazyk'], 'datum' => date('Y-m-d H:i:s')]);
 
-        return $this->back('Kopie položky je skrytá – upravte ji a zveřejněte.', 'polozka', ['id' => $idk, 'polozka' => $id]);
+        return $this->back('Kopie položky je skrytá – upravte ji a zveřejněte.', 'item', ['id' => $idk, 'polozka' => $id]);
     }
 
-    protected function akceSmazPolozku(): Response
+    protected function actionDeleteItem(): Response
     {
         $idk = $this->request->postInt('idk');
         if ($this->request->isPost()) {
@@ -180,12 +180,12 @@ final class Collections extends Module
             \Kaleta\Front\Cache::clear();
         }
 
-        return $this->back('Položka byla smazána.', 'polozky', ['id' => $idk]);
+        return $this->back('Položka byla smazána.', 'items', ['id' => $idk]);
     }
 
     /* ---------- šablona detailu v builderu (správce) ---------- */
 
-    protected function akceStavitel(): Response
+    protected function actionBuilder(): Response
     {
         if (($refusal = $this->admin()) !== null) {
             return $refusal;
@@ -245,7 +245,7 @@ final class Collections extends Module
 
         return [
             'adresa' => $url, 'nahled' => $url . '?stavba=koncept&editor=1', 'zobrazena' => (bool) $k['detail'], 'casti' => false,
-            'zpet' => ['adresa' => $this->url('polozky', ['id' => (int) $k['idk']]), 'text' => $k['nazev']], 'nastaveni' => $this->url('edit', ['id' => (int) $k['idk']]), 'textNastaveni' => t('Pole a nastavení kolekce'),
+            'zpet' => ['adresa' => $this->url('items', ['id' => (int) $k['idk']]), 'text' => $k['nazev']], 'nastaveni' => $this->url('edit', ['id' => (int) $k['idk']]), 'textNastaveni' => t('Pole a nastavení kolekce'),
             'kolekce' => ['seo_link' => $k['seo_link'], 'nazev' => $k['nazev'], 'pole' => $k['pole'], 'detail' => (bool) $k['detail']],
             'podpis' => KolekceObsahu::templateKey($k),
         ];

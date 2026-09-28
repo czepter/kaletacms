@@ -115,7 +115,7 @@ final class Account
             if ($message !== null) {
                 $app->session->flash(...$message);
 
-                return Response::redirect($app->url('admin.php?akce=ucet'));
+                return Response::redirect($app->url('admin.php?action=account'));
             }
         }
 

@@ -16,10 +16,10 @@ use Kaleta\Builder\Build;
 final class Pages extends Module
 {
     use \Kaleta\Admin\BuilderActions {
-        akceStavitel as protected openBuilder;
+        actionBuilder as protected openBuilder;
     }
 
-    public const string IDENT = 'stranky';
+    public const string IDENT = 'pages';
     public const string NAME = 'Stránky';
     public const string GROUP = 'Obsah';
     public const string ICON = 'stranky';
@@ -30,7 +30,7 @@ final class Pages extends Module
     /** Stránky v koši vydrží tolik dní, pak se smažou natrvalo (jako novinky). */
     public const int TRASH_DAYS = 30;
 
-    protected function akceVypis(): Response
+    protected function actionList(): Response
     {
         $trash = $this->request->get('stav') === 'kos';
         $search = mb_substr(trim($this->request->get('hledat')), 0, 100);
@@ -97,13 +97,13 @@ final class Pages extends Module
         return $result;
     }
 
-    protected function akceNovy(): Response
+    protected function actionNew(): Response
     {
         return $this->form(['ids' => 0, 'seo_link' => '', 'titulek' => '', 'popis' => '', 'seo_titulek' => '', 'obrazek' => '', 'noindex' => 0, 'text' => '', 'zobrazit' => 1, 'v_menu' => 1, 'poradi' => 100, 'stavba' => null, 'stavba_koncept' => null,
             'nadrazena' => $this->request->getInt('nadrazena') ?: null, 'zverejnit_od' => null]);
     }
 
-    protected function akceEdit(): Response
+    protected function actionEdit(): Response
     {
         $page = $this->db->one('SELECT * FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$this->request->getInt('id')]);
 
@@ -111,7 +111,7 @@ final class Pages extends Module
     }
 
     /** Uložení z úpravy „přímo na webu“ (views/front/upravit.php): jen název a text stránky. */
-    protected function akceUlozText(): Response
+    protected function actionSaveText(): Response
     {
         $r = $this->request;
         $page = $r->isPost() ? $this->db->one('SELECT * FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$r->postInt('id')]) : null;
@@ -127,7 +127,7 @@ final class Pages extends Module
             $this->saveVersion((int) $page['ids'], $page['titulek'], (string) $page['text']); // úprava přímo na webu jde do historie jako v administraci
         }
         $this->db->update('stranky', ['titulek' => $title, 'text' => $text, 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $page['ids']]);
-        \Kaleta\Admin\ChangeLog::write($this->app, 'stranky', 'úprava přímo na webu', mb_substr($title, 0, 80));
+        \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'úprava přímo na webu', mb_substr($title, 0, 80));
 
         return $this->redirectToSite($r->post('zpet'));
     }
@@ -145,7 +145,7 @@ final class Pages extends Module
         return $this->back('Zveřejněné stránky upravuje, zveřejňuje a maže jen editor nebo správce. Můžete připravit novou skrytou stránku.', '', [], 'chyba');
     }
 
-    protected function akceUloz(): Response
+    protected function actionSave(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back();
@@ -229,7 +229,7 @@ final class Pages extends Module
                 $this->db->update('stranky', ['stavba_koncept' => Build::toJson($build)], ['ids' => $id]);
                 \Kaleta\Core\Menu::setPage($this->db, $id, $language, (bool) $data['v_menu']);
 
-                return \Kaleta\Core\Response::redirect($this->url('stavitel', ['id' => $id]));
+                return \Kaleta\Core\Response::redirect($this->url('builder', ['id' => $id]));
             }
             if ($template !== null && $data['text'] === '') {
                 $this->db->update('stranky', ['text' => \Kaleta\Builder\Library::privacyPolicyText()], ['ids' => $id]);
@@ -240,7 +240,7 @@ final class Pages extends Module
         // sestavené menu (Vzhled → Menu): zaškrtávátko „v navigaci“ stránku do menu přidá nebo z něj odebere
         \Kaleta\Core\Menu::setPage($this->db, $id, $data['jazyk'], (bool) $data['v_menu']);
         if ($r->post('po_ulozeni') === 'stavitel') {
-            return \Kaleta\Core\Response::redirect($this->url('stavitel', ['id' => $id]));
+            return \Kaleta\Core\Response::redirect($this->url('builder', ['id' => $id]));
         }
 
         return $this->back('Stránka byla uložena.');
@@ -249,7 +249,7 @@ final class Pages extends Module
     /* ---------- builder (akce v Admin\StavitelAkce) ---------- */
 
     /** Editor; textová stránka se při prvním otevření převede na stavbu (úzká sekce s nadpisem a textem, text zůstane). */
-    protected function akceStavitel(): Response
+    protected function actionBuilder(): Response
     {
         $page = $this->loadPage($this->request->getInt('id'));
         if ($page !== null && $page['stavba'] === null && $page['stavba_koncept'] === null) {
@@ -299,7 +299,7 @@ final class Pages extends Module
     }
 
     /** Stránka se vrátí k textu z editoru (stavba zůstane ve verzích). */
-    protected function akceStavbaText(): Response
+    protected function actionBuildText(): Response
     {
         $page = $this->request->isPost() ? $this->loadPage($this->request->postInt('ids')) : null;
         if ($page !== null && $page['stavba'] !== null) {
@@ -350,7 +350,7 @@ final class Pages extends Module
     }
 
     /** Obnovení starší verze textu stránky (současná podoba jde do historie). */
-    protected function akceObnovVerzi(): Response
+    protected function actionRestoreVersion(): Response
     {
         $version = $this->request->isPost() ? $this->db->one('SELECT * FROM {stranky_revize} WHERE idr = ?', [$this->request->postInt('idr')]) : null;
         $page = $version !== null ? $this->loadPage((int) $version['ids']) : null;
@@ -367,7 +367,7 @@ final class Pages extends Module
     }
 
     /** Stránka jako soubor JSON (název, popis a stavba) – pro přenos na jiný web s Kaletou. */
-    protected function akceExport(): Response
+    protected function actionExport(): Response
     {
         $s = $this->loadPage($this->request->getInt('id'));
         if ($s === null) {
@@ -380,7 +380,7 @@ final class Pages extends Module
     }
 
     /** Import stránky z JSON exportu: vznikne skrytá stránka, stavba projde validátorem jako každá jiná. */
-    protected function akceImport(): Response
+    protected function actionImport(): Response
     {
         $file = $_FILES['soubor']['tmp_name'] ?? '';
         $data = $this->request->isPost() && is_uploaded_file($file) && filesize($file) < 5_000_000 ? json_decode((string) file_get_contents($file), true) : null;
@@ -406,7 +406,7 @@ final class Pages extends Module
     }
 
     /** Smazání = přesun do koše: stránka zmizí z webu, adresa zůstane rezervovaná a jde ji obnovit. */
-    protected function akceSmaz(): Response
+    protected function actionDelete(): Response
     {
         $ids = $this->request->postInt('ids');
         if (!$this->request->isPost()) {
@@ -424,7 +424,7 @@ final class Pages extends Module
     }
 
     /** Obnovení z koše: stránka se vrátí skrytá, zveřejní ji až uživatel. */
-    protected function akceObnov(): Response
+    protected function actionRestore(): Response
     {
         if ($this->request->isPost()) {
             $this->db->run('UPDATE {stranky} SET smazano = NULL WHERE ids = ?', [$this->request->postInt('ids')]);
@@ -433,7 +433,7 @@ final class Pages extends Module
         return $this->back('Stránka je obnovená jako skrytá – zveřejníte ji v jejím nastavení.');
     }
 
-    protected function akceSmazNatrvalo(): Response
+    protected function actionDeletePermanently(): Response
     {
         if (($refusal = $this->requirePublishPermission()) !== null) {
             return $refusal;
@@ -452,7 +452,7 @@ final class Pages extends Module
     }
 
     /** Kopie stránky i se stavbou a rozpracovaným konceptem – skrytá, s volnou adresou. */
-    protected function akceDuplikuj(): Response
+    protected function actionDuplicate(): Response
     {
         $page = $this->request->isPost() ? $this->loadPage($this->request->postInt('ids')) : null;
         if ($page === null) {

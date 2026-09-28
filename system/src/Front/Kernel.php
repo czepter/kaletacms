@@ -268,7 +268,7 @@ final class Kernel
         }
 
         // skrytou stránku vidí jen náhled builderu (kdo smí upravovat stránky) a podepsaný odkaz na náhled (?nahled_klic=…, Core\Nahled)
-        $showHidden = $request->get('stavba') === 'koncept' && ($this->app->auth()->hasModule('stranky') || $request->get('nahled_klic') !== '');
+        $showHidden = $request->get('stavba') === 'koncept' && ($this->app->auth()->hasModule('pages') || $request->get('nahled_klic') !== '');
         $page = $this->app->db()->one('SELECT * FROM {stranky} WHERE seo_link = ? AND jazyk = ? AND smazano IS NULL' . ($showHidden ? '' : ' AND zobrazit = 1'), [ltrim($path, '/'), Language::siteColumn()]);
         if ($page !== null && !$page['zobrazit'] && !$this->canSeeDraft('stranka:' . (int) $page['ids'])) {
             $page = null;
@@ -280,7 +280,7 @@ final class Kernel
 
             return $this->showPage($page, ltrim($path, '/'));
         }
-        if (preg_match('#^/_sekce/([a-z0-9-]{1,40})$#', $path, $m) && $this->app->auth()->hasModule('stranky')) {
+        if (preg_match('#^/_sekce/([a-z0-9-]{1,40})$#', $path, $m) && $this->app->auth()->hasModule('pages')) {
             return $this->previewSection($m[1]);
         }
         if (preg_match('#^/_popup/(\d+)$#', $path, $m)) {
@@ -458,8 +458,8 @@ final class Kernel
             $k->source = 'stranka:' . (int) $page['ids'];
             $html = \Kaleta\Builder\Build::html($build, $k);
             $k->editor = false;
-            if (!$draft && $this->app->auth()->hasModule('stranky')) {
-                $this->editHereUrl = $this->app->url('admin.php?modul=stranky&akce=stavitel&id=' . (int) $page['ids']);
+            if (!$draft && $this->app->auth()->hasModule('pages')) {
+                $this->editHereUrl = $this->app->url('admin.php?module=pages&action=builder&id=' . (int) $page['ids']);
             }
 
             return $this->page($title, $this->view->render('stranka', ['stranka' => $page, 'uvod' => $home, 'stavba' => $html]), [
@@ -723,7 +723,7 @@ final class Kernel
     private function editInPlace(string $type, array $record, string $path): ?string
     {
         $auth = $this->app->auth();
-        if ($auth->user() === null || !($type === 'novinka' ? $auth->canEditArticle($record) : $auth->hasModule('stranky'))) {
+        if ($auth->user() === null || !($type === 'novinka' ? $auth->canEditArticle($record) : $auth->hasModule('pages'))) {
             return null;
         }
         $url = $this->app->url($path);
@@ -737,7 +737,7 @@ final class Kernel
         return $this->view->render('upravit', [
             'app' => $this->app, 'typ' => $type, 'zaznam' => $record,
             'zpet' => $url . ($this->app->request->get('nahled') === '1' ? '?nahled=1' : ''),
-            'akce' => $this->app->url('admin.php?modul=' . ($type === 'novinka' ? 'novinky' : 'stranky') . '&akce=uloz_text'),
+            'akce' => $this->app->url('admin.php?module=' . ($type === 'novinka' ? 'novinky' : 'stranky') . '&action=save_text'),
             'chyba' => $this->app->request->get('chyba') === '1',
         ]);
     }
@@ -801,7 +801,7 @@ final class Kernel
     private function canSeeDraft(string $target): bool
     {
         $auth = $this->app->auth();
-        if (str_starts_with($target, 'cast:') || str_starts_with($target, 'kolekce:') || str_starts_with($target, 'popup:') ? $auth->isAdmin() : $auth->hasModule('stranky')) {
+        if (str_starts_with($target, 'cast:') || str_starts_with($target, 'kolekce:') || str_starts_with($target, 'popup:') ? $auth->isAdmin() : $auth->hasModule('pages')) {
             return true;
         }
         $key = $this->app->request->get('nahled_klic');

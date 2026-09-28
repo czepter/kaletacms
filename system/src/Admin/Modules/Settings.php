@@ -14,19 +14,19 @@ use Kaleta\Front\Layouts;
 
 /**
  * Nastavení webu (tabulka ka_nastaveni) rozdělené do záložek.
- * Každá záložka má šablonu views/admin/config/<zalozka>.php a seznam polí s typem - podle něj se hodnoty čistí.
+ * Každá záložka má šablonu views/admin/settings/<tab>.php a seznam polí s typem - podle něj se hodnoty čistí.
  */
 class Settings extends Module
 {
-    public const string IDENT = 'config';
+    public const string IDENT = 'settings';
     public const string NAME = 'Nastavení';
     public const string GROUP = 'Správa';
     public const string ICON = 'nastaveni';
     public const bool ADMIN_ONLY = true;
 
     public const array TABS = [
-        'zakladni' => 'Základní', 'firma' => 'Firma', 'seo' => 'SEO a GEO',
-        'mereni' => 'Měření', 'cookies' => 'Soukromí a cookies', 'posta' => 'Pošta', 'zalohy' => 'Zálohy a aktualizace', 'stav' => 'Stav systému',
+        'general' => 'Základní', 'company' => 'Firma', 'seo' => 'SEO a GEO',
+        'analytics' => 'Měření', 'cookies' => 'Soukromí a cookies', 'mail' => 'Pošta', 'backups' => 'Zálohy a aktualizace', 'health' => 'Stav systému',
     ];
 
     /** Typy firmy pro pole firma_typ (vyber:…). */
@@ -39,7 +39,7 @@ class Settings extends Module
      * text | tajne (klíč: nevypisuje se zpět, prázdné pole = beze změny; tajne:/regex/ navíc hlídá tvar) | radky (víceřádkový text) | kod (HTML/JS - zadává jen administrátor) | url | email | ano | cislo:min:max | vyber:a|b | seznam:a|b (zaškrtávací pole, ukládá se "a,b") | vzor:/regex/
      */
     private const array FIELDS = [
-        'zakladni' => [
+        'general' => [
             'nazev_webu' => 'text', 'adresa_webu' => 'vzor:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'popis_webu' => 'radky', 'email_webu' => 'email', 'text_paticky' => 'text',
             'soc_facebook' => 'url', 'soc_instagram' => 'url', 'soc_x' => 'url', 'soc_youtube' => 'url', 'soc_linkedin' => 'url',
             'titulni_stranka' => 'cislo:0:4294967295', 'pocet_clanku' => 'cislo:1:100', 'sdileni' => 'ano', 'kontrola_odkazu' => 'ano', 'osnova_clanku' => 'ano', 'souvisejici_auto' => 'ano', 'cache_stranek' => 'ano', 'udrzba' => 'ano', 'udrzba_text' => 'text', 'webhook_url' => 'url', 'webhook_poptavky' => 'url', 'vynutit_2fa' => 'vyber:|spravci|vsichni',
@@ -47,7 +47,7 @@ class Settings extends Module
         ],
         // Vzhled webu ukládá modul Vzhled; tady jen typy pro kontrolu hodnot z napojení na Claude (není to záložka Nastavení)
         'vzhled' => ['tmavy_rezim' => 'vyber:vypnuto|auto|tmavy', 'tmavy_prepinac' => 'ano'],
-        'firma' => [
+        'company' => [
             'firma_nazev' => 'text', 'firma_typ' => 'vyber:' . self::COMPANY_TYPES, 'firma_ico' => 'vzor:/^((?=.*\d)[A-Za-z0-9 .\/-]{1,24})?$/', 'firma_rejstrik' => 'text', 'firma_zastupce' => 'text', 'firma_dic' => 'vzor:/^([A-Z]{2}[A-Z0-9]{6,12})?$/',
             'firma_ulice' => 'text', 'firma_mesto' => 'text', 'firma_psc' => 'vzor:/^[A-Z0-9 -]{0,10}$/i', 'firma_zeme' => 'vzor:/^[A-Z]{2}$/',
             'firma_telefon' => 'vzor:/^[+()\d\s\/.-]{0,30}$/', 'firma_email' => 'email', 'firma_hodiny' => 'hodiny', 'firma_mapa' => 'url', 'firma_gps' => 'vzor:/^(-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?)?$/',
@@ -56,19 +56,19 @@ class Settings extends Module
             'indexovani' => 'ano', 'schema_org' => 'ano', 'og_obrazek' => 'text', 'overeni_google' => 'vzor:/^[A-Za-z0-9_-]{0,100}$/',
             'overeni_bing' => 'vzor:/^[A-Za-z0-9]{0,64}$/', 'robots_extra' => 'radky', 'ai_crawlery' => 'vyber:povolit|zakazat', 'llms_txt' => 'ano', 'markdown_clanky' => 'ano', 'indexnow' => 'ano',
         ],
-        'mereni' => [
+        'analytics' => [
             'ga4_id' => 'vzor:/^(G-[A-Z0-9]{4,20})?$/', 'matomo_url' => 'url', 'matomo_id' => 'cislo:0:99999',
             'plausible_domena' => 'vzor:/^([a-z0-9.-]{3,100})?$/', 'kod_hlava' => 'kod', 'statistika' => 'ano',
         ],
         'cookies' => ['cookies_rezim' => 'vyber:zadna|vestavena|externi', 'cookies_externi_kod' => 'kod', 'cookies_text' => 'radky', 'cookies_zasady_url' => 'text', 'kod_marketing' => 'kod', 'cookies_evidence' => 'ano', 'cookies_evidence_mesice' => 'cislo:0:120'],
-        'posta' => ['posta_rezim' => 'vyber:mail|smtp', 'posta_od' => 'email', 'posta_odpoved' => 'email', 'smtp_host' => 'vzor:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'cislo:1:65535',
+        'mail' => ['posta_rezim' => 'vyber:mail|smtp', 'posta_od' => 'email', 'posta_odpoved' => 'email', 'smtp_host' => 'vzor:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'cislo:1:65535',
             'smtp_sifrovani' => 'vyber:tls|ssl|zadne', 'smtp_uzivatel' => 'text', 'smtp_heslo' => 'tajne'],
-        'rozsireni' => ['ai_poskytovatel' => 'vyber:' . \Kaleta\Core\Assistant::PROVIDER_KEYS, 'ai_klic' => 'tajne', 'ai_model' => 'vzor:#^[A-Za-z0-9._:/-]{0,80}$#',
+        'extensions' => ['ai_poskytovatel' => 'vyber:' . \Kaleta\Core\Assistant::PROVIDER_KEYS, 'ai_klic' => 'tajne', 'ai_model' => 'vzor:#^[A-Za-z0-9._:/-]{0,80}$#',
             'newsletter_sluzba' => 'vyber:|brevo|mailerlite|mailchimp|ecomail|smartemailing|webhook', 'newsletter_klic' => 'tajne',
             'newsletter_seznam' => 'vzor:#^[A-Za-z0-9_-]{0,64}$#', 'newsletter_webhook' => 'url'],
-        'zalohy' => ['zaloha_vzdalena' => 'vyber:vypnuto|ftp|s3', 'zaloha_host' => 'vzor:#^[A-Za-z0-9.:/-]{0,150}$#', 'zaloha_uzivatel' => 'text', 'zaloha_heslo' => 'tajne',
+        'backups' => ['zaloha_vzdalena' => 'vyber:vypnuto|ftp|s3', 'zaloha_host' => 'vzor:#^[A-Za-z0-9.:/-]{0,150}$#', 'zaloha_uzivatel' => 'text', 'zaloha_heslo' => 'tajne',
             'zaloha_slozka' => 'vzor:#^[A-Za-z0-9._/-]{0,150}$#', 'zaloha_region' => 'vzor:/^[a-z0-9-]{0,40}$/', 'zalohy_auto' => 'ano', 'aktualizace_auto' => 'ano', 'aktualizace_url' => 'url'],
-        'stav' => ['stav_token' => 'vzor:/^[A-Za-z0-9]{0,64}$/'],
+        'health' => ['stav_token' => 'vzor:/^[A-Za-z0-9]{0,64}$/'],
     ];
 
     /**
@@ -80,7 +80,7 @@ class Settings extends Module
     private function fields(string $tab): array
     {
         $field = self::FIELDS[$tab];
-        if ($tab === 'zakladni') {
+        if ($tab === 'general') {
             foreach (\Kaleta\Core\Language::additional($this->app->settings()) as $language) {
                 $field += ['nazev_webu_' . $language => 'text', 'popis_webu_' . $language => 'radky'];
             }
@@ -92,19 +92,19 @@ class Settings extends Module
     /** Neplatné hodnoty: hláška s názvy polí, jak je vidí uživatel, a zadané hodnoty zpět do zvýrazněných polí. */
     private function rejectInvalid(string $tab, array $errors, array $given): Response
     {
-        $template = (string) @file_get_contents(KALETA_SYSTEM . '/views/admin/config/' . $tab . '.php');
+        $template = (string) @file_get_contents(KALETA_SYSTEM . '/views/admin/settings/' . $tab . '.php');
         $names = array_map(fn (string $key): string => preg_match('/\$pole\(\s*\'' . preg_quote($key, '/') . '\',\s*\'([^\']+)\'/', $template, $m) ? '„' . t($m[1]) . '“' : $key, $errors);
-        $this->app->session->set('konfigurace_chybne', ['zalozka' => $tab, 'pole' => $errors, 'hodnoty' => $given]);
+        $this->app->session->set('konfigurace_chybne', ['tab' => $tab, 'pole' => $errors, 'hodnoty' => $given]);
 
-        return $this->back(t('Tato pole nemají platný tvar a neuložila se: %s. Opravte je prosím (jsou zvýrazněná), ostatní nastavení je uložené.', implode(', ', $names)), '', static::IDENT === 'config' ? ['zalozka' => $tab] : [], 'chyba');
+        return $this->back(t('Tato pole nemají platný tvar a neuložila se: %s. Opravte je prosím (jsou zvýrazněná), ostatní nastavení je uložené.', implode(', ', $names)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'chyba');
     }
 
-    protected function akceVypis(): Response
+    protected function actionList(): Response
     {
-        if (static::IDENT === 'config' && $this->request->get('zalozka') === 'rozsireni') {
-            return Response::redirect($this->app->url('admin.php?modul=rozsireni')); // Rozšíření mají vlastní položku v nabídce
+        if (static::IDENT === 'settings' && $this->request->get('tab') === 'extensions') {
+            return Response::redirect($this->app->url('admin.php?module=extensions')); // Rozšíření mají vlastní položku v nabídce
         }
-        $tab = $this->tab($this->request->get('zalozka'));
+        $tab = $this->tab($this->request->get('tab'));
         $settings = $this->app->settings();
         $values = [];
         foreach ($this->fields($tab) as $key => $type) {
@@ -116,30 +116,30 @@ class Settings extends Module
 
         $invalid = $this->app->session->get('konfigurace_chybne');
         $this->app->session->set('konfigurace_chybne', null);
-        $invalid = is_array($invalid) && ($invalid['zalozka'] ?? '') === $tab ? $invalid : ['pole' => [], 'hodnoty' => []];
+        $invalid = is_array($invalid) && ($invalid['tab'] ?? '') === $tab ? $invalid : ['pole' => [], 'hodnoty' => []];
 
         return $this->view('list', 'Nastavení', [
             'tab' => $tab,
             'invalidFields' => $invalid['pole'],
             'values' => $invalid['hodnoty'] + $values + ['layout' => $settings->get('layout')],
             'layouts' => Layouts::listAll(),
-            'checks' => $tab === 'stav' ? Health::checks($this->app) : [],
+            'checks' => $tab === 'health' ? Health::checks($this->app) : [],
             'remoteStatus' => $settings->get('zaloha_vzdalena_stav'),
             'tasksToken' => $settings->get('ulohy_token'),
-            'errorLog' => $tab === 'stav' ? self::readFileTail(KALETA_ROOT . '/storage/log/chyby.log', 40) : [],
-            'mail' => $tab === 'posta' ? $this->db->all('SELECT komu, predmet, vytvoreno, odeslano, pokusu, dalsi_pokus, chyba FROM {posta} ORDER BY idp DESC LIMIT 30') : [],
+            'errorLog' => $tab === 'health' ? self::readFileTail(KALETA_ROOT . '/storage/log/chyby.log', 40) : [],
+            'mail' => $tab === 'mail' ? $this->db->all('SELECT komu, predmet, vytvoreno, odeslano, pokusu, dalsi_pokus, chyba FROM {posta} ORDER BY idp DESC LIMIT 30') : [],
             'enabledExtensions' => Extensions::enabled($settings),
-            'pages' => $tab === 'zakladni' ? $this->db->pairs("SELECT ids, titulek FROM {stranky} WHERE zobrazit = 1 AND jazyk = '' ORDER BY poradi, titulek") : [],
-            'backups' => $tab === 'zalohy' ? Backup::listAll() : [],
-            'update' => $tab === 'zalohy' ? (new Updater($settings))->state() : null,
+            'pages' => $tab === 'general' ? $this->db->pairs("SELECT ids, titulek FROM {stranky} WHERE zobrazit = 1 AND jazyk = '' ORDER BY poradi, titulek") : [],
+            'backups' => $tab === 'backups' ? Backup::listAll() : [],
+            'update' => $tab === 'backups' ? (new Updater($settings))->state() : null,
             'siteUrl' => $this->app->request->origin() . $this->app->url(''),
             'consents' => $tab === 'cookies' ? $this->db->all("SELECT kategorie, COUNT(*) AS pocet FROM {souhlasy} WHERE cas > NOW() - INTERVAL 30 DAY GROUP BY kategorie ORDER BY pocet DESC") : [],
         ]);
     }
 
-    protected function akceUloz(): Response
+    protected function actionSave(): Response
     {
-        $tab = $this->tab($this->request->post('zalozka'));
+        $tab = $this->tab($this->request->post('tab'));
         if (!$this->request->isPost()) {
             return $this->back();
         }
@@ -174,13 +174,13 @@ class Settings extends Module
         if ($tab === 'seo' && $settings->bool('indexnow') && $settings->get('indexnow_klic') === '') {
             $settings->set('indexnow_klic', bin2hex(random_bytes(16)));
         }
-        if ($tab === 'rozsireni') {
+        if ($tab === 'extensions') {
             Extensions::save($settings, $this->request->postList('rozsireni'));
             if (Extensions::isEnabled($settings, 'novinky')) {
                 Categories::createDefault($this->db, $settings); // novinky zapnuté po instalaci: rovnou s kategorií, jako z instalace
             }
             if (($this->request->post('ai_klic') !== '' || $this->request->post('ai_poskytovatel') !== $this->request->post('ai_poskytovatel_puvodni')) && $settings->get('ai_klic') !== '' && ($keyError = (new \Kaleta\Core\Assistant($settings))->verifyKey()) !== null) {
-                return $this->back(t('Nastavení je uložené, ale klíč asistenta nefunguje: %s', t($keyError)), '', static::IDENT === 'config' ? ['zalozka' => $tab] : [], 'chyba');
+                return $this->back(t('Nastavení je uložené, ale klíč asistenta nefunguje: %s', t($keyError)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'chyba');
             }
         }
         if ($this->request->postBool('novy_token_ulohy')) {
@@ -191,11 +191,11 @@ class Settings extends Module
         }
 
         return $errors === []
-            ? $this->back('Nastavení bylo uloženo.', '', static::IDENT === 'config' ? ['zalozka' => $tab] : [])
+            ? $this->back('Nastavení bylo uloženo.', '', static::IDENT === 'settings' ? ['tab' => $tab] : [])
             : $this->rejectInvalid($tab, $errors, $given);
     }
 
-    protected function akceZalohuj(): Response
+    protected function actionBackup(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back();
@@ -203,17 +203,17 @@ class Settings extends Module
         try {
             $file = Backup::create($this->db);
         } catch (\Throwable $e) {
-            return $this->back(t('Zálohu se nepodařilo vytvořit: %s', t($e->getMessage())), '', ['zalozka' => 'zalohy'], 'chyba');
+            return $this->back(t('Zálohu se nepodařilo vytvořit: %s', t($e->getMessage())), '', ['tab' => 'backups'], 'chyba');
         }
         $remote = \Kaleta\Core\RemoteBackup::upload($this->app->settings(), (string) Backup::path($file));
         if ($remote !== null) {
-            return $this->back(t('Záloha %s je hotová, ale kopii mimo server se nepodařilo nahrát: %s', $file, t($remote)), '', ['zalozka' => 'zalohy'], 'chyba');
+            return $this->back(t('Záloha %s je hotová, ale kopii mimo server se nepodařilo nahrát: %s', $file, t($remote)), '', ['tab' => 'backups'], 'chyba');
         }
 
-        return $this->back(t('Záloha %s je hotová.', $file), '', ['zalozka' => 'zalohy']);
+        return $this->back(t('Záloha %s je hotová.', $file), '', ['tab' => 'backups']);
     }
 
-    protected function akceStahniZalohu(): Response
+    protected function actionDownloadBackup(): Response
     {
         $path = Backup::path($this->request->get('soubor'));
         if ($path === null) {
@@ -227,24 +227,24 @@ class Settings extends Module
         ]);
     }
 
-    protected function akceSmazZalohu(): Response
+    protected function actionDeleteBackup(): Response
     {
         $path = Backup::path($this->request->post('soubor'));
         if ($this->request->isPost() && $path !== null) {
             unlink($path);
         }
 
-        return $this->back('Záloha byla smazána.', '', ['zalozka' => 'zalohy']);
+        return $this->back('Záloha byla smazána.', '', ['tab' => 'backups']);
     }
 
     /** Vyprázdní záznam chyb aplikace. */
-    protected function akceSmazLog(): Response
+    protected function actionDeleteLog(): Response
     {
         if ($this->request->isPost() && is_file(KALETA_ROOT . '/storage/log/chyby.log')) {
             file_put_contents(KALETA_ROOT . '/storage/log/chyby.log', '');
         }
 
-        return $this->back('Záznam chyb je prázdný.', '', ['zalozka' => 'stav']);
+        return $this->back('Záznam chyb je prázdný.', '', ['tab' => 'health']);
     }
 
     /**
@@ -266,10 +266,10 @@ class Settings extends Module
     }
 
     /** Obnova databáze ze zálohy; těsně před ní vznikne pojistná záloha současného stavu. */
-    protected function akceObnovZalohu(): Response
+    protected function actionRestoreBackup(): Response
     {
         if (!$this->request->isPost()) {
-            return $this->back('', '', ['zalozka' => 'zalohy']);
+            return $this->back('', '', ['tab' => 'backups']);
         }
         try {
             $safetyBackup = Backup::create($this->db, 'predobnovou');
@@ -287,25 +287,25 @@ class Settings extends Module
             }
             \Kaleta\Front\Cache::clear();
 
-            return $this->back(t('Obnova se nezdařila: %s', t($e->getMessage())) . ' ' . ($reverted ? t('Databáze je zpět ve stavu před obnovou.') : (isset($safetyBackup) ? t('Stav před obnovou je v záloze %s – obnovte ji prosím.', $safetyBackup) : '')), '', ['zalozka' => 'zalohy'], 'chyba');
+            return $this->back(t('Obnova se nezdařila: %s', t($e->getMessage())) . ' ' . ($reverted ? t('Databáze je zpět ve stavu před obnovou.') : (isset($safetyBackup) ? t('Stav před obnovou je v záloze %s – obnovte ji prosím.', $safetyBackup) : '')), '', ['tab' => 'backups'], 'chyba');
         }
         \Kaleta\Front\Cache::clear();
 
-        return $this->back(t('Databáze byla obnovena ze zálohy (příkazů: %d). Stav před obnovou je uložený v záloze %s.', $statementCount, $safetyBackup), '', ['zalozka' => 'zalohy']);
+        return $this->back(t('Databáze byla obnovena ze zálohy (příkazů: %d). Stav před obnovou je uložený v záloze %s.', $statementCount, $safetyBackup), '', ['tab' => 'backups']);
     }
 
     /** Znovu zjistí, zda je k dispozici novější verze. */
-    protected function akceZkontroluj(): Response
+    protected function actionCheck(): Response
     {
         if ($this->request->isPost()) {
             (new Updater($this->app->settings()))->state(true);
         }
 
-        return $this->back('', '', ['zalozka' => 'zalohy']);
+        return $this->back('', '', ['tab' => 'backups']);
     }
 
     /** Stáhne, ověří a nainstaluje novou verzi. Před tím zazálohuje databázi. */
-    protected function akceAktualizuj(): Response
+    protected function actionUpdate(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back();
@@ -314,17 +314,17 @@ class Settings extends Module
             Backup::create($this->db, 'predaktualizaci');
             $version = (new Updater($this->app->settings()))->install($this->app->db());
         } catch (\Throwable $e) {
-            return $this->back(t('Aktualizace se nezdařila: %s Na webu se nic nezměnilo.', t($e->getMessage())), '', ['zalozka' => 'zalohy'], 'chyba');
+            return $this->back(t('Aktualizace se nezdařila: %s Na webu se nic nezměnilo.', t($e->getMessage())), '', ['tab' => 'backups'], 'chyba');
         }
 
-        return $this->back(t('Systém byl aktualizován na verzi %s. Databáze se upraví sama při příštím načtení administrace.', $version), '', ['zalozka' => 'zalohy']);
+        return $this->back(t('Systém byl aktualizován na verzi %s. Databáze se upraví sama při příštím načtení administrace.', $version), '', ['tab' => 'backups']);
     }
 
     /** Záloha nahraných médií: ZIP složky media/ ke stažení. */
-    protected function akceZalohaMedii(): Response
+    protected function actionMediaBackup(): Response
     {
         if (!class_exists(\ZipArchive::class) || !is_dir(KALETA_ROOT . '/media')) {
-            return $this->back('Na serveru chybí rozšíření zip – média si stáhněte přes FTP.', '', ['zalozka' => 'zalohy'], 'chyba');
+            return $this->back('Na serveru chybí rozšíření zip – média si stáhněte přes FTP.', '', ['tab' => 'backups'], 'chyba');
         }
         $file = KALETA_ROOT . '/storage/cache/media-' . bin2hex(random_bytes(6)) . '.zip';
         $zip = new \ZipArchive();
@@ -338,7 +338,7 @@ class Settings extends Module
         }
         $zip->close();
         if (!is_file($file)) {
-            return $this->back('Ve složce media/ zatím nic není.', '', ['zalozka' => 'zalohy'], 'chyba');
+            return $this->back('Ve složce media/ zatím nic není.', '', ['tab' => 'backups'], 'chyba');
         }
         register_shutdown_function(static fn () => @unlink($file));
         header('Content-Type: application/zip');
@@ -349,11 +349,11 @@ class Settings extends Module
     }
 
     /** Zkušební e-mail na e-mail webu - ověří, že server umí odesílat poštu. */
-    protected function akceTestPosty(): Response
+    protected function actionTestMail(): Response
     {
         $recipient = $this->app->settings()->get('email_webu');
         if (!$this->request->isPost() || $recipient === '') {
-            return $this->back('Nejprve vyplňte E-mail webu v záložce Základní.', '', ['zalozka' => $this->request->post('zalozka') === 'posta' ? 'posta' : 'stav'], 'chyba');
+            return $this->back('Nejprve vyplňte E-mail webu v záložce Základní.', '', ['tab' => $this->request->post('tab') === 'mail' ? 'mail' : 'health'], 'chyba');
         }
         $siteSettings = $this->app->settings()->get('nazev_webu');
         // e-mail webu nemá účet s jazykem: zpráva jde ve výchozím jazyce webu (stejně jako ostatní pošta webu)
@@ -362,7 +362,7 @@ class Settings extends Module
             t('Dobrý den,') . "\n\n" . t('tato zpráva potvrzuje, že web %s umí odesílat e-maily.', $siteSettings) . "\n\nKaleta " . KALETA_VERSION,
         ], 'admin-');
         $ok = \Kaleta\Core\Mail::send($this->app->settings(), $recipient, $subject, $text, queueOnFailure: false);
-        $back = $this->request->post('zalozka') === 'posta' ? 'posta' : 'stav';
+        $back = $this->request->post('tab') === 'mail' ? 'mail' : 'health';
 
         return $this->back(
             match (true) {
@@ -371,14 +371,14 @@ class Settings extends Module
                 default => t('Zpráva byla předána k odeslání na %s. Pokud nedorazí, zkontrolujte spam – nebo nastavte odesílání přes SMTP (Nastavení → Pošta).', $recipient),
             },
             '',
-            ['zalozka' => $back],
+            ['tab' => $back],
             $ok ? 'ok' : 'chyba',
         );
     }
 
     protected function tab(string $tab): string
     {
-        return isset(self::TABS[$tab]) ? $tab : 'zakladni';
+        return isset(self::TABS[$tab]) ? $tab : 'general';
     }
 
     /** @return string|null vyčištěná hodnota, null = neplatná */
