@@ -108,6 +108,7 @@ final class Kernel
         if ($app->auth()->user() !== null) {
             Modules\News::emptyTrash($app->db()); // the trash keeps news and pages for 30 days
             Modules\Pages::emptyTrash($app->db());
+            Modules\Collections::emptyTrash($app->db());
         }
 
         $ident = $request->get('module');

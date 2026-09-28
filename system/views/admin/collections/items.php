@@ -10,6 +10,8 @@
  * @var list<string> $languages other languages of the site (a detail template for each one separately)
  * @var list<string> $siteLanguages all languages of the site for the filter (empty = a single language)
  * @var string $language language selected in the filter ('' = all)
+ * @var bool $trash the trash is shown
+ * @var int $inTrash items in the trash
  */
 ?>
 <p class="navigace-radek"><a class="tl" href="<?= e($module->url('item', ['id' => $k['idk']])) ?>"><?= e(t('Add item')) ?></a>
@@ -23,6 +25,36 @@
 <?php endforeach ?>
 <?php endif ?>
 <?php endif ?></p>
+<?php if ($inTrash > 0 || $trash): ?>
+<nav class="zalozky" aria-label="<?= e(t('Items')) ?>">
+	<a href="<?= e($module->url('items', ['id' => $k['idk']])) ?>"<?= $trash ? '' : ' class="aktivni" aria-current="true"' ?>><?= e(t('Všechny')) ?></a>
+	<a href="<?= e($module->url('items', ['id' => $k['idk'], 'stav' => 'kos'])) ?>"<?= $trash ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Trash')) ?> (<?= $inTrash ?>)</a>
+</nav>
+<?php endif ?>
+<?php if ($trash): ?>
+<?php if ($items === []): ?>
+<?= $app->view->render('admin/empty', ['icon' => 'kolekce', 'heading' => t('The trash is empty.'), 'text' => t('Deleted items stay here for 30 days, then they are deleted permanently.'), 'action' => [$module->url('items', ['id' => $k['idk']]), t('Back to items')]]) ?>
+<?php else: ?>
+<p class="smltxt"><?= e(t('Items in the trash are not on the site. A restored item comes back hidden; after 30 days it is permanently deleted from the trash.')) ?></p>
+<div class="tab-obal">
+<table class="vypis">
+<thead><tr><th scope="col"><?= e(t('Název')) ?></th><th scope="col"><?= e(t('In trash since')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<tbody>
+<?php foreach ($items as $p): ?>
+<tr class="nevydany">
+	<td><?= e($p['nazev']) ?><?= $p['jazyk'] !== '' ? ' <span class="stitek">' . e(strtoupper($p['jazyk'])) . '</span>' : '' ?></td>
+	<td class="cislo"><?= e(format_date((string) $p['smazano'], true)) ?></td>
+	<td class="akce">
+		<form class="vradku" method="post" action="<?= e($module->url('restore_item')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace" type="submit"><?= e(t('Restore')) ?></button></form> ·
+		<form class="vradku" method="post" action="<?= e($module->url('delete_item_permanently')) ?>" data-potvrdit="<?= e(t('Delete the item permanently? This cannot be undone.')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete permanently')) ?></button></form>
+	</td>
+</tr>
+<?php endforeach ?>
+</tbody>
+</table>
+</div>
+<?php endif ?>
+<?php else: ?>
 <?php if ($siteLanguages !== []): ?>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt"><input type="hidden" name="module" value="collections"><input type="hidden" name="action" value="items"><input type="hidden" name="id" value="<?= (int) $k['idk'] ?>"><?= $app->view->render('admin/language_filter', ['siteLanguages' => $siteLanguages, 'language' => $language, 'submitOnChange' => true]) ?></form>
 <?php endif ?>
@@ -40,10 +72,11 @@
 	<td><span class="stitek stitek-<?= $p['zobrazit'] ? 'vydano' : 'koncept' ?>"><?= e(t($p['zobrazit'] ? 'zveřejněná' : 'skrytá')) ?></span></td>
 	<td class="akce"><?php if ($k['detail'] && $p['zobrazit']): ?><a href="<?= e($app->url(($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $k['seo_link'] . '/' . $p['seo_link'])) ?>" target="_blank" rel="noopener"><?= e(t('Show')) ?></a> · <?php endif ?>
 		<form class="vradku" method="post" action="<?= e($module->url('duplicate_item')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace" type="submit"><?= e(t('Duplicate')) ?></button></form> ·
-		<form class="vradku" method="post" action="<?= e($module->url('delete_item')) ?>" data-potvrdit="<?= e(t('Really delete this item?')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
+		<form class="vradku" method="post" action="<?= e($module->url('delete_item')) ?>" data-potvrdit="<?= e(t('Move the item to the trash? It disappears from the site; you can restore it for 30 days.')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
 </tr>
 <?php endforeach ?>
 </tbody>
 </table>
 </div>
+<?php endif ?>
 <?php endif ?>

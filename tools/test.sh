@@ -525,6 +525,73 @@ expect "MCP: podstránka s plánovaným zveřejněním" "$("${MYSQL[@]}" "$DB_NA
 mcp seznam_poptavek '{"stav":"vse"}' > "$WORK/response"
 expect "MCP: poptávky s kampaní" "$(mcp_value 0 email)|$(mcp_value 0 kampan)" "jana@example.cz|newsletter / email / jaro"
 
+echo "== Claude (MCP): trash, deleting and the rest of the admin (1.6)"
+sq() { "${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "$1"; }
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$WORK/response"
+php -r '$t = array_column(json_decode(file_get_contents($argv[1]), true)["result"]["tools"], "annotations", "name"); exit($t["list_pages"]["readOnlyHint"] === true && $t["trash_page"]["destructiveHint"] === true && $t["create_page"]["readOnlyHint"] === false && $t["delete_collection"]["destructiveHint"] === true ? 0 : 1);' "$WORK/response" \
+  && echo "  ok     MCP: tools carry annotations (read-only, destructive)" || { echo "  CHYBA  MCP annotations"; ERRORS=$((ERRORS+1)); }
+mcp site_info '{}' > "$WORK/response"
+expect "MCP: site_info lists extensions and languages" "$(mcp_value extensions | grep -c novinky)|$(mcp_value languages default)" "1|cs"
+mcp create_collection '{"name":"Kos test","fields":[{"label":"Popis","type":"text"}]}' > /dev/null
+mcp save_collection_item '{"collection":"kos-test","name":"Polozka","visible":true}' > "$WORK/response"; ITEM=$(mcp_value id)
+mcp delete_collection_item "{\"collection\":\"kos-test\",\"id\":$ITEM}" > /dev/null
+expect "MCP: a collection item goes to the trash, hidden" "$(sq "SELECT CONCAT(smazano IS NOT NULL, zobrazit) FROM ka_kolekce_polozky WHERE idp = $ITEM")" "10"
+check "collection trash in the admin" 200 "/admin.php?module=collections&action=items&id=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'kos-test'")&stav=kos" "Polozka"
+mcp list_trash '{}' > "$WORK/response"
+expect "MCP: list_trash shows the item" "$(mcp_value collection_items 0 name)" "Polozka"
+mcp restore_from_trash "{\"type\":\"collection_item\",\"id\":$ITEM}" > /dev/null
+expect "MCP: restored from the trash as hidden" "$(sq "SELECT CONCAT(smazano IS NULL, zobrazit) FROM ka_kolekce_polozky WHERE idp = $ITEM")" "10"
+mcp delete_collection '{"collection":"kos-test"}' > /dev/null
+expect "MCP: delete_collection removes it with its items" "$(sq "SELECT COUNT(*) FROM ka_kolekce WHERE seo_link = 'kos-test'")|$(sq "SELECT COUNT(*) FROM ka_kolekce_polozky WHERE idp = $ITEM")" "0|0"
+CATEGORY=$(sq "SELECT nazev FROM ka_kategorie WHERE jazyk = '' ORDER BY idt LIMIT 1")
+mcp create_news "{\"title\":\"Do kose\",\"category\":\"$CATEGORY\"}" > "$WORK/response"; NEWS=$(sq "SELECT idc FROM ka_novinky WHERE titulek = 'Do kose'")
+mcp trash_news "{\"id\":$NEWS}" > /dev/null
+expect "MCP: trash_news" "$(sq "SELECT smazano IS NOT NULL FROM ka_novinky WHERE idc = $NEWS")" "1"
+mcp restore_from_trash "{\"type\":\"news\",\"id\":$NEWS}" > /dev/null
+expect "MCP: a news item back from the trash as a draft" "$(sq "SELECT CONCAT(smazano IS NULL, visible) FROM ka_novinky WHERE idc = $NEWS")" "10"
+mcp create_category '{"name":"Docasna"}' > /dev/null; CAT=$(sq "SELECT idt FROM ka_kategorie WHERE nazev = 'Docasna'")
+mcp update_category "{\"id\":$CAT,\"name\":\"Docasna 2\",\"slug\":\"docasna-2\"}" > /dev/null
+expect "MCP: update_category renames and redirects the old address" "$(sq "SELECT CONCAT(nazev, '|', seo_link) FROM ka_kategorie WHERE idt = $CAT")|$(sq "SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy LIKE '%kategorie/docasna'")" "Docasna 2|docasna-2|1"
+mcp delete_category "{\"id\":$(sq "SELECT tema FROM ka_novinky WHERE idc = $NEWS")}" | contains 'still has news items' && echo "  ok     MCP: a category with news items is not deleted" || { echo "  CHYBA  MCP: delete_category of a used category"; ERRORS=$((ERRORS+1)); }
+mcp delete_category "{\"id\":$CAT}" > /dev/null
+expect "MCP: delete_category" "$(sq "SELECT COUNT(*) FROM ka_kategorie WHERE idt = $CAT")" "0"
+mcp save_component '{"name":"Karta","properties":[{"klic":"titulek","popisek":"Titulek","typ":"text","vychozi":"Ahoj"}]}' > "$WORK/response"; COMP=$(mcp_value id)
+mcp save_build "{\"component\":$COMP,\"build\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"typ\":\"nadpis\",\"obsah\":{\"text\":\"{{titulek}}\"}}]}]}}" > /dev/null
+mcp publish_build "{\"component\":$COMP}" > /dev/null
+expect "MCP: a component built and published through the component target" "$(sq "SELECT stavba LIKE '%{{titulek}}%' AND stavba_koncept IS NULL FROM ka_komponenty WHERE idm = $COMP")" "1"
+mcp list_components '{}' > "$WORK/response"
+expect "MCP: list_components" "$(mcp_value 0 name)|$(mcp_value 0 published)" "Karta|1"
+mcp delete_component "{\"id\":$COMP}" > /dev/null
+expect "MCP: delete_component" "$(sq "SELECT COUNT(*) FROM ka_komponenty WHERE idm = $COMP")" "0"
+PAGE=$(sq "SELECT ids FROM ka_stranky WHERE stavba IS NOT NULL AND smazano IS NULL ORDER BY ids LIMIT 1")
+ELEMENT=$(sq "SELECT COALESCE(stavba_koncept, stavba) FROM ka_stranky WHERE ids = $PAGE" | php -r 'echo json_decode(stream_get_contents(STDIN), true)["deti"][0]["id"];')
+mcp save_section "{\"id\":$PAGE,\"element\":\"$ELEMENT\",\"name\":\"Moje sekce z MCP\"}" > "$WORK/response"; SECTION=$(mcp_value id)
+mcp builder_schema '{}' | contains 'Moje sekce z MCP' && echo "  ok     MCP: saved sections in builder_schema" || { echo "  CHYBA  MCP: saved sections missing in builder_schema"; ERRORS=$((ERRORS+1)); }
+BEFORE=$(sq "SELECT JSON_LENGTH(COALESCE(stavba_koncept, stavba), '$.deti') FROM ka_stranky WHERE ids = $PAGE")
+mcp insert_section "{\"id\":$PAGE,\"saved_section\":$SECTION}" > /dev/null
+expect "MCP: insert_section with a saved section adds it with new ids" "$(sq "SELECT JSON_LENGTH(stavba_koncept, '$.deti') FROM ka_stranky WHERE ids = $PAGE")|$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(stavba_koncept, CONCAT('$.deti[', JSON_LENGTH(stavba_koncept, '$.deti') - 1, '].id'))) <> '$ELEMENT' FROM ka_stranky WHERE ids = $PAGE")" "$((BEFORE + 1))|1"
+mcp discard_draft "{\"id\":$PAGE}" > /dev/null; mcp delete_section "{\"id\":$SECTION}" > /dev/null
+expect "MCP: delete_section" "$(sq "SELECT COUNT(*) FROM ka_sekce WHERE idx = $SECTION")" "0"
+mcp save_popup '{"template":"announcement_bar","name":"Na smazani"}' > "$WORK/response"; POPUP=$(sq "SELECT idpp FROM ka_popupy WHERE nazev = 'Na smazani'")
+mcp delete_popup "{\"id\":$POPUP}" > /dev/null
+expect "MCP: delete_popup" "$(sq "SELECT COUNT(*) FROM ka_popupy WHERE idpp = $POPUP")" "0"
+PNG=$(php -r 'ob_start(); imagepng(imagecreatetruecolor(8, 8)); echo base64_encode(ob_get_clean());')
+mcp upload_file "{\"filename\":\"mcp-smazat.png\",\"data\":\"$PNG\"}" > /dev/null; MEDIA=$(sq "SELECT ido FROM ka_media ORDER BY ido DESC LIMIT 1")
+mcp update_media "{\"id\":$MEDIA,\"alt\":\"Cerny ctverec\",\"caption\":\"Popisek\"}" > /dev/null
+expect "MCP: update_media" "$(sq "SELECT CONCAT(nazev, '|', popis) FROM ka_media WHERE ido = $MEDIA")" "Cerny ctverec|Popisek"
+FILE=$(sq "SELECT obr_poloha FROM ka_media WHERE ido = $MEDIA")
+mcp delete_media "{\"id\":$MEDIA}" > /dev/null
+expect "MCP: delete_media removes the record and the file" "$(sq "SELECT COUNT(*) FROM ka_media WHERE ido = $MEDIA")|$([ -e "$WORK/web/$FILE" ] && echo file || echo gone)" "0|gone"
+USED=$(sq "SELECT ido FROM ka_media m WHERE EXISTS (SELECT 1 FROM ka_stranky s WHERE CONCAT_WS(' ', s.stavba, s.stavba_koncept, s.text) LIKE CONCAT('%', REPLACE(m.obr_poloha, '/', '%'), '%')) LIMIT 1")
+[ -z "$USED" ] || { mcp delete_media "{\"id\":$USED}" | contains 'still used on the site' && echo "  ok     MCP: a file in use is not deleted" || { echo "  CHYBA  MCP: delete_media deleted a file in use"; ERRORS=$((ERRORS+1)); }; }
+READS=$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'claude' AND akce = 'list_enquiries'"); mcp list_enquiries '{}' > /dev/null
+expect "MCP: every enquiry read is in the change log" "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'claude' AND akce = 'list_enquiries'")" "$((READS + 1))"
+sq "INSERT INTO ka_poptavky (datum, email, data) VALUES (NOW(), 'mcp@example.cz', '[]')"; ENQUIRY=$(sq "SELECT MAX(idp) FROM ka_poptavky")
+mcp update_enquiry "{\"id\":$ENQUIRY,\"status\":\"resolved\",\"note\":\"Vyrizeno pres Clauda\"}" > /dev/null
+expect "MCP: update_enquiry" "$(sq "SELECT CONCAT(stav, '|', poznamka) FROM ka_poptavky WHERE idp = $ENQUIRY")" "2|Vyrizeno pres Clauda"
+mcp delete_enquiry "{\"id\":$ENQUIRY}" > /dev/null
+expect "MCP: delete_enquiry" "$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE idp = $ENQUIRY")" "0"
+
 echo "== pop-up okna"
 check "pop-up okna v administraci" 200 "/admin.php?module=popups" "Zatím žádná pop-up okna"
 check "nové okno ze vzoru" 200 "/admin.php?module=popups&action=new" 'name="vzor" value="newsletter"'

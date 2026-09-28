@@ -595,6 +595,17 @@ final class Library
         return ['prvek' => $element, 'tridy' => array_keys($classes)];
     }
 
+    /** A copy of an element with new ids throughout (a saved section inserted again must not repeat the ids in the build). */
+    public static function withNewIds(array $element): array
+    {
+        $element['id'] = Build::newId();
+        if (is_array($element['deti'] ?? null)) {
+            $element['deti'] = array_map(fn (mixed $d): mixed => is_array($d) ? self::withNewIds($d) : $d, $element['deti']);
+        }
+
+        return $element;
+    }
+
     /** Creates the missing library classes (never overwrites an existing class of the site). */
     public static function createClasses(\Kaleta\Core\Db $db, array $names): void
     {

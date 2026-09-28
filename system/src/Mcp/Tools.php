@@ -69,7 +69,8 @@ final class Tools
             'jazyk' => $text('Jazyk části webu nebo šablony detailu kolekce u vícejazyčného webu (prázdné = výchozí)'),
             'varianta' => $text('Varianta záhlaví nebo patičky (klíč ze seznam_casti; prázdné = výchozí podoba)'),
             'kolekce' => $text('Místo stránky šablona detailu položek kolekce (adresa kolekce z seznam_kolekci, jen správce); s „jazyk“ šablona té jazykové verze'),
-            'popup' => $number('Místo stránky obsah pop-up okna (ID ze seznam_popupu, jen správce)')];
+            'popup' => $number('Místo stránky obsah pop-up okna (ID ze seznam_popupu, jen správce)'),
+            'komponenta' => $number('Místo stránky stavba komponenty (ID z list_components, jen správce) – změna se projeví všude, kde je použitá')];
         $tools = [
             ['info_o_webu', 'Název webu, úvodní stránka, šablona, počty stránek a novinek, role přihlášeného uživatele a jeho oprávnění.', $s([])],
             ['seznam_stranek', 'Stránky webu (Úvod, O nás, Služby, Kontakt…) s adresami.', $s([])],
@@ -104,7 +105,7 @@ final class Tools
                     'publikovat' => ['type' => 'boolean', 'description' => 'true = hned publikovat (jen na výslovný pokyn uživatele); jinak koncept k náhledu']], ['html'])],
             ['stavba_uloz', 'Uloží celou stavbu stránky (strom z stavba_nacti s úpravami) jako koncept. Pro drobné úpravy obsahu a stylu jednotlivých prvků. Vrátí vyčištěnou stavbu, chyby a kontrolu před publikováním.',
                 $s($target + ['stavba' => ['type' => 'object', 'description' => '{"v":1,"deti":[…]} podle stavba_schema'], 'publikovat' => ['type' => 'boolean', 'description' => 'true = publikovat (jen na výslovný pokyn uživatele)']], ['stavba'])],
-            ['vloz_sekci', 'Vloží hotovou sekci z knihovny (úvod, výhody, služby, čísla, reference, faq, výzva, novinky, kontakt) na konec konceptu stránky nebo části webu.', $s($target + ['sekce' => $text('klíč sekce ze stavba_schema → knihovna')], ['sekce'])],
+            ['vloz_sekci', 'Vloží hotovou sekci z knihovny (úvod, výhody, služby, čísla, reference, faq, výzva, novinky, kontakt) na konec konceptu stránky nebo části webu.', $s($target + ['sekce' => $text('klíč sekce ze stavba_schema → knihovna'), 'saved_section' => $number('místo sekce z knihovny sekce uložená v builderu (ID ze stavba_schema → saved_sections)')])],
             ['publikuj_stavbu', 'Publikuje koncept stavby stránky nebo části webu (jen na výslovný pokyn uživatele). Předchozí verze zůstane v historii.', $s($target)],
             ['stavba_verze', 'Publikované verze stavby stránky nebo části webu (posledních 20): idr, kdy, kdo. Starší verzi načte do konceptu obnov_verzi.', $s($target)],
             ['obnov_verzi', 'Načte starší publikovanou verzi (idr ze stavba_verze) do konceptu – na webu se ukáže až po publikování.', $s($target + ['idr' => $number('ID verze ze stavba_verze')], ['idr'])],
@@ -168,6 +169,32 @@ final class Tools
             ['seznam_presmerovani', 'Přesměrování starých adres (rozšíření Přesměrování) a nejčastější adresy, které skončily chybou 404.', $s([])],
             ['uloz_presmerovani', 'Přidá nebo změní přesměrování (správce): ze staré cesty na webu na novou cestu nebo https adresu. Typ 301 = natrvalo (výchozí), 302 = dočasně.',
                 $s(['z' => $text('stará cesta, např. /docs nebo /o-nas'), 'na' => $text('nová cesta (/guide) nebo https://…'), 'typ' => $number('301 nebo 302'), 'smazat' => ['type' => 'boolean', 'description' => 'true = přesměrování ze staré cesty smazat']], ['z'])],
+            ['list_trash', 'Pages, news items and collection items in the trash (deleted in the last 30 days, then removed for good), with the date of deletion – what restore_from_trash can bring back.', $s([])],
+            ['restore_from_trash', 'Brings a page, news item or collection item back from the trash. It comes back hidden (a news item as a draft) – make it visible only when the user asks.',
+                $s(['type' => $text('page | news | collection_item'), 'id' => $number('ID from list_trash')], ['type', 'id'])],
+            ['trash_news', 'Moves a news item to the trash (only when the user explicitly asks). It disappears from the site and can be restored for 30 days. A published one needs the publishing permission.', $s(['id' => $number('news item ID')], ['id'])],
+            ['delete_collection_item', 'Moves a collection item to the trash (only when the user explicitly asks). It disappears from the site and can be restored for 30 days.',
+                $s(['collection' => $text('collection slug'), 'id' => $number('item ID')], ['collection', 'id'])],
+            ['delete_collection', 'Deletes a whole collection with all its items and its item template, for good (administrators; only when the user explicitly asks for this collection). Lists and pages that show it become empty.',
+                $s(['collection' => $text('collection slug')], ['collection'])],
+            ['update_category', 'Changes a news category: name, description, slug (the old address redirects) or order (editors and administrators).',
+                $s(['id' => $number('category ID from list_categories'), 'name' => $text('new name'), 'description' => $text('description as HTML'), 'slug' => $text('new slug'), 'order' => $number('order, lower = first')], ['id'])],
+            ['delete_category', 'Deletes an empty news category (editors and administrators; only when the user explicitly asks). A category with news items – even in the trash – cannot be deleted.', $s(['id' => $number('category ID')], ['id'])],
+            ['delete_popup', 'Deletes a pop-up window for good, with its counters (administrators; only when the user explicitly asks).', $s(['id' => $number('pop-up ID from list_popups')], ['id'])],
+            ['list_components', 'Components of the site: a reusable block with properties (name, button text…) placed on pages with the komponenta element. Edit the build with the *_build tools and the component parameter.', $s([])],
+            ['save_component', 'Creates a component (without id – it starts with an empty section) or renames it and changes its properties (administrators). Properties: [{"klic":"title","popisek":"Title","typ":"text","vychozi":"…"}].',
+                $s(['id' => $number('component ID – only when changing it'), 'name' => $text('component name'),
+                    'properties' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => 'the whole list of properties: klic, popisek, typ (text | radky | obrazek | odkaz), vychozi']])],
+            ['delete_component', 'Deletes a component for good (administrators; only when the user explicitly asks). Places where it is used become empty.', $s(['id' => $number('component ID')], ['id'])],
+            ['save_section', 'Saves an element of a build (usually a section) as a reusable section – it then appears under saved sections in the builder and in builder_schema.',
+                $s($target + ['element' => $text('element id from get_build'), 'name' => $text('name of the saved section')], ['element', 'name'])],
+            ['delete_section', 'Deletes a saved section (administrators; only when the user explicitly asks). Pages where it was inserted keep their copy.', $s(['id' => $number('saved section ID')], ['id'])],
+            ['update_media', 'Changes the description of a file in Media: alt (the text for screen readers, also the name), caption and author. Only the owner or an administrator.',
+                $s(['id' => $number('file ID from list_media'), 'alt' => $text('alternative text'), 'caption' => $text('caption below the image'), 'author' => $text('photo author')], ['id'])],
+            ['delete_media', 'Deletes a file from Media for good (only when the user explicitly asks; the owner or an administrator). A file still used on the site is not deleted – the error says where it is used.', $s(['id' => $number('file ID from list_media')], ['id'])],
+            ['update_enquiry', 'Marks an enquiry new, read or resolved and writes an internal note (users with the Enquiries section).',
+                $s(['id' => $number('enquiry ID from list_enquiries'), 'status' => $text('new | read | resolved'), 'note' => $text('internal note (replaces the previous one)')], ['id'])],
+            ['delete_enquiry', 'Deletes an enquiry with its attachments for good (only when the user explicitly asks – for example a request to erase personal data).', $s(['id' => $number('enquiry ID')], ['id'])],
             ['list_newsletters', 'Newsletters (Newsletter extension; users with the Newsletters section): drafts, scheduled, being sent and sent, with counts of recipients, sent and failed e-mails, the number of confirmed subscribers and sending_problem – why the site cannot send now (no SMTP server, cron not running).', $s([])],
             ['draft_newsletter', 'Creates a newsletter draft (without id) or changes a draft or a scheduled one (with id). There is no e-mail builder: one template styled by the design system (colours, fonts, logo) with the subject, an introduction, news items, an optional button and the company footer with an unsubscribe link. Returns the plain-text version to check; the admin shows the HTML preview.',
                 $s(['id' => $number('newsletter ID – only when changing it'), 'subject' => $text('subject of the e-mail, also its heading'), 'preheader' => $text('preview text next to the subject in the inbox (optional)'),
@@ -190,6 +217,7 @@ final class Tools
         if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'newsletter')) {
             $tools = array_filter($tools, fn (array $n): bool => !in_array($n[0], self::NEWSLETTER_TOOLS, true));
         }
+        $tools = array_filter($tools, fn (array $n): bool => ($extension = self::CONTENT_TOOLS[$n[0]] ?? '') === '' || \Kaleta\Core\Extensions::isEnabled($this->app->settings(), $extension));
 
         return array_values(array_map(fn (array $n): array => ['name' => $n[0], 'description' => $n[1], 'inputSchema' => $n[2]], $tools));
     }
@@ -197,18 +225,41 @@ final class Tools
     /** @return list<string> Czech names of all tools (including disabled extensions) */
     public function names(): array
     {
-        return array_values(array_unique([...array_column($this->listAll(), 'name'), ...self::NEWS_TOOLS, ...self::NEWSLETTER_TOOLS]));
+        return array_values(array_unique([...array_column($this->listAll(), 'name'), ...self::NEWS_TOOLS, ...self::NEWSLETTER_TOOLS, ...array_keys(self::CONTENT_TOOLS)]));
     }
 
     /** Tools of the News extension – with the extension disabled they are neither offered nor run. */
     private const array NEWS_TOOLS = ['seznam_novinek', 'nacti_novinku', 'vytvor_novinku', 'uprav_novinku', 'seznam_kategorii', 'vytvor_kategorii'];
 
+    /** Tools of 1.6 for everything the admin can do (English names only), with the extension they need ('' = none). */
+    private const array CONTENT_TOOLS = ['list_trash' => '', 'restore_from_trash' => '', 'trash_news' => 'novinky', 'delete_collection_item' => '', 'delete_collection' => '',
+        'update_category' => 'novinky', 'delete_category' => 'novinky', 'delete_popup' => '', 'list_components' => '', 'save_component' => '', 'delete_component' => '',
+        'save_section' => '', 'delete_section' => '', 'update_media' => '', 'delete_media' => '', 'update_enquiry' => 'poptavky', 'delete_enquiry' => 'poptavky'];
+
     /** Newsletter tools (1.5; English names only – they never had Czech ones). */
     private const array NEWSLETTER_TOOLS = ['list_newsletters', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter'];
 
+    /** Tools that remove or overwrite something the user may want back, or that cannot be taken back (sending). */
+    private const array DESTRUCTIVE_TOOLS = ['smaz_stranku', 'zahod_koncept', 'obnov_verzi', 'send_newsletter', 'delete_newsletter', 'trash_news', 'delete_collection_item',
+        'delete_collection', 'delete_category', 'delete_popup', 'delete_component', 'delete_section', 'delete_media', 'delete_enquiry'];
+
+    /**
+     * MCP annotations of a tool, so a client knows what to confirm with the user: reads, writes, and writes that remove
+     * something or cannot be taken back. Every tool works only on this site.
+     *
+     * @return array{readOnlyHint: bool, destructiveHint: bool, openWorldHint: bool}
+     */
+    public function annotations(string $name): array
+    {
+        return ['readOnlyHint' => !$this->isWriteTool($name), 'destructiveHint' => in_array($name, self::DESTRUCTIVE_TOOLS, true),
+            'openWorldHint' => $name === 'nahraj_soubor']; // an upload from a URL reaches outside the site
+    }
+
     public function isWriteTool(string $name): bool
     {
-        return in_array($name, ['obnov_verzi', 'zahod_koncept', 'uloz_variantu', 'vytvor_kolekci', 'uprav_kolekci', 'uloz_polozku_kolekce', 'uloz_popup', 'stavba_z_html', 'stavba_uloz', 'stavba_uprav', 'uloz_tridy', 'nahraj_soubor', 'uprav_nastaveni', 'uloz_presmerovani', 'smaz_stranku', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'uloz_menu', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter'], true);
+        return in_array($name, ['obnov_verzi', 'zahod_koncept', 'uloz_variantu', 'vytvor_kolekci', 'uprav_kolekci', 'uloz_polozku_kolekce', 'uloz_popup', 'stavba_z_html', 'stavba_uloz', 'stavba_uprav', 'uloz_tridy', 'nahraj_soubor', 'uprav_nastaveni', 'uloz_presmerovani', 'smaz_stranku', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'uloz_menu', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter',
+            'restore_from_trash', 'trash_news', 'delete_collection_item', 'delete_collection', 'update_category', 'delete_category', 'delete_popup', 'save_component', 'delete_component',
+            'save_section', 'delete_section', 'update_media', 'delete_media', 'update_enquiry', 'delete_enquiry'], true);
     }
 
     /** @param array<string, mixed> $a */
@@ -229,6 +280,13 @@ final class Tools
         if (in_array($name, self::NEWSLETTER_TOOLS, true)) {
             return $this->newsletterTool($name, $a);
         }
+        if (isset(self::CONTENT_TOOLS[$name])) {
+            if (self::CONTENT_TOOLS[$name] !== '' && !\Kaleta\Core\Extensions::isEnabled($siteSettings, self::CONTENT_TOOLS[$name])) {
+                throw new \DomainException('This tool needs an extension that is switched off on this site (Extensions).');
+            }
+
+            return $this->contentTool($name, $a);
+        }
         switch ($name) {
             case 'info_o_webu':
                 return [
@@ -238,6 +296,11 @@ final class Tools
                     'novinek_vydanych' => (int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL'),
                     'uzivatel' => $auth->user()['user'], 'role' => \Kaleta\Core\Auth::TYPES[(int) $auth->user()['admin']], 'smi_vydavat' => $auth->canPublish(),
                     'smi_upravovat_stranky' => $auth->hasModule('pages'),
+                    // what the site has switched on, so Claude does not guess (extension keys: novinky, poptavky, newsletter…)
+                    'extensions' => \Kaleta\Core\Extensions::enabled($siteSettings),
+                    'languages' => ['default' => Language::defaults($siteSettings),
+                        'additional' => array_map(fn (string $code): array => ['code' => $code, 'published' => in_array($code, Language::published($siteSettings, $db), true)], Language::additional($siteSettings))],
+                    'cron_last_run_minutes' => $siteSettings->int('tasks_last_run') > 0 ? (int) floor((time() - $siteSettings->int('tasks_last_run')) / 60) : null,
                 ];
 
             case 'seznam_stranek':
@@ -300,6 +363,8 @@ final class Tools
                     'casti_webu' => array_map(fn (array $t): string => $t[0] . ' – ' . $t[1], SiteParts::TYPES) + ['pozn' => 'Prvky ze skupiny „Části webu“ (logo, navigace, udaje, obsah) patří jen do částí; obálka (novinka, vypis, nenalezeno) musí obsahovat právě jeden prvek „obsah“.'],
                     'knihovna' => empty($a['uplne']) ? array_column(array_map(fn (array $k): array => ['klic' => $k['klic'], 'popis' => $k['nazev'] . ' – ' . $k['popis']], Library::listAll(\Kaleta\Core\Extensions::enabled($siteSettings))), 'popis', 'klic')
                         : Library::listAll(\Kaleta\Core\Extensions::enabled($siteSettings)),
+                    'saved_sections' => array_map(fn (array $r): array => ['id' => (int) $r['idx'], 'name' => $r['nazev']], $db->all('SELECT idx, nazev FROM {sekce} ORDER BY nazev LIMIT 200'))
+                        + ['note' => 'Sections saved in the builder: insert_section with saved_section: <id>.'],
                     'tridy_webu' => array_column($db->all('SELECT nazev FROM {tridy} ORDER BY nazev'), 'nazev'),
                     'design_system' => DesignSystem::load($siteSettings) + ['predvolby' => array_map(fn (array $p): string => $p[0] . ' – ' . $p[1], DesignSystem::PRESETS),
                         'pisma_titulku' => array_keys(SiteIdentity::TITLE_FONTS), 'pisma_textu' => array_keys(SiteIdentity::TEXT_FONTS)],
@@ -369,8 +434,15 @@ final class Tools
 
             case 'vloz_sekci':
                 $target = $this->loadBuildTarget($a);
-                $section = Library::section((string) ($a['sekce'] ?? ''), $target['jazyk']) ?? throw new \InvalidArgumentException('Sekce v knihovně není. Klíče: ' . implode(', ', array_column(Library::listAll(), 'klic')) . '.');
-                Library::createClasses($db, $section['tridy']);
+                if ((int) ($a['saved_section'] ?? 0) > 0) {
+                    // a section someone saved in the builder ("Save as section"), with fresh element ids
+                    $saved = $db->value('SELECT prvek FROM {sekce} WHERE idx = ?', [(int) $a['saved_section']]) ?? throw new \InvalidArgumentException('The saved section does not exist – saved_sections in builder_schema lists them.');
+                    [$clean] = Build::sanitize(['v' => Build::VERSION, 'deti' => [\Kaleta\Builder\Library::withNewIds(json_decode((string) $saved, true) ?: [])]], $auth->isAdmin());
+                    $section = ['prvek' => $clean['deti'][0] ?? throw new \InvalidArgumentException('The saved section is empty.')];
+                } else {
+                    $section = Library::section((string) ($a['sekce'] ?? ''), $target['jazyk']) ?? throw new \InvalidArgumentException('Sekce v knihovně není. Klíče: ' . implode(', ', array_column(Library::listAll(), 'klic')) . '.');
+                    Library::createClasses($db, $section['tridy']);
+                }
                 $build = $this->targetBuild($target);
                 $build['deti'][] = $section['prvek'];
 
@@ -411,6 +483,7 @@ final class Tools
                     'stranka' => $db->update('stranky', ['stavba_koncept' => null], ['ids' => $r['ids']]),
                     'kolekce' => \Kaleta\Builder\Collections::writeTemplate($db, $r, ['stavba_koncept' => null]),
                     'popup' => $db->update('popupy', ['stavba_koncept' => null], ['idpp' => $r['idpp']]),
+                    'komponenta' => $db->update('komponenty', ['stavba_koncept' => null], ['idm' => $r['idm']]),
                     default => $db->update('casti', ['stavba_koncept' => null], ['typ' => $r['typ'], 'jazyk' => $r['jazyk'], 'varianta' => $r['varianta']]),
                 };
 
@@ -1050,6 +1123,249 @@ final class Tools
         }
     }
 
+    /**
+     * Tools of 1.6: the trash, deleting and the rest of what the admin can do. Every delete checks the same permission as
+     * the admin; the descriptions tell Claude to delete only when the user explicitly asks.
+     *
+     * @param array<string, mixed> $a
+     */
+    private function contentTool(string $name, array $a): mixed
+    {
+        $auth = $this->app->auth();
+        $db = $this->app->db();
+        $id = (int) ($a['id'] ?? 0);
+        $need = function (bool $allowed, string $message): void {
+            if (!$allowed) {
+                throw new \DomainException($message);
+            }
+        };
+        $collection = function () use ($a, $db): array {
+            return \Kaleta\Builder\Collections::bySlug($db, (string) ($a['collection'] ?? '')) ?? throw new \InvalidArgumentException('The collection does not exist. Use list_collections.');
+        };
+        switch ($name) {
+            case 'list_trash':
+                $out = [];
+                if ($auth->hasModule('pages')) {
+                    $out['pages'] = array_map(fn (array $r): array => ['id' => (int) $r['ids'], 'title' => $r['titulek'], 'deleted_at' => substr((string) $r['smazano'], 0, 16)],
+                        $db->all('SELECT ids, titulek, smazano FROM {stranky} WHERE smazano IS NOT NULL ORDER BY smazano DESC LIMIT 100'));
+                }
+                if ($auth->hasModule('news') && \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky')) {
+                    $out['news'] = array_map(fn (array $r): array => ['id' => (int) $r['idc'], 'title' => $r['titulek'], 'deleted_at' => substr((string) $r['smazano'], 0, 16)],
+                        $db->all('SELECT idc, titulek, smazano FROM {novinky} WHERE smazano IS NOT NULL' . ($auth->canPublish() ? '' : ' AND autor = ' . (int) $auth->id()) . ' ORDER BY smazano DESC LIMIT 100'));
+                }
+                if ($auth->hasModule('collections')) {
+                    $out['collection_items'] = array_map(fn (array $r): array => ['id' => (int) $r['idp'], 'collection' => $r['kolekce'], 'name' => $r['nazev'], 'deleted_at' => substr((string) $r['smazano'], 0, 16)],
+                        $db->all('SELECT p.idp, p.nazev, p.smazano, k.seo_link AS kolekce FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.smazano IS NOT NULL ORDER BY p.smazano DESC LIMIT 100'));
+                }
+
+                return $out;
+
+            case 'restore_from_trash':
+                $type = (string) ($a['type'] ?? '');
+                if ($type === 'page') {
+                    $need($auth->hasModule('pages'), 'Pages can be restored by editors and administrators.');
+                    $ok = $db->run('UPDATE {stranky} SET smazano = NULL WHERE ids = ? AND smazano IS NOT NULL', [$id])->rowCount() > 0;
+                } elseif ($type === 'news') {
+                    $need($auth->hasModule('news'), 'News items can be restored only by users with the News section.');
+                    $ok = $db->run('UPDATE {novinky} SET smazano = NULL WHERE idc = ? AND smazano IS NOT NULL' . ($auth->canPublish() ? '' : ' AND autor = ' . (int) $auth->id()), [$id])->rowCount() > 0;
+                } elseif ($type === 'collection_item') {
+                    $need($auth->hasModule('collections'), 'Collection items can be restored only by users with the Collections section.');
+                    $ok = $db->run('UPDATE {kolekce_polozky} SET smazano = NULL WHERE idp = ? AND smazano IS NOT NULL', [$id])->rowCount() > 0;
+                } else {
+                    throw new \InvalidArgumentException('type must be page, news or collection_item.');
+                }
+                if (!$ok) {
+                    throw new \InvalidArgumentException('It is not in the trash. Use list_trash.');
+                }
+
+                return ['restored' => $type, 'id' => $id, 'visible' => false];
+
+            case 'trash_news':
+                $need($auth->hasModule('news'), 'News items can be deleted only by users with the News section.');
+                $item = $db->one('SELECT idc, visible, autor FROM {novinky} WHERE idc = ? AND smazano IS NULL', [$id]) ?? throw new \InvalidArgumentException('The news item does not exist. Use list_news.');
+                $need($auth->canPublish() || (!$item['visible'] && (int) $item['autor'] === $auth->id()), 'A published news item or someone else’s can be deleted only with the publishing permission.');
+                $db->run('UPDATE {novinky} SET smazano = NOW(), visible = 0 WHERE idc = ?', [$id]);
+                \Kaleta\Front\Cache::clear();
+
+                return ['trashed' => $id, 'restore' => 'restore_from_trash with type news within 30 days'];
+
+            case 'delete_collection_item':
+                $need($auth->hasModule('collections'), 'Collection items can be deleted only by users with the Collections section.');
+                if (!\Kaleta\Admin\Modules\Collections::trashItem($db, $id, (int) $collection()['idk'])) {
+                    throw new \InvalidArgumentException('The item is not in this collection (or it is already in the trash). Use list_collection_items.');
+                }
+
+                return ['trashed' => $id, 'restore' => 'restore_from_trash with type collection_item within 30 days'];
+
+            case 'delete_collection':
+                $need($auth->isAdmin(), 'Collections can be deleted only by an administrator.');
+                $k = $collection();
+                $db->delete('kolekce', ['idk' => $k['idk']]); // items and templates go with it (foreign keys)
+                \Kaleta\Front\Cache::clear();
+
+                return ['deleted' => $k['seo_link']];
+
+            case 'update_category':
+                $need($auth->canPublish() && $auth->hasModule('categories'), 'Categories can be changed by editors and administrators.');
+                $c = $db->one('SELECT * FROM {kategorie} WHERE idt = ?', [$id]) ?? throw new \InvalidArgumentException('The category does not exist. Use list_categories.');
+                $changes = [];
+                if (trim((string) ($a['name'] ?? '')) !== '') {
+                    $changes['nazev'] = mb_substr(trim((string) $a['name']), 0, 255);
+                }
+                if (isset($a['description'])) {
+                    $changes['popis'] = \Kaleta\Core\Html::forUser((string) $a['description'], $auth);
+                }
+                if (isset($a['order'])) {
+                    $changes['hodnost'] = max(0, min(65535, (int) $a['order']));
+                }
+                if (trim((string) ($a['slug'] ?? '')) !== '') {
+                    $changes['seo_link'] = \Kaleta\Core\Slug::makeUnique(slugify((string) $a['slug'], 110), fn (string $x): bool => $db->value('SELECT idt FROM {kategorie} WHERE seo_link = ? AND idt <> ?', [$x, $id]) !== null, 120);
+                }
+                if ($changes !== []) {
+                    $db->update('kategorie', $changes, ['idt' => $id]);
+                    if (isset($changes['seo_link']) && $changes['seo_link'] !== $c['seo_link']) {
+                        \Kaleta\Admin\Modules\Redirects::add($db, 'novinky/kategorie/' . $c['seo_link'], 'novinky/kategorie/' . $changes['seo_link']);
+                    }
+                    \Kaleta\Front\Cache::clear();
+                }
+                $c = (array) $db->one('SELECT * FROM {kategorie} WHERE idt = ?', [$id]);
+
+                return ['id' => $id, 'name' => $c['nazev'], 'slug' => $c['seo_link'], 'order' => (int) $c['hodnost']];
+
+            case 'delete_category':
+                $need($auth->canPublish() && $auth->hasModule('categories'), 'Categories can be deleted by editors and administrators.');
+                if ($db->value('SELECT idt FROM {kategorie} WHERE idt = ?', [$id]) === null) {
+                    throw new \InvalidArgumentException('The category does not exist. Use list_categories.');
+                }
+                if ((int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE tema = ?', [$id]) > 0) {
+                    throw new \DomainException('The category still has news items (including those in the trash) – move them to another category first.');
+                }
+                $db->delete('kategorie', ['idt' => $id]);
+
+                return ['deleted' => $id];
+
+            case 'delete_popup':
+                $need($auth->isAdmin(), 'Pop-ups can be deleted only by an administrator.');
+                $need($db->delete('popupy', ['idpp' => $id]) > 0, 'The pop-up does not exist. Use list_popups.');
+                \Kaleta\Front\Cache::clear();
+
+                return ['deleted' => $id];
+
+            case 'list_components':
+                return array_map(fn (array $k): array => ['id' => (int) $k['idm'], 'name' => $k['nazev'], 'properties' => $k['vlastnosti'], 'published' => $k['stavba'] !== null,
+                    'unpublished_changes' => $k['stavba_koncept'] !== null], \Kaleta\Builder\Components::all($db));
+
+            case 'save_component':
+                $need($auth->isAdmin(), 'Components can be changed only by an administrator.');
+                $current = $id > 0 ? (\Kaleta\Builder\Components::byId($db, $id) ?? throw new \InvalidArgumentException('The component does not exist. Use list_components.')) : null;
+                $name = mb_substr(trim((string) ($a['name'] ?? ($current['nazev'] ?? ''))), 0, 100);
+                if ($name === '') {
+                    throw new \InvalidArgumentException('The component needs a name.');
+                }
+                $data = ['nazev' => $name, 'zmeneno' => date('Y-m-d H:i:s'), 'vlastnosti' => (string) json_encode(\Kaleta\Builder\Components::sanitizeProperties(
+                    is_array($a['properties'] ?? null) ? $a['properties'] : ($current['vlastnosti'] ?? [])), JSON_UNESCAPED_UNICODE)];
+                if ($current !== null) {
+                    $db->update('komponenty', $data, ['idm' => $id]);
+                } else {
+                    $id = $db->insert('komponenty', $data + ['stavba_koncept' => Build::toJson(['v' => Build::VERSION, 'deti' => [Build::fresh('sekce')]])]);
+                }
+                \Kaleta\Front\Cache::clear();
+                $k = (array) \Kaleta\Builder\Components::byId($db, $id);
+
+                return ['id' => $id, 'name' => $k['nazev'], 'properties' => $k['vlastnosti'], 'use' => '{"typ":"komponenta","obsah":{"komponenta":"' . $id . '","hodnoty":{}}}',
+                    'build' => 'edit it with get_build / save_build / edit_build and component: ' . $id . ', then publish_build'];
+
+            case 'delete_component':
+                $need($auth->isAdmin(), 'Components can be deleted only by an administrator.');
+                $need($db->delete('komponenty', ['idm' => $id]) > 0, 'The component does not exist. Use list_components.');
+                \Kaleta\Front\Cache::clear();
+
+                return ['deleted' => $id];
+
+            case 'save_section':
+                $target = $this->loadBuildTarget($a);
+                $element = $this->findElement($this->targetBuild($target)['deti'], (string) ($a['element'] ?? '')) ?? throw new \InvalidArgumentException('The element is not in the build. Element ids are in get_build.');
+                $name = mb_substr(trim((string) ($a['name'] ?? '')), 0, 100);
+                if ($name === '') {
+                    throw new \InvalidArgumentException('The saved section needs a name.');
+                }
+                $sectionId = $db->insert('sekce', ['nazev' => $name, 'prvek' => (string) json_encode($element, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')]);
+
+                return ['id' => $sectionId, 'name' => $name, 'insert' => 'insert_section with saved_section: ' . $sectionId];
+
+            case 'delete_section':
+                $need($auth->isAdmin(), 'Saved sections can be deleted only by an administrator.');
+                $need($db->delete('sekce', ['idx' => $id]) > 0, 'The saved section does not exist – saved_sections in builder_schema lists them.');
+
+                return ['deleted' => $id];
+
+            case 'update_media':
+            case 'delete_media':
+                $file = $db->one('SELECT * FROM {media} WHERE ido = ?', [$id]) ?? throw new \InvalidArgumentException('The file does not exist. Use list_media.');
+                $need($auth->isAdmin() || (int) $file['vlastnik'] === $auth->id(), 'Only the owner of the file or an administrator can change it.');
+                if ($name === 'update_media') {
+                    $changes = array_filter(['nazev' => isset($a['alt']) ? mb_substr(trim((string) $a['alt']), 0, 150) : null, 'popis' => isset($a['caption']) ? mb_substr(trim((string) $a['caption']), 0, 500) : null,
+                        'autor' => isset($a['author']) ? mb_substr(trim((string) $a['author']), 0, 120) : null], fn (?string $v): bool => $v !== null);
+                    if ($changes !== []) {
+                        $db->update('media', $changes, ['ido' => $id]);
+                        \Kaleta\Front\Cache::clear();
+                    }
+
+                    return ['id' => $id, 'path' => $file['obr_poloha'], 'changed' => array_keys($changes)];
+                }
+                $usedAt = array_keys(\Kaleta\Admin\Modules\Media::findUsagesElsewhere($db)[$id] ?? []);
+                if ($usedAt !== [] || $db->value('SELECT 1 FROM {media_pouziti} WHERE ido = ? LIMIT 1', [$id]) !== null) {
+                    throw new \DomainException('The file is still used on the site' . ($usedAt !== [] ? ': ' . implode(', ', array_slice($usedAt, 0, 5)) : ' (in a news item)') . ' – remove it from there first.');
+                }
+                \Kaleta\Core\Images::delete($file['obr_poloha'], $file['nahl_poloha']);
+                \Kaleta\Core\Files::delete($file['obr_poloha']);
+                $db->delete('media', ['ido' => $id]);
+
+                return ['deleted' => $id, 'path' => $file['obr_poloha']];
+
+            case 'update_enquiry':
+            case 'delete_enquiry':
+                $need($auth->hasModule('enquiries'), 'Enquiries can be changed only by users with the Enquiries section.');
+                $enquiry = $db->one('SELECT idp, data FROM {poptavky} WHERE idp = ?', [$id]) ?? throw new \InvalidArgumentException('The enquiry does not exist. Use list_enquiries.');
+                if ($name === 'delete_enquiry') {
+                    \Kaleta\Admin\Modules\Enquiries::deleteAttachments([$enquiry]);
+                    $db->delete('poptavky', ['idp' => $id]);
+
+                    return ['deleted' => $id];
+                }
+                $changes = [];
+                if (isset($a['status'])) {
+                    $status = ['new' => 0, 'read' => 1, 'resolved' => 2][(string) $a['status']] ?? throw new \InvalidArgumentException('status must be new, read or resolved.');
+                    $changes['stav'] = $status;
+                }
+                if (isset($a['note'])) {
+                    $changes['poznamka'] = mb_substr(trim((string) $a['note']), 0, 5000);
+                }
+                if ($changes !== []) {
+                    $db->update('poptavky', $changes, ['idp' => $id]);
+                }
+
+                return ['id' => $id, 'changed' => array_keys($changes)];
+        }
+
+        throw new \InvalidArgumentException('Unknown tool.');
+    }
+
+    /** An element of a build by its id, searched through the whole tree. */
+    private function findElement(array $children, string $id): ?array
+    {
+        foreach ($children as $p) {
+            if (($p['id'] ?? null) === $id) {
+                return $p;
+            }
+            if (is_array($p['deti'] ?? null) && ($found = $this->findElement($p['deti'], $id)) !== null) {
+                return $found;
+            }
+        }
+
+        return null;
+    }
+
     /** @param array<string, mixed> $n */
     private function newsletter(array $n): array
     {
@@ -1169,6 +1485,15 @@ final class Tools
             return ['druh' => 'popup', 'radek' => $row, 'stavba' => $row['stavba'], 'koncept' => $row['stavba_koncept'], 'jazyk' => Language::ofContent($siteSettings, ''),
                 'revize' => ['cast' => 'popup:' . $row['idpp']]];
         }
+        if (isset($a['komponenta']) && (int) $a['komponenta'] > 0) {
+            if (!$auth->isAdmin()) {
+                throw new \DomainException('Components can be changed only by an administrator.');
+            }
+            $row = \Kaleta\Builder\Components::byId($db, (int) $a['komponenta']) ?? throw new \InvalidArgumentException('The component does not exist. Use list_components.');
+
+            return ['druh' => 'komponenta', 'radek' => $row, 'stavba' => $row['stavba'], 'koncept' => $row['stavba_koncept'], 'jazyk' => Language::ofContent($siteSettings, ''),
+                'revize' => ['cast' => 'komponenta:' . (int) $row['idm']]];
+        }
         if (isset($a['kolekce']) && $a['kolekce'] !== '') {
             if (!$auth->isAdmin()) {
                 throw new \DomainException('Šablonu detailu kolekce smí měnit jen správce webu.');
@@ -1239,6 +1564,7 @@ final class Tools
             'kolekce' => ['kolekce' => $target['radek']['seo_link'], 'titulek' => 'Detail: ' . $target['radek']['nazev'], 'detail_zapnuty' => (bool) $target['radek']['detail']]
                 + ($target['radek']['sablona_jazyk'] !== '' ? ['jazyk' => $target['radek']['sablona_jazyk']] : []),
             'popup' => ['popup' => $target['radek']['idpp'], 'titulek' => 'Pop-up: ' . $target['radek']['nazev'], 'aktivni' => (bool) $target['radek']['aktivni']],
+            'komponenta' => ['component' => (int) $target['radek']['idm'], 'titulek' => 'Component: ' . $target['radek']['nazev']],
             default => ['cast' => $target['radek']['typ'], 'jazyk' => $target['radek']['jazyk'], 'titulek' => SiteParts::TYPES[$target['radek']['typ']][0]]
                 + ($target['radek']['varianta'] !== '' ? ['varianta' => $target['radek']['varianta']] : []),
         };
@@ -1256,6 +1582,8 @@ final class Tools
             Publisher::collection($this->app, $row);
         } elseif ($target['druh'] === 'popup') {
             Publisher::popup($this->app, (array) \Kaleta\Builder\Popups::byId($db, $target['radek']['idpp']));
+        } elseif ($target['druh'] === 'komponenta') {
+            Publisher::component($this->app, (array) \Kaleta\Builder\Components::byId($db, (int) $target['radek']['idm']));
         } else {
             $this->createSitePart($target['radek']);
             Publisher::part($this->app, (array) SiteParts::row($db, $target['radek']['typ'], $target['radek']['jazyk'], (string) $target['radek']['varianta']));
@@ -1286,6 +1614,8 @@ final class Tools
             $target['koncept'] = Build::toJson($build);
         } elseif ($target['druh'] === 'popup') {
             $db->update('popupy', ['stavba_koncept' => Build::toJson($build)], ['idpp' => $r['idpp']]);
+        } elseif ($target['druh'] === 'komponenta') {
+            $db->update('komponenty', ['stavba_koncept' => Build::toJson($build)], ['idm' => $r['idm']]);
         } else {
             $this->createSitePart($r);
             $db->update('casti', ['stavba_koncept' => Build::toJson($build)], ['typ' => $r['typ'], 'jazyk' => $r['jazyk'], 'varianta' => $r['varianta']]);
@@ -1297,6 +1627,7 @@ final class Tools
             'stranka' => 'module=pages&action=builder&id=' . (int) $r['ids'],
             'kolekce' => 'module=collections&action=builder&id=' . (int) $r['idk'] . ($r['sablona_jazyk'] !== '' ? '&jazyk=' . $r['sablona_jazyk'] : ''),
             'popup' => 'module=popups&action=builder&id=' . (int) $r['idpp'],
+            'komponenta' => 'module=components&action=builder&id=' . (int) $r['idm'],
             default => 'module=parts&action=builder&typ=' . $r['typ'] . '&jazyk=' . $r['jazyk'],
         };
 
@@ -1320,6 +1651,9 @@ final class Tools
     private function targetPreviewUrl(array $target, int $minutes): string
     {
         $r = $target['radek'];
+        if ($target['druh'] === 'komponenta') {
+            return $this->targetUrl($target); // the component canvas: for a signed-in administrator only
+        }
         $signature = match ($target['druh']) {
             'stranka' => 'stranka:' . (int) $r['ids'],
             'kolekce' => \Kaleta\Builder\Collections::templateKey($r),
@@ -1345,6 +1679,9 @@ final class Tools
         $r = $target['radek'];
         if ($target['druh'] === 'popup') {
             return $this->app->request->origin() . $this->app->url('_popup/' . (int) $r['idpp']); // the popup draft over an empty site page
+        }
+        if ($target['druh'] === 'komponenta') {
+            return $this->app->request->origin() . $this->app->url('_komponenta/' . (int) $r['idm']);
         }
         if ($target['druh'] === 'kolekce') {
             $language = $r['sablona_jazyk'];

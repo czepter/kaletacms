@@ -2832,4 +2832,13 @@ return [
     'Newsletters: e-mails per hour' => 'Newslettery: e-mailů za hodinu',
     'Newsletters go out in batches while cron runs. Keep to the sending limit of your SMTP service – free plans often allow only a few hundred e-mails a day.' => 'Newslettery odcházejí po dávkách, když běží cron. Držte se limitu vaší SMTP služby – bezplatné tarify často dovolí jen pár set e-mailů denně.',
     'Test' => 'Zkouška',
+    'Deleted items stay here for 30 days, then they are deleted permanently.' => 'Smazané položky tu zůstanou 30 dní, pak se smažou natrvalo.',
+    'Back to items' => 'Zpět na položky',
+    'Items in the trash are not on the site. A restored item comes back hidden; after 30 days it is permanently deleted from the trash.' => 'Položky v koši nejsou na webu. Obnovená položka se vrátí skrytá; po 30 dnech se z koše smaže natrvalo.',
+    'Delete the item permanently? This cannot be undone.' => 'Smazat položku natrvalo? Nejde to vrátit.',
+    'Move the item to the trash? It disappears from the site; you can restore it for 30 days.' => 'Přesunout položku do koše? Zmizí z webu; 30 dní ji můžete obnovit.',
+    'The item is in the trash – it is no longer on the site; you can restore it for 30 days.' => 'Položka je v koši – na webu už není; 30 dní ji můžete obnovit.',
+    'The item was restored as hidden.' => 'Položka je obnovená jako skrytá.',
+    'The item was deleted permanently.' => 'Položka je smazaná natrvalo.',
+    '%d enquiries read' => 'přečteno poptávek: %d',
 ];

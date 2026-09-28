@@ -131,7 +131,7 @@ final class Enquiries extends Module
     }
 
     /** @param list<array{data: string}> $rows */
-    private static function deleteAttachments(array $rows): void
+    public static function deleteAttachments(array $rows): void
     {
         foreach ($rows as $r) {
             foreach (json_decode((string) $r['data'], true) ?: [] as $item) {

@@ -86,7 +86,8 @@ final class Server
                 'instructions' => Translator::instructions(),
             ]),
             'ping' => $ok([]),
-            'tools/list' => $ok(['tools' => Translator::listAll($tools->listAll())]), // Czech names remain as hidden aliases
+            // Czech names remain as hidden aliases
+            'tools/list' => $ok(['tools' => array_map(fn (array $t): array => $t + ['annotations' => $tools->annotations(Translator::czech($t['name']) ?? $t['name'])], Translator::listAll($tools->listAll()))]),
             'tools/call' => $ok($this->call($tools, (string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Neznámá metoda: ' . $method]],
         };
@@ -114,6 +115,10 @@ final class Server
             if ($tools->isWriteTool($czech ?? $name)) {
                 ChangeLog::write($this->app, 'claude', $czech ?? $name, mb_substr((string) ($arguments['titulek'] ?? $arguments['nazev'] ?? $arguments['sablona'] ?? $arguments['id'] ?? ''), 0, 200));
                 \Kaleta\Front\Cache::clear();
+            }
+            if (($czech ?? $name) === 'seznam_poptavek') {
+                // enquiries hold personal data: every read by Claude is in the change log, with how many it saw
+                ChangeLog::write($this->app, 'claude', 'list_enquiries', t('%d enquiries read', is_array($result) ? count($result) : 0));
             }
             if ($unknownParams !== [] && is_array($result) && !array_is_list($result)) {
                 // a typo in a parameter name would otherwise get lost without a trace (the tool does not know it, so it skips it)

@@ -30,7 +30,7 @@ final class Collections extends Module
     protected function actionList(): Response
     {
         return $this->view('list', 'Collections', [
-            'collection' => $this->db->all('SELECT k.idk, k.nazev, k.seo_link, k.detail, (SELECT COUNT(*) FROM {kolekce_polozky} p WHERE p.idk = k.idk) AS pocet FROM {kolekce} k ORDER BY k.nazev'),
+            'collection' => $this->db->all('SELECT k.idk, k.nazev, k.seo_link, k.detail, (SELECT COUNT(*) FROM {kolekce_polozky} p WHERE p.idk = k.idk AND p.smazano IS NULL) AS pocet FROM {kolekce} k ORDER BY k.nazev'),
         ]);
     }
 
@@ -101,10 +101,12 @@ final class Collections extends Module
         }
 
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
+        $trash = $this->request->get('stav') === 'kos';
 
         return $this->view('items', $k['nazev'], ['k' => $k, 'languages' => Language::additional($this->app->settings()), 'siteLanguages' => $siteLanguages, 'language' => $language,
-            'items' => $this->db->all('SELECT idp, nazev, seo_link, poradi, zobrazit, jazyk, datum FROM {kolekce_polozky} WHERE idk = ?' . ($column !== null ? ' AND jazyk = ?' : '') . ' ORDER BY jazyk, poradi, nazev',
-                $column !== null ? [$k['idk'], $column] : [$k['idk']])]);
+            'trash' => $trash, 'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NOT NULL', [$k['idk']]),
+            'items' => $this->db->all('SELECT idp, nazev, seo_link, poradi, zobrazit, jazyk, datum, smazano FROM {kolekce_polozky} WHERE idk = ? AND smazano IS ' . ($trash ? 'NOT NULL' : 'NULL')
+                . ($column !== null ? ' AND jazyk = ?' : '') . ' ORDER BY ' . ($trash ? 'smazano DESC' : 'jazyk, poradi, nazev'), $column !== null ? [$k['idk'], $column] : [$k['idk']])]);
     }
 
     protected function actionItem(): Response
@@ -173,15 +175,56 @@ final class Collections extends Module
         return $this->back('The copy of the item is hidden – edit it and publish it.', 'item', ['id' => $idk, 'polozka' => $id]);
     }
 
+    /** To the trash: the item disappears from the site at once and can be restored for 30 days. */
     protected function actionDeleteItem(): Response
     {
         $idk = $this->request->postInt('idk');
         if ($this->request->isPost()) {
-            $this->db->run('DELETE FROM {kolekce_polozky} WHERE idp = ? AND idk = ?', [$this->request->postInt('idp'), $idk]);
-            \Kaleta\Front\Cache::clear();
+            self::trashItem($this->db, $this->request->postInt('idp'), $idk);
         }
 
-        return $this->back('The item was deleted.', 'items', ['id' => $idk]);
+        return $this->back('The item is in the trash – it is no longer on the site; you can restore it for 30 days.', 'items', ['id' => $idk]);
+    }
+
+    /** Back from the trash – hidden, so it does not appear on the site before it is checked. */
+    protected function actionRestoreItem(): Response
+    {
+        $idk = $this->request->postInt('idk');
+        if ($this->request->isPost()) {
+            self::restoreItem($this->db, $this->request->postInt('idp'), $idk);
+        }
+
+        return $this->back('The item was restored as hidden.', 'items', ['id' => $idk]);
+    }
+
+    protected function actionDeleteItemPermanently(): Response
+    {
+        $idk = $this->request->postInt('idk');
+        if ($this->request->isPost()) {
+            $this->db->run('DELETE FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NOT NULL', [$this->request->postInt('idp'), $idk]);
+        }
+
+        return $this->back('The item was deleted permanently.', 'items', ['id' => $idk, 'stav' => 'kos']);
+    }
+
+    /** Moves an item to the trash (admin and MCP); returns whether it was there to move. */
+    public static function trashItem(\Kaleta\Core\Db $db, int $idp, int $idk): bool
+    {
+        $moved = $db->run('UPDATE {kolekce_polozky} SET smazano = NOW(), zobrazit = 0 WHERE idp = ? AND idk = ? AND smazano IS NULL', [$idp, $idk])->rowCount() > 0;
+        \Kaleta\Front\Cache::clear();
+
+        return $moved;
+    }
+
+    public static function restoreItem(\Kaleta\Core\Db $db, int $idp, int $idk): bool
+    {
+        return $db->run('UPDATE {kolekce_polozky} SET smazano = NULL WHERE idp = ? AND idk = ? AND smazano IS NOT NULL', [$idp, $idk])->rowCount() > 0;
+    }
+
+    /** Items longer than 30 days in the trash are deleted permanently (with pages and news, on an admin visit). */
+    public static function emptyTrash(\Kaleta\Core\Db $db): void
+    {
+        $db->run('DELETE FROM {kolekce_polozky} WHERE smazano < NOW() - INTERVAL 30 DAY');
     }
 
     /* ---------- item template in the builder (administrator) ---------- */

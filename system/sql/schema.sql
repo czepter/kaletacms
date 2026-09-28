@@ -501,6 +501,7 @@ CREATE TABLE ka_kolekce_polozky (
     jazyk    CHAR(2) NOT NULL DEFAULT '',
     datum    DATETIME NOT NULL,
     zmeneno  DATETIME NULL,
+    smazano  DATETIME NULL,                     -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
     PRIMARY KEY (idp),
     UNIQUE KEY ux_kolekce_polozky_seo (idk, jazyk, seo_link),
     KEY ix_kolekce_polozky (idk, zobrazit, poradi),
