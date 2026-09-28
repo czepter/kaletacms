@@ -71,7 +71,7 @@ Two steps: the first in 1.3, the second in 1.5.
 
    A full campaign tool (segments, automations, A/B tests) stays out of scope – that is what the connected services are for.
 
-## 1.4 – English identifiers in the code base (1.4.0 released 28 September 2026)
+## 1.4 – English identifiers in the code base (1.4.0 and 1.4.1 released 28 September 2026)
 
 The code moves from Czech names to English so contributors can read it. Nothing changes for sites: stored data, build
 JSON, CSS hooks of the public site, public templates, MCP tools and old admin links keep working. Terms and the list of
@@ -87,11 +87,14 @@ Done in 1.4.0:
 4. Admin and installer templates, admin and site scripts (`tools/rename-js.mjs`).
 5. Admin URLs `admin.php?module=pages&action=edit`, old URLs redirected, permissions migrated.
 
+Done in 1.4.1:
+
+6. Settings keys in English (migration 0026; old keys still accepted until 2.0).
+7. UI source texts in English, Czech moved to a dictionary like the other languages; code comments in English.
+
 Next, in 1.4.x:
 
-6. Admin CSS classes and `data-*` attributes.
-7. Settings keys in English – done in 1.4.1 (migration 0026; old keys still accepted until 2.0).
-8. UI source texts in English, Czech moved to a dictionary like the other languages; code comments in English – done in 1.4.1.
+8. Admin CSS classes and `data-*` attributes.
 
 ## 1.5 – newsletter mailing
 
