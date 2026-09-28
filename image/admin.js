@@ -8,120 +8,120 @@
 	var T = window.T;
 
 	// datum a čas jako datum() v PHP, v časovém pásmu webu (<html data-pasmo>): česky 25. 9. 2026 09:31, anglicky 25 Sep 2026 09:31
-	window.kaletaCas = function (cas, jenCas) {
+	window.kaletaCas = function (time, timeOnly) {
 		var c = {};
-		var format = function (pasmo) {
-			new Intl.DateTimeFormat('en-GB', { timeZone: pasmo, year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
-				.formatToParts(new Date(cas)).forEach(function (p) { c[p.type] = p.value; });
+		var format = function (timeZone) {
+			new Intl.DateTimeFormat('en-GB', { timeZone: timeZone, year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+				.formatToParts(new Date(time)).forEach(function (p) { c[p.type] = p.value; });
 		};
 		try { format(document.documentElement.getAttribute('data-pasmo') || undefined); } catch (e) { format(undefined); }
-		var hodiny = c.hour + ':' + c.minute;
-		if (jenCas) { return hodiny; }
-		var mesice = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-		return (document.documentElement.lang === 'en' ? c.day + ' ' + mesice[c.month - 1] + ' ' + c.year : c.day + '. ' + c.month + '. ' + c.year) + ' ' + hodiny;
+		var parseOpeningHours = c.hour + ':' + c.minute;
+		if (timeOnly) { return parseOpeningHours; }
+		var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+		return (document.documentElement.lang === 'en' ? c.day + ' ' + months[c.month - 1] + ' ' + c.year : c.day + '. ' + c.month + '. ' + c.year) + ' ' + parseOpeningHours;
 	};
 
 	// Potvrzení nevratných akcí: data-potvrdit="text" na formuláři nebo tlačítku.
 	// Vlastní dialog místo window.confirm(), který vestavěné prohlížeče (např. v aplikacích) potichu potlačují.
-	var dialogPotvrzeni = null;
+	var confirmDialog = null;
 	document.addEventListener('submit', function (e) {
-		var form = e.target, tlacitko = e.submitter;
-		var text = (tlacitko && tlacitko.getAttribute('data-potvrdit')) || form.getAttribute('data-potvrdit');
+		var form = e.target, button = e.submitter;
+		var text = (button && button.getAttribute('data-potvrdit')) || form.getAttribute('data-potvrdit');
 		if (!text || form.potvrzeno) { return; }
 		e.preventDefault();
-		if (!dialogPotvrzeni) {
-			dialogPotvrzeni = document.createElement('dialog');
-			dialogPotvrzeni.className = 'potvrzeni';
-			dialogPotvrzeni.innerHTML = '<p></p><div><button type="button" class="tl" data-ano>' + T('Ano, provést') + '</button> <button type="button" class="navigace" data-ne>' + T('Zrušit') + '</button></div>';
-			document.body.appendChild(dialogPotvrzeni);
-			dialogPotvrzeni.querySelector('[data-ne]').addEventListener('click', function () { dialogPotvrzeni.close(); });
+		if (!confirmDialog) {
+			confirmDialog = document.createElement('dialog');
+			confirmDialog.className = 'potvrzeni';
+			confirmDialog.innerHTML = '<p></p><div><button type="button" class="tl" data-ano>' + T('Ano, provést') + '</button> <button type="button" class="navigace" data-ne>' + T('Zrušit') + '</button></div>';
+			document.body.appendChild(confirmDialog);
+			confirmDialog.querySelector('[data-ne]').addEventListener('click', function () { confirmDialog.close(); });
 		}
-		dialogPotvrzeni.querySelector('p').textContent = text;
-		dialogPotvrzeni.querySelector('[data-ano]').onclick = function () {
-			dialogPotvrzeni.close();
+		confirmDialog.querySelector('p').textContent = text;
+		confirmDialog.querySelector('[data-ano]').onclick = function () {
+			confirmDialog.close();
 			form.potvrzeno = true;
-			if (form.requestSubmit) { form.requestSubmit(tlacitko || undefined); } else { form.submit(); }
+			if (form.requestSubmit) { form.requestSubmit(button || undefined); } else { form.submit(); }
 			form.potvrzeno = false;
 		};
-		dialogPotvrzeni.showModal();
-		dialogPotvrzeni.querySelector('[data-ne]').focus();
+		confirmDialog.showModal();
+		confirmDialog.querySelector('[data-ne]').focus();
 	});
 
 	// Světlý / tmavý režim (výchozí podle systému, volba se pamatuje v prohlížeči; před vykreslením ji nastaví tema.js)
-	var temaTl = document.querySelector('[data-tema-prepinac]');
-	if (temaTl) {
-		temaTl.addEventListener('click', function () {
-			var koren = document.documentElement;
-			var tmavy = koren.getAttribute('data-tema') ? koren.getAttribute('data-tema') === 'tmavy' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-			koren.setAttribute('data-tema', tmavy ? 'svetly' : 'tmavy');
-			try { localStorage.setItem('kaleta-tema', tmavy ? 'svetly' : 'tmavy'); } catch (e) { /* nic */ }
+	var schemeButton = document.querySelector('[data-tema-prepinac]');
+	if (schemeButton) {
+		schemeButton.addEventListener('click', function () {
+			var root = document.documentElement;
+			var dark = root.getAttribute('data-tema') ? root.getAttribute('data-tema') === 'tmavy' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+			root.setAttribute('data-tema', dark ? 'svetly' : 'tmavy');
+			try { localStorage.setItem('kaleta-tema', dark ? 'svetly' : 'tmavy'); } catch (e) { /* nic */ }
 		});
 	}
 
 	// Rozbalení menu na mobilu
-	var prepinac = document.querySelector('.menu-prepinac');
-	if (prepinac) {
-		prepinac.addEventListener('click', function () {
-			var otevrene = document.body.classList.toggle('menu-otevrene');
-			prepinac.setAttribute('aria-expanded', otevrene ? 'true' : 'false');
+	var toggle = document.querySelector('.menu-prepinac');
+	if (toggle) {
+		toggle.addEventListener('click', function () {
+			var openItems = document.body.classList.toggle('menu-otevrene');
+			toggle.setAttribute('aria-expanded', openItems ? 'true' : 'false');
 		});
 	}
 
 	// Záložky uvnitř jedné stránky (Vzhled webu): šipky, Home a End; po uložení se vrátí poslední záložka; pole, které
 	// neprojde kontrolou prohlížeče, ukáže svou záložku. Bez skriptu jsou vidět všechny panely pod sebou.
-	document.querySelectorAll('[data-zalozky]').forEach(function (obal) {
-		var tlacitka = Array.prototype.slice.call(obal.querySelectorAll('[role="tab"]'));
-		var panely = tlacitka.map(function (t) { return document.getElementById(t.getAttribute('aria-controls')); });
-		var ulozit = obal.querySelector('.vzhled-ulozit');
-		var klic = 'ka-zalozka' + location.search;
-		var ukaz = function (i, fokus) {
-			tlacitka.forEach(function (t, j) {
+	document.querySelectorAll('[data-zalozky]').forEach(function (wrapper) {
+		var buttons = Array.prototype.slice.call(wrapper.querySelectorAll('[role="tab"]'));
+		var panels = buttons.map(function (t) { return document.getElementById(t.getAttribute('aria-controls')); });
+		var shouldSave = wrapper.querySelector('.vzhled-ulozit');
+		var key = 'ka-zalozka' + location.search;
+		var show = function (i, focusTarget) {
+			buttons.forEach(function (t, j) {
 				t.setAttribute('aria-selected', i === j ? 'true' : 'false');
 				t.tabIndex = i === j ? 0 : -1;
-				if (panely[j]) { panely[j].hidden = i !== j; }
+				if (panels[j]) { panels[j].hidden = i !== j; }
 			});
-			if (ulozit) { ulozit.hidden = !obal.querySelector('.vzhled-formular').contains(panely[i]); } // import a export mají vlastní tlačítka
-			if (fokus) { tlacitka[i].focus(); }
-			try { sessionStorage.setItem(klic, tlacitka[i].id); } catch (chyba) { /* soukromý režim */ }
+			if (shouldSave) { shouldSave.hidden = !wrapper.querySelector('.vzhled-formular').contains(panels[i]); } // import a export mají vlastní tlačítka
+			if (focusTarget) { buttons[i].focus(); }
+			try { sessionStorage.setItem(key, buttons[i].id); } catch (error) { /* soukromý režim */ }
 		};
-		tlacitka.forEach(function (t, i) {
-			t.addEventListener('click', function () { ukaz(i, false); });
+		buttons.forEach(function (t, i) {
+			t.addEventListener('click', function () { show(i, false); });
 			t.addEventListener('keydown', function (e) {
-				var cil = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tlacitka.length - 1 }[e.key];
-				if (cil === undefined) { return; }
+				var target = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: buttons.length - 1 }[e.key];
+				if (target === undefined) { return; }
 				e.preventDefault();
-				ukaz((cil + tlacitka.length) % tlacitka.length, true);
+				show((target + buttons.length) % buttons.length, true);
 			});
 		});
-		obal.addEventListener('invalid', function (e) {
-			var i = panely.indexOf(e.target.closest('[role="tabpanel"]'));
-			if (i >= 0) { ukaz(i, false); }
+		wrapper.addEventListener('invalid', function (e) {
+			var i = panels.indexOf(e.target.closest('[role="tabpanel"]'));
+			if (i >= 0) { show(i, false); }
 		}, true);
-		var ulozena = null;
-		try { ulozena = sessionStorage.getItem(klic); } catch (chyba) { /* soukromý režim */ }
-		ukaz(Math.max(0, tlacitka.findIndex(function (t) { return t.id === ulozena; })), false);
+		var storedValue = null;
+		try { storedValue = sessionStorage.getItem(key); } catch (error) { /* soukromý režim */ }
+		show(Math.max(0, buttons.findIndex(function (t) { return t.id === storedValue; })), false);
 	});
 
 	// Vzhled webu: předvolby a živý náhled skutečné úvodní stránky. CSS tokenů počítá server (akce nahled) – jediný výpočet v PHP.
-	var vzhled = document.querySelector('[data-vzhled]');
-	if (vzhled) {
-		var nahled = document.querySelector('[data-nahled]'), ramec = document.querySelector('[data-ramec]');
-		var zarizeni = 'pocitac', casovac = null, posledniCss = '';
-		var vlozCss = function () {
-			var doc = nahled.contentDocument;
-			if (!doc || !doc.head || posledniCss === '') { return; }
-			var styl = doc.getElementById('ka-vzhled-nahled');
-			if (!styl) { styl = doc.createElement('style'); styl.id = 'ka-vzhled-nahled'; doc.head.appendChild(styl); }
-			styl.textContent = posledniCss;
+	var appearance = document.querySelector('[data-vzhled]');
+	if (appearance) {
+		var preview = document.querySelector('[data-nahled]'), frame2 = document.querySelector('[data-ramec]');
+		var device = 'pocitac', timer = null, lastCss = '';
+		var insertCss = function () {
+			var doc = preview.contentDocument;
+			if (!doc || !doc.head || lastCss === '') { return; }
+			var style = doc.getElementById('ka-vzhled-nahled');
+			if (!style) { style = doc.createElement('style'); style.id = 'ka-vzhled-nahled'; doc.head.appendChild(style); }
+			style.textContent = lastCss;
 		};
-		var prepocitej = function () {
-			var data = new FormData(vzhled);
-			fetch(vzhled.getAttribute('data-nahled-url'), { method: 'POST', body: data, credentials: 'same-origin' })
+		var recalculate = function () {
+			var data = new FormData(appearance);
+			fetch(appearance.getAttribute('data-nahled-url'), { method: 'POST', body: data, credentials: 'same-origin' })
 				.then(function (r) { return r.json(); })
 				.then(function (j) {
-					posledniCss = j.css;
-					vlozCss();
-					vzhled.querySelector('[data-kontrasty]').innerHTML = j.kontrasty.map(function (k) {
+					lastCss = j.css;
+					insertCss();
+					appearance.querySelector('[data-kontrasty]').innerHTML = j.kontrasty.map(function (k) {
 						var li = document.createElement('li');
 						li.className = k.ok ? 'ok' : 'spatne';
 						li.innerHTML = '<span></span><strong></strong>';
@@ -132,93 +132,93 @@
 				})
 				.catch(function () {});
 		};
-		var zmena = function (e) {
+		var change = function (e) {
 			if (e && e.target && e.target.type === 'color') { e.target.parentNode.querySelector('[data-hex]').textContent = e.target.value; }
-			vzhled.querySelector('[data-neulozeno]').hidden = false;
-			clearTimeout(casovac);
-			casovac = setTimeout(prepocitej, 180);
+			appearance.querySelector('[data-neulozeno]').hidden = false;
+			clearTimeout(timer);
+			timer = setTimeout(recalculate, 180);
 		};
-		vzhled.addEventListener('input', zmena);
-		vzhled.addEventListener('change', zmena);
-		nahled.addEventListener('load', vlozCss);
+		appearance.addEventListener('input', change);
+		appearance.addEventListener('change', change);
+		preview.addEventListener('load', insertCss);
 		// předvolba vyplní formulář (velikosti jsou ve formuláři v px, v design systému v rem)
-		vzhled.querySelectorAll('[data-predvolba]').forEach(function (tl) {
+		appearance.querySelectorAll('[data-predvolba]').forEach(function (tl) {
 			tl.addEventListener('click', function () {
 				var ds = JSON.parse(tl.getAttribute('data-predvolba'));
-				Object.keys(ds).forEach(function (klic) {
-					if (typeof ds[klic] === 'object') {
-						Object.keys(ds[klic]).forEach(function (b) {
-							var pole = vzhled.elements['ds[' + klic + '][' + b + ']'];
-							if (pole) { pole.value = ds[klic][b]; pole.parentNode.querySelector('[data-hex]').textContent = ds[klic][b]; }
+				Object.keys(ds).forEach(function (key) {
+					if (typeof ds[key] === 'object') {
+						Object.keys(ds[key]).forEach(function (b) {
+							var field = appearance.elements['ds[' + key + '][' + b + ']'];
+							if (field) { field.value = ds[key][b]; field.parentNode.querySelector('[data-hex]').textContent = ds[key][b]; }
 						});
 						return;
 					}
-					var pole = vzhled.elements['ds[' + klic + ']'];
-					if (!pole) { return; }
-					var hodnota = ['zaklad_min', 'zaklad_max', 'sirka', 'sirka_textu'].indexOf(klic) !== -1 ? Math.round(ds[klic] * 16) : ds[klic];
-					if (pole instanceof RadioNodeList) { pole.value = String(hodnota); return; }
-					if (pole.tagName === 'SELECT') {
-						Array.prototype.forEach.call(pole.options, function (o) { if (Math.abs(parseFloat(o.value) - hodnota) < 0.001 || o.value === String(hodnota)) { pole.value = o.value; } });
+					var field = appearance.elements['ds[' + key + ']'];
+					if (!field) { return; }
+					var value = ['zaklad_min', 'zaklad_max', 'sirka', 'sirka_textu'].indexOf(key) !== -1 ? Math.round(ds[key] * 16) : ds[key];
+					if (field instanceof RadioNodeList) { field.value = String(value); return; }
+					if (field.tagName === 'SELECT') {
+						Array.prototype.forEach.call(field.options, function (o) { if (Math.abs(parseFloat(o.value) - value) < 0.001 || o.value === String(value)) { field.value = o.value; } });
 						return;
 					}
-					pole.value = hodnota;
+					field.value = value;
 				});
 				// jako ruční změna: přepočítá náhled a formulář bude hlídat odchod bez uložení
-				vzhled.dispatchEvent(new Event('input', { bubbles: true }));
+				appearance.dispatchEvent(new Event('input', { bubbles: true }));
 			});
 		});
 		// počítač se vykresluje v šířce 1280 px a zmenší se do rámu, aby platily skutečné breakpointy webu
-		var rozmer = function () {
-			var sirka = zarizeni === 'mobil' ? 390 : 1280, dostupna = ramec.clientWidth, meritko = Math.min(1, dostupna / sirka);
-			nahled.style.width = sirka + 'px';
-			nahled.style.height = (ramec.clientHeight / meritko) + 'px';
-			nahled.style.transform = 'scale(' + meritko + ')';
-			nahled.style.left = Math.max(0, (dostupna - sirka * meritko) / 2) + 'px';
+		var dimension = function () {
+			var width = device === 'mobil' ? 390 : 1280, available = frame2.clientWidth, scale = Math.min(1, available / width);
+			preview.style.width = width + 'px';
+			preview.style.height = (frame2.clientHeight / scale) + 'px';
+			preview.style.transform = 'scale(' + scale + ')';
+			preview.style.left = Math.max(0, (available - width * scale) / 2) + 'px';
 		};
 		document.querySelectorAll('[data-zarizeni]').forEach(function (tl) {
 			tl.addEventListener('click', function () {
-				zarizeni = tl.getAttribute('data-zarizeni');
+				device = tl.getAttribute('data-zarizeni');
 				document.querySelectorAll('[data-zarizeni]').forEach(function (b) { b.setAttribute('aria-pressed', b === tl ? 'true' : 'false'); });
-				rozmer();
+				dimension();
 			});
 		});
-		if (window.ResizeObserver) { new ResizeObserver(rozmer).observe(ramec); }
-		rozmer();
+		if (window.ResizeObserver) { new ResizeObserver(dimension).observe(frame2); }
+		dimension();
 	}
 
 	// Obecné: volba s data-prepni="sekce:1" ukáže (nebo :0 skryje) část formuláře označenou data-sekce="sekce"
-	document.querySelectorAll('[data-prepni]').forEach(function (volba) {
-		volba.addEventListener('change', function () {
-			var p = volba.getAttribute('data-prepni').split(':');
+	document.querySelectorAll('[data-prepni]').forEach(function (choice) {
+		choice.addEventListener('change', function () {
+			var p = choice.getAttribute('data-prepni').split(':');
 			document.querySelectorAll('[data-sekce="' + p[0] + '"]').forEach(function (s) { s.hidden = p[1] !== '1'; });
 		});
 	});
 
 	// Obecné: formulář s data-prepinac="pole" ukazuje jen řádky, jejichž data-pro obsahuje zvolenou hodnotu pole
 	document.querySelectorAll('form[data-prepinac]').forEach(function (form) {
-		var jmeno = form.getAttribute('data-prepinac');
-		var prepni = function () {
-			var zvolene = form.querySelector('[name="' + jmeno + '"]:checked') || form.querySelector('select[name="' + jmeno + '"]');
-			form.querySelectorAll('[data-pro]').forEach(function (radek) { radek.hidden = !zvolene || radek.getAttribute('data-pro').split(' ').indexOf(zvolene.value) === -1; });
+		var displayName = form.getAttribute('data-prepinac');
+		var switchTo = function () {
+			var chosen = form.querySelector('[name="' + displayName + '"]:checked') || form.querySelector('select[name="' + displayName + '"]');
+			form.querySelectorAll('[data-pro]').forEach(function (row) { row.hidden = !chosen || row.getAttribute('data-pro').split(' ').indexOf(chosen.value) === -1; });
 		};
-		form.addEventListener('change', function (e) { if (e.target.name === jmeno) { prepni(); } });
-		prepni();
+		form.addEventListener('change', function (e) { if (e.target.name === displayName) { switchTo(); } });
+		switchTo();
 	});
 
 	// Výpis na telefonu jako karty: buňka dostane popisek sloupce z hlavičky (ukáže ho CSS jen v úzkém okně). Role tabulky se
 	// doplní výslovně – prohlížeče je jinak při display: block zahazují a čtečka by přišla o sloupce.
 	document.querySelectorAll('table.vypis').forEach(function (tab) {
 		if (!tab.tHead || !tab.tHead.rows.length) { return; }
-		var hlavicky = Array.prototype.map.call(tab.tHead.rows[0].cells, function (th) { th.setAttribute('role', 'columnheader'); return th.textContent.trim(); });
+		var headers = Array.prototype.map.call(tab.tHead.rows[0].cells, function (th) { th.setAttribute('role', 'columnheader'); return th.textContent.trim(); });
 		tab.classList.add('vypis-karty');
 		tab.setAttribute('role', 'table');
-		Array.prototype.forEach.call(tab.querySelectorAll('thead, tbody'), function (skupina) { skupina.setAttribute('role', 'rowgroup'); });
+		Array.prototype.forEach.call(tab.querySelectorAll('thead, tbody'), function (group) { group.setAttribute('role', 'rowgroup'); });
 		Array.prototype.forEach.call(tab.rows, function (tr) { tr.setAttribute('role', 'row'); });
-		Array.prototype.forEach.call(tab.tBodies, function (telo) {
-			Array.prototype.forEach.call(telo.rows, function (tr) {
+		Array.prototype.forEach.call(tab.tBodies, function (body) {
+			Array.prototype.forEach.call(body.rows, function (tr) {
 				Array.prototype.forEach.call(tr.cells, function (td, i) {
 					td.setAttribute('role', td.tagName === 'TH' ? 'rowheader' : 'cell');
-					if (hlavicky[i]) { td.setAttribute('data-popisek', hlavicky[i]); }
+					if (headers[i]) { td.setAttribute('data-popisek', headers[i]); }
 				});
 			});
 		});
@@ -226,46 +226,46 @@
 
 	// Varování před opuštěním rozepsaného formuláře
 	document.querySelectorAll('form.formular').forEach(function (form) {
-		var zmeneno = false;
-		form.addEventListener('input', function () { zmeneno = true; });
-		form.addEventListener('change', function () { zmeneno = true; });
-		form.addEventListener('submit', function () { zmeneno = false; });
+		var changed = false;
+		form.addEventListener('input', function () { changed = true; });
+		form.addEventListener('change', function () { changed = true; });
+		form.addEventListener('submit', function () { changed = false; });
 		window.addEventListener('beforeunload', function (e) {
-			if (zmeneno) { e.preventDefault(); e.returnValue = ''; }
+			if (changed) { e.preventDefault(); e.returnValue = ''; }
 		});
 	});
 	/* ---------- drobné obsluhy místo inline skriptů (administrace má Content-Security-Policy bez 'unsafe-inline') ---------- */
 
 	// data-aktivni-kdyz="pole=hodnota": pole uvnitř bloku jsou aktivní, jen když má pole formuláře danou hodnotu
 	// (počet dní jen u četnosti „jednou za N dní“, výběr stránek jen u „jen na vybraných místech“)
-	var zavisla = document.querySelectorAll('[data-aktivni-kdyz]');
-	var obnovZavisla = function () {
-		zavisla.forEach(function (blok) {
-			var podminka = blok.getAttribute('data-aktivni-kdyz').split('=');
-			var pole = blok.closest('form') && blok.closest('form').elements[podminka[0]];
+	var dependent = document.querySelectorAll('[data-aktivni-kdyz]');
+	var refreshDependent = function () {
+		dependent.forEach(function (block) {
+			var condition = block.getAttribute('data-aktivni-kdyz').split('=');
+			var field = block.closest('form') && block.closest('form').elements[condition[0]];
 			// zaškrtávací políčko: hodnota jen, když je zaškrtnuté („zobrazit=“ = nezaškrtnuté)
-			var hodnota = pole && pole.type === 'checkbox' ? (pole.checked ? pole.value : '') : (pole ? pole.value : '');
-			var zapnuto = !pole || hodnota === podminka[1];
-			blok.querySelectorAll('input, select, textarea').forEach(function (i) { i.disabled = !zapnuto; });
-			blok.classList.toggle('neaktivni', !zapnuto);
+			var value = field && field.type === 'checkbox' ? (field.checked ? field.value : '') : (field ? field.value : '');
+			var isEnabled = !field || value === condition[1];
+			block.querySelectorAll('input, select, textarea').forEach(function (i) { i.disabled = !isEnabled; });
+			block.classList.toggle('neaktivni', !isEnabled);
 		});
 	};
-	if (zavisla.length) { document.addEventListener('change', obnovZavisla); obnovZavisla(); }
+	if (dependent.length) { document.addEventListener('change', refreshDependent); refreshDependent(); }
 
 	// záhlaví číselného sloupce se zarovná jako čísla pod ním (buňky td.cislo v prvním řádku)
-	document.querySelectorAll('table.vypis').forEach(function (tabulka) {
-		var radek = tabulka.tBodies[0] && tabulka.tBodies[0].rows[0];
-		var hlavicka = tabulka.tHead && tabulka.tHead.rows[0];
-		if (!radek || !hlavicka || radek.cells.length !== hlavicka.cells.length) { return; }
-		Array.prototype.forEach.call(radek.cells, function (bunka, i) { if (bunka.classList.contains('cislo')) { hlavicka.cells[i].classList.add('cislo'); } });
+	document.querySelectorAll('table.vypis').forEach(function (table) {
+		var row = table.tBodies[0] && table.tBodies[0].rows[0];
+		var header = table.tHead && table.tHead.rows[0];
+		if (!row || !header || row.cells.length !== header.cells.length) { return; }
+		Array.prototype.forEach.call(row.cells, function (cell, i) { if (cell.classList.contains('cislo')) { header.cells[i].classList.add('cislo'); } });
 	});
 
 	document.addEventListener('change', function (e) {
-		var prvek = e.target;
-		if (prvek.hasAttribute && prvek.hasAttribute('data-odeslat-pri-zmene') && prvek.form) { prvek.form.submit(); }
-		if (prvek.hasAttribute && prvek.hasAttribute('data-ukaz-heslo')) {
-			var heslo = document.getElementById(prvek.getAttribute('data-ukaz-heslo'));
-			if (heslo) { heslo.type = prvek.checked ? 'text' : 'password'; }
+		var element = e.target;
+		if (element.hasAttribute && element.hasAttribute('data-odeslat-pri-zmene') && element.form) { element.form.submit(); }
+		if (element.hasAttribute && element.hasAttribute('data-ukaz-heslo')) {
+			var password = document.getElementById(element.getAttribute('data-ukaz-heslo'));
+			if (password) { password.type = element.checked ? 'text' : 'password'; }
 		}
 	});
 	document.addEventListener('click', function (e) {
@@ -273,34 +273,34 @@
 	});
 	/* ---------- paleta příkazů: Ctrl/⌘+K – sekce, rychlé akce a hledání novinky ---------- */
 
-	var paleta = document.getElementById('paleta');
-	if (paleta && typeof paleta.showModal === 'function') {
-		var pPole = paleta.querySelector('.paleta-pole');
-		var pSeznam = paleta.querySelector('.paleta-seznam');
-		var pPrikazy = [];
-		try { pPrikazy = JSON.parse(document.getElementById('paleta-data').textContent) || []; } catch (e) {}
-		var pClanky = [];
-		var pVybrano = 0;
-		var pCasovac = null;
-		var bezDiakritiky = function (t) { return String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
+	var palette = document.getElementById('paleta');
+	if (palette && typeof palette.showModal === 'function') {
+		var popupFields = palette.querySelector('.paleta-pole');
+		var popupList = palette.querySelector('.paleta-seznam');
+		var popupCommands = [];
+		try { popupCommands = JSON.parse(document.getElementById('paleta-data').textContent) || []; } catch (e) {}
+		var popupNews = [];
+		var popupSelected = 0;
+		var popupTimer = null;
+		var removeDiacritics = function (t) { return String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
 
-		var pPolozky = function () {
-			var q = bezDiakritiky(pPole.value.trim());
-			var slova = q.split(/\s+/).filter(Boolean);
-			var prikazy = pPrikazy.filter(function (p) {
-				var kde = bezDiakritiky(p.n + ' ' + p.s);
-				return slova.every(function (s) { return kde.indexOf(s) !== -1; });
+		var popupItems = function () {
+			var q = removeDiacritics(popupFields.value.trim());
+			var words = q.split(/\s+/).filter(Boolean);
+			var statements = popupCommands.filter(function (p) {
+				var whereParts = removeDiacritics(p.n + ' ' + p.s);
+				return words.every(function (s) { return whereParts.indexOf(s) !== -1; });
 			});
-			return (q === '' ? prikazy.slice(0, 9) : prikazy.slice(0, 7)).concat(q === '' ? [] : pClanky);
+			return (q === '' ? statements.slice(0, 9) : statements.slice(0, 7)).concat(q === '' ? [] : popupNews);
 		};
-		var pKresli = function () {
-			var polozky = pPolozky();
-			pVybrano = Math.max(0, Math.min(pVybrano, polozky.length - 1));
-			pSeznam.textContent = '';
-			polozky.forEach(function (p, i) {
+		var popupRender = function () {
+			var items = popupItems();
+			popupSelected = Math.max(0, Math.min(popupSelected, items.length - 1));
+			popupList.textContent = '';
+			items.forEach(function (p, i) {
 				var li = document.createElement('li');
 				li.setAttribute('role', 'option');
-				li.setAttribute('aria-selected', i === pVybrano ? 'true' : 'false');
+				li.setAttribute('aria-selected', i === popupSelected ? 'true' : 'false');
 				var a = document.createElement('a');
 				a.href = p.u;
 				a.textContent = p.n;
@@ -308,63 +308,63 @@
 				s.textContent = p.s;
 				a.appendChild(s);
 				li.appendChild(a);
-				li.addEventListener('mousemove', function () { if (pVybrano !== i) { pVybrano = i; pKresli(); } });
-				pSeznam.appendChild(li);
+				li.addEventListener('mousemove', function () { if (popupSelected !== i) { popupSelected = i; popupRender(); } });
+				popupList.appendChild(li);
 			});
-			if (polozky.length === 0) {
-				var nic = document.createElement('li');
-				nic.className = 'paleta-nic';
-				nic.textContent = T('Nic takového tu není.');
-				pSeznam.appendChild(nic);
+			if (items.length === 0) {
+				var nothing = document.createElement('li');
+				nothing.className = 'paleta-nic';
+				nothing.textContent = T('Nic takového tu není.');
+				popupList.appendChild(nothing);
 			}
-			var vybrany = pSeznam.querySelector('[aria-selected="true"]');
-			if (vybrany && vybrany.scrollIntoView) { vybrany.scrollIntoView({ block: 'nearest' }); }
+			var selected = popupList.querySelector('[aria-selected="true"]');
+			if (selected && selected.scrollIntoView) { selected.scrollIntoView({ block: 'nearest' }); }
 		};
-		var pOtevri = function () {
-			if (paleta.open) { return; }
-			pPole.value = '';
-			pClanky = [];
-			pVybrano = 0;
-			pKresli();
-			paleta.showModal();
-			pPole.focus();
+		var popupOpen = function () {
+			if (palette.open) { return; }
+			popupFields.value = '';
+			popupNews = [];
+			popupSelected = 0;
+			popupRender();
+			palette.showModal();
+			popupFields.focus();
 		};
 
 		document.addEventListener('keydown', function (e) {
 			if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'k' || e.key === 'K')) {
 				e.preventDefault();
-				if (paleta.open) { paleta.close(); } else { pOtevri(); }
+				if (palette.open) { palette.close(); } else { popupOpen(); }
 			}
 		});
 		document.addEventListener('click', function (e) {
-			if (e.target.closest && e.target.closest('[data-paleta]')) { pOtevri(); }
-			if (e.target === paleta) { paleta.close(); } // klik mimo okno
+			if (e.target.closest && e.target.closest('[data-paleta]')) { popupOpen(); }
+			if (e.target === palette) { palette.close(); } // klik mimo okno
 		});
-		pPole.addEventListener('input', function () {
-			pVybrano = 0;
-			pKresli();
-			clearTimeout(pCasovac);
-			var q = pPole.value.trim();
-			var adresa = paleta.getAttribute('data-clanky');
-			if (!adresa || q.length < 2) { pClanky = []; return; }
-			pCasovac = setTimeout(function () {
-				fetch(adresa + '&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
-					if (pPole.value.trim() !== q) { return; } // mezitím se psalo dál
-					pClanky = (d.clanky || []).map(function (c) { return { n: c.titulek, u: c.url, s: c.vydany ? T('novinka') : T('novinka – nevydaná') }; });
-					pKresli();
+		popupFields.addEventListener('input', function () {
+			popupSelected = 0;
+			popupRender();
+			clearTimeout(popupTimer);
+			var q = popupFields.value.trim();
+			var address = palette.getAttribute('data-clanky');
+			if (!address || q.length < 2) { popupNews = []; return; }
+			popupTimer = setTimeout(function () {
+				fetch(address + '&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
+					if (popupFields.value.trim() !== q) { return; } // mezitím se psalo dál
+					popupNews = (d.clanky || []).map(function (c) { return { n: c.titulek, u: c.url, s: c.vydany ? T('novinka') : T('novinka – nevydaná') }; });
+					popupRender();
 				}).catch(function () {});
 			}, 200);
 		});
-		pPole.addEventListener('keydown', function (e) {
-			var pocet = pPolozky().length;
+		popupFields.addEventListener('keydown', function (e) {
+			var count = popupItems().length;
 			if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
 				e.preventDefault();
-				pVybrano = pocet === 0 ? 0 : (pVybrano + (e.key === 'ArrowDown' ? 1 : pocet - 1)) % pocet;
-				pKresli();
+				popupSelected = count === 0 ? 0 : (popupSelected + (e.key === 'ArrowDown' ? 1 : count - 1)) % count;
+				popupRender();
 			} else if (e.key === 'Enter') {
 				e.preventDefault();
-				var cil = pSeznam.querySelector('[aria-selected="true"] a');
-				if (cil) { window.location.href = cil.href; }
+				var target = popupList.querySelector('[aria-selected="true"] a');
+				if (target) { window.location.href = target.href; }
 			}
 		});
 		// na Macu ukázat ⌘K
@@ -387,32 +387,32 @@
 	});
 	// Média: ohnisko ořezu – klepnutím do náhledu se nastaví obě pole (v procentech)
 	document.querySelectorAll('[data-ohnisko]').forEach(function (box) {
-		var formular = box.closest('form');
+		var formEl = box.closest('form');
 		box.addEventListener('click', function (e) {
 			var r = box.getBoundingClientRect();
 			var x = Math.round((e.clientX - r.left) / r.width * 100);
 			var y = Math.round((e.clientY - r.top) / r.height * 100);
-			formular.elements.ohnisko_x.value = x;
-			formular.elements.ohnisko_y.value = y;
+			formEl.elements.ohnisko_x.value = x;
+			formEl.elements.ohnisko_y.value = y;
 			box.querySelector('.ohnisko-bod').style.left = x + '%';
 			box.querySelector('.ohnisko-bod').style.top = y + '%';
 		});
 	});
 	// Média: popis obrázku (alt) přímo v mřížce – uloží se po opuštění pole, bez znovunačtení stránky
-	document.querySelectorAll('[data-popis-media]').forEach(function (pole) {
-		var puvodni = pole.value;
+	document.querySelectorAll('[data-popis-media]').forEach(function (field) {
+		var previous = field.value;
 		var token = document.querySelector('input[name="_csrf"]');
-		pole.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); pole.blur(); } });
-		pole.addEventListener('change', function () {
+		field.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); field.blur(); } });
+		field.addEventListener('change', function () {
 			var data = new FormData();
 			data.append('_csrf', token ? token.value : '');
-			data.append('ido', pole.getAttribute('data-popis-media'));
-			data.append('popis', pole.value);
-			pole.classList.remove('ulozeno', 'chyba');
-			fetch(pole.getAttribute('data-adresa'), { method: 'POST', body: data, credentials: 'same-origin' })
+			data.append('ido', field.getAttribute('data-popis-media'));
+			data.append('popis', field.value);
+			field.classList.remove('ulozeno', 'chyba');
+			fetch(field.getAttribute('data-adresa'), { method: 'POST', body: data, credentials: 'same-origin' })
 				.then(function (r) { return r.json(); })
-				.then(function (j) { if (!j.ok) { throw new Error(j.chyba); } puvodni = pole.value; pole.classList.add('ulozeno'); })
-				.catch(function () { pole.value = puvodni; pole.classList.add('chyba'); });
+				.then(function (j) { if (!j.ok) { throw new Error(j.chyba); } previous = field.value; field.classList.add('ulozeno'); })
+				.catch(function () { field.value = previous; field.classList.add('chyba'); });
 		});
 	});
 	// přihlášení se při otevřené administraci udržuje (jinak by po nečinnosti odeslání formuláře selhalo a rozepsaný text by se ztratil)
@@ -432,9 +432,9 @@
 	}
 
 	// popisky grafů a údajů (data-tip): hned při najetí myší, při zaměření klávesnicí i po klepnutí na dotykové obrazovce
-	var tip = null, tipU = null;
-	function ukazTip(el) {
-		tipU = el;
+	var tip = null, tipTarget = null;
+	function showTip(el) {
+		tipTarget = el;
 		if (!tip) {
 			tip = document.createElement('div');
 			tip.className = 'tip';
@@ -448,10 +448,10 @@
 		tip.style.left = x + 'px';
 		tip.style.top = Math.max(r.top - 8, tip.offsetHeight + 8) + 'px';
 	}
-	function skryjTip() { tipU = null; if (tip) { tip.hidden = true; } }
-	document.addEventListener('pointerover', function (e) { var el = e.target.closest && e.target.closest('[data-tip]'); if (el) { ukazTip(el); } });
-	document.addEventListener('pointerout', function (e) { var el = e.target.closest && e.target.closest('[data-tip]'); if (el && !el.contains(e.relatedTarget)) { skryjTip(); } });
-	document.addEventListener('focusin', function (e) { var el = e.target.closest && e.target.closest('[data-tip]'); if (el) { ukazTip(el); } });
-	document.addEventListener('focusout', skryjTip);
-	window.addEventListener('scroll', function () { if (tipU) { ukazTip(tipU); } }, { passive: true }); // při posunu stránky popisek jde s prvkem
+	function hideTip() { tipTarget = null; if (tip) { tip.hidden = true; } }
+	document.addEventListener('pointerover', function (e) { var el = e.target.closest && e.target.closest('[data-tip]'); if (el) { showTip(el); } });
+	document.addEventListener('pointerout', function (e) { var el = e.target.closest && e.target.closest('[data-tip]'); if (el && !el.contains(e.relatedTarget)) { hideTip(); } });
+	document.addEventListener('focusin', function (e) { var el = e.target.closest && e.target.closest('[data-tip]'); if (el) { showTip(el); } });
+	document.addEventListener('focusout', hideTip);
+	window.addEventListener('scroll', function () { if (tipTarget) { showTip(tipTarget); } }, { passive: true }); // při posunu stránky popisek jde s prvkem
 })();

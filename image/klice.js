@@ -3,79 +3,79 @@
 (function () {
 	'use strict';
 
-	function naBajty(text) {
+	function toBytes(text) {
 		var b64 = text.replace(/-/g, '+').replace(/_/g, '/');
 		while (b64.length % 4) { b64 += '='; }
-		var znaky = atob(b64), pole = new Uint8Array(znaky.length);
-		for (var i = 0; i < znaky.length; i++) { pole[i] = znaky.charCodeAt(i); }
-		return pole.buffer;
+		var chars = atob(b64), field = new Uint8Array(chars.length);
+		for (var i = 0; i < chars.length; i++) { field[i] = chars.charCodeAt(i); }
+		return field.buffer;
 	}
 
-	function naText(bajty) {
-		var pole = new Uint8Array(bajty), znaky = '';
-		for (var i = 0; i < pole.length; i++) { znaky += String.fromCharCode(pole[i]); }
-		return btoa(znaky).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+	function toText(bytes) {
+		var field = new Uint8Array(bytes), chars = '';
+		for (var i = 0; i < field.length; i++) { chars += String.fromCharCode(field[i]); }
+		return btoa(chars).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 	}
 
-	document.querySelectorAll('form[data-klice]').forEach(function (formular) {
-		var adresa = formular.getAttribute('data-klice');
-		var chyba = formular.querySelector('[data-klic-chyba]');
-		var tlacitko = formular.querySelector('[data-klic-pridat], [data-klic-prihlasit]');
-		if (!tlacitko) { return; }
+	document.querySelectorAll('form[data-klice]').forEach(function (formEl) {
+		var address = formEl.getAttribute('data-klice');
+		var error = formEl.querySelector('[data-klic-chyba]');
+		var button = formEl.querySelector('[data-klic-pridat], [data-klic-prihlasit]');
+		if (!button) { return; }
 
 		if (!window.PublicKeyCredential || !navigator.credentials || !window.isSecureContext) {
-			tlacitko.disabled = true;
-			var nepodporuje = formular.querySelector('[data-klic-nepodporuje]');
-			if (nepodporuje) { nepodporuje.hidden = false; }
+			button.disabled = true;
+			var unsupported = formEl.querySelector('[data-klic-nepodporuje]');
+			if (unsupported) { unsupported.hidden = false; }
 			return;
 		}
 
-		function ukazChybu(text) {
-			if (chyba) { chyba.textContent = text; chyba.hidden = !text; }
-			tlacitko.disabled = false;
+		function showError(text) {
+			if (error) { error.textContent = text; error.hidden = !text; }
+			button.disabled = false;
 		}
 
-		function posli(pole) {
+		function deliver(field) {
 			var data = new FormData();
-			data.append('_csrf', formular.querySelector('input[name="_csrf"]').value);
-			Object.keys(pole).forEach(function (k) { data.append(k, pole[k]); });
-			return fetch(adresa, { method: 'POST', body: data, credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+			data.append('_csrf', formEl.querySelector('input[name="_csrf"]').value);
+			Object.keys(field).forEach(function (k) { data.append(k, field[k]); });
+			return fetch(address, { method: 'POST', body: data, credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
 				.then(function (r) { return r.json(); })
 				.then(function (j) { if (j && j.chyba) { throw new Error(j.chyba); } return j; });
 		}
 
-		tlacitko.addEventListener('click', function () {
-			var registrace = tlacitko.hasAttribute('data-klic-pridat');
-			tlacitko.disabled = true;
-			ukazChybu('');
-			tlacitko.disabled = true;
+		button.addEventListener('click', function () {
+			var register = button.hasAttribute('data-klic-pridat');
+			button.disabled = true;
+			showError('');
+			button.disabled = true;
 
-			posli(registrace ? { co: 'klic_moznosti' } : { krok: 'klic_moznosti' }).then(function (m) {
-				m.challenge = naBajty(m.challenge);
-				if (registrace) {
-					m.user.id = naBajty(m.user.id);
-					(m.excludeCredentials || []).forEach(function (c) { c.id = naBajty(c.id); });
+			deliver(register ? { co: 'klic_moznosti' } : { krok: 'klic_moznosti' }).then(function (m) {
+				m.challenge = toBytes(m.challenge);
+				if (register) {
+					m.user.id = toBytes(m.user.id);
+					(m.excludeCredentials || []).forEach(function (c) { c.id = toBytes(c.id); });
 					return navigator.credentials.create({ publicKey: m });
 				}
-				(m.allowCredentials || []).forEach(function (c) { c.id = naBajty(c.id); });
+				(m.allowCredentials || []).forEach(function (c) { c.id = toBytes(c.id); });
 				return navigator.credentials.get({ publicKey: m });
 			}).then(function (k) {
-				var o = k.response, odpoved = { id: naText(k.rawId), clientDataJSON: naText(o.clientDataJSON) };
-				if (registrace) {
-					if (!o.getPublicKey || !o.getAuthenticatorData) { throw new Error(formular.querySelector('[data-klic-nepodporuje]').textContent); }
-					odpoved.authenticatorData = naText(o.getAuthenticatorData());
-					odpoved.publicKey = naText(o.getPublicKey());
-					odpoved.publicKeyAlgorithm = o.getPublicKeyAlgorithm();
-					return posli({ co: 'klic_uloz', odpoved: JSON.stringify(odpoved), nazev: formular.querySelector('[name="nazev"]').value });
+				var o = k.response, response = { id: toText(k.rawId), clientDataJSON: toText(o.clientDataJSON) };
+				if (register) {
+					if (!o.getPublicKey || !o.getAuthenticatorData) { throw new Error(formEl.querySelector('[data-klic-nepodporuje]').textContent); }
+					response.authenticatorData = toText(o.getAuthenticatorData());
+					response.publicKey = toText(o.getPublicKey());
+					response.publicKeyAlgorithm = o.getPublicKeyAlgorithm();
+					return deliver({ co: 'klic_uloz', odpoved: JSON.stringify(response), nazev: formEl.querySelector('[name="nazev"]').value });
 				}
-				odpoved.authenticatorData = naText(o.authenticatorData);
-				odpoved.signature = naText(o.signature);
-				return posli({ krok: 'klic', odpoved: JSON.stringify(odpoved) });
+				response.authenticatorData = toText(o.authenticatorData);
+				response.signature = toText(o.signature);
+				return deliver({ krok: 'klic', odpoved: JSON.stringify(response) });
 			}).then(function (j) {
 				window.location.href = (j && j.kam) || window.location.href.split('#')[0];
 			}).catch(function (e) {
 				// zrušení dialogu uživatelem není chyba, kterou by bylo potřeba hlásit
-				ukazChybu(e && e.name === 'NotAllowedError' ? '' : (e && e.message) || '');
+				showError(e && e.name === 'NotAllowedError' ? '' : (e && e.message) || '');
 			});
 		});
 	});
