@@ -50,10 +50,12 @@ Všechno, co jde na GitHub a s vydáním do instalací, je **anglicky**: commit,
 i popis změn `--zmena` (správci ho vidí v administraci u nabídky aktualizace).
 
 
-0. Pusťte `tools/test.sh`, `tools/test-english.sh` a `tools/test-migrations.sh` (aktualizace databáze z v1.0.0; workflow Vydání ji pouští taky).
+0. Pusťte `tools/test.sh`, `tools/test-english.sh`, `tools/test-browser.sh` a `tools/test-migrations.sh` (aktualizace databáze z v1.0.0; workflow Vydání ji pouští taky).
 1. V `system/bootstrap.php` zvyšte `KALETA_VERSION`, změnu commitněte, označte tagem `vX.Y.Z` a pushněte (workflow Vydání
    spustí testy a založí koncept vydání).
 2. `php tools/release.php X.Y.Z --url=https://github.com/phprs-cms/kaletacms/releases/download/vX.Y.Z/kaleta-X.Y.Z.zip --zmena="…" [--bezpecnostni]`
+   Pak podepsaný balíček vyzkoušejte jako aktualizaci předchozího vydání: `PACKAGE=dist/kaleta-X.Y.Z.zip tools/test-update.sh`
+   (a třeba `FROM=v1.2.0` pro starší) – starý web ověří skutečný podpis, nainstaluje a projde administraci i web.
 3. `gh release upload vX.Y.Z dist/kaleta-X.Y.Z.zip dist/aktualizace.json` a koncept zveřejněte jako **latest**
    (`gh release edit vX.Y.Z --draft=false --latest`).
 4. Víc nic: `https://kaletacms.com/aktualizace.json` je na webu projektu přesměrování (Kaleta → Přesměrování, 302) na

@@ -3,6 +3,8 @@
 # to a package built from the working tree, signed with a throwaway key. Checks that the update applies, migrates the
 # database, removes files the new version no longer has (renamed classes must not linger) and that the site and the
 # admin still work. Same env as tools/test.sh: DB_HOST DB_PORT DB_NAME DB_USER DB_PASS PORT.
+# PACKAGE=dist/kaleta-X.Y.Z.zip tests a real release package instead (tools/release.php; the manifest next to it), signed
+# with the publisher's key the old release already trusts – run it before uploading a release.
 # The database DB_NAME is DROPPED and created again.
 set -euo pipefail
 
@@ -108,7 +110,18 @@ echo '  ok     ' . count($hashes) . " files in the package\n";
 PHP
 # a class file of the old release that the new one no longer has: the update must delete it
 echo '<?php // removed in the new version' > "$WORK/web/system/zrusene.php"; echo system/zrusene.php >> "$WORK/stare-soubory.txt"
-php "$WORK/balicek.php" "$ROOT" "$WORK/web" "$WORK/kanal" "$CHANNEL_PORT"
+if [ -n "${PACKAGE:-}" ]; then
+  # the old site knows the files of its release (a real install from its package has this list); keys stay the real ones
+  php -r '$h = []; foreach (file($argv[2], FILE_IGNORE_NEW_LINES) as $s) { if (!preg_match("#^(tools/|docs/|\.github/|\.claude/|CLAUDE\.md$|\.git|media/|storage/|install\.php$)#", $s) && is_file($argv[1] . "/" . $s)) { $h[$s] = hash_file("sha256", $argv[1] . "/" . $s); } }
+    file_put_contents($argv[1] . "/system/soubory.json", json_encode(["verze" => "stara", "soubory" => $h]));' "$WORK/web" "$WORK/stare-soubory.txt"
+  cp "$PACKAGE" "$WORK/kanal/kaleta.zip"
+  php -r '$m = json_decode(file_get_contents($argv[1]), true); $m["url"] = "http://127.0.0.1:" . $argv[2] . "/kaleta.zip"; file_put_contents($argv[3], json_encode($m));' "$(dirname "$PACKAGE")/aktualizace.json" "$CHANNEL_PORT" "$WORK/kanal/aktualizace.json"
+  NEW_VERSION=$(php -r 'echo json_decode(file_get_contents($argv[1]), true)["verze"];' "$WORK/kanal/aktualizace.json")
+  echo "  ok     release package $PACKAGE ($NEW_VERSION)"
+else
+  php "$WORK/balicek.php" "$ROOT" "$WORK/web" "$WORK/kanal" "$CHANNEL_PORT"
+  NEW_VERSION=99.0.0
+fi
 (cd "$WORK/kanal" && exec php -S "127.0.0.1:$CHANNEL_PORT" > /dev/null 2>&1) & CHANNEL_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$CHANNEL_PORT/aktualizace.json" && break; sleep 0.2; done
 
@@ -117,9 +130,9 @@ echo "== update through the admin"
 # the old release answers to its own URLs (the admin of a 1.3 site clicks Update there)
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?modul=config&zalozka=zalohy"; TOKEN=$(csrf)
 curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?modul=config&akce=aktualizuj" -d "_csrf=$TOKEN"
-if grep -q "99.0.0" "$WORK/response"; then echo "  ok     update installed"; else
+if grep -qF "$NEW_VERSION" "$WORK/response"; then echo "  ok     update installed"; else
   echo "  CHYBA  update failed:"; sed 's/<[^>]*>//g' "$WORK/response" | grep -i -m3 'aktualiz'; exit 1; fi
-cmp -s "$ROOT/system/src/helpers.php" "$WORK/web/system/src/helpers.php" && grep -q "KALETA_VERSION = '99.0.0'" "$WORK/web/system/bootstrap.php" && echo "  ok     new core in place" || { echo "  CHYBA  the core is not the new one"; ERRORS=$((ERRORS+1)); }
+cmp -s "$ROOT/system/src/helpers.php" "$WORK/web/system/src/helpers.php" && grep -qF "KALETA_VERSION = '$NEW_VERSION'" "$WORK/web/system/bootstrap.php" && echo "  ok     new core in place" || { echo "  CHYBA  the core is not the new one"; ERRORS=$((ERRORS+1)); }
 LAST_MIGRATION=$(ls "$ROOT"/system/sql/migrace/*.sql | sed 's/.*\/\([0-9]*\)-.*/\1/' | sort -n | tail -1 | sed 's/^0*//')
 LEFTOVERS=$(comm -23 <(sort "$WORK/stare-soubory.txt") <(sort "$WORK/nove-soubory.txt") | grep -vE '^(tools/|docs/|\.github/|\.claude/|CLAUDE\.md$|\.gitignore$|\.gitleaks\.toml$|install\.php$|media/|storage/|image/ukazka/)' \
   | while read -r s; do [ -e "$WORK/web/$s" ] && echo "$s"; done || true)
