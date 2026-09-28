@@ -735,6 +735,7 @@ final class Tools
                 } else {
                     $idp = $db->insert('kolekce_polozky', $row + ['idk' => $collection['idk'], 'datum' => date('Y-m-d H:i:s'), 'zobrazit' => 0]);
                 }
+                \Kaleta\Front\Cache::clear(); // item pages, lists, the sitemap and llms.txt show the change at once (as after a save in the admin)
 
                 // a key the collection does not have (a typo, „nazev“ in data instead of the parameter) would otherwise be silently dropped
                 $unknownKeys = array_values(array_diff(array_keys(is_array($a['data'] ?? null) ? $a['data'] : []), array_column($collection['pole'], 'klic')));
