@@ -100,7 +100,7 @@ check "nastavení: volba úvodní stránky" 200 "/admin.php?module=settings&tab=
 check "neznámý modul" 403 "/admin.php?module=neexistuje"
 check "API: novinky" 200 /api/novinky '"novinky"'
 check "API: stránky" 200 /api/stranky '/kontakt"'
-curl -s -D - -o /dev/null "$B/api/stranky" | grep -qi '^Deprecation: @1790812800' && echo "  ok     API: marked deprecated (Deprecation header, 1.8)" || { echo "  CHYBA  API Deprecation header"; ERRORS=$((ERRORS+1)); }
+curl -s -D - -o /dev/null "$B/api/stranky" | grep -qi '^Deprecation: @1790553600' && echo "  ok     API: marked deprecated (Deprecation header, 1.8)" || { echo "  CHYBA  API Deprecation header"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('additional_languages','en') ON DUPLICATE KEY UPDATE hodnota='en'"
 check "anglická verze webu" 200 /en/ 'lang="en"'
 code=$(curl -s -o /dev/null -w '%{http_code}' "$B/en/novinky/vitejte-v-kalete"); expect "novinka jiné jazykové verze přesměruje" "$code" 301

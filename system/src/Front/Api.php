@@ -21,8 +21,8 @@ use Kaleta\Core\Response;
  */
 final class Api
 {
-    /** 1 October 2026 – Kaleta 1.8 (the Deprecation header carries it as @<Unix time>). */
-    public const int DEPRECATED_AT = 1790812800;
+    /** 28 September 2026 – Kaleta 1.8 (the Deprecation header carries it as @<Unix time>). */
+    public const int DEPRECATED_AT = 1790553600;
 
     public function __construct(private readonly App $app, private readonly NewsRepository $news)
     {

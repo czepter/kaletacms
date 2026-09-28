@@ -143,7 +143,7 @@ findable, then remove what is left of the old ways. Each step uses the previous 
 5. **Ready-made templates of site parts:** four headers, four footers and plain or extended wrappers – structure only,
    the look comes from the design system; they go into the part's draft (admin and `apply_part_template`).
 
-## 1.8 – own and move your site
+## 1.8 – own and move your site (released 28 September 2026)
 
 1. **Import of a Kaleta export:** “Start from an export” in the installer and Transfer → Import on an empty site; builds
    go through the same sanitising as any build, users and secrets are never carried. It serves host moves and agency
