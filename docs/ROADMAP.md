@@ -132,7 +132,7 @@ findable, then remove what is left of the old ways. Each step uses the previous 
 7. **Themeless:** custom PHP layouts are removed – no site uses one. Front templates are no longer overridable, the
    layout choice and `site_info.sablona` go away. Health warns about a custom layout folder that is still there.
 
-## 1.7 – safe redesigns (in main, not released yet)
+## 1.7 – safe redesigns (released 28 September 2026)
 
 1. The design system, shared classes, components, the menu and header or footer variants get a **draft**, with publish,
    discard and the last 20 versions, like page builds.
