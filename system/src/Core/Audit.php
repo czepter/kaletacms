@@ -203,13 +203,10 @@ final class Audit
 
     private function notFound(): void
     {
-        foreach ($this->app->db()->all('SELECT n.cesta, n.pocet FROM {nenalezeno} n WHERE n.naposledy > NOW() - INTERVAL 30 DAY AND n.pocet >= 3 ORDER BY n.pocet DESC LIMIT 25') as $n) {
-            $path = trim((string) $n['cesta'], '/');
-            if ($this->app->db()->value('SELECT 1 FROM {presmerovani} WHERE z_adresy = ?', [$path]) !== null) {
-                continue;
-            }
+        foreach (NotFound::pending($this->app, 30, 25) as $n) {
+            $path = trim($n['cesta'], '/');
             $this->add('not_found', '/' . $path, t('%d visits in the last 30 days ended with “page not found” – add a redirect to the right page.', (int) $n['pocet']),
-                'admin.php?module=redirects&z=' . rawurlencode('/' . $path), null, ['redirect_from' => '/' . $path]);
+                'admin.php?module=redirects&z=' . rawurlencode('/' . $path) . '#upravit', null, ['redirect_from' => '/' . $path]);
         }
     }
 

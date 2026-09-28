@@ -50,7 +50,7 @@ final class Redirects extends Module
             'records' => $this->db->all('SELECT * FROM {presmerovani} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'total' => $total, 'pageNumber' => $pageNumber, 'pageCount' => (int) ceil($total / self::PER_PAGE), 'search' => $search,
             'edit' => $this->request->getInt('upravit') > 0 ? $this->db->one('SELECT * FROM {presmerovani} WHERE idp = ?', [$this->request->getInt('upravit')]) : null,
-            'notFound' => $this->db->all('SELECT * FROM {nenalezeno} WHERE naposledy > NOW() - INTERVAL 60 DAY ORDER BY pocet DESC, naposledy DESC LIMIT 25'),
+            'notFound' => \Kaleta\Core\NotFound::pending($this->app, 60, 50),
             'fromUrl' => mb_substr($this->request->get('z'), 0, 255),
         ]);
     }
@@ -77,6 +77,25 @@ final class Redirects extends Module
         $this->db->delete('nenalezeno', ['cesta' => trim($z, '/')]);
 
         return $this->back('Redirect saved.');
+    }
+
+    /** An address visitors could not find, left alone for good (a bot probe, something nobody needs). */
+    protected function actionIgnore(): Response
+    {
+        if ($this->request->isPost()) {
+            \Kaleta\Core\NotFound::ignore($this->app, [$this->request->post('cesta')]);
+        }
+
+        return Response::redirect($this->url() . '#nenalezeno');
+    }
+
+    /** All addresses waiting now – the warning on the start screen goes away until a new address appears. */
+    protected function actionIgnoreAll(): Response
+    {
+        $count = $this->request->isPost() ? \Kaleta\Core\NotFound::ignore($this->app) : 0;
+        $this->app->session->flash('ok', t('%d addresses ignored. A new address that visitors cannot find will show up again.', $count));
+
+        return Response::redirect($this->request->post('zpet') === 'prehled' ? $this->app->url('admin.php') : $this->url() . '#nenalezeno');
     }
 
     /** Empties the overview of not-found URLs. */

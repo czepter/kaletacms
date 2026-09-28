@@ -648,7 +648,7 @@ final class Kernel
 
         // overview of not-found URLs for the administrator (Redirects); bots probing other systems are not recorded
         $path = mb_substr(trim($this->app->request->path(), '/'), 0, 255);
-        if ($path !== '' && $this->app->request->get('cast') === '' && !preg_match('#\.(php|asp|aspx|env|git|sql|bak|ini|xml|txt|js|css|map|png|jpe?g|gif|ico|webp)$|^(wp-|\.|cgi-bin|vendor/|admin/)#i', $path) && mb_check_encoding($path, 'UTF-8')) {
+        if ($path !== '' && $this->app->request->get('cast') === '' && !\Kaleta\Core\NotFound::isBot($path) && mb_check_encoding($path, 'UTF-8')) {
             try {
                 if ((int) $this->app->db()->value('SELECT COUNT(*) FROM {nenalezeno}') < 2000 || $this->app->db()->value('SELECT 1 FROM {nenalezeno} WHERE cesta = ?', [$path]) !== null) {
                     $this->app->db()->run('INSERT INTO {nenalezeno} (cesta, pocet, naposledy) VALUES (?, 1, NOW()) ON DUPLICATE KEY UPDATE pocet = pocet + 1, naposledy = NOW()', [$path]);

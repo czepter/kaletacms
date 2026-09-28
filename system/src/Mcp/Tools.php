@@ -206,6 +206,8 @@ final class Tools
             ['discard_look', 'Throws the draft look away – the published look stays (administrators; only when the user explicitly asks).', $s([])],
             ['site_audit', 'Site audit (read-only): links to pages that do not exist, broken external links in news, pages and item pages without a description, duplicate titles, menu items pointing at hidden pages, builder checks (buttons without a link, images without alt, heading outline) and frequent 404s without a redirect. Each finding says where it is (target: page / collection+item / part / component / popup / news / menu / redirect_from) and, for builds, the element id – fix it with the usual tools, then run the audit again.',
                 $s(['kind' => $text('only one kind: link | menu | description | title | build | not_found (optional)')])],
+            ['ignore_not_found', 'Ignores addresses that ended with 404 (from list_redirects → not_found): a bot probe or an address nothing replaces. They leave the list and the start-screen warning for good. Redirect real old addresses with save_redirect instead. Only when the user asks.',
+                $s(['paths' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'addresses to ignore, e.g. ["/old-page"]'], 'all' => ['type' => 'boolean', 'description' => 'true = all addresses waiting now']])],
             ['list_item_versions', 'Earlier versions of a collection item (the last 20 saves: name, address, field values and SEO fields). restore_item_version brings one back.',
                 $s(['collection' => $text('collection slug'), 'id' => $number('item ID')], ['collection', 'id'])],
             ['restore_item_version', 'Brings an earlier version of a collection item back (the current one goes to the history first). Only when the user asks.',
@@ -253,7 +255,7 @@ final class Tools
         'update_category' => 'novinky', 'delete_category' => 'novinky', 'delete_popup' => '', 'list_components' => '', 'save_component' => '', 'delete_component' => '',
         'save_section' => '', 'delete_section' => '', 'update_media' => '', 'delete_media' => '', 'update_enquiry' => 'poptavky', 'delete_enquiry' => 'poptavky',
         'publish_look' => '', 'discard_look' => '', 'list_look_versions' => '', 'restore_look_version' => '', 'apply_part_template' => '',
-        'list_item_versions' => '', 'restore_item_version' => '', 'site_audit' => ''];
+        'list_item_versions' => '', 'restore_item_version' => '', 'site_audit' => '', 'ignore_not_found' => 'presmerovani'];
 
     /** Site parts by their English names (MCP) => Czech types. */
     private const array PART_NAMES = ['header' => 'hlavicka', 'footer' => 'paticka', 'news_item' => 'novinka', 'news_list' => 'vypis', 'not_found' => 'nenalezeno'];
@@ -281,7 +283,7 @@ final class Tools
     {
         return in_array($name, ['obnov_verzi', 'zahod_koncept', 'uloz_variantu', 'vytvor_kolekci', 'uprav_kolekci', 'uloz_polozku_kolekce', 'uloz_popup', 'stavba_z_html', 'stavba_uloz', 'stavba_uprav', 'uloz_tridy', 'nahraj_soubor', 'uprav_nastaveni', 'uloz_presmerovani', 'smaz_stranku', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'uloz_menu', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter',
             'restore_from_trash', 'trash_news', 'delete_collection_item', 'delete_collection', 'update_category', 'delete_category', 'delete_popup', 'save_component', 'delete_component',
-            'save_section', 'delete_section', 'update_media', 'delete_media', 'update_enquiry', 'delete_enquiry', 'publish_look', 'discard_look', 'restore_look_version', 'apply_part_template', 'restore_item_version'], true);
+            'save_section', 'delete_section', 'update_media', 'delete_media', 'update_enquiry', 'delete_enquiry', 'publish_look', 'discard_look', 'restore_look_version', 'apply_part_template', 'restore_item_version', 'ignore_not_found'], true);
     }
 
     /** @param array<string, mixed> $a */
@@ -903,7 +905,7 @@ final class Tools
                 }
 
                 return ['presmerovani' => $db->all('SELECT z_adresy AS z, na_adresu AS na, typ, pocet FROM {presmerovani} ORDER BY z_adresy LIMIT 500'),
-                    'nenalezeno' => $db->all('SELECT cesta, pocet, naposledy FROM {nenalezeno} ORDER BY pocet DESC LIMIT 30')];
+                    'nenalezeno' => \Kaleta\Core\NotFound::pending($this->app, 60, 30)];
 
             case 'smaz_stranku':
                 if (!$auth->canPublish() || !$auth->hasModule('pages')) {
@@ -1433,6 +1435,14 @@ final class Tools
                 }
 
                 return ['published' => $summary];
+
+            case 'ignore_not_found':
+                $need($auth->isAdmin(), 'Addresses not found are handled by an administrator.');
+                $paths = is_array($a['paths'] ?? null) ? array_values(array_filter($a['paths'], 'is_string')) : [];
+                $need($paths !== [] || !empty($a['all']), 'Send paths, or all: true.');
+
+                return ['ignored' => \Kaleta\Core\NotFound::ignore($this->app, !empty($a['all']) ? null : $paths),
+                    'not_found' => array_map(fn (array $n): array => ['path' => $n['cesta'], 'count' => $n['pocet'], 'last_seen' => $n['naposledy']], \Kaleta\Core\NotFound::pending($this->app, 60, 30))];
 
             case 'site_audit':
                 $need($auth->isAdmin() || $auth->hasModule('pages'), 'The site audit is for administrators and editors of pages.');

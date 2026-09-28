@@ -193,6 +193,7 @@ final class Translator
         'list_look_versions' => ['list_look_versions', '', []],
         'list_item_versions' => ['list_item_versions', '', []],
         'site_audit' => ['site_audit', '', []],
+        'ignore_not_found' => ['ignore_not_found', '', []],
         'restore_item_version' => ['restore_item_version', '', []],
         'restore_look_version' => ['restore_look_version', '', []],
         'list_newsletters' => ['list_newsletters', '', []],

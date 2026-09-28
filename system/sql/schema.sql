@@ -419,6 +419,7 @@ CREATE TABLE ka_nenalezeno (
     cesta     VARCHAR(255) NOT NULL,
     pocet     INT UNSIGNED NOT NULL DEFAULT 1,
     naposledy DATETIME NOT NULL,
+    ignorovano DATETIME NULL,                          -- ignored by the administrator (1.9): out of the warning and the list
     PRIMARY KEY (cesta)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 

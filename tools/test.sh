@@ -1225,6 +1225,24 @@ grep -q 'neexistuje-audit' "$WORK/response" && grep -q '\\"page\\":' "$WORK/resp
 mcp_list() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'; }
 mcp_list | php -r '$t = array_column(json_decode(stream_get_contents(STDIN), true)["result"]["tools"], null, "name"); exit(($t["site_audit"]["annotations"]["readOnlyHint"] ?? false) === true && ($t["restore_item_version"]["annotations"]["readOnlyHint"] ?? true) === false ? 0 : 1);' \
   && echo "  ok     MCP: site_audit is read-only, restore_item_version writes" || { echo "  CHYBA  MCP annotations of 1.9 tools"; ERRORS=$((ERRORS+1)); }
+# addresses not found: bots are not recorded, what works again drops out, the warning can be dismissed
+sq "DELETE FROM ka_nenalezeno" > /dev/null
+for i in 1 2 3; do curl -s -o /dev/null "$B/wp/v2/users"; curl -s -o /dev/null "$B/_next"; curl -s -o /dev/null "$B/stara-cenik-2019"; curl -s -o /dev/null "$B/stary-kontakt"; done
+sq "INSERT INTO ka_nenalezeno (cesta, pocet, naposledy) VALUES ('o-nas', 9, NOW())" > /dev/null
+expect "404 log: bot probes are not recorded" "$(sq "SELECT COUNT(*) FROM ka_nenalezeno WHERE cesta IN ('wp/v2/users', '_next')")" "0"
+check "the start screen explains the 404 warning and offers to review it" 200 "/admin.php" "opakovaně skončily „stránka nenalezena“: 2."
+grep -q 'module=redirects#nenalezeno' "$WORK/response" && grep -q 'action=ignore_all' "$WORK/response" && echo "  ok     the warning links to the list and can be dismissed" || { echo "  CHYBA  404 warning actions"; ERRORS=$((ERRORS+1)); }
+expect "an address that works again drops out of the log" "$(sq "SELECT COUNT(*) FROM ka_nenalezeno WHERE cesta = 'o-nas'")" "0"
+check "the 404 list says what to do" 200 "/admin.php?module=redirects" "Ignorovat – nic ji nenahrazuje"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=redirects&action=ignore" -d "_csrf=$(csrf)" -d cesta=stary-kontakt
+expect "Ignore hides one address for good" "$(sq "SELECT ignorovano IS NOT NULL FROM ka_nenalezeno WHERE cesta = 'stary-kontakt'")" "1"
+curl -s -o /dev/null "$B/stary-kontakt"; check "an ignored address does not come back in the warning" 200 "/admin.php" "opakovaně skončily „stránka nenalezena“: 1."
+mcp ignore_not_found '{"all":true}' > "$WORK/response"
+expect "MCP: ignore_not_found dismisses the rest" "$(mcp_value ignored)" "1"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php"; grep -q 'skončily „stránka nenalezena“' "$WORK/response" && { echo "  CHYBA  the 404 warning stays after Ignore all"; ERRORS=$((ERRORS+1)); } || echo "  ok     after ignoring, the start screen has no 404 warning"
+for i in 1 2 3; do curl -s -o /dev/null "$B/uplne-nova-adresa"; done
+check "a new address brings the warning back" 200 "/admin.php" "opakovaně skončily „stránka nenalezena“: 1."
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=redirects&action=ignore_all" -d "_csrf=$(csrf)" -d zpet=prehled
 # privacy policy from the enabled features
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=new"; TOKEN=$(csrf)
 save_page -d ids=0 --data-urlencode "titulek=Zásady test" -d sablona=zasady -d zobrazit=0 -d v_menu=0 -d text= > /dev/null

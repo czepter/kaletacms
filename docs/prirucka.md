@@ -302,6 +302,11 @@ na skryté nebo smazané stránky, kontroly builderu (tlačítka bez odkazu, obr
 které často končí „stránka nenalezena“ a nemají přesměrování. Stejný audit spustí Claude nástrojem `site_audit` a nalezené
 opraví.
 
+**Adresy, které návštěvníci nenašli.** Když návštěvníci opakovaně přijdou na adresu, která neexistuje, řekne to úvodní
+obrazovka a **Projít adresy** otevře seznam v Přesměrování. U každé zvolte **Přesměrovat** (formulář se vyplní, doplňte
+cíl), nebo **Ignorovat** (nic ji nenahrazuje, nebo je to robot); **Ignorovat vše** upozornění schová, dokud se neobjeví
+nová adresa. Pokusy robotů o adresy jiných systémů se nezapisují a adresa, která zase funguje, zmizí sama.
+
 **Nastavení → Stav systému → Před Kaletou 2.0** vypíše, co verze 2.0 odstraní a tento web ještě používá: veřejné API,
 nastavení uložená pod starými názvy, starý prvek Vyskakovací okno ve stránce a staré názvy tříd nebo pomocných funkcí ve
 vlastním PHP kódu. Kaleta 1.9 vám na změnu dává celé jedno vydání.

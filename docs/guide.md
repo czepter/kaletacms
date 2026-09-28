@@ -307,6 +307,11 @@ items pointing at hidden or deleted pages, the builder checks (buttons without a
 the heading outline) and addresses that often end in “page not found” and have no redirect. Claude runs the same audit
 with `site_audit` and can fix what it finds.
 
+**Addresses not found.** When visitors repeatedly land on an address that does not exist, the start screen says so and
+**Review the addresses** opens the list in Redirects. For each one choose **Redirect** (the form is filled in, add the
+target) or **Ignore** (nothing replaces it, or it is a bot); **Ignore all** dismisses the warning until a new address
+appears. Probes of bots looking for other systems are not recorded, and an address that works again drops out by itself.
+
 **Settings → System status → Before Kaleta 2.0** lists what version 2.0 removes and this site still uses: the public
 API, settings stored under old names, the old per-page pop-up element and old class names or helpers in custom PHP
 code. Kaleta 1.9 gives you a whole release to change them.

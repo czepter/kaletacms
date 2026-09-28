@@ -393,6 +393,9 @@ a.nebezpecne:hover {
 	background: var(--ok-podklad);
 	color: var(--ok);
 }
+/* a warning with its own actions (start screen): the text, then the buttons */
+.hlaska-akce p { margin: 0; }
+.hlaska-akce .navigace-radek { margin-top: 10px; }
 .hlaska-chyba {
 	border-color: color-mix(in srgb, var(--chyba) 35%, transparent);
 	background: var(--chyba-podklad);

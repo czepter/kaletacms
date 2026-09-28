@@ -213,9 +213,11 @@ final class Kernel
         $modules = $this->modules();
         $warnings = [];
         if (isset($modules['redirects'])) {
-            $missing = (int) $db->value('SELECT COUNT(*) FROM {nenalezeno} WHERE naposledy > NOW() - INTERVAL 7 DAY AND pocet >= 3');
+            // only addresses that still end in 404 and nobody ignored (Core\NotFound cleans the rest up)
+            $missing = count(\Kaleta\Core\NotFound::pending($this->app));
             if ($missing > 0) {
-                $warnings[] = [t('In the past week, visitors repeatedly could not find %d addresses (404 error). Redirect them to the right pages.', $missing), $this->app->url('admin.php?module=redirects')];
+                $warnings[] = [t('Addresses on your site that repeatedly ended with “page not found” this week: %d. Visitors came from an old link or a typo – send each one to the right page with a redirect, or ignore it.', $missing),
+                    $this->app->url('admin.php?module=redirects#nenalezeno'), t('Review the addresses'), $this->app->url('admin.php?module=redirects&action=ignore_all')];
             }
         }
         if ($this->app->auth()->isAdmin()) {

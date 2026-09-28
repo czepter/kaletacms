@@ -6,7 +6,7 @@
  * @var Kaleta\Core\App $app
  * @var array<string, class-string<Kaleta\Admin\Module>> $modules
  * @var array<string, array{0: int, 1: string}> $counts  label => [count, url]
- * @var list<array{0: string, 1: string}> $warnings  [text, url]
+ * @var list<array{0: string, 1: string, 2?: string, 3?: string}> $warnings  [text, url, link text, action that dismisses it]
  * @var list<array<string, mixed>> $enquiries
  * @var list<array{druh: string, titulek: string, kdy: string, url: string, stav: string}> $edited
  */
@@ -23,8 +23,11 @@
 		<a class="navigace" href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= e(t('Zobrazit web')) ?></a>
 	</p>
 </div>
-<?php foreach ($warnings as [$text, $url]): ?>
-<p class="hlaska hlaska-varovani"><?= e($text) ?> <a href="<?= e($url) ?>"><?= e(t('Fix')) ?></a></p>
+<?php foreach ($warnings as $w): [$text, $url] = $w; ?>
+<div class="hlaska hlaska-varovani hlaska-akce"><p><?= e($text) ?></p>
+	<p class="navigace-radek"><a class="navigace" href="<?= e($url) ?>"><?= e($w[2] ?? t('Fix')) ?></a><?php if (isset($w[3])): ?>
+		<form class="vradku" method="post" action="<?= e($w[3]) ?>"><?= $app->session->csrfField() ?><input type="hidden" name="zpet" value="prehled"><button class="navigace" type="submit"><?= e(t('Ignore all')) ?></button></form><?php endif ?></p>
+</div>
 <?php endforeach ?>
 <?php if (!empty($firstSteps)): $finished = count(array_filter($firstSteps, fn (array $k): bool => $k['hotovo'])); ?>
 <section class="pruvodce" aria-label="<?= e(t('First steps')) ?>">
