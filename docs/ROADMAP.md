@@ -155,7 +155,7 @@ findable, then remove what is left of the old ways. Each step uses the previous 
 5. The public REST API is marked deprecated: MCP is the way to integrate, webhooks carry events out, and the site export
    is the way out.
 
-## 1.9 – findable: SEO and collections as landing pages
+## 1.9 – findable: SEO and collections as landing pages (released 28 September 2026)
 
 1. **Collection items as full pages:** SEO title, description, noindex, share image, versions and scheduled visibility.
 2. **Site audit** in the admin and over MCP (`site_audit`): broken links across pages, builds, the menu and items, missing
