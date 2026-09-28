@@ -620,6 +620,313 @@ final class Rename
 }
 
 /**
+ * Views (map key 'views'): template files, their variables and the keys of the data passed to them.
+ *   'dirs'  => ['system/views/admin/', …]   templates whose files and variables are renamed
+ *   'files' => ['vypis' => 'list', …]       template file names (basename without .php)
+ *   'vars'  => ['stranky' => 'pages', …]    template variables = top-level keys of the data array
+ * A data array is found at the calls ->view('tpl', 'heading', DATA) (admin modules), ->view->render('admin/…', DATA) and
+ * $view->render('admin/…', DATA), and ->page('tpl', DATA) in the installer: literal arrays in that argument get their keys
+ * renamed; a variable there is traced inside its function ($x = [...], $x += [...], $x['key']). A traced variable that also
+ * goes into another call is refused – it might be a database row whose keys are column names.
+ */
+final class ViewRename
+{
+    /** @var list<string> */
+    public array $problems = [];
+    public int $count = 0;
+
+    /** @param array{dirs?: list<string>, files?: array<string, string>, vars?: array<string, string>} $map */
+    public function __construct(private readonly array $map)
+    {
+    }
+
+    public function isTemplate(string $file): bool
+    {
+        foreach ($this->map['dirs'] ?? [] as $dir) {
+            if (str_starts_with($file, $dir)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @return array<string, string> template file moves */
+    public function moves(string $root): array
+    {
+        $moves = [];
+        foreach ($this->map['dirs'] ?? [] as $dir) {
+            foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root . '/' . $dir, FilesystemIterator::SKIP_DOTS)) as $f) {
+                $name = $f->getBasename('.php');
+                if ($f->isFile() && isset($this->map['files'][$name])) {
+                    $from = substr($f->getPathname(), strlen($root) + 1);
+                    $moves[$from] = dirname($from) . '/' . $this->map['files'][$name] . '.php';
+                    if (is_file($root . '/' . $moves[$from])) {
+                        $this->problems[] = "template {$moves[$from]} already exists";
+                    }
+                }
+            }
+        }
+
+        return $moves;
+    }
+
+    public function rewrite(string $code, string $file): string
+    {
+        $t = PhpToken::tokenize($code);
+        $n = count($t);
+        $repl = [];
+        $vars = $this->map['vars'] ?? [];
+        if ($this->isTemplate($file)) {
+            $seen = [];
+            foreach ($t as $i => $x) {
+                if ($x->is(T_VARIABLE) && $x->text !== '$this') {
+                    $old = substr($x->text, 1);
+                    $new = $vars[$old] ?? $old;
+                    if (isset($seen[$new]) && $seen[$new] !== $old) {
+                        $this->problems[] = "$file: template variables „{$seen[$new]}“ and „{$old}“ would both become „{$new}“";
+                    }
+                    $seen[$new] = $old;
+                    if ($new !== $old) {
+                        $repl[$i] = '$' . $new;
+                    }
+                } elseif ($x->is(T_DOC_COMMENT)) {
+                    $repl[$i] = (string) preg_replace_callback('/\$([A-Za-z_][A-Za-z0-9_]*)/', fn (array $m): string => '$' . ($vars[$m[1]] ?? $m[1]), $x->text);
+                }
+            }
+        }
+        for ($i = 0; $i < $n; $i++) {
+            if (!$t[$i]->is(T_STRING) || !in_array($t[$i]->text, ['view', 'render', 'page'], true) || ($open = $this->next($t, $i)) === null || $t[$open]->text !== '(') {
+                continue;
+            }
+            $prev = $this->prev($t, $i);
+            if ($prev === null || !$t[$prev]->is(T_OBJECT_OPERATOR)) {
+                continue;
+            }
+            $args = $this->arguments($t, $open);
+            $template = $args[0] ?? null;
+            $literal = $template !== null && count($template) === 1 && $t[$template[0]]->is(T_CONSTANT_ENCAPSED_STRING) ? substr($t[$template[0]]->text, 1, -1) : null;
+            $obj = $this->prev($t, $prev);
+            if ($t[$i]->text === 'view') {
+                $dataArg = 2; // Module::view($template, $heading, $data)
+            } elseif ($t[$i]->text === 'render' && $obj !== null && ($t[$obj]->text === 'view' || $t[$obj]->text === '$view')) {
+                if ($literal === null || !preg_match('#^(admin|install)/#', $literal)) {
+                    if ($literal !== null) {
+                        continue; // a public template: its variables are the theme contract
+                    }
+                }
+                $dataArg = 1;
+            } elseif ($t[$i]->text === 'page' && str_ends_with($file, 'Install/Installer.php')) {
+                $dataArg = 1;
+            } else {
+                continue;
+            }
+            if ($literal !== null) {
+                $parts = explode('/', $literal);
+                $last = array_pop($parts);
+                if (isset($this->map['files'][$last]) && !str_starts_with($literal, 'admin/config/')) {
+                    $repl[$template[0]] = $t[$template[0]]->text[0] . implode('/', [...$parts, $this->map['files'][$last]]) . $t[$template[0]]->text[0];
+                    $this->count++;
+                }
+            }
+            if (!isset($args[$dataArg])) {
+                continue;
+            }
+            foreach ($this->arrayKeysIn($t, $args[$dataArg]) as $k) {
+                $this->renameKey($t, $k, $repl);
+            }
+            $level = 0;
+            foreach ($args[$dataArg] as $k) {
+                if (in_array($t[$k]->text, ['(', '['], true)) {
+                    $level++;
+                } elseif (in_array($t[$k]->text, [')', ']'], true)) {
+                    $level--;
+                }
+                if ($level === 0 && $t[$k]->is(T_VARIABLE) && ($after = $this->next($t, $k)) !== null && !in_array($t[$after]->text, ['->', '[', '?->', '::'], true)
+                    && $t[$k]->text !== '$this' && !($t[$after]->is(T_OBJECT_OPERATOR) || $t[$after]->is(T_NULLSAFE_OBJECT_OPERATOR))) {
+                    $this->trace($t, $i, $t[$k]->text, $file, $repl);
+                }
+            }
+        }
+        $out = '';
+        foreach ($t as $i => $x) {
+            $out .= $repl[$i] ?? $x->text;
+        }
+
+        return $out;
+    }
+
+    /** @param array<int, string> $repl */
+    private function renameKey(array $t, int $k, array &$repl): void
+    {
+        $key = substr($t[$k]->text, 1, -1);
+        if (isset($this->map['vars'][$key])) {
+            $repl[$k] = $t[$k]->text[0] . $this->map['vars'][$key] . $t[$k]->text[0];
+            $this->count++;
+        }
+    }
+
+    /** Keys ('k' =>) of array literals directly in an argument expression. @param list<int> $arg @return list<int> */
+    private function arrayKeysIn(array $t, array $arg): array
+    {
+        $keys = [];
+        $depth = 0; // bracket depth within the argument; keys count at depth 1 of an array that starts at depth 0
+        $paren = 0;
+        foreach ($arg as $pos => $k) {
+            $c = $t[$k]->text;
+            if ($c === '(') {
+                $paren++;
+            } elseif ($c === ')') {
+                $paren--;
+            } elseif ($c === '[' && $paren === 0) {
+                $depth++;
+            } elseif ($c === ']' && $paren === 0) {
+                $depth--;
+            } elseif ($depth === 1 && $paren === 0 && $t[$k]->is(T_CONSTANT_ENCAPSED_STRING) && ($nx = $this->next($t, $k)) !== null && $t[$nx]->is(T_DOUBLE_ARROW)) {
+                $keys[] = $k;
+            }
+        }
+
+        return $keys;
+    }
+
+    /** Keys of a data variable inside the function that passes it to a template. @param array<int, string> $repl */
+    private function trace(array $t, int $call, string $var, string $file, array &$repl): void
+    {
+        [$from, $to] = $this->functionRange($t, $call);
+        for ($k = $from; $k <= $to; $k++) {
+            if (!$t[$k]->is(T_VARIABLE) || $t[$k]->text !== $var) {
+                continue;
+            }
+            $nx = $this->next($t, $k);
+            if ($nx === null) {
+                continue;
+            }
+            if ($t[$nx]->text === '[' && ($key = $this->next($t, $nx)) !== null && $t[$key]->is(T_CONSTANT_ENCAPSED_STRING)
+                && ($close = $this->next($t, $key)) !== null && $t[$close]->text === ']') {
+                $this->renameKey($t, $key, $repl); // $data['key']
+            } elseif (in_array($t[$nx]->text, ['=', '+='], true) || $t[$nx]->is(T_PLUS_EQUAL)) {
+                $end = $nx;
+                $expr = [];
+                for ($e = $nx + 1, $d = 0; $e <= $to; $e++) {
+                    if (in_array($t[$e]->text, ['(', '['], true)) {
+                        $d++;
+                    } elseif (in_array($t[$e]->text, [')', ']'], true)) {
+                        $d--;
+                    } elseif ($t[$e]->text === ';' && $d === 0) {
+                        break;
+                    }
+                    $expr[] = $e;
+                }
+                foreach ($this->arrayKeysIn($t, $expr) as $key) {
+                    $this->renameKey($t, $key, $repl);
+                }
+            } else {
+                // used as an argument of another call (not the template call itself): might be a database row
+                $p = $this->prev($t, $k);
+                if ($p !== null && in_array($t[$p]->text, ['(', ','], true) && !$this->insideCall($t, $k, $call)) {
+                    $this->problems[] = "$file:{$t[$k]->line}: $var goes to a template and also into another call – check its keys by hand";
+                }
+            }
+        }
+    }
+
+    private function insideCall(array $t, int $k, int $call): bool
+    {
+        $open = $this->next($t, $call);
+        $close = $open;
+        for ($d = 0, $j = $open; $j < count($t); $j++) {
+            if ($t[$j]->text === '(') {
+                $d++;
+            } elseif ($t[$j]->text === ')' && --$d === 0) {
+                $close = $j;
+                break;
+            }
+        }
+
+        return $k > $open && $k < $close;
+    }
+
+    /** @return array{0: int, 1: int} token range of the function around $i (the whole file for a script or template) */
+    private function functionRange(array $t, int $i): array
+    {
+        $best = [0, count($t) - 1];
+        foreach ($t as $f => $x) {
+            if ($f >= $i) {
+                break;
+            }
+            if (!$x->is([T_FUNCTION, T_FN])) {
+                continue;
+            }
+            for ($b = $f; $b < count($t) && $t[$b]->text !== '{' && $t[$b]->text !== ';'; $b++);
+            if (($t[$b]->text ?? '') !== '{') {
+                continue;
+            }
+            for ($d = 0, $e = $b; $e < count($t); $e++) {
+                if ($t[$e]->text === '{' || $t[$e]->is([T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES])) {
+                    $d++;
+                } elseif ($t[$e]->text === '}' && --$d === 0) {
+                    break;
+                }
+            }
+            if ($f < $i && $e > $i) {
+                $best = [$f, $e]; // innermost wins: later starts come later in the loop
+            }
+        }
+
+        return $best;
+    }
+
+    /** Token indexes of each top-level argument of the call that opens at $open. @return list<list<int>> */
+    private function arguments(array $t, int $open): array
+    {
+        $args = [[]];
+        for ($d = 0, $j = $open; $j < count($t); $j++) {
+            $c = $t[$j]->text;
+            if (in_array($c, ['(', '['], true) || $t[$j]->is([T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES]) || $c === '{') {
+                if ($d++ === 0) {
+                    continue;
+                }
+            } elseif (in_array($c, [')', ']', '}'], true)) {
+                if (--$d === 0) {
+                    break;
+                }
+            } elseif ($c === ',' && $d === 1) {
+                $args[] = [];
+                continue;
+            }
+            if (!$t[$j]->isIgnorable()) {
+                $args[count($args) - 1][] = $j;
+            }
+        }
+
+        return $args;
+    }
+
+    private function prev(array $t, int $i): ?int
+    {
+        for ($j = $i - 1; $j >= 0; $j--) {
+            if (!$t[$j]->isIgnorable()) {
+                return $j;
+            }
+        }
+
+        return null;
+    }
+
+    private function next(array $t, int $i): ?int
+    {
+        for ($j = $i + 1, $n = count($t); $j < $n; $j++) {
+            if (!$t[$j]->isIgnorable()) {
+                return $j;
+            }
+        }
+
+        return null;
+    }
+}
+
+/**
  * Declarations in one file: classes with their parent, interfaces and members.
  *
  * @return array<string, array{parent: ?string, interfaces: list<string>, methods: list<string>, consts: list<string>, props: list<string>, file: string}>
@@ -818,6 +1125,20 @@ function selfTest(): int
         $fail++;
         echo "  FAIL reflection: $got\n";
     }
+    $v = new ViewRename(['dirs' => ['system/views/admin/'], 'files' => ['vypis' => 'list'], 'vars' => ['stranky' => 'pages', 'nazev' => 'name']]);
+    $src = "<?php\nfinal class M { function a() { \$data = ['stranky' => 1]; \$data['nazev'] = 2; return \$this->view('vypis', 'X', \$data + ['nazev' => 3]); }\n"
+        . " function b(\$db) { return \$this->app->view->render('admin/vypis', ['stranky' => 1]) . \$this->app->view->render('vypis', ['stranky' => 1]) . \$db->insert('t', ['nazev' => 1]); } }\n";
+    $want = "<?php\nfinal class M { function a() { \$data = ['pages' => 1]; \$data['name'] = 2; return \$this->view('list', 'X', \$data + ['name' => 3]); }\n"
+        . " function b(\$db) { return \$this->app->view->render('admin/list', ['pages' => 1]) . \$this->app->view->render('vypis', ['stranky' => 1]) . \$db->insert('t', ['nazev' => 1]); } }\n";
+    if (($got = $v->rewrite($src, 'system/src/M.php')) !== $want || $v->rewrite("<?= \$stranky . \$x ?>", 'system/views/admin/a.php') !== "<?= \$pages . \$x ?>") {
+        $fail++;
+        echo "  FAIL views: $got\n";
+    }
+    $v->rewrite("<?php\nfunction f(\$db) { \$row = ['nazev' => 1]; \$db->insert('t', \$row); return \$this->view('vypis', 'X', \$row); }\n", 'system/src/N.php');
+    if (count($v->problems) !== 1) {
+        $fail++;
+        echo "  FAIL views problems: " . json_encode($v->problems) . "\n";
+    }
     // collisions: two variables of one function, a member and an inherited one
     $r = new Rename(['names' => ['nazev' => 'name']], []);
     $r->variableCollisions("<?php\nnamespace T;\nfunction f(\$nazev) { \$name = 1; return fn () => \$name . \$nazev; }", 'v');
@@ -902,6 +1223,18 @@ foreach ($files as $f) {
     }
 }
 $r->memberCollisions($declared);
+$views = new ViewRename($map['views'] ?? []);
+if (isset($map['views'])) {
+    foreach ($files as $f) {
+        $code = $changed[$f] ?? (string) file_get_contents($root . '/' . $f);
+        if (($new = $views->rewrite($code, $f)) !== $code) {
+            $changed[$f] = $new;
+        }
+    }
+    $viewMoves = $views->moves($root);
+    array_push($r->problems, ...$views->problems);
+    $r->counts['views'] = $views->count;
+}
 foreach (['image', 'layout'] as $dir) {
     foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root . '/' . $dir, FilesystemIterator::SKIP_DOTS)) as $a) {
         if ($a->isFile() && preg_match('/\.(js|css)$/', $a->getFilename())) {
@@ -918,7 +1251,7 @@ foreach (glob($root . '/tools/*.sh') ?: [] as $sh) {
         }
     }
 }
-$moves = [];
+$moves = $viewMoves ?? [];
 foreach ($map['files'] ?? [] as $from => $to) {
     if (!is_file($root . '/' . $from)) {
         $r->problems[] = "file $from does not exist";
