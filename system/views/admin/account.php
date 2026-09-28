@@ -5,27 +5,27 @@
  * @var Kaleta\Core\App $app
  * @var array<string, mixed> $user
  * @var string $csrf
- * @var list<array<string, mixed>> $klice přihlašovací klíče účtu (passkeys)
- * @var list<string> $zalozniKody  právě vytvořené záložní kódy (zobrazí se jen jednou)
- * @var string $noveTajemstvi      rozpracované zapínání dvoufázového přihlášení
+ * @var list<array<string, mixed>> $keys přihlašovací klíče účtu (passkeys)
+ * @var list<string> $backupCodes  právě vytvořené záložní kódy (zobrazí se jen jednou)
+ * @var string $newSecret      rozpracované zapínání dvoufázového přihlášení
  * @var string $uri
- * @var int $zbyvaKodu
+ * @var int $codesLeft
  * @var bool $claude  je zapnuté rozšíření Napojení na Claude
- * @var list<array<string, mixed>> $tokeny  osobní tokeny
- * @var list<array<string, mixed>> $aplikace  aplikace připojené přes OAuth (konektor Claude)
- * @var string $novyToken  právě vytvořený token (zobrazí se jen jednou)
- * @var string $adresaMcp
+ * @var list<array<string, mixed>> $tokens  osobní tokeny
+ * @var list<array<string, mixed>> $apps  aplikace připojené přes OAuth (konektor Claude)
+ * @var string $newToken  právě vytvořený token (zobrazí se jen jednou)
+ * @var string $mcpUrl
  */
-$akce = e($app->url('admin.php?akce=ucet'));
+$action = e($app->url('admin.php?akce=ucet'));
 ?>
-<?php if ($zalozniKody !== []): ?>
+<?php if ($backupCodes !== []): ?>
 <div class="hlaska hlaska-ok">
 	<p><strong><?= e(t('Dvoufázové přihlášení je zapnuté.')) ?></strong> <?= e(t('Uložte si záložní kódy – každý jde použít jednou, když nebudete mít telefon. Už se nezobrazí.')) ?></p>
-	<p class="zalozni-kody"><?= implode(' &nbsp; ', array_map(e(...), $zalozniKody)) ?></p>
+	<p class="zalozni-kody"><?= implode(' &nbsp; ', array_map(e(...), $backupCodes)) ?></p>
 </div>
 <?php endif ?>
 
-<form class="formular" method="post" action="<?= $akce ?>">
+<form class="formular" method="post" action="<?= $action ?>">
 <?= $csrf ?><input type="hidden" name="co" value="profil">
 <fieldset><legend><?= e(t('Moje údaje')) ?></legend>
 <div class="radek"><span class="popisek"><?= e(t('Přihlašovací jméno')) ?></span><div><?= e($user['user']) ?> <span class="napoveda"><?= e(t('Mění správce v sekci Uživatelé.')) ?></span></div></div>
@@ -38,23 +38,23 @@ $akce = e($app->url('admin.php?akce=ucet'));
 <div class="radek"><label for="jazyk"><?= e(t('Jazyk administrace')) ?></label><div><select id="jazyk" name="jazyk">
 <?php
 // vybraný je jazyk, ve kterém administrace opravdu běží (bez vlastní volby jazyk webu, když ho administrace umí)
-$jazykAdministrace = $user['jazyk'] ?: Kaleta\Core\Language::defaults($app->settings());
-$jazykAdministrace = isset(Kaleta\Core\Language::ADMIN_LANGUAGES[$jazykAdministrace]) ? $jazykAdministrace : 'cs';
-foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $kodJazyka => $nazevJazyka): ?>
-	<option value="<?= e($kodJazyka) ?>"<?= $jazykAdministrace === $kodJazyka ? ' selected' : '' ?>><?= e($nazevJazyka) ?></option>
+$adminLanguage = $user['jazyk'] ?: Kaleta\Core\Language::defaults($app->settings());
+$adminLanguage = isset(Kaleta\Core\Language::ADMIN_LANGUAGES[$adminLanguage]) ? $adminLanguage : 'cs';
+foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName): ?>
+	<option value="<?= e($languageCode) ?>"<?= $adminLanguage === $languageCode ? ' selected' : '' ?>><?= e($languageName) ?></option>
 <?php endforeach ?>
 </select><span class="napoveda">Language · Jazyk</span></div></div>
 </fieldset>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit údaje')) ?>"></p>
 </form>
 
-<form class="formular" method="post" action="<?= $akce ?>" autocomplete="off">
+<form class="formular" method="post" action="<?= $action ?>" autocomplete="off">
 <?= $csrf ?><input type="hidden" name="co" value="heslo">
 <fieldset><legend><?= e(t('Změna hesla')) ?></legend>
 <div class="radek"><label for="soucasne"><?= e(t('Současné heslo')) ?></label><div><input class="textpole" type="password" id="soucasne" name="soucasne" size="30" autocomplete="current-password" required></div></div>
 <div class="radek"><label for="nove"><?= e(t('Nové heslo')) ?></label><div><input class="textpole" type="password" id="nove" name="nove" size="30" minlength="10" autocomplete="new-password" required><span class="napoveda"><?= e(t('Alespoň 10 znaků.')) ?></span></div></div>
 <div class="radek"><label for="nove2"><?= e(t('Nové heslo znovu')) ?></label><div><input class="textpole" type="password" id="nove2" name="nove2" size="30" autocomplete="new-password" required></div></div>
-<?php if ($tokeny !== []): ?>
+<?php if ($tokens !== []): ?>
 <div class="radek"><span class="popisek"><?= e(t('Napojení')) ?></span><div class="volby"><label><input type="checkbox" name="zrusit_tokeny" value="1" checked> <?= e(t('zrušit i tokeny napojení (Claude, API)')) ?></label>
 	<span class="napoveda"><?= e(t('Token funguje bez hesla i bez dvoufázového přihlášení. Měníte-li heslo kvůli podezření na zneužití, nechte zaškrtnuté a napojení pak vytvořte znovu.')) ?></span></div></div>
 <?php endif ?>
@@ -62,20 +62,20 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $kodJazyka => $nazevJazyka): ?
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Změnit heslo')) ?>"></p>
 </form>
 
-<form class="formular" method="post" action="<?= $akce ?>" autocomplete="off">
+<form class="formular" method="post" action="<?= $action ?>" autocomplete="off">
 <?= $csrf ?>
 <fieldset><legend><?= e(t('Dvoufázové přihlášení')) ?></legend>
 <?php if ($user['totp_tajemstvi'] !== ''): ?>
-<p><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span> <?= e(t('Při přihlášení zadáváte kromě hesla i kód z aplikace. Zbývá záložních kódů: %d.', $zbyvaKodu)) ?></p>
+<p><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span> <?= e(t('Při přihlášení zadáváte kromě hesla i kód z aplikace. Zbývá záložních kódů: %d.', $codesLeft)) ?></p>
 <input type="hidden" name="co" value="totp_vypni">
 <div class="radek"><label for="vyp-heslo"><?= e(t('Heslo pro potvrzení')) ?></label><div><input class="textpole" type="password" id="vyp-heslo" name="soucasne" size="30" autocomplete="current-password" required></div></div>
 <p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Vypnout dvoufázové přihlášení')) ?></button></p>
-<?php elseif ($noveTajemstvi !== ''): ?>
+<?php elseif ($newSecret !== ''): ?>
 <input type="hidden" name="co" value="totp_potvrd">
 <ol>
 	<li><?= e(t('V ověřovací aplikaci (Google Authenticator, Microsoft Authenticator, 1Password, Aegis…) přidejte nový účet naskenováním QR kódu:')) ?><br>
 		<span class="totp-qr"><?= Kaleta\Core\Qr::svg($uri, t('QR kód pro ověřovací aplikaci')) ?></span><br>
-		<?= e(t('Nejde to naskenovat? Přidejte účet ručním zadáním klíče:')) ?><br><code class="totp-klic"><?= e(trim(chunk_split($noveTajemstvi, 4, ' '))) ?></code><br><small><a href="<?= e($uri) ?>"><?= e(t('Na mobilu můžete klepnout sem – odkaz otevře ověřovací aplikaci.')) ?></a></small></li>
+		<?= e(t('Nejde to naskenovat? Přidejte účet ručním zadáním klíče:')) ?><br><code class="totp-klic"><?= e(trim(chunk_split($newSecret, 4, ' '))) ?></code><br><small><a href="<?= e($uri) ?>"><?= e(t('Na mobilu můžete klepnout sem – odkaz otevře ověřovací aplikaci.')) ?></a></small></li>
 	<li><?= e(t('Opište šestimístný kód, který aplikace ukazuje:')) ?></li>
 </ol>
 <div class="radek"><label for="kod"><?= e(t('Kód z aplikace')) ?></label><div><input class="textpole" type="text" id="kod" name="kod" size="12" maxlength="7" inputmode="numeric" autocomplete="one-time-code" required autofocus></div></div>
@@ -89,16 +89,16 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $kodJazyka => $nazevJazyka): ?
 </form>
 
 <?php if ($user['totp_tajemstvi'] !== ''): ?>
-<form class="formular" method="post" action="<?= $akce ?>" data-klice="<?= $akce ?>">
+<form class="formular" method="post" action="<?= $action ?>" data-klice="<?= $action ?>">
 <?= $csrf ?>
 <fieldset><legend><?= e(t('Přihlašovací klíče')) ?></legend>
 <p><?= e(t('Otisk prstu, Face ID, Windows Hello nebo bezpečnostní klíč místo opisování kódu z aplikace. Kód a záložní kódy fungují dál – pro případ, že zařízení nebudete mít u sebe.')) ?></p>
-<?php if ($klice !== []): ?>
+<?php if ($keys !== []): ?>
 <div class="tab-obal">
 <table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Zařízení')) ?></th><th scope="col"><?= e(t('Přidáno')) ?></th><th scope="col"><?= e(t('Naposledy použito')) ?></th><th scope="col"><?= e(t('Akce')) ?></th></tr></thead>
 <tbody>
-<?php foreach ($klice as $k): ?>
+<?php foreach ($keys as $k): ?>
 <tr>
 	<td><?= e($k['nazev']) ?></td>
 	<td class="cislo"><?= e(format_date((string) $k['vytvoreno'])) ?></td>
@@ -121,28 +121,28 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $kodJazyka => $nazevJazyka): ?
 <?php endif ?>
 
 <?php if ($claude): ?>
-<form class="formular" method="post" action="<?= $akce ?>">
+<form class="formular" method="post" action="<?= $action ?>">
 <?= $csrf ?>
 <fieldset id="claude"><legend><?= e(t('Napojení na Claude')) ?></legend>
-<?php if ($novyToken !== ''): ?>
+<?php if ($newToken !== ''): ?>
 <div class="hlaska hlaska-ok">
 	<p><strong><?= e(t('Token je vytvořený.')) ?></strong> <?= e(t('Zkopírujte si ho teď – už se nezobrazí.')) ?></p>
-	<p><code class="totp-klic"><?= e($novyToken) ?></code></p>
+	<p><code class="totp-klic"><?= e($newToken) ?></code></p>
 	<p><?= e(t('V Claude Code spusťte:')) ?></p>
-	<p><code class="totp-klic" style="font-size:12px">claude mcp add --transport http kaleta <?= e($adresaMcp) ?> --header "Authorization: Bearer <?= e($novyToken) ?>"</code></p>
-	<p class="napoveda"><?= e(t('V aplikaci Claude token nepotřebujete: přidejte vlastní konektor s adresou %s a přístup potvrďte přihlášením.', $adresaMcp)) ?></p>
+	<p><code class="totp-klic" style="font-size:12px">claude mcp add --transport http kaleta <?= e($mcpUrl) ?> --header "Authorization: Bearer <?= e($newToken) ?>"</code></p>
+	<p class="napoveda"><?= e(t('V aplikaci Claude token nepotřebujete: přidejte vlastní konektor s adresou %s a přístup potvrďte přihlášením.', $mcpUrl)) ?></p>
 </div>
 <?php endif ?>
-<p><?= e(t('Nejjednodušší je přidat v aplikaci Claude vlastní konektor s adresou %s – Claude vás pošle sem přihlásit a potvrdit přístup, žádný token nekopírujete. Token níže je pro Claude Code a jiné nástroje bez přihlášení.', $adresaMcp)) ?></p>
-<?php if ($aplikace !== []): ?>
+<p><?= e(t('Nejjednodušší je přidat v aplikaci Claude vlastní konektor s adresou %s – Claude vás pošle sem přihlásit a potvrdit přístup, žádný token nekopírujete. Token níže je pro Claude Code a jiné nástroje bez přihlášení.', $mcpUrl)) ?></p>
+<?php if ($apps !== []): ?>
 <h2><?= e(t('Připojené aplikace')) ?></h2>
-<?php foreach ($aplikace as $a): ?>
+<?php foreach ($apps as $a): ?>
 <p><span class="stitek"><?= e($a['nazev']) ?></span> <?= e(t('připojena %s', format_date($a['vytvoren']))) ?>, <?= e($a['pouzit'] ? t('naposledy použita %s', format_date($a['pouzit'], true)) : t('zatím nepoužita')) ?>
 	<button class="navigace nebezpecne" type="submit" name="odpojit_klient" value="<?= e($a['klient']) ?>" data-potvrdit="<?= e(t('Odpojit aplikaci? Do webu se už nedostane, dokud ji znovu nepovolíte.')) ?>"><?= e(t('Odpojit')) ?></button></p>
 <?php endforeach ?>
 <?php endif ?>
 <p><?= e(t('Claude bude s webem pracovat')) ?> <strong><?= e(t('vaším jménem a s vašimi právy')) ?></strong>: <?= e(t((int) $user['admin'] === 2 ? 'psát a upravovat stránky a novinky, spravovat kategorie, kolekce a vzhled webu.' : 'psát a upravovat novinky.')) ?> <?= e(t('Nové novinky zakládá jako koncepty a nové stránky jako skryté. Všechny jeho zásahy najdete v Protokolu změn. Token chraňte jako heslo.')) ?></p>
-<?php foreach ($tokeny as $t): ?>
+<?php foreach ($tokens as $t): ?>
 <p><span class="stitek"><?= e($t['nazev']) ?></span> <?= e(t('vytvořen %s', format_date($t['vytvoren']))) ?>, <?= e($t['pouzit'] ? t('naposledy použit %s', format_date($t['pouzit'], true)) : t('zatím nepoužit')) ?>
 	<button class="navigace nebezpecne" type="submit" name="smaz_token" value="<?= (int) $t['idt'] ?>" data-potvrdit="<?= e(t('Zrušit token? Claude se jím už nepřihlásí.')) ?>"><?= e(t('Zrušit token')) ?></button></p>
 <?php endforeach ?>

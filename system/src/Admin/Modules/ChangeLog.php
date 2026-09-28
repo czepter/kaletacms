@@ -42,11 +42,11 @@ final class ChangeLog extends Module
         $pageCount = max(1, (int) ceil($total / self::PER_PAGE));
         $pageNumber = max(1, min($pageCount, $this->request->getInt('strana', 1)));
 
-        return $this->view('vypis', 'Protokol změn', [
-            'zaznamy' => $this->db->all('SELECT * FROM {protokol}' . $sql . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
-            'uzivatele' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} ORDER BY 2"),
-            'moduly' => array_column($this->db->all('SELECT DISTINCT modul FROM {protokol} ORDER BY modul'), 'modul'),
-            'kdo' => $who, 'kde' => $whereParts, 'hledat' => $search, 'strana' => $pageNumber, 'stran' => $pageCount, 'celkem' => $total,
+        return $this->view('list', 'Protokol změn', [
+            'records' => $this->db->all('SELECT * FROM {protokol}' . $sql . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
+            'users' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} ORDER BY 2"),
+            'modules' => array_column($this->db->all('SELECT DISTINCT modul FROM {protokol} ORDER BY modul'), 'modul'),
+            'who' => $who, 'whereParts' => $whereParts, 'search' => $search, 'pageNumber' => $pageNumber, 'pageCount' => $pageCount, 'total' => $total,
         ]);
     }
 }

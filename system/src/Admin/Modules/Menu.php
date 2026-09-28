@@ -33,10 +33,10 @@ final class Menu extends Module
         $siteSettings = $this->app->settings();
         $languages = array_merge([''], Language::additional($siteSettings));
 
-        return $this->view('vypis', 'Menu', [
-            'umisteni' => $location, 'jazyk' => $language, 'automaticke' => $saved === null, 'polozky' => $items,
-            'stranky' => array_map(fn (array $s): array => ['ids' => (int) $s['ids'], 'titulek' => $s['titulek'], 'skryta' => !$s['zobrazit']], $pages),
-            'jazyky' => array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[Language::ofContent($siteSettings, $j)][0], $languages)),
+        return $this->view('list', 'Menu', [
+            'location' => $location, 'language' => $language, 'automatic' => $saved === null, 'items' => $items,
+            'pages' => array_map(fn (array $s): array => ['ids' => (int) $s['ids'], 'titulek' => $s['titulek'], 'skryta' => !$s['zobrazit']], $pages),
+            'languages' => array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[Language::ofContent($siteSettings, $j)][0], $languages)),
         ]);
     }
 

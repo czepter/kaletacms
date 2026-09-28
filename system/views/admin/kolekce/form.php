@@ -3,15 +3,15 @@
  * Definice kolekce: název, adresa, stránky položek a pole.
  *
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Collections $modul
+ * @var Kaleta\Admin\Modules\Collections $module
  * @var string $csrf
  * @var array<string, mixed> $k
  */
 use Kaleta\Builder\Collections;
 
-$pole = array_merge($k['pole'], array_fill(0, 3, ['klic' => '', 'popisek' => '', 'typ' => 'text']));
+$field = array_merge($k['pole'], array_fill(0, 3, ['klic' => '', 'popisek' => '', 'typ' => 'text']));
 ?>
-<form class="formular" method="post" action="<?= e($modul->url('uloz')) ?>">
+<form class="formular" method="post" action="<?= e($module->url('uloz')) ?>">
 <?= $csrf ?>
 <input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>">
 <div class="radek"><label for="nazev"><?= e(t('Název kolekce')) ?></label><div><input class="textpole siroke" id="nazev" name="nazev" value="<?= e($k['nazev']) ?>" maxlength="100" required placeholder="<?= e(t('např. Reference, Tým, Produkty')) ?>"></div></div>
@@ -25,12 +25,12 @@ $pole = array_merge($k['pole'], array_fill(0, 3, ['klic' => '', 'popisek' => '',
 <table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Popisek')) ?></th><th scope="col"><?= e(t('Typ')) ?></th><th scope="col"><?= e(t('Značka')) ?></th></tr></thead>
 <tbody>
-<?php foreach ($pole as $i => $p): ?>
+<?php foreach ($field as $i => $p): ?>
 <tr>
 	<td><input class="textpole" name="pole[<?= $i ?>][popisek]" value="<?= e($p['popisek']) ?>" maxlength="80" aria-label="<?= e(t('Popisek')) ?>"><input type="hidden" name="pole[<?= $i ?>][klic]" value="<?= e($p['klic']) ?>"></td>
 	<td><select name="pole[<?= $i ?>][typ]" aria-label="<?= e(t('Typ')) ?>">
-<?php foreach (Collections::FIELD_TYPES as $typ => $nazev): ?>
-		<option value="<?= e($typ) ?>"<?= $p['typ'] === $typ ? ' selected' : '' ?>><?= e(t($nazev)) ?></option>
+<?php foreach (Collections::FIELD_TYPES as $type => $name): ?>
+		<option value="<?= e($type) ?>"<?= $p['typ'] === $type ? ' selected' : '' ?>><?= e(t($name)) ?></option>
 <?php endforeach ?>
 	</select></td>
 	<td><?= $p['klic'] !== '' ? '<code>{{' . e($p['klic']) . '}}</code>' : '<span class="napoveda">' . e(t('vznikne z popisku')) . '</span>' ?></td>
@@ -40,8 +40,8 @@ $pole = array_merge($k['pole'], array_fill(0, 3, ['klic' => '', 'popisek' => '',
 </table>
 </div>
 </fieldset>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit kolekci')) ?>"> <a class="navigace" href="<?= e($modul->url()) ?>"><?= e(t('Zpět')) ?></a></p>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit kolekci')) ?>"> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Zpět')) ?></a></p>
 </form>
 <?php if ($k['idk'] > 0): ?>
-<div class="navigace-radek akce-dole"><form class="vradku" method="post" action="<?= e($modul->url('smaz')) ?>" data-potvrdit="<?= e(t('Smazat kolekci i se všemi položkami? Výpisy na webu zmizí.')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat kolekci')) ?></button></form></div>
+<div class="navigace-radek akce-dole"><form class="vradku" method="post" action="<?= e($module->url('smaz')) ?>" data-potvrdit="<?= e(t('Smazat kolekci i se všemi položkami? Výpisy na webu zmizí.')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat kolekci')) ?></button></form></div>
 <?php endif ?>

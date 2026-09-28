@@ -25,7 +25,7 @@ final class Extensions extends Settings
 
     protected function view(string $template, string $heading, array $data = []): Response
     {
-        $data += ['app' => $this->app, 'modul' => $this, 'csrf' => $this->app->session->csrfField()];
+        $data += ['app' => $this->app, 'module' => $this, 'csrf' => $this->app->session->csrfField()];
 
         return $this->kernel->page(self::NAME, $this->app->view->render('admin/config/' . $template, $data));
     }

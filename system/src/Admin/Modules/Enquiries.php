@@ -44,12 +44,12 @@ final class Enquiries extends Module
         $whereParts = $conditions === [] ? '' : 'WHERE ' . implode(' AND ', $conditions);
         $pageNumber = max(1, $this->request->getInt('strana', 1));
 
-        return $this->view('vypis', 'Poptávky', [
-            'poptavky' => $this->db->all('SELECT idp, datum, formular, stranka, email, stav, data, prirazeno FROM {poptavky} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
-            'celkem' => (int) $this->db->value('SELECT COUNT(*) FROM {poptavky} ' . $whereParts, $params),
-            'filtr' => $filter, 'hledat' => $search, 'strana' => $pageNumber, 'naStranu' => self::PER_PAGE,
-            'uzivatele' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY 2"),
-            'mesice' => $this->app->settings()->int('poptavky_mesice'),
+        return $this->view('list', 'Poptávky', [
+            'enquiries' => $this->db->all('SELECT idp, datum, formular, stranka, email, stav, data, prirazeno FROM {poptavky} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
+            'total' => (int) $this->db->value('SELECT COUNT(*) FROM {poptavky} ' . $whereParts, $params),
+            'filter' => $filter, 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
+            'users' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY 2"),
+            'months' => $this->app->settings()->int('poptavky_mesice'),
         ]);
     }
 
@@ -65,7 +65,7 @@ final class Enquiries extends Module
         }
 
         return $this->view('detail', t('Poptávka') . ' #' . $p['idp'], ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: [],
-            'uzivatele' => $this->listAssignees((int) $p['prirazeno'])]);
+            'users' => $this->listAssignees((int) $p['prirazeno'])]);
     }
 
     /**

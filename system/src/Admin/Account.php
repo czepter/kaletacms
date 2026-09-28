@@ -24,7 +24,7 @@ final class Account
         $r = $app->request;
         $db = $app->db();
         $user = $app->auth()->user();
-        $data = ['zalozniKody' => [], 'noveTajemstvi' => '', 'novyToken' => ''];
+        $data = ['backupCodes' => [], 'newSecret' => '', 'newToken' => ''];
 
         if ($r->isPost()) {
             $message = null;
@@ -68,7 +68,7 @@ final class Account
                     $db->insert('api_tokeny', ['idu' => $user['idu'], 'nazev' => mb_substr($r->post('nazev') ?: 'Claude', 0, 100), 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s')]);
                     ChangeLog::write($app, 'ucet', 'vytvořen token pro Claude');
                     // token se ukazuje jen teď - proto bez přesměrování
-                    return $this->page(['novyToken' => $token] + $data);
+                    return $this->page(['newToken' => $token] + $data);
                 case 'token_smaz':
                     $db->delete('api_tokeny', ['idt' => $r->postInt('smaz_token'), 'idu' => $user['idu']]);
                     $message = ['ok', 'Token byl zrušen.'];
@@ -92,7 +92,7 @@ final class Account
                     $app->session->remove('totp_nove');
                     ChangeLog::write($app, 'ucet', 'zapnuto dvoufázové přihlášení');
                     // záložní kódy se ukazují jen teď - proto bez přesměrování
-                    return $this->page(['zalozniKody' => $codes] + $data);
+                    return $this->page(['backupCodes' => $codes] + $data);
                 case 'klic_moznosti':
                 case 'klic_uloz':
                     return $this->key($r->post('co') === 'klic_uloz');
@@ -119,7 +119,7 @@ final class Account
             }
         }
 
-        return $this->page(['noveTajemstvi' => (string) $app->session->get('totp_nove', '')] + $data);
+        return $this->page(['newSecret' => (string) $app->session->get('totp_nove', '')] + $data);
     }
 
     /**
@@ -174,17 +174,17 @@ final class Account
         $app = $this->kernel->app;
         $user = $app->db()->one('SELECT * FROM {uzivatele} WHERE idu = ?', [$app->auth()->id()]);
 
-        return $this->kernel->page('Můj účet', $app->view->render('admin/ucet', $data + [
+        return $this->kernel->page('Můj účet', $app->view->render('admin/account', $data + [
             'app' => $app, 'user' => $user, 'csrf' => $app->session->csrfField(),
-            'uri' => $data['noveTajemstvi'] !== '' ? Totp::uri($data['noveTajemstvi'], $user['user'], $app->settings()->get('nazev_webu')) : '',
-            'zbyvaKodu' => count((array) json_decode((string) $user['totp_zalozni'], true)),
+            'uri' => $data['newSecret'] !== '' ? Totp::uri($data['newSecret'], $user['user'], $app->settings()->get('nazev_webu')) : '',
+            'codesLeft' => count((array) json_decode((string) $user['totp_zalozni'], true)),
             'claude' => Extensions::isEnabled($app->settings(), 'claude'),
-            'klice' => $app->auth()->accountKeys((int) $user['idu']),
-            'tokeny' => $app->db()->all("SELECT * FROM {api_tokeny} WHERE idu = ? AND druh = 'token' ORDER BY idt DESC", [$user['idu']]),
+            'keys' => $app->auth()->accountKeys((int) $user['idu']),
+            'tokens' => $app->db()->all("SELECT * FROM {api_tokeny} WHERE idu = ? AND druh = 'token' ORDER BY idt DESC", [$user['idu']]),
             // aplikace připojené přes OAuth (konektor Claude): jedna položka na klienta, platí dokud má obnovovací token
-            'aplikace' => $app->db()->all("SELECT klient, MAX(nazev) AS nazev, MIN(vytvoren) AS vytvoren, MAX(pouzit) AS pouzit FROM {api_tokeny} WHERE idu = ? AND klient IS NOT NULL AND expirace > ? GROUP BY klient ORDER BY MIN(vytvoren) DESC",
+            'apps' => $app->db()->all("SELECT klient, MAX(nazev) AS nazev, MIN(vytvoren) AS vytvoren, MAX(pouzit) AS pouzit FROM {api_tokeny} WHERE idu = ? AND klient IS NOT NULL AND expirace > ? GROUP BY klient ORDER BY MIN(vytvoren) DESC",
                 [$user['idu'], date('Y-m-d H:i:s')]),
-            'adresaMcp' => $app->request->origin() . $app->url('mcp'),
+            'mcpUrl' => $app->request->origin() . $app->url('mcp'),
         ]));
     }
 }

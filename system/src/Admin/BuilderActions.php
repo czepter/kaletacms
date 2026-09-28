@@ -97,7 +97,7 @@ trait BuilderActions
                 'nahledSekce' => $app->url('_sekce/')],
         ];
 
-        return Response::html($app->view->render('admin/stranky/stavitel', ['app' => $app, 'data' => $data, 'titulek' => $target['titulek']]));
+        return Response::html($app->view->render('admin/stranky/builder', ['app' => $app, 'data' => $data, 'title' => $target['titulek']]));
     }
 
     /** Průběžné ukládání konceptu z editoru (JSON). Vrací vyčištěnou stavbu a chyby, které editor ukáže. */

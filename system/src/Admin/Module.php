@@ -26,7 +26,7 @@ abstract class Module
     /** Skupina v menu: Obsah | Vzhled | Správa. */
     public const string GROUP = 'Obsah';
 
-    /** Ikona v menu (klíč do sady ve views/admin/ikony.php). */
+    /** Ikona v menu (klíč do sady ve views/admin/icons.php). */
     public const string ICON = 'clanek';
 
     /** Klíč rozšíření (Core\Rozsireni), ke kterému modul patří; prázdné = jádro, nejde vypnout. */
@@ -65,14 +65,14 @@ abstract class Module
     /** @param array<string, mixed> $data */
     protected function view(string $template, string $heading, array $data = []): Response
     {
-        $data += ['app' => $this->app, 'modul' => $this, 'csrf' => $this->app->session->csrfField()];
+        $data += ['app' => $this->app, 'module' => $this, 'csrf' => $this->app->session->csrfField()];
 
         return $this->kernel->page($heading, $this->app->view->render('admin/' . static::IDENT . '/' . $template, $data));
     }
 
     protected function error(string $text, int $status = 400): Response
     {
-        return $this->kernel->page('Chyba', $this->app->view->render('admin/chyba', ['text' => $text]), $status);
+        return $this->kernel->page('Chyba', $this->app->view->render('admin/error', ['text' => $text]), $status);
     }
 
     public function app(): App

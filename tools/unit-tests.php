@@ -389,7 +389,7 @@ check('system/aktualizace.pub jde přečíst', is_array(Kaleta\Core\Signature::k
 
 /* ---------- instalátor: každý text má překlad ve všech jazycích ---------- */
 $keys = [];
-foreach (['system/views/install/formular.php', 'system/views/install/hotovo.php', 'system/src/Install/Installer.php'] as $file) {
+foreach (['system/views/install/form.php', 'system/views/install/done.php', 'system/src/Install/Installer.php'] as $file) {
     preg_match_all("/\\bt\\('((?:[^'\\\\]|\\\\.)*)'/", (string) file_get_contents(KALETA_ROOT . '/' . $file), $found);
     foreach ($found[1] as $text) {
         $keys[stripslashes($text)] = true;

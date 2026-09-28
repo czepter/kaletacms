@@ -1,43 +1,43 @@
 <?php
 /**
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Menu $modul
+ * @var Kaleta\Admin\Modules\Menu $module
  * @var string $csrf
- * @var string $umisteni  hlavni | paticka
- * @var string $jazyk     sloupec jazyka ('' = výchozí)
- * @var bool $automaticke hlavní menu se zatím skládá samo
- * @var list<array<string, mixed>> $polozky
- * @var list<array{ids:int, titulek:string, skryta:bool}> $stranky
- * @var array<string, string> $jazyky
+ * @var string $location  hlavni | paticka
+ * @var string $language     sloupec jazyka ('' = výchozí)
+ * @var bool $automatic hlavní menu se zatím skládá samo
+ * @var list<array<string, mixed>> $items
+ * @var list<array{ids:int, titulek:string, skryta:bool}> $pages
+ * @var array<string, string> $languages
  */
-$volba = ['umisteni' => $umisteni, 'jazyk' => $jazyk];
+$choice = ['umisteni' => $location, 'jazyk' => $language];
 ?>
 <nav class="zalozky" aria-label="<?= e(t('Menu')) ?>">
-<?php foreach (Kaleta\Core\Menu::LOCATIONS as $klic => $nazev): ?>
-	<a href="<?= e($modul->url('', ['umisteni' => $klic, 'jazyk' => $jazyk])) ?>"<?= $klic === $umisteni ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($nazev)) ?></a>
+<?php foreach (Kaleta\Core\Menu::LOCATIONS as $key => $name): ?>
+	<a href="<?= e($module->url('', ['umisteni' => $key, 'jazyk' => $language])) ?>"<?= $key === $location ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
 <?php endforeach ?>
 </nav>
-<?php if (count($jazyky) > 1): ?>
+<?php if (count($languages) > 1): ?>
 <p class="smltxt"><?= e(t('Jazyková verze:')) ?>
-<?php foreach ($jazyky as $kod => $nazev): ?>
-	<a class="navigace<?= $kod === $jazyk ? ' aktivni' : '' ?>" href="<?= e($modul->url('', ['umisteni' => $umisteni, 'jazyk' => $kod])) ?>"<?= $kod === $jazyk ? ' aria-current="true"' : '' ?>><?= e($nazev) ?></a>
+<?php foreach ($languages as $code => $name): ?>
+	<a class="navigace<?= $code === $language ? ' aktivni' : '' ?>" href="<?= e($module->url('', ['umisteni' => $location, 'jazyk' => $code])) ?>"<?= $code === $language ? ' aria-current="true"' : '' ?>><?= e($name) ?></a>
 <?php endforeach ?></p>
 <?php endif ?>
-<p class="smltxt"><?= e(t($umisteni === 'hlavni'
-    ? ($automaticke ? 'Menu se zatím skládá samo ze stránek zaškrtnutých „v navigaci“. Když ho tady upravíte a uložíte, bude platit tahle podoba.' : 'Pořadí měníte přetažením nebo šipkami. Šipkou vpravo zařadíte položku do podmenu té nad ní.')
+<p class="smltxt"><?= e(t($location === 'hlavni'
+    ? ($automatic ? 'Menu se zatím skládá samo ze stránek zaškrtnutých „v navigaci“. Když ho tady upravíte a uložíte, bude platit tahle podoba.' : 'Pořadí měníte přetažením nebo šipkami. Šipkou vpravo zařadíte položku do podmenu té nad ní.')
     : 'Odkazy v patičce webu (zásady ochrany soukromí, kontakt, kariéra…). Použije je výchozí patička i prvek Navigace nastavený na menu v patičce.')) ?></p>
 
-<form method="post" action="<?= e($modul->url('uloz', $volba)) ?>" class="menu-formular" data-menu>
+<form method="post" action="<?= e($module->url('uloz', $choice)) ?>" class="menu-formular" data-menu>
 <?= $csrf ?>
 <input type="hidden" name="polozky" value="">
-<script type="application/json" data-menu-data><?= json_encode(['polozky' => $polozky, 'stranky' => $stranky], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
+<script type="application/json" data-menu-data><?= json_encode(['polozky' => $items, 'stranky' => $pages], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 <ol class="menu-editor" data-menu-seznam></ol>
 <p class="napoveda" data-menu-prazdne hidden><?= e(t('Menu je prázdné – přidejte první položku.')) ?></p>
 <fieldset class="menu-pridat">
 	<legend><?= e(t('Přidat položku')) ?></legend>
 	<label><?= e(t('Stránka')) ?>
 		<select data-menu-stranka>
-<?php foreach ($stranky as $s): ?>
+<?php foreach ($pages as $s): ?>
 			<option value="<?= $s['ids'] ?>"><?= e($s['titulek']) ?><?= $s['skryta'] ? ' (' . e(t('skrytá')) . ')' : '' ?></option>
 <?php endforeach ?>
 		</select>
@@ -51,7 +51,7 @@ $volba = ['umisteni' => $umisteni, 'jazyk' => $jazyk];
 </fieldset>
 <p class="tlacitka"><button class="tl" type="submit"><?= e(t('Uložit menu')) ?></button></p>
 </form>
-<?php if (!$automaticke || $umisteni !== 'hlavni'): ?>
-<div class="navigace-radek akce-dole"><form class="vradku" method="post" action="<?= e($modul->url('automaticky', $volba)) ?>" data-potvrdit="<?= e(t($umisteni === 'hlavni' ? 'Vrátit menu k automatickému skládání ze stránek? Vaše úpravy se zahodí.' : 'Vyprázdnit menu v patičce?')) ?>"><?= $csrf ?><button class="navigace nebezpecne" type="submit"><?= e(t($umisteni === 'hlavni' ? 'Vrátit na automatické menu' : 'Vyprázdnit menu')) ?></button></form></div>
+<?php if (!$automatic || $location !== 'hlavni'): ?>
+<div class="navigace-radek akce-dole"><form class="vradku" method="post" action="<?= e($module->url('automaticky', $choice)) ?>" data-potvrdit="<?= e(t($location === 'hlavni' ? 'Vrátit menu k automatickému skládání ze stránek? Vaše úpravy se zahodí.' : 'Vyprázdnit menu v patičce?')) ?>"><?= $csrf ?><button class="navigace nebezpecne" type="submit"><?= e(t($location === 'hlavni' ? 'Vrátit na automatické menu' : 'Vyprázdnit menu')) ?></button></form></div>
 <?php endif ?>
 <script src="<?= e($app->url('image/menu.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>

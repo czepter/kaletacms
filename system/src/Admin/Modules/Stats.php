@@ -29,17 +29,17 @@ final class Stats extends Module
             $chart[$day] = ['navstevy' => $n, 'zobrazeni' => $z];
         }
 
-        return $this->view('vypis', 'Statistika', [
-            'dni' => $days,
-            'graf' => $chart,
-            'zapnuto' => $this->app->settings()->bool('statistika'),
-            'clanky' => $this->db->all(
+        return $this->view('list', 'Statistika', [
+            'days' => $days,
+            'chart' => $chart,
+            'isEnabled' => $this->app->settings()->bool('statistika'),
+            'newsItems' => $this->db->all(
                 'SELECT c.idc, c.titulek, c.seo_link, SUM(s.pocet) AS pocet FROM {stat_novinky} s JOIN {novinky} c ON c.idc = s.idc
                  WHERE s.den > CURDATE() - INTERVAL ? DAY GROUP BY c.idc, c.titulek, c.seo_link ORDER BY pocet DESC LIMIT 15',
                 [$days],
             ),
-            'stranky' => $this->db->all('SELECT cesta, SUM(pocet) AS pocet FROM {stat_stranky} WHERE den > CURDATE() - INTERVAL ? DAY GROUP BY cesta ORDER BY pocet DESC LIMIT 20', [$days]),
-            'zdroje' => $this->db->all('SELECT zdroj, SUM(pocet) AS pocet FROM {stat_zdroje} WHERE den > CURDATE() - INTERVAL ? DAY GROUP BY zdroj ORDER BY pocet DESC LIMIT 15', [$days]),
+            'pages' => $this->db->all('SELECT cesta, SUM(pocet) AS pocet FROM {stat_stranky} WHERE den > CURDATE() - INTERVAL ? DAY GROUP BY cesta ORDER BY pocet DESC LIMIT 20', [$days]),
+            'sources' => $this->db->all('SELECT zdroj, SUM(pocet) AS pocet FROM {stat_zdroje} WHERE den > CURDATE() - INTERVAL ? DAY GROUP BY zdroj ORDER BY pocet DESC LIMIT 15', [$days]),
         ]);
     }
 }

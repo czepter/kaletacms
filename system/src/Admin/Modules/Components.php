@@ -37,19 +37,19 @@ final class Components extends Module
         }
         unset($k);
 
-        return $this->view('vypis', 'Komponenty', ['komponenty' => $components]);
+        return $this->view('list', 'Komponenty', ['components' => $components]);
     }
 
     protected function akceNovy(): Response
     {
-        return $this->view('formular', 'Nová komponenta', ['k' => ['idm' => 0, 'nazev' => '', 'vlastnosti' => []]]);
+        return $this->view('form', 'Nová komponenta', ['k' => ['idm' => 0, 'nazev' => '', 'vlastnosti' => []]]);
     }
 
     protected function akceEdit(): Response
     {
         $k = KomponentyStavby::byId($this->db, $this->request->getInt('id'));
 
-        return $k === null ? $this->error('Komponenta neexistuje.', 404) : $this->view('formular', $k['nazev'], ['k' => $k]);
+        return $k === null ? $this->error('Komponenta neexistuje.', 404) : $this->view('form', $k['nazev'], ['k' => $k]);
     }
 
     protected function akceUloz(): Response

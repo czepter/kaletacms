@@ -41,10 +41,10 @@ final class SiteParts extends Module
             }
         }
 
-        return $this->view('vypis', 'Části webu', [
-            'typy' => CastiWebu::TYPES, 'jazyky' => $languages, 'radky' => $rows, 'varianty' => $variants,
-            'nazvyStranek' => $this->db->pairs('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY poradi, titulek'),
-            'nazvyJazyku' => array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[Language::ofContent($siteSettings, $j)][0], $languages)),
+        return $this->view('list', 'Části webu', [
+            'types' => CastiWebu::TYPES, 'languages' => $languages, 'rows' => $rows, 'variants' => $variants,
+            'pageNames' => $this->db->pairs('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY poradi, titulek'),
+            'languageNames' => array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[Language::ofContent($siteSettings, $j)][0], $languages)),
         ]);
     }
 
@@ -82,10 +82,10 @@ final class SiteParts extends Module
         }
         $row = $variant !== '' ? CastiWebu::row($this->db, $type, $language, $variant) : null;
 
-        return $this->view('varianta', t('Varianta: %s', t(CastiWebu::TYPES[$type][0])), [
-            'typ' => $type, 'jazyk' => $language, 'varianta' => $row['varianta'] ?? '', 'nazev' => $row['nazev'] ?? '',
-            'vybrane' => array_map('intval', json_decode((string) ($row['stranky'] ?? '[]'), true) ?: []),
-            'stranky' => $this->db->all('SELECT ids, titulek FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$language]),
+        return $this->view('variant', t('Varianta: %s', t(CastiWebu::TYPES[$type][0])), [
+            'type' => $type, 'language' => $language, 'variant' => $row['varianta'] ?? '', 'name' => $row['nazev'] ?? '',
+            'selected' => array_map('intval', json_decode((string) ($row['stranky'] ?? '[]'), true) ?: []),
+            'pages' => $this->db->all('SELECT ids, titulek FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$language]),
         ]);
     }
 

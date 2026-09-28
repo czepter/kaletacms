@@ -55,10 +55,10 @@ final class Pages extends Module
         }
         unset($s);
 
-        return $this->view('vypis', 'Stránky', [
-            'stranky' => $trash || $search !== '' ? $pages : self::sortAsTree($pages),
-            'kos' => $trash, 'hledat' => $search, 'jazykyWebu' => $siteLanguages, 'jazyk' => $language,
-            'vKosi' => (int) $this->db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NOT NULL'),
+        return $this->view('list', 'Stránky', [
+            'pages' => $trash || $search !== '' ? $pages : self::sortAsTree($pages),
+            'trash' => $trash, 'search' => $search, 'siteLanguages' => $siteLanguages, 'language' => $language,
+            'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NOT NULL'),
         ]);
     }
 
@@ -479,15 +479,15 @@ final class Pages extends Module
         $language = (string) ($page['jazyk'] ?? '');
         $custom = (string) ($page['seo_link'] ?? '');
 
-        return $this->view('formular', $page['ids'] ? 'Úprava stránky' : 'Nová stránka', [
-            'stranka' => $page, 'chyby' => $errors,
+        return $this->view('form', $page['ids'] ? 'Úprava stránky' : 'Nová stránka', [
+            'page' => $page, 'errors' => $errors,
             // možné nadřazené stránky: stejný jazyk, ne ona sama ani její podstránky
-            'rodice' => array_values(array_filter($this->db->all('SELECT ids, titulek, seo_link FROM {stranky} WHERE jazyk = ? AND smazano IS NULL AND ids <> ? ORDER BY seo_link', [$language, (int) $page['ids']]),
+            'parents' => array_values(array_filter($this->db->all('SELECT ids, titulek, seo_link FROM {stranky} WHERE jazyk = ? AND smazano IS NULL AND ids <> ? ORDER BY seo_link', [$language, (int) $page['ids']]),
                 fn (array $s): bool => $custom === '' || !str_starts_with($s['seo_link'] . '/', $custom . '/'))),
-            'revize' => $page['ids'] ? $this->db->all('SELECT r.idr, r.datum, r.titulek, IF(u.jmeno = \'\', u.user, u.jmeno) AS kdo FROM {stranky_revize} r LEFT JOIN {uzivatele} u ON u.idu = r.kdo WHERE r.ids = ? ORDER BY r.idr DESC LIMIT 30', [(int) $page['ids']]) : [],
-            'uvod' => $page['ids'] > 0 && (int) $page['ids'] === $this->app->settings()->int('titulni_stranka'),
-            'vMenu' => $page['ids'] > 0 ? \Kaleta\Core\Menu::hasPage($this->db, (int) $page['ids'], (string) ($page['jazyk'] ?? '')) : null,
-            'vlastniMenu' => \Kaleta\Core\Menu::load($this->db, 'hlavni', (string) ($page['jazyk'] ?? '')) !== null,
+            'versions' => $page['ids'] ? $this->db->all('SELECT r.idr, r.datum, r.titulek, IF(u.jmeno = \'\', u.user, u.jmeno) AS kdo FROM {stranky_revize} r LEFT JOIN {uzivatele} u ON u.idu = r.kdo WHERE r.ids = ? ORDER BY r.idr DESC LIMIT 30', [(int) $page['ids']]) : [],
+            'home' => $page['ids'] > 0 && (int) $page['ids'] === $this->app->settings()->int('titulni_stranka'),
+            'inMenu' => $page['ids'] > 0 ? \Kaleta\Core\Menu::hasPage($this->db, (int) $page['ids'], (string) ($page['jazyk'] ?? '')) : null,
+            'customMenu' => \Kaleta\Core\Menu::load($this->db, 'hlavni', (string) ($page['jazyk'] ?? '')) !== null,
         ]);
     }
 }

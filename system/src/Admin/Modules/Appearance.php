@@ -27,12 +27,12 @@ final class Appearance extends Module
         $siteSettings = $this->app->settings();
         $ds = DesignSystem::load($siteSettings);
 
-        return $this->view('vypis', 'Vzhled webu', [
-            'layouty' => Layouts::listAll(),
+        return $this->view('list', 'Vzhled webu', [
+            'layouts' => Layouts::listAll(),
             'ds' => $ds,
-            'kontrasty' => DesignSystem::contrasts($ds),
-            'predvolby' => array_map(fn (string $k): array => ['nazev' => DesignSystem::PRESETS[$k][0], 'popis' => DesignSystem::PRESETS[$k][1], 'ds' => DesignSystem::preset($k)], array_combine(array_keys(DesignSystem::PRESETS), array_keys(DesignSystem::PRESETS))),
-            'hodnoty' => ['layout' => $siteSettings->get('layout'), 'logo_webu' => $siteSettings->get('logo_webu'), 'favicon' => $siteSettings->get('favicon'), 'tmavy_rezim' => $siteSettings->get('tmavy_rezim'), 'tmavy_prepinac' => $siteSettings->get('tmavy_prepinac'), 'nazev_webu' => $siteSettings->get('nazev_webu')],
+            'contrasts' => DesignSystem::contrasts($ds),
+            'presets' => array_map(fn (string $k): array => ['nazev' => DesignSystem::PRESETS[$k][0], 'popis' => DesignSystem::PRESETS[$k][1], 'ds' => DesignSystem::preset($k)], array_combine(array_keys(DesignSystem::PRESETS), array_keys(DesignSystem::PRESETS))),
+            'values' => ['layout' => $siteSettings->get('layout'), 'logo_webu' => $siteSettings->get('logo_webu'), 'favicon' => $siteSettings->get('favicon'), 'tmavy_rezim' => $siteSettings->get('tmavy_rezim'), 'tmavy_prepinac' => $siteSettings->get('tmavy_prepinac'), 'nazev_webu' => $siteSettings->get('nazev_webu')],
         ]);
     }
 

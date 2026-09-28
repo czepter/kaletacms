@@ -56,7 +56,7 @@ final class Categories extends Module
     {
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
 
-        return $this->view('vypis', 'Kategorie', ['kategorie' => self::listAll($this->db, $column), 'jazykyWebu' => $siteLanguages, 'jazyk' => $language]);
+        return $this->view('list', 'Kategorie', ['category' => self::listAll($this->db, $column), 'siteLanguages' => $siteLanguages, 'language' => $language]);
     }
 
     protected function akceNovy(): Response
@@ -127,6 +127,6 @@ final class Categories extends Module
      */
     private function form(array $category, array $errors = []): Response
     {
-        return $this->view('formular', $category['idt'] ? 'Úprava kategorie' : 'Nová kategorie', ['kategorie' => $category, 'chyby' => $errors]);
+        return $this->view('form', $category['idt'] ? 'Úprava kategorie' : 'Nová kategorie', ['category' => $category, 'errors' => $errors]);
     }
 }

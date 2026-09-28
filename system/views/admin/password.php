@@ -3,11 +3,11 @@
  * Obnova zapomenutého hesla do administrace (Admin\ObnovaHesla).
  *
  * @var Kaleta\Core\App $app
- * @var string $krok zadost | heslo | neplatny
- * @var bool $odeslano
- * @var ?string $chyba
+ * @var string $step zadost | heslo | neplatny
+ * @var bool $sent
+ * @var ?string $error
  * @var string $token
- * @var string $ucet
+ * @var string $account
  */
 ?>
 <!doctype html>
@@ -25,24 +25,24 @@
 </head>
 <body class="login">
 <div class="login-karta">
-<?= $app->view->render('admin/logo', ['vyska' => 36]) ?>
-<h1><?= e(t($krok === 'heslo' ? 'Nové heslo' : 'Zapomenuté heslo')) ?></h1>
-<?php if ($chyba !== null): ?>
-<p class="hlaska hlaska-chyba" role="alert"><?= e($chyba) ?></p>
+<?= $app->view->render('admin/logo', ['height' => 36]) ?>
+<h1><?= e(t($step === 'heslo' ? 'Nové heslo' : 'Zapomenuté heslo')) ?></h1>
+<?php if ($error !== null): ?>
+<p class="hlaska hlaska-chyba" role="alert"><?= e($error) ?></p>
 <?php endif ?>
-<?php if ($krok === 'heslo'): ?>
+<?php if ($step === 'heslo'): ?>
 <form method="post" action="<?= e($app->url('admin.php?akce=heslo')) ?>">
 <?= $app->session->csrfField() ?>
 <input type="hidden" name="token" value="<?= e($token) ?>">
-<p><?= e(t('Účet: %s', $ucet)) ?></p>
+<p><?= e(t('Účet: %s', $account)) ?></p>
 <div class="login-pole"><label for="password"><?= e(t('Nové heslo')) ?></label> <input class="textpole" type="password" id="password" name="password" size="20" minlength="10" autocomplete="new-password" required autofocus></div>
 <div class="login-pole"><label for="password2"><?= e(t('Heslo znovu')) ?></label> <input class="textpole" type="password" id="password2" name="password2" size="20" minlength="10" autocomplete="new-password" required></div>
 <p class="smltxt"><?= e(t('Alespoň 10 znaků. Dvoufázové přihlášení zůstává zapnuté.')) ?></p>
 <p><input class="tl" type="submit" value="<?= e(t('Nastavit heslo')) ?>"></p>
 </form>
-<?php elseif ($odeslano): ?>
+<?php elseif ($sent): ?>
 <p class="hlaska hlaska-ok" role="status"><?= e(t('Pokud takový účet existuje a má vyplněný e-mail, poslali jsme na něj odkaz pro nastavení nového hesla. Platí hodinu.')) ?></p>
-<?php elseif ($krok === 'zadost'): ?>
+<?php elseif ($step === 'zadost'): ?>
 <form method="post" action="<?= e($app->url('admin.php?akce=heslo')) ?>">
 <?= $app->session->csrfField() ?>
 <p><?= e(t('Zadejte přihlašovací jméno nebo e-mail svého účtu. Pošleme vám odkaz pro nastavení nového hesla.')) ?></p>
@@ -50,7 +50,7 @@
 <p><input class="tl" type="submit" value="<?= e(t('Poslat odkaz')) ?>"></p>
 </form>
 <?php endif ?>
-<p class="login-odkaz"><a href="<?= e($app->url($krok === 'neplatny' ? 'admin.php?akce=heslo' : 'admin.php')) ?>"><?= e(t($krok === 'neplatny' ? 'Požádat o nový odkaz' : 'Zpět na přihlášení')) ?></a></p>
+<p class="login-odkaz"><a href="<?= e($app->url($step === 'neplatny' ? 'admin.php?akce=heslo' : 'admin.php')) ?>"><?= e(t($step === 'neplatny' ? 'Požádat o nový odkaz' : 'Zpět na přihlášení')) ?></a></p>
 </div>
 </body>
 </html>

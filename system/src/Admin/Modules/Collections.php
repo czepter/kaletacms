@@ -28,8 +28,8 @@ final class Collections extends Module
 
     protected function akceVypis(): Response
     {
-        return $this->view('vypis', 'Kolekce', [
-            'kolekce' => $this->db->all('SELECT k.idk, k.nazev, k.seo_link, k.detail, (SELECT COUNT(*) FROM {kolekce_polozky} p WHERE p.idk = k.idk) AS pocet FROM {kolekce} k ORDER BY k.nazev'),
+        return $this->view('list', 'Kolekce', [
+            'collection' => $this->db->all('SELECT k.idk, k.nazev, k.seo_link, k.detail, (SELECT COUNT(*) FROM {kolekce_polozky} p WHERE p.idk = k.idk) AS pocet FROM {kolekce} k ORDER BY k.nazev'),
         ]);
     }
 
@@ -37,7 +37,7 @@ final class Collections extends Module
 
     protected function akceNovy(): Response
     {
-        return $this->admin() ?? $this->view('formular', 'Nová kolekce', ['k' => ['idk' => 0, 'nazev' => '', 'seo_link' => '', 'detail' => 0, 'pole' => [
+        return $this->admin() ?? $this->view('form', 'Nová kolekce', ['k' => ['idk' => 0, 'nazev' => '', 'seo_link' => '', 'detail' => 0, 'pole' => [
             ['klic' => '', 'popisek' => t('Popis'), 'typ' => 'radky'], ['klic' => '', 'popisek' => t('Obrázek'), 'typ' => 'obrazek'],
         ]]]);
     }
@@ -46,7 +46,7 @@ final class Collections extends Module
     {
         $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
 
-        return $this->admin() ?? ($k === null ? $this->error('Kolekce neexistuje.', 404) : $this->view('formular', $k['nazev'], ['k' => $k]));
+        return $this->admin() ?? ($k === null ? $this->error('Kolekce neexistuje.', 404) : $this->view('form', $k['nazev'], ['k' => $k]));
     }
 
     protected function akceUloz(): Response
@@ -101,8 +101,8 @@ final class Collections extends Module
 
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
 
-        return $this->view('polozky', $k['nazev'], ['k' => $k, 'jazyky' => Language::additional($this->app->settings()), 'jazykyWebu' => $siteLanguages, 'jazyk' => $language,
-            'polozky' => $this->db->all('SELECT idp, nazev, seo_link, poradi, zobrazit, jazyk, datum FROM {kolekce_polozky} WHERE idk = ?' . ($column !== null ? ' AND jazyk = ?' : '') . ' ORDER BY jazyk, poradi, nazev',
+        return $this->view('items', $k['nazev'], ['k' => $k, 'languages' => Language::additional($this->app->settings()), 'siteLanguages' => $siteLanguages, 'language' => $language,
+            'items' => $this->db->all('SELECT idp, nazev, seo_link, poradi, zobrazit, jazyk, datum FROM {kolekce_polozky} WHERE idk = ?' . ($column !== null ? ' AND jazyk = ?' : '') . ' ORDER BY jazyk, poradi, nazev',
                 $column !== null ? [$k['idk'], $column] : [$k['idk']])]);
     }
 
@@ -120,7 +120,7 @@ final class Collections extends Module
         $p ??= ['idp' => 0, 'nazev' => '', 'seo_link' => '', 'data' => '{}', 'poradi' => 100, 'zobrazit' => 1, 'jazyk' => '', 'datum' => date('Y-m-d H:i:s')];
         $p['data'] = json_decode((string) $p['data'], true) ?: [];
 
-        return $this->view('polozka', $p['nazev'] !== '' ? $p['nazev'] : t('Nová položka'), ['k' => $k, 'p' => $p]);
+        return $this->view('item', $p['nazev'] !== '' ? $p['nazev'] : t('Nová položka'), ['k' => $k, 'p' => $p]);
     }
 
     protected function akceUlozPolozku(): Response

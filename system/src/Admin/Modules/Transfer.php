@@ -35,12 +35,12 @@ final class Transfer extends Module
             $files[] = $s + ['stav' => WpImport::loadState($s['soubor'])];
         }
 
-        return $this->view('vypis', 'Import a export', [
-            'soubory' => $files,
-            'limitNahrani' => min(self::bytes((string) ini_get('upload_max_filesize')), self::bytes((string) ini_get('post_max_size'))),
-            'chybiXml' => !class_exists(\XMLReader::class) || !class_exists(\Dom\HTMLDocument::class),
-            'exporty' => SiteExport::listAll(),
-            'umiZip' => class_exists(\ZipArchive::class),
+        return $this->view('list', 'Import a export', [
+            'files' => $files,
+            'uploadLimit' => min(self::bytes((string) ini_get('upload_max_filesize')), self::bytes((string) ini_get('post_max_size'))),
+            'missingXml' => !class_exists(\XMLReader::class) || !class_exists(\Dom\HTMLDocument::class),
+            'exports' => SiteExport::listAll(),
+            'hasZip' => class_exists(\ZipArchive::class),
         ]);
     }
 
@@ -116,11 +116,11 @@ final class Transfer extends Module
         }
         $settings = $this->app->settings();
 
-        return $this->view('nahled', 'Import z WordPressu', [
-            'stav' => $state,
-            'jazyky' => array_merge([Language::defaults($settings)], Language::additional($settings)),
-            'rubriky' => $this->db->all('SELECT idt, nazev, jazyk FROM {kategorie} ORDER BY jazyk, nazev'),
-            'presmerovaniZapnuto' => \Kaleta\Core\Extensions::isEnabled($settings, 'presmerovani'),
+        return $this->view('preview', 'Import z WordPressu', [
+            'state' => $state,
+            'languages' => array_merge([Language::defaults($settings)], Language::additional($settings)),
+            'categories' => $this->db->all('SELECT idt, nazev, jazyk FROM {kategorie} ORDER BY jazyk, nazev'),
+            'redirectsEnabled' => \Kaleta\Core\Extensions::isEnabled($settings, 'presmerovani'),
         ]);
     }
 
@@ -177,10 +177,10 @@ final class Transfer extends Module
             return $this->back('', 'nahled', ['soubor' => $state['soubor']]);
         }
 
-        return $this->view('prubeh', 'Import z WordPressu', [
-            'stav' => $state, 'chyba' => $error,
-            'stahovaniMozne' => ImageDownloader::isAvailable() && extension_loaded('gd'),
-            'domena' => ImageDownloader::domainFromUrl((string) $state['web']['adresa']),
+        return $this->view('progress', 'Import z WordPressu', [
+            'state' => $state, 'error' => $error,
+            'canDownload' => ImageDownloader::isAvailable() && extension_loaded('gd'),
+            'domain' => ImageDownloader::domainFromUrl((string) $state['web']['adresa']),
         ]);
     }
 

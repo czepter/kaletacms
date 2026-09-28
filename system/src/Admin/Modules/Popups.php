@@ -28,12 +28,12 @@ final class Popups extends Module
 
     protected function akceVypis(): Response
     {
-        return $this->view('vypis', 'Pop-up okna', ['okna' => Okna::all($this->db)]);
+        return $this->view('list', 'Pop-up okna', ['popups' => Okna::all($this->db)]);
     }
 
     protected function akceNovy(): Response
     {
-        return $this->view('novy', 'Nové pop-up okno', []);
+        return $this->view('new', 'Nové pop-up okno', []);
     }
 
     /** Nové okno z hotového vzoru: koncept stavby v jazyce webu, typ a spouštěč ze vzoru, vypnuté – rovnou do builderu. */
@@ -58,7 +58,7 @@ final class Popups extends Module
     {
         $p = Okna::byId($this->db, $this->request->getInt('id'));
 
-        return $p === null ? $this->error('Pop-up okno neexistuje.', 404) : $this->view('formular', $p['nazev'], ['p' => $p] + $this->options());
+        return $p === null ? $this->error('Pop-up okno neexistuje.', 404) : $this->view('form', $p['nazev'], ['p' => $p] + $this->options());
     }
 
     protected function akceUloz(): Response
@@ -144,9 +144,9 @@ final class Popups extends Module
         $languages = array_merge([Language::defaults($siteSettings)], Language::additional($siteSettings));
 
         return [
-            'stranky' => $this->db->all('SELECT ids, titulek, jazyk FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, titulek LIMIT 500'),
-            'kolekce' => $this->db->all('SELECT seo_link, nazev FROM {kolekce} WHERE detail = 1 ORDER BY nazev'),
-            'jazyky' => count($languages) > 1 ? array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[$j][0] ?? $j, $languages)) : [],
+            'pages' => $this->db->all('SELECT ids, titulek, jazyk FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, titulek LIMIT 500'),
+            'collection' => $this->db->all('SELECT seo_link, nazev FROM {kolekce} WHERE detail = 1 ORDER BY nazev'),
+            'languages' => count($languages) > 1 ? array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[$j][0] ?? $j, $languages)) : [],
         ];
     }
 

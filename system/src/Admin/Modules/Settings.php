@@ -118,22 +118,22 @@ class Settings extends Module
         $this->app->session->set('konfigurace_chybne', null);
         $invalid = is_array($invalid) && ($invalid['zalozka'] ?? '') === $tab ? $invalid : ['pole' => [], 'hodnoty' => []];
 
-        return $this->view('vypis', 'Nastavení', [
-            'zalozka' => $tab,
-            'chybnaPole' => $invalid['pole'],
-            'hodnoty' => $invalid['hodnoty'] + $values + ['layout' => $settings->get('layout')],
-            'layouty' => Layouts::listAll(),
-            'kontroly' => $tab === 'stav' ? Health::checks($this->app) : [],
-            'vzdalenaStav' => $settings->get('zaloha_vzdalena_stav'),
-            'ulohyToken' => $settings->get('ulohy_token'),
-            'chybyLog' => $tab === 'stav' ? self::readFileTail(KALETA_ROOT . '/storage/log/chyby.log', 40) : [],
-            'posta' => $tab === 'posta' ? $this->db->all('SELECT komu, predmet, vytvoreno, odeslano, pokusu, dalsi_pokus, chyba FROM {posta} ORDER BY idp DESC LIMIT 30') : [],
-            'zapnutaRozsireni' => Extensions::enabled($settings),
-            'stranky' => $tab === 'zakladni' ? $this->db->pairs("SELECT ids, titulek FROM {stranky} WHERE zobrazit = 1 AND jazyk = '' ORDER BY poradi, titulek") : [],
-            'zalohy' => $tab === 'zalohy' ? Backup::listAll() : [],
-            'aktualizace' => $tab === 'zalohy' ? (new Updater($settings))->state() : null,
-            'adresaWebu' => $this->app->request->origin() . $this->app->url(''),
-            'souhlasy' => $tab === 'cookies' ? $this->db->all("SELECT kategorie, COUNT(*) AS pocet FROM {souhlasy} WHERE cas > NOW() - INTERVAL 30 DAY GROUP BY kategorie ORDER BY pocet DESC") : [],
+        return $this->view('list', 'Nastavení', [
+            'tab' => $tab,
+            'invalidFields' => $invalid['pole'],
+            'values' => $invalid['hodnoty'] + $values + ['layout' => $settings->get('layout')],
+            'layouts' => Layouts::listAll(),
+            'checks' => $tab === 'stav' ? Health::checks($this->app) : [],
+            'remoteStatus' => $settings->get('zaloha_vzdalena_stav'),
+            'tasksToken' => $settings->get('ulohy_token'),
+            'errorLog' => $tab === 'stav' ? self::readFileTail(KALETA_ROOT . '/storage/log/chyby.log', 40) : [],
+            'mail' => $tab === 'posta' ? $this->db->all('SELECT komu, predmet, vytvoreno, odeslano, pokusu, dalsi_pokus, chyba FROM {posta} ORDER BY idp DESC LIMIT 30') : [],
+            'enabledExtensions' => Extensions::enabled($settings),
+            'pages' => $tab === 'zakladni' ? $this->db->pairs("SELECT ids, titulek FROM {stranky} WHERE zobrazit = 1 AND jazyk = '' ORDER BY poradi, titulek") : [],
+            'backups' => $tab === 'zalohy' ? Backup::listAll() : [],
+            'update' => $tab === 'zalohy' ? (new Updater($settings))->state() : null,
+            'siteUrl' => $this->app->request->origin() . $this->app->url(''),
+            'consents' => $tab === 'cookies' ? $this->db->all("SELECT kategorie, COUNT(*) AS pocet FROM {souhlasy} WHERE cas > NOW() - INTERVAL 30 DAY GROUP BY kategorie ORDER BY pocet DESC") : [],
         ]);
     }
 

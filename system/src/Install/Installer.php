@@ -56,7 +56,7 @@ final class Installer
         if (is_file(KALETA_ROOT . '/config.php')) {
             \Kaleta\Core\Language::set($this->chooseLanguage(), 'install-');
 
-            return $this->page('hotovo', ['jizNainstalovano' => true, 'smazano' => $this->deleteSelf()]);
+            return $this->page('done', ['alreadyInstalled' => true, 'deleted' => $this->deleteSelf()]);
         }
 
         $this->language = $this->chooseLanguage();
@@ -80,11 +80,11 @@ final class Installer
             $extensions = array_values(array_intersect($this->request->postList('rozsireni'), array_keys(Extensions::CATALOG)));
             $errors = $this->install($data, (string) ($_POST['password'] ?? ''), (string) ($_POST['password2'] ?? ''), $extensions);
             if ($errors === []) {
-                return $this->page('hotovo', ['jizNainstalovano' => false, 'smazano' => $this->deleteSelf()]);
+                return $this->page('done', ['alreadyInstalled' => false, 'deleted' => $this->deleteSelf()]);
             }
         }
 
-        return $this->page('formular', ['pozadavky' => $requirements, 'data' => $data, 'chyby' => $errors, 'rozsireni' => $extensions]);
+        return $this->page('form', ['requirements' => $requirements, 'data' => $data, 'errors' => $errors, 'extensions' => $extensions]);
     }
 
     /**
@@ -284,8 +284,8 @@ final class Installer
     private function page(string $template, array $data): Response
     {
         return Response::html($this->view->render('install/' . $template, $data + [
-            'base' => $this->request->basePath(), 'jazyk' => \Kaleta\Core\Language::code(),
-            'jazyky' => array_intersect_key(\Kaleta\Core\Language::ADMIN_LANGUAGES, self::TIME_ZONES),
+            'base' => $this->request->basePath(), 'language' => \Kaleta\Core\Language::code(),
+            'languages' => array_intersect_key(\Kaleta\Core\Language::ADMIN_LANGUAGES, self::TIME_ZONES),
         ]));
     }
 }

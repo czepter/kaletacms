@@ -34,7 +34,7 @@ final class Roles extends Module
     {
         $role = $this->db->all('SELECT r.*, (SELECT COUNT(*) FROM {uzivatele} u WHERE u.role = r.idr) AS clenu FROM {role} r ORDER BY r.nazev');
 
-        return $this->view('vypis', 'Role', ['role' => $role, 'nazvy' => self::configurable()]);
+        return $this->view('list', 'Role', ['role' => $role, 'names' => self::configurable()]);
     }
 
     protected function akceNovy(): Response
@@ -133,10 +133,10 @@ final class Roles extends Module
      */
     private function form(array $role, array $errors = []): Response
     {
-        return $this->view('formular', (int) $role['idr'] > 0 ? 'Úprava role' : 'Nová role', [
-            'role' => $role, 'chyby' => $errors, 'sekce' => self::configurable(),
-            'vybrane' => array_filter(explode(',', (string) $role['moduly'])),
-            'clenove' => (int) $role['idr'] > 0 ? $this->db->all('SELECT idu, user, jmeno FROM {uzivatele} WHERE role = ? ORDER BY user', [(int) $role['idr']]) : [],
+        return $this->view('form', (int) $role['idr'] > 0 ? 'Úprava role' : 'Nová role', [
+            'role' => $role, 'errors' => $errors, 'section' => self::configurable(),
+            'selected' => array_filter(explode(',', (string) $role['moduly'])),
+            'members' => (int) $role['idr'] > 0 ? $this->db->all('SELECT idu, user, jmeno FROM {uzivatele} WHERE role = ? ORDER BY user', [(int) $role['idr']]) : [],
         ]);
     }
 }

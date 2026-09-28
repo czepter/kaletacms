@@ -55,7 +55,7 @@ final class PasswordReset
             }
         }
 
-        return $this->page(['krok' => 'zadost', 'odeslano' => $sent, 'chyba' => $error], $error === null ? 200 : 429);
+        return $this->page(['step' => 'zadost', 'sent' => $sent, 'error' => $error], $error === null ? 200 : 429);
     }
 
     /**
@@ -96,7 +96,7 @@ final class PasswordReset
             ? $app->db()->one('SELECT * FROM {uzivatele} WHERE obnova_otisk = ? AND blokovat = 0 AND obnova_cas > ?', [hash('sha256', $token), date('Y-m-d H:i:s', time() - self::LINK_LIFETIME)])
             : null;
         if ($user === null) {
-            return $this->page(['krok' => 'neplatny', 'odeslano' => false, 'chyba' => t('Odkaz už neplatí nebo byl použit. Požádejte o nový.')], 400);
+            return $this->page(['step' => 'neplatny', 'sent' => false, 'error' => t('Odkaz už neplatí nebo byl použit. Požádejte o nový.')], 400);
         }
         $error = null;
         if ($app->request->isPost()) {
@@ -116,12 +116,12 @@ final class PasswordReset
             }
         }
 
-        return $this->page(['krok' => 'heslo', 'odeslano' => false, 'chyba' => $error, 'token' => $token, 'ucet' => (string) $user['user']], $error === null ? 200 : 422);
+        return $this->page(['step' => 'heslo', 'sent' => false, 'error' => $error, 'token' => $token, 'account' => (string) $user['user']], $error === null ? 200 : 422);
     }
 
     /** @param array<string, mixed> $data */
     private function page(array $data, int $status): Response
     {
-        return Response::html($this->app->view->render('admin/heslo', ['app' => $this->app, 'token' => '', 'ucet' => ''] + $data), $status);
+        return Response::html($this->app->view->render('admin/password', ['app' => $this->app, 'token' => '', 'account' => ''] + $data), $status);
     }
 }

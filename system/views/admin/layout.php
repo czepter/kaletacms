@@ -3,45 +3,45 @@
  * Rámec administrace: menu, login proužek, nadpis sekce, hlášky, obsah.
  *
  * @var Kaleta\Core\App $app
- * @var string $nadpis
- * @var string $obsah  hotové HTML modulu
- * @var array<string, class-string<Kaleta\Admin\Module>> $moduly
- * @var string $aktivni
+ * @var string $heading
+ * @var string $content  hotové HTML modulu
+ * @var array<string, class-string<Kaleta\Admin\Module>> $modules
+ * @var string $active
  * @var array<string, mixed>|null $user
- * @var list<array{typ:string, text:string}> $hlasky
+ * @var list<array{typ:string, text:string}> $flashes
  */
-$ikona = require __DIR__ . '/ikony.php';
-$naPrehledu = $aktivni === '' && (string) $app->request->get('akce') === ''; // Můj účet (akce=ucet) není Přehled
+$icon = require __DIR__ . '/icons.php';
+$onDashboard = $active === '' && (string) $app->request->get('akce') === ''; // Můj účet (akce=ucet) není Přehled
 
 // paleta příkazů (Ctrl/⌘+K): jen to, kam přihlášený smí – seznam modulů už je podle práv
-$prikazy = [];
+$statements = [];
 if ($user !== null) {
-    $adm = fn (string $dotaz = ''): string => $app->url('admin.php' . ($dotaz !== '' ? '?' . $dotaz : ''));
-    $prikazy[] = ['n' => t('Přehled'), 'u' => $adm(), 's' => ''];
-    foreach ($moduly as $ident => $class) {
-        $prikazy[] = ['n' => t($class::NAME), 'u' => $adm('modul=' . $ident), 's' => t($class::GROUP)];
+    $adminUrl = fn (string $query = ''): string => $app->url('admin.php' . ($query !== '' ? '?' . $query : ''));
+    $statements[] = ['n' => t('Přehled'), 'u' => $adminUrl(), 's' => ''];
+    foreach ($modules as $ident => $class) {
+        $statements[] = ['n' => t($class::NAME), 'u' => $adminUrl('modul=' . $ident), 's' => t($class::GROUP)];
     }
-    $rychle = [
+    $quick = [
         'stranky' => [['Nová stránka', 'modul=stranky&akce=novy']],
         'novinky' => [['Nová novinka', 'modul=novinky&akce=novy'], ['Nefunkční odkazy', 'modul=novinky&akce=odkazy']],
         'kategorie' => [['Nová kategorie', 'modul=kategorie&akce=novy']],
         'users' => [['Nový uživatel', 'modul=users&akce=novy']],
         'prenos' => [['Import z WordPressu', 'modul=prenos']],
     ];
-    foreach ($rychle as $ident => $polozky) {
-        foreach (isset($moduly[$ident]) ? $polozky : [] as [$nazev, $dotaz]) {
-            $prikazy[] = ['n' => t($nazev), 'u' => $adm($dotaz), 's' => t($moduly[$ident]::NAME)];
+    foreach ($quick as $ident => $items) {
+        foreach (isset($modules[$ident]) ? $items : [] as [$name, $query]) {
+            $statements[] = ['n' => t($name), 'u' => $adminUrl($query), 's' => t($modules[$ident]::NAME)];
         }
     }
-    foreach (isset($moduly['config']) ? Kaleta\Admin\Modules\Settings::TABS : [] as $klic => $nazev) {
-        $prikazy[] = ['n' => t('Nastavení') . ' → ' . t($nazev), 'u' => $adm('modul=config&zalozka=' . $klic), 's' => t('Nastavení')];
+    foreach (isset($modules['config']) ? Kaleta\Admin\Modules\Settings::TABS : [] as $key => $name) {
+        $statements[] = ['n' => t('Nastavení') . ' → ' . t($name), 'u' => $adminUrl('modul=config&zalozka=' . $key), 's' => t('Nastavení')];
     }
     // stránky webu jdou v paletě najít podle názvu (novinky se hledají na serveru, je jich víc)
-    foreach (isset($moduly['stranky']) ? $app->db()->all('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY poradi, titulek LIMIT 300') : [] as $st) {
-        $prikazy[] = ['n' => $st['titulek'], 'u' => $adm('modul=stranky&akce=edit&id=' . (int) $st['ids']), 's' => t('Stránka')];
+    foreach (isset($modules['stranky']) ? $app->db()->all('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY poradi, titulek LIMIT 300') : [] as $pageRow) {
+        $statements[] = ['n' => $pageRow['titulek'], 'u' => $adminUrl('modul=stranky&akce=edit&id=' . (int) $pageRow['ids']), 's' => t('Stránka')];
     }
-    $prikazy[] = ['n' => t('Můj účet'), 'u' => $adm('akce=ucet'), 's' => ''];
-    $prikazy[] = ['n' => t('Zobrazit web'), 'u' => $app->url(''), 's' => ''];
+    $statements[] = ['n' => t('Můj účet'), 'u' => $adminUrl('akce=ucet'), 's' => ''];
+    $statements[] = ['n' => t('Zobrazit web'), 'u' => $app->url(''), 's' => ''];
 }
 ?>
 <!doctype html>
@@ -51,7 +51,7 @@ if ($user !== null) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <script src="<?= e($app->url('image/tema.js')) ?>?v=<?= e(KALETA_VERSION) ?>"></script>
-<title><?= $nadpis !== '' ? e($nadpis) . ' – ' : '' ?>Kaleta</title>
+<title><?= $heading !== '' ? e($heading) . ' – ' : '' ?>Kaleta</title>
 <link rel="icon" type="image/svg+xml" href="<?= e($app->url('')) ?>image/kaleta-znacka.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="<?= e($app->url('')) ?>image/kaleta-znacka-32.png">
 <link rel="apple-touch-icon" href="<?= e($app->url('')) ?>image/kaleta-znacka-180.png">
@@ -61,47 +61,47 @@ if ($user !== null) {
 <body>
 <?php if ($user !== null): ?>
 <header class="hlavicka">
-	<a class="znacka" href="<?= e($app->url('admin.php')) ?>" aria-label="Kaleta – <?= e(t('Přehled')) ?>"><?= $app->view->render('admin/logo', ['vyska' => 28]) ?></a>
+	<a class="znacka" href="<?= e($app->url('admin.php')) ?>" aria-label="Kaleta – <?= e(t('Přehled')) ?>"><?= $app->view->render('admin/logo', ['height' => 28]) ?></a>
 	<button class="menu-prepinac" type="button" aria-expanded="false" aria-controls="menu"><?= e(t('Menu')) ?></button>
 	<nav class="menu-obal" aria-label="<?= e(t('Hlavní menu')) ?>">
 	<ul class="menu" id="menu">
-		<li class="menu-prehled<?= $naPrehledu ? ' aktivni' : '' ?>"><a href="<?= e($app->url('admin.php')) ?>"<?= $naPrehledu ? ' aria-current="page"' : '' ?>><?= $ikona('prehled') ?><?= e(t('Přehled')) ?></a></li>
-<?php $skupina = ''; $vMenu = isset($moduly[$aktivni]) && $moduly[$aktivni]::PARENT !== '' ? $moduly[$aktivni]::PARENT : $aktivni; ?>
-<?php foreach ($moduly as $ident => $class): if ($class::PARENT !== '' && isset($moduly[$class::PARENT])) { continue; } ?>
-<?php if ($class::GROUP !== $skupina): $skupina = $class::GROUP; ?>
-		<li class="menu-skupina" aria-hidden="true"><?= e(t($skupina)) ?></li>
+		<li class="menu-prehled<?= $onDashboard ? ' aktivni' : '' ?>"><a href="<?= e($app->url('admin.php')) ?>"<?= $onDashboard ? ' aria-current="page"' : '' ?>><?= $icon('prehled') ?><?= e(t('Přehled')) ?></a></li>
+<?php $group = ''; $inMenu = isset($modules[$active]) && $modules[$active]::PARENT !== '' ? $modules[$active]::PARENT : $active; ?>
+<?php foreach ($modules as $ident => $class): if ($class::PARENT !== '' && isset($modules[$class::PARENT])) { continue; } ?>
+<?php if ($class::GROUP !== $group): $group = $class::GROUP; ?>
+		<li class="menu-skupina" aria-hidden="true"><?= e(t($group)) ?></li>
 <?php endif ?>
-		<li<?= $ident === $vMenu ? ' class="aktivni"' : '' ?>><a href="<?= e($app->url('admin.php?modul=' . $ident)) ?>"<?= $ident === $vMenu ? ' aria-current="page"' : '' ?>><?= $ikona($class::ICON) ?><?= e(t($class::NAME)) ?></a></li>
+		<li<?= $ident === $inMenu ? ' class="aktivni"' : '' ?>><a href="<?= e($app->url('admin.php?modul=' . $ident)) ?>"<?= $ident === $inMenu ? ' aria-current="page"' : '' ?>><?= $icon($class::ICON) ?><?= e(t($class::NAME)) ?></a></li>
 <?php endforeach ?>
-		<li class="menu-web"><a href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= $ikona('web') ?><?= e(t('Zobrazit web')) ?></a></li>
-		<li class="menu-logout"><form method="post" action="<?= e($app->url('admin.php?akce=logout')) ?>"><?= $app->session->csrfField() ?><button type="submit"><?= $ikona('odhlasit') ?><?= e(t('Odhlásit se')) ?></button></form></li>
+		<li class="menu-web"><a href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= $icon('web') ?><?= e(t('Zobrazit web')) ?></a></li>
+		<li class="menu-logout"><form method="post" action="<?= e($app->url('admin.php?akce=logout')) ?>"><?= $app->session->csrfField() ?><button type="submit"><?= $icon('odhlasit') ?><?= e(t('Odhlásit se')) ?></button></form></li>
 	</ul>
 	</nav>
 </header>
 <section class="loginprouzek" aria-label="<?= e(t('Účet a nástroje')) ?>">
 	<button class="paleta-spustit" type="button" data-paleta title="<?= e(t('Rychlé hledání a příkazy')) ?>"><span><?= e(t('Hledat…')) ?></span> <kbd>Ctrl K</kbd></button>
-	<button class="tema-prepinac" type="button" data-tema-prepinac title="<?= e(t('Světlý / tmavý režim')) ?>" aria-label="<?= e(t('Přepnout světlý a tmavý režim')) ?>"><?= $ikona('tema') ?></button>
+	<button class="tema-prepinac" type="button" data-tema-prepinac title="<?= e(t('Světlý / tmavý režim')) ?>" aria-label="<?= e(t('Přepnout světlý a tmavý režim')) ?>"><?= $icon('tema') ?></button>
 	<a class="prihlasen" href="<?= e($app->url('admin.php?akce=ucet')) ?>" title="<?= e(t('Můj účet')) ?>" aria-label="<?= e(t('Můj účet') . ' – ' . ($user['jmeno'] ?: $user['user'])) ?>"><span class="avatar" title="<?= e(($user['jmeno'] ?: $user['user']) . ' – ' . t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '')) ?>" aria-hidden="true"><?= e(mb_strtoupper(mb_substr($user['jmeno'] ?: $user['user'], 0, 1))) ?></span></a>
 </section>
 <?php endif ?>
-<?php if ($prikazy !== []): ?>
-<dialog class="paleta" id="paleta" aria-label="<?= e(t('Rychlé hledání a příkazy')) ?>"<?= isset($moduly['novinky']) ? ' data-clanky="' . e($app->url('admin.php?modul=novinky&akce=hledej_json&uprava=1')) . '"' : '' ?>>
+<?php if ($statements !== []): ?>
+<dialog class="paleta" id="paleta" aria-label="<?= e(t('Rychlé hledání a příkazy')) ?>"<?= isset($modules['novinky']) ? ' data-clanky="' . e($app->url('admin.php?modul=novinky&akce=hledej_json&uprava=1')) . '"' : '' ?>>
 	<input class="paleta-pole" type="search" autocomplete="off" spellcheck="false" placeholder="<?= e(t('Kam chcete jít? Napište název sekce, akce, stránky nebo novinky…')) ?>" aria-label="<?= e(t('Rychlé hledání a příkazy')) ?>" aria-controls="paleta-seznam">
 	<ul class="paleta-seznam" id="paleta-seznam" role="listbox"></ul>
 	<p class="paleta-napoveda"><kbd>↑</kbd> <kbd>↓</kbd> <?= e(t('výběr')) ?> · <kbd>Enter</kbd> <?= e(t('otevřít')) ?> · <kbd>Esc</kbd> <?= e(t('zavřít')) ?></p>
-	<script type="application/json" id="paleta-data"><?= json_encode($prikazy, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
+	<script type="application/json" id="paleta-data"><?= json_encode($statements, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 </dialog>
 <?php endif ?>
 <main class="obsah">
-<?php if ($nadpis !== ''): ?>
+<?php if ($heading !== ''): ?>
 <div class="zahlavi-stranky">
-<h1><?= e($nadpis) ?></h1>
+<h1><?= e($heading) ?></h1>
 </div>
 <?php endif ?>
-<?php foreach ($hlasky as $hlaska): ?>
-<p class="hlaska hlaska-<?= e($hlaska['typ']) ?>" role="status"><?= Kaleta\Admin\MenuPaths::links($app->url('admin.php'), t($hlaska['text']), array_keys($moduly)) ?></p>
+<?php foreach ($flashes as $message): ?>
+<p class="hlaska hlaska-<?= e($message['typ']) ?>" role="status"><?= Kaleta\Admin\MenuPaths::links($app->url('admin.php'), t($message['text']), array_keys($modules)) ?></p>
 <?php endforeach ?>
-<?= $obsah ?>
+<?= $content ?>
 <footer class="verze">Kaleta <?= e(KALETA_VERSION) ?> · <?= e(t('Kaleta je zdarma a bez reklam.')) ?>
 	<a class="verze-podpora" href="https://github.com/sponsors/phprscms" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><?= e(t('Podpořte její vývoj na GitHub Sponsors')) ?></a></footer>
 </main>

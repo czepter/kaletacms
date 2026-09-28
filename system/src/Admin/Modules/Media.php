@@ -31,15 +31,15 @@ final class Media extends Module
         [$where, $params, $filter] = $this->filter();
         $total = (int) $this->db->value("SELECT COUNT(*) FROM {media} o WHERE {$where}", $params);
 
-        return $this->view('vypis', 'Média', [
-            'obrazky' => $this->load($where, $params, $pageNumber, self::PER_PAGE),
-            'strana' => $pageNumber,
-            'stran' => max(1, (int) ceil($total / self::PER_PAGE)),
-            'celkem' => $total,
+        return $this->view('list', 'Média', [
+            'images' => $this->load($where, $params, $pageNumber, self::PER_PAGE),
+            'pageNumber' => $pageNumber,
+            'pageCount' => max(1, (int) ceil($total / self::PER_PAGE)),
+            'total' => $total,
             'limit' => \Kaleta\Core\Files::limitText(),
-            'filtr' => $filter,
-            'slozky' => $this->folders(),
-            'clanek' => $filter['clanek'] > 0 ? $this->db->value('SELECT titulek FROM {novinky} WHERE idc = ?', [$filter['clanek']]) : null,
+            'filter' => $filter,
+            'folders' => $this->folders(),
+            'newsItem' => $filter['clanek'] > 0 ? $this->db->value('SELECT titulek FROM {novinky} WHERE idc = ?', [$filter['clanek']]) : null,
         ]);
     }
 

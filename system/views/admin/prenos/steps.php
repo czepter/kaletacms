@@ -2,12 +2,12 @@
 /**
  * Ukazatel tří kroků importu (soubor → náhled → import).
  *
- * @var int $krok  právě probíhající krok 1–3
+ * @var int $step  právě probíhající krok 1–3
  */
-$kroky = [1 => 'Soubor', 2 => 'Náhled', 3 => 'Import'];
+$steps = [1 => 'Soubor', 2 => 'Náhled', 3 => 'Import'];
 ?>
 <ol class="prenos-kroky">
-<?php foreach ($kroky as $cislo => $nazev): ?>
-	<li<?= $cislo === $krok ? ' class="aktivni" aria-current="step"' : ($cislo < $krok ? ' class="hotovy"' : '') ?>><span><?= $cislo ?></span> <?= e(t($nazev)) ?></li>
+<?php foreach ($steps as $number => $name): ?>
+	<li<?= $number === $step ? ' class="aktivni" aria-current="step"' : ($number < $step ? ' class="hotovy"' : '') ?>><span><?= $number ?></span> <?= e(t($name)) ?></li>
 <?php endforeach ?>
 </ol>

@@ -89,16 +89,16 @@ final class News extends Module
             [...$params, self::PER_PAGE, ($pageNumber - 1) * self::PER_PAGE],
         );
 
-        return $this->view('vypis', 'Novinky', [
-            'novinky' => $news,
-            'celkem' => $total,
-            'strana' => $pageNumber,
-            'stran' => max(1, (int) ceil($total / self::PER_PAGE)),
-            'kategorie' => Categories::listAll($this->db),
-            'filtr' => ['tema' => $colorScheme, 'jazyk' => $language, 'hledat' => $search, 'stav' => isset($statusConditions[$state]) || $inTrash ? $state : ''],
-            'vKosi' => (int) $this->db->value('SELECT COUNT(*) FROM {novinky} c WHERE c.smazano IS NOT NULL' . $auth->articleScope('c.')),
-            'keVydani' => self::countAwaitingPublication($this->app),
-            'jazykyWebu' => $siteLanguages,
+        return $this->view('list', 'Novinky', [
+            'news' => $news,
+            'total' => $total,
+            'pageNumber' => $pageNumber,
+            'pageCount' => max(1, (int) ceil($total / self::PER_PAGE)),
+            'category' => Categories::listAll($this->db),
+            'filter' => ['tema' => $colorScheme, 'jazyk' => $language, 'hledat' => $search, 'stav' => isset($statusConditions[$state]) || $inTrash ? $state : ''],
+            'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {novinky} c WHERE c.smazano IS NOT NULL' . $auth->articleScope('c.')),
+            'toPublish' => self::countAwaitingPublication($this->app),
+            'siteLanguages' => $siteLanguages,
         ]);
     }
 
@@ -444,11 +444,11 @@ final class News extends Module
             return $this->error('Verze novinky neexistuje.', 404);
         }
 
-        return $this->view('porovnani', 'Porovnání verzí', [
-            'novinka' => $newsItem,
-            'revize' => $version,
-            'titulek' => \Kaleta\Core\Diff::html((string) $version['titulek'], (string) $newsItem['titulek']),
-            'uvod' => \Kaleta\Core\Diff::html((string) $version['uvod'], (string) $newsItem['uvod']),
+        return $this->view('compare', 'Porovnání verzí', [
+            'newsItem' => $newsItem,
+            'versions' => $version,
+            'title' => \Kaleta\Core\Diff::html((string) $version['titulek'], (string) $newsItem['titulek']),
+            'home' => \Kaleta\Core\Diff::html((string) $version['uvod'], (string) $newsItem['uvod']),
             'text' => \Kaleta\Core\Diff::html((string) $version['text'], (string) $newsItem['text']),
         ]);
     }
@@ -464,11 +464,11 @@ final class News extends Module
             return $this->back('Novinka se zkontroluje znovu během několika minut.', 'odkazy');
         }
 
-        return $this->view('odkazy', 'Nefunkční odkazy', [
-            'odkazy' => $this->db->all('SELECT o.*, c.titulek FROM {odkazy_vadne} o JOIN {novinky} c ON c.idc = o.idc WHERE 1 = 1' . $this->app->auth()->articleScope('c.') . ' ORDER BY o.cas DESC LIMIT 300'),
-            'zkontrolovano' => (int) $this->db->value('SELECT COUNT(*) FROM {novinky} WHERE odkazy_cas IS NOT NULL'),
-            'celkem' => (int) $this->db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW()'),
-            'zapnuto' => $this->app->settings()->bool('kontrola_odkazu'),
+        return $this->view('links', 'Nefunkční odkazy', [
+            'links' => $this->db->all('SELECT o.*, c.titulek FROM {odkazy_vadne} o JOIN {novinky} c ON c.idc = o.idc WHERE 1 = 1' . $this->app->auth()->articleScope('c.') . ' ORDER BY o.cas DESC LIMIT 300'),
+            'checked' => (int) $this->db->value('SELECT COUNT(*) FROM {novinky} WHERE odkazy_cas IS NOT NULL'),
+            'total' => (int) $this->db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW()'),
+            'isEnabled' => $this->app->settings()->bool('kontrola_odkazu'),
         ]);
     }
 
@@ -546,25 +546,25 @@ final class News extends Module
             ? $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY 2")
             : $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE idu IN (" . implode(',', $allowedIds) . ') ORDER BY 2');
 
-        return $this->view('formular', $newsItem['idc'] ? 'Úprava novinky' : 'Nová novinka', [
-            'novinka' => $newsItem,
-            'chyby' => $errors,
-            'kategorie' => Categories::listAll($this->db),
-            'autori' => $authors,
-            'smiVydavat' => $auth->canPublish(),
-            'konceptServer' => $this->request->isPost() ? null : $this->db->one('SELECT cas, data FROM {novinky_koncepty} WHERE kdo = ? AND idc = ?', [$auth->id(), (int) $newsItem['idc']]),
-            'jazykyWebu' => \Kaleta\Core\Language::additional($this->app->settings()) !== [],
+        return $this->view('form', $newsItem['idc'] ? 'Úprava novinky' : 'Nová novinka', [
+            'newsItem' => $newsItem,
+            'errors' => $errors,
+            'category' => Categories::listAll($this->db),
+            'authors' => $authors,
+            'canPublish' => $auth->canPublish(),
+            'draftOnServer' => $this->request->isPost() ? null : $this->db->one('SELECT cas, data FROM {novinky_koncepty} WHERE kdo = ? AND idc = ?', [$auth->id(), (int) $newsItem['idc']]),
+            'siteLanguages' => \Kaleta\Core\Language::additional($this->app->settings()) !== [],
             // u novinky ve výchozím jazyce: do kterých jazyků jde přeložit a které překlady už existují (jazyk => číslo)
-            'jazykyPrekladu' => $newsItem['idc'] && ($newsItem['jazyk'] ?? '') === '' ? \Kaleta\Core\Language::additional($this->app->settings()) : [],
-            'preklady' => $newsItem['idc'] ? array_map(intval(...), $this->db->pairs("SELECT jazyk, idc FROM {novinky} WHERE preklad_z = ? AND jazyk <> ''", [(int) $newsItem['idc']])) : [],
+            'translationLanguages' => $newsItem['idc'] && ($newsItem['jazyk'] ?? '') === '' ? \Kaleta\Core\Language::additional($this->app->settings()) : [],
+            'translations' => $newsItem['idc'] ? array_map(intval(...), $this->db->pairs("SELECT jazyk, idc FROM {novinky} WHERE preklad_z = ? AND jazyk <> ''", [(int) $newsItem['idc']])) : [],
             'original' => empty($newsItem['preklad_z']) ? '' : (string) $this->db->value('SELECT seo_link FROM {novinky} WHERE idc = ?', [$newsItem['preklad_z']]),
-            'asistent' => (new \Kaleta\Core\Assistant($this->app->settings()))->isReady(),
-            'stitky' => $this->request->isPost() ? $this->request->post('stitky') : implode(', ', array_column(
+            'assistant' => (new \Kaleta\Core\Assistant($this->app->settings()))->isReady(),
+            'tags' => $this->request->isPost() ? $this->request->post('stitky') : implode(', ', array_column(
                 $this->db->all('SELECT s.nazev FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ? ORDER BY s.nazev', [(int) $newsItem['idc']]),
                 'nazev',
             )),
-            'vsechnyStitky' => array_column($this->db->all('SELECT nazev FROM {stitky} ORDER BY nazev LIMIT 500'), 'nazev'),
-            'revize' => $this->db->all(
+            'allTags' => array_column($this->db->all('SELECT nazev FROM {stitky} ORDER BY nazev LIMIT 500'), 'nazev'),
+            'versions' => $this->db->all(
                 "SELECT r.idr, r.datum, r.titulek, IF(u.jmeno = '' OR u.jmeno IS NULL, u.user, u.jmeno) AS kdo_jm
                  FROM {novinky_revize} r LEFT JOIN {uzivatele} u ON u.idu = r.kdo WHERE r.idc = ? ORDER BY r.idr DESC",
                 [(int) $newsItem['idc']],

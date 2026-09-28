@@ -32,7 +32,7 @@ final class Users extends Module
         }
         unset($a);
 
-        return $this->view('vypis', 'Uživatelé', ['autori' => $authors]);
+        return $this->view('list', 'Uživatelé', ['authors' => $authors]);
     }
 
     protected function akceNovy(): Response
@@ -244,17 +244,17 @@ final class Users extends Module
             (bool) $author['blokovat'],
         ) : '';
 
-        return $this->view('formular', $id ? 'Úprava uživatele' : 'Nový uživatel', [
-            'autor' => $author,
-            'vlastniRole' => $this->db->all('SELECT idr, nazev, popis FROM {role} ORDER BY nazev'),
-            'shrnuti' => $summary,
-            'chyby' => $errors,
-            'sam' => $id === $this->app->auth()->id(),
-            'moduly' => $configurable,
-            'maModuly' => $this->request->isPost()
+        return $this->view('form', $id ? 'Úprava uživatele' : 'Nový uživatel', [
+            'author' => $author,
+            'customRoles' => $this->db->all('SELECT idr, nazev, popis FROM {role} ORDER BY nazev'),
+            'summary' => $summary,
+            'errors' => $errors,
+            'isSelf' => $id === $this->app->auth()->id(),
+            'modules' => $configurable,
+            'hasModules' => $this->request->isPost()
                 ? $this->request->postList('moduly')
                 : array_column($this->db->all('SELECT ident_modulu FROM {uzivatele_prava} WHERE fk_id_user = ?', [$id]), 'ident_modulu'),
-            'rucne' => $this->request->isPost() ? $this->request->postBool('rucne') : ($id > 0 && (int) $author['admin'] !== Auth::ADMIN && (function () use ($id, $author): bool {
+            'manual' => $this->request->isPost() ? $this->request->postBool('rucne') : ($id > 0 && (int) $author['admin'] !== Auth::ADMIN && (function () use ($id, $author): bool {
                 $ma = array_column($this->db->all('SELECT ident_modulu FROM {uzivatele_prava} WHERE fk_id_user = ?', [$id]), 'ident_modulu');
                 $defaults = self::defaultModules((int) $author['admin']);
                 sort($ma);

@@ -1,21 +1,21 @@
 <?php
 /**
  * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\ChangeLog $modul
- * @var list<array<string, mixed>> $zaznamy
- * @var array<int, string> $uzivatele
- * @var int $kdo
- * @var string $kde
- * @var string $hledat
- * @var list<string> $moduly
- * @var int $strana
- * @var int $stran
- * @var int $celkem
+ * @var Kaleta\Admin\Modules\ChangeLog $module
+ * @var list<array<string, mixed>> $records
+ * @var array<int, string> $users
+ * @var int $who
+ * @var string $whereParts
+ * @var string $search
+ * @var list<string> $modules
+ * @var int $pageNumber
+ * @var int $pageCount
+ * @var int $total
  */
 // názvy modulů z administrace (i těch, které přibudou) a několik míst mimo moduly
-$nazvy = array_map(fn (string $class): string => $class::NAME, array_combine(array_map(fn (string $class): string => $class::IDENT, Kaleta\Admin\Kernel::MODULES), Kaleta\Admin\Kernel::MODULES))
+$names = array_map(fn (string $class): string => $class::NAME, array_combine(array_map(fn (string $class): string => $class::IDENT, Kaleta\Admin\Kernel::MODULES), Kaleta\Admin\Kernel::MODULES))
     + ['asistent' => 'AI asistent', 'mcp' => 'Claude (MCP)', 'claude' => 'Claude (MCP)', 'prihlaseni' => 'Přihlášení', 'ucet' => 'Můj účet'];
-$akce = ['uloz' => 'uložení', 'smaz' => 'smazání', 'smaz_natrvalo' => 'smazání natrvalo', 'obnov' => 'obnovení z koše', 'duplikuj' => 'kopie',
+$action = ['uloz' => 'uložení', 'smaz' => 'smazání', 'smaz_natrvalo' => 'smazání natrvalo', 'obnov' => 'obnovení z koše', 'duplikuj' => 'kopie',
     'vydat' => 'vydání', 'hromadne' => 'hromadná akce', 'nahraj' => 'nahrání', 'login' => 'přihlášení', 'neuspech' => 'neúspěšný pokus',
     'zalohuj' => 'záloha', 'aktualizuj' => 'aktualizace systému', 'slozka' => 'složka', 'automaticky' => 'automatické menu',
     'uloz_variantu' => 'uložení varianty', 'sablona' => 'návrat na výchozí podobu', 'stav' => 'změna stavu', 'import' => 'import', 'stavba_text' => 'návrat k textu',
@@ -27,38 +27,38 @@ $akce = ['uloz' => 'uložení', 'smaz' => 'smazání', 'smaz_natrvalo' => 'smaz�
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
 	<input type="hidden" name="modul" value="protokol">
 	<label><?= e(t('Uživatel:')) ?> <select name="kdo" data-odeslat-pri-zmene><option value="0"><?= e(t('všichni')) ?></option>
-<?php foreach ($uzivatele as $idu => $jmeno): ?>
-		<option value="<?= (int) $idu ?>"<?= $kdo === (int) $idu ? ' selected' : '' ?>><?= e($jmeno) ?></option>
+<?php foreach ($users as $userId => $displayName): ?>
+		<option value="<?= (int) $userId ?>"<?= $who === (int) $userId ? ' selected' : '' ?>><?= e($displayName) ?></option>
 <?php endforeach ?>
 	</select></label>
 	<label><?= e(t('Kde:')) ?> <select name="kde" data-odeslat-pri-zmene><option value=""><?= e(t('všude')) ?></option>
-<?php foreach ($moduly as $m): ?>
-		<option value="<?= e($m) ?>"<?= $kde === $m ? ' selected' : '' ?>><?= e(isset($nazvy[$m]) ? t($nazvy[$m]) : $m) ?></option>
+<?php foreach ($modules as $m): ?>
+		<option value="<?= e($m) ?>"<?= $whereParts === $m ? ' selected' : '' ?>><?= e(isset($names[$m]) ? t($names[$m]) : $m) ?></option>
 <?php endforeach ?>
 	</select></label>
-	<label><?= e(t('Podrobnost obsahuje:')) ?> <input class="textpole" type="search" name="hledat" value="<?= e($hledat) ?>" size="18"></label>
-	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>"> (<?= e(t('Celkem:')) ?> <?= $celkem ?>)
+	<label><?= e(t('Podrobnost obsahuje:')) ?> <input class="textpole" type="search" name="hledat" value="<?= e($search) ?>" size="18"></label>
+	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>"> (<?= e(t('Celkem:')) ?> <?= $total ?>)
 </form>
 <div class="tab-obal">
 <table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Kdy')) ?></th><th scope="col"><?= e(t('Kdo')) ?></th><th scope="col"><?= e(t('Kde')) ?></th><th scope="col"><?= e(t('Co')) ?></th><th scope="col"><?= e(t('Podrobnost')) ?></th></tr></thead>
 <tbody>
-<?php foreach ($zaznamy as $z): ?>
+<?php foreach ($records as $z): ?>
 <tr<?= $z['akce'] === 'neuspech' ? ' class="nevydany"' : '' ?>>
 	<td class="cislo"><?= e(format_date($z['cas'], true)) ?></td>
 	<td><?= e($z['jmeno'] !== '' ? $z['jmeno'] : '–') ?></td>
-	<td><?= e(isset($nazvy[$z['modul']]) ? t($nazvy[$z['modul']]) : $z['modul']) ?></td>
-	<td><?= e(t($akce[$z['akce']] ?? $z['akce'])) ?></td>
+	<td><?= e(isset($names[$z['modul']]) ? t($names[$z['modul']]) : $z['modul']) ?></td>
+	<td><?= e(t($action[$z['akce']] ?? $z['akce'])) ?></td>
 	<td><?= e($z['popis']) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>
 </table>
 </div>
-<?php if ($stran > 1): ?>
+<?php if ($pageCount > 1): ?>
 <p class="strankovani">
-<?php for ($s = max(1, $strana - 5); $s <= min($stran, $strana + 5); $s++): ?>
-	<?= $s === $strana ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($modul->url('', array_filter(['kdo' => $kdo ?: null, 'kde' => $kde, 'hledat' => $hledat, 'strana' => $s]))) . '">' . $s . '</a>' ?>
+<?php for ($s = max(1, $pageNumber - 5); $s <= min($pageCount, $pageNumber + 5); $s++): ?>
+	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['kdo' => $who ?: null, 'kde' => $whereParts, 'hledat' => $search, 'strana' => $s]))) . '">' . $s . '</a>' ?>
 <?php endfor ?>
 </p>
 <?php endif ?>

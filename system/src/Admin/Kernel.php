@@ -56,7 +56,7 @@ final class Kernel
         $language = (string) ($app->auth()->user()['jazyk'] ?? '') ?: \Kaleta\Core\Language::defaults($app->settings());
         \Kaleta\Core\Language::set(isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$language]) ? $language : 'cs', 'admin-');
         if ($request->isPost() && !$app->session->csrfValid($request)) {
-            return $this->page('Neplatný požadavek', $app->view->render('admin/chyba', [
+            return $this->page('Neplatný požadavek', $app->view->render('admin/error', [
                 'text' => 'Platnost formuláře vypršela. Vraťte se zpět, obnovte stránku a odešlete jej znovu.',
             ]), 400);
         }
@@ -140,11 +140,11 @@ final class Kernel
                     : t('Je k dispozici nová verze %s – nainstalujete ji v Nastavení → Zálohy a aktualizace.', (string) $newVersion['verze']));
             }
 
-            return $this->page('', $app->view->render('admin/desktop', $this->desktop()));
+            return $this->page('', $app->view->render('admin/dashboard', $this->desktop()));
         }
         $class = $this->modules()[$ident] ?? null;
         if ($class === null) {
-            return $this->page('Chyba', $app->view->render('admin/chyba', ['text' => 'K tomuto modulu nemáte přístup.']), 403);
+            return $this->page('Chyba', $app->view->render('admin/error', ['text' => 'K tomuto modulu nemáte přístup.']), 403);
         }
 
         $response = (new $class($this))->handle($action === '' ? 'vypis' : $action);
@@ -186,12 +186,12 @@ final class Kernel
 
         return Response::html($app->view->render('admin/layout', [
             'app' => $app,
-            'nadpis' => t($heading),
-            'obsah' => $content,
-            'moduly' => $app->auth()->user() !== null ? $this->modules() : [],
-            'aktivni' => $app->request->get('modul'),
+            'heading' => t($heading),
+            'content' => $content,
+            'modules' => $app->auth()->user() !== null ? $this->modules() : [],
+            'active' => $app->request->get('modul'),
             'user' => $app->auth()->user(),
-            'hlasky' => $app->session->takeFlashes(),
+            'flashes' => $app->session->takeFlashes(),
         ]), $status);
     }
 
@@ -202,7 +202,7 @@ final class Kernel
      */
     private function desktop(): array
     {
-        $data = ['app' => $this->app, 'moduly' => $this->modules()];
+        $data = ['app' => $this->app, 'modules' => $this->modules()];
         $db = $this->app->db();
         $scope = ' AND smazano IS NULL' . $this->app->auth()->articleScope();      // pro dotazy bez aliasu (novinky v koši se nepočítají)
         $aliasedScope = ' AND c.smazano IS NULL' . $this->app->auth()->articleScope('c.');  // pro dotazy s aliasem c
@@ -238,12 +238,12 @@ final class Kernel
         usort($edited, fn (array $a, array $b): int => strcmp($b['kdy'], $a['kdy']));
 
         return $data + [
-            'pruvodce' => $this->firstSteps(),
-            'upozorneni' => $warnings,
+            'firstSteps' => $this->firstSteps(),
+            'warnings' => $warnings,
             // návštěvnost za 14 dní (vlastní měření bez cookies)
-            'navstevnost' => Extensions::isEnabled($this->app->settings(), 'statistika') && isset($modules['stat'])
+            'traffic' => Extensions::isEnabled($this->app->settings(), 'statistika') && isset($modules['stat'])
                 ? $db->all('SELECT den, navstevy, zobrazeni FROM {stat_dny} WHERE den > CURDATE() - INTERVAL 14 DAY ORDER BY den') : [],
-            'pocty' => array_filter([
+            'counts' => array_filter([
                 // koncepty autorů novinek čekají na editora – dlaždice jen, když nějaké jsou
                 'Novinky od autorů čekají na vydání' => isset($modules['novinky']) && ($pending = Modules\News::countAwaitingPublication($this->app)) > 0 ? [$pending, 'admin.php?modul=novinky&stav=ke_vydani'] : null,
                 'Nové poptávky' => isset($modules['poptavky']) ? [(int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0'), 'admin.php?modul=poptavky'] : null,
@@ -252,8 +252,8 @@ final class Kernel
                 'Vydané novinky' => isset($modules['novinky']) ? [(int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW(){$scope}"), 'admin.php?modul=novinky&stav=vydane'] : null,
                 'Koncepty novinek' => isset($modules['novinky']) ? [(int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 0{$scope}"), 'admin.php?modul=novinky&stav=koncepty'] : null,
             ]),
-            'poptavky' => isset($modules['poptavky']) ? $db->all('SELECT idp, datum, formular, email, stav FROM {poptavky} ORDER BY idp DESC LIMIT 5') : [],
-            'upravene' => array_slice($edited, 0, 8),
+            'enquiries' => isset($modules['poptavky']) ? $db->all('SELECT idp, datum, formular, email, stav FROM {poptavky} ORDER BY idp DESC LIMIT 5') : [],
+            'edited' => array_slice($edited, 0, 8),
         ];
     }
 
@@ -328,10 +328,10 @@ final class Kernel
 
         return Response::html($app->view->render('admin/login', [
             'app' => $app,
-            'chyba' => $error,
+            'error' => $error,
             'login' => $app->request->post('user'),
-            'kod' => $app->auth()->isAwaitingCode(),
-            'klice' => $app->auth()->isAwaitingKey(),
+            'code' => $app->auth()->isAwaitingCode(),
+            'keys' => $app->auth()->isAwaitingKey(),
         ]), $error === null ? 200 : 401);
     }
 
@@ -346,7 +346,7 @@ final class Kernel
         if (!is_array($pending) || time() - (int) ($pending['cas'] ?? 0) > 900) {
             $app->session->set('oauth_ceka', null);
 
-            return $this->page('Připojení aplikace', $app->view->render('admin/chyba', ['text' => 'Žádost o připojení aplikace vypršela nebo neexistuje. Spusťte připojení v aplikaci znovu.']), 400);
+            return $this->page('Připojení aplikace', $app->view->render('admin/error', ['text' => 'Žádost o připojení aplikace vypršela nebo neexistuje. Spusťte připojení v aplikaci znovu.']), 400);
         }
         $oauth = new \Kaleta\Front\OAuth($app);
         if ($app->request->isPost()) {
@@ -360,8 +360,8 @@ final class Kernel
         }
 
         $page = $this->page('Připojení aplikace', $app->view->render('admin/oauth', [
-            'app' => $app, 'csrf' => $app->session->csrfField(), 'ceka' => $pending, 'user' => $app->auth()->user(),
-            'adresa' => (string) parse_url((string) $pending['redirect_uri'], PHP_URL_HOST),
+            'app' => $app, 'csrf' => $app->session->csrfField(), 'pending' => $pending, 'user' => $app->auth()->user(),
+            'url' => (string) parse_url((string) $pending['redirect_uri'], PHP_URL_HOST),
         ]));
         // odeslání souhlasu končí přesměrováním do aplikace – CSP form-action ho musí povolit (admin.php)
         $target = parse_url((string) $pending['redirect_uri']);
