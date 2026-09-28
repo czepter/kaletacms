@@ -17,22 +17,22 @@ final class SiteIdentity
 {
     /** key => [name, description, CSS font-family] */
     public const array TITLE_FONTS = [
-        'vychozi' => ['Výchozí písmo', 'písmo výchozího vzhledu webu', ''],
-        'elegantni' => ['Elegantní patkové', 'Bodoni, Didot – elegance a móda', '"Bodoni 72", Didot, "Bodoni MT", "Playfair Display", Georgia, serif'],
-        'klasicke' => ['Klasické patkové', 'Georgia – seriózní a dobře čitelné', 'Georgia, "Times New Roman", Times, serif'],
-        'knizni' => ['Knižní', 'Charter, Cambria – klidné a literární', 'Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif'],
-        'moderni' => ['Moderní bezpatkové', 'systémové písmo zařízení – čisté a neutrální', 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'],
-        'grotesk' => ['Výrazný grotesk', 'Helvetica, Arial – výrazné a sebevědomé', '"Helvetica Neue", Helvetica, "Arial Nova", Arial, sans-serif'],
-        'zaoblene' => ['Zaoblené', 'přátelské, pro služby a rodinné firmy', 'ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", Quicksand, Nunito, system-ui, sans-serif'],
-        'strojove' => ['Psací stroj', 'technologie a vývoj', 'ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace'],
+        'vychozi' => ['Default font', 'the font of the default site design', ''],
+        'elegantni' => ['Elegant serif', 'Bodoni, Didot – elegance and fashion', '"Bodoni 72", Didot, "Bodoni MT", "Playfair Display", Georgia, serif'],
+        'klasicke' => ['Classic serif', 'Georgia – serious and easy to read', 'Georgia, "Times New Roman", Times, serif'],
+        'knizni' => ['Book', 'Charter, Cambria – calm and literary', 'Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif'],
+        'moderni' => ['Modern sans-serif', 'the device\'s system font – clean and neutral', 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'],
+        'grotesk' => ['Bold grotesque', 'Helvetica, Arial – strong and confident', '"Helvetica Neue", Helvetica, "Arial Nova", Arial, sans-serif'],
+        'zaoblene' => ['Rounded', 'friendly, for services and family businesses', 'ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", Quicksand, Nunito, system-ui, sans-serif'],
+        'strojove' => ['Typewriter', 'technology and development', 'ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace'],
     ];
 
     public const array TEXT_FONTS = [
-        'vychozi' => ['Výchozí písmo', '', ''],
-        'patkove' => ['Patkové', 'Georgia – pohodlné pro dlouhé čtení', 'Georgia, "Times New Roman", Times, serif'],
-        'knizni' => ['Knižní', 'Charter, Cambria', 'Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif'],
-        'moderni' => ['Bezpatkové', 'systémové písmo zařízení', 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'],
-        'grotesk' => ['Grotesk', 'Helvetica, Arial', '"Helvetica Neue", Helvetica, "Arial Nova", Arial, sans-serif'],
+        'vychozi' => ['Default font', '', ''],
+        'patkove' => ['Serif', 'Georgia – comfortable for long reads', 'Georgia, "Times New Roman", Times, serif'],
+        'knizni' => ['Book', 'Charter, Cambria', 'Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif'],
+        'moderni' => ['Sans-serif', 'the device\'s system font', 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'],
+        'grotesk' => ['Grotesque', 'Helvetica, Arial', '"Helvetica Neue", Helvetica, "Arial Nova", Arial, sans-serif'],
     ];
 
     /**
@@ -63,7 +63,7 @@ final class SiteIdentity
     public static function manifest(Settings $siteSettings, string $base): string
     {
         $colors = \Kaleta\Builder\DesignSystem::load($siteSettings)['barvy'];
-        $name = $siteSettings->get('site_name') ?: 'Web';
+        $name = $siteSettings->get('site_name') ?: 'Website';
         $icons = [];
         foreach ([192, 512] as $n) {
             if (is_file(KALETA_ROOT . '/media/ikona-' . $n . '.png')) {

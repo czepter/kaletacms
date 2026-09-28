@@ -14,8 +14,8 @@ use Kaleta\Builder\Element;
 final class BackToTop extends Element
 {
     public const string TYPE = 'nahoru';
-    public const string NAME = 'Tlačítko nahoru';
-    public const string DESCRIPTION = 'Plovoucí šipka zpět na začátek stránky – vložte ji do patičky.';
+    public const string NAME = 'Back-to-top button';
+    public const string DESCRIPTION = 'A floating arrow back to the top of the page – put it in the footer.';
     public const string ICON = 'nahoru-prvek';
     public const string GROUP = 'Pokročilé';
     public const array HTML_TAGS = ['a'];
@@ -33,9 +33,9 @@ final class BackToTop extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         if ($k->editor) {
-            return '<span' . $a . ' style="display:inline-block;padding:.4rem .8rem;border:1px dashed currentColor;border-radius:999px;font-size:.85rem">↑ ' . e(t('Tlačítko nahoru (na webu vpravo dole)')) . '</span>';
+            return '<span' . $a . ' style="display:inline-block;padding:.4rem .8rem;border:1px dashed currentColor;border-radius:999px;font-size:.85rem">↑ ' . e(t('Back-to-top button (bottom right on the website)')) . '</span>';
         }
 
-        return '<a' . Text::withClass($a, 'ka-nahoru') . ' href="#" aria-label="' . e(t('Zpět nahoru')) . '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></a>';
+        return '<a' . Text::withClass($a, 'ka-nahoru') . ' href="#" aria-label="' . e(t('Back to top')) . '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></a>';
     }
 }

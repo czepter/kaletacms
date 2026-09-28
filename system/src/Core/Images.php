@@ -31,7 +31,7 @@ final class Images
         if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) {
             throw new \RuntimeException(match ($file['error'] ?? 0) {
                 UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => Files::limitMessage(),
-                default => 'Soubor se nepodařilo nahrát.',
+                default => 'The file could not be uploaded.',
             });
         }
 
@@ -48,7 +48,7 @@ final class Images
     public static function saveFile(string $path, string $name): array
     {
         if (!is_file($path)) {
-            throw new \RuntimeException('Soubor se nepodařilo nahrát.');
+            throw new \RuntimeException('The file could not be uploaded.');
         }
 
         return self::process($path, $name, false);
@@ -61,14 +61,14 @@ final class Images
     private static function process(string $tmp, string $fileName, bool $uploaded): array
     {
         if (!extension_loaded('gd')) {
-            throw new \RuntimeException('Na serveru chybí rozšíření GD pro práci s obrázky.');
+            throw new \RuntimeException('The GD extension for image processing is missing on the server.');
         }
         $info = @getimagesize($tmp);
         if ($info === false || !isset(self::TYPES[$info[2]])) {
-            throw new \RuntimeException('Povolené jsou jen obrázky JPG, PNG, WebP a GIF.');
+            throw new \RuntimeException('Only JPG, PNG, WebP and GIF images are allowed.');
         }
         if (filesize($tmp) > self::MAX_BYTES || $info[0] * $info[1] > self::MAX_PIXELS) {
-            throw new \RuntimeException('Obrázek je příliš velký (nejvýše 20 MB a 50 megapixelů).');
+            throw new \RuntimeException('The image is too large (20 MB and 50 megapixels at most).');
         }
 
         $extension = self::TYPES[$info[2]];
@@ -83,14 +83,14 @@ final class Images
             // a GIF can be animated - it is saved unchanged, the thumbnail is the first frame
             $target = $base . '.gif';
             if (!($uploaded ? move_uploaded_file($tmp, KALETA_ROOT . '/' . $target) : copy($tmp, KALETA_ROOT . '/' . $target))) {
-                throw new \RuntimeException('Soubor se nepodařilo uložit.');
+                throw new \RuntimeException('The file could not be saved.');
             }
             $image = imagecreatefromgif(KALETA_ROOT . '/' . $target);
             [$w, $h] = [$info[0], $info[1]];
         } else {
             $image = @imagecreatefromstring((string) file_get_contents($tmp));
             if ($image === false) {
-                throw new \RuntimeException('Obrázek je poškozený a nelze ho zpracovat.');
+                throw new \RuntimeException('The image is damaged and cannot be processed.');
             }
             $image = self::rotateByExif($image, $tmp, $extension);
             $image = self::shrink($image, self::MAX_SIDE);
@@ -129,13 +129,13 @@ final class Images
     public static function replace(string $old, array $file): array
     {
         if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp)$#', $old, $m)) {
-            throw new \RuntimeException('Nahradit jde jen obrázek JPG, PNG nebo WebP.');
+            throw new \RuntimeException('Only a JPG, PNG or WebP image can be replaced.');
         }
         $new = self::save($file); // verifies, shrinks and re-encodes the uploaded file
         $image = @imagecreatefromstring((string) file_get_contents(KALETA_ROOT . '/' . $new['obr_poloha']));
         self::delete($new['obr_poloha'], $new['nahl_poloha']);
         if ($image === false) {
-            throw new \RuntimeException('Obrázek je poškozený a nelze ho zpracovat.');
+            throw new \RuntimeException('The image is damaged and cannot be processed.');
         }
         self::delete($old, $m[1] . '-nahled.' . $m[2]);
         [$base, $extension] = [$m[1], $m[2]];
@@ -210,7 +210,7 @@ final class Images
             })(),
         };
         if (!$ok) {
-            throw new \RuntimeException('Obrázek se nepodařilo uložit - zkontrolujte práva ke složce media/.');
+            throw new \RuntimeException('The image could not be saved - check the permissions of the media/ folder.');
         }
     }
 

@@ -31,7 +31,7 @@
 			noticeDialog = document.createElement('dialog');
 			noticeDialog.className = 'potvrzeni';
 			noticeDialog.setAttribute('role', 'alertdialog');
-			noticeDialog.innerHTML = '<p></p><div><button type="button" class="tl" data-zavri>' + T('Zavřít') + '</button></div>';
+			noticeDialog.innerHTML = '<p></p><div><button type="button" class="tl" data-zavri>' + T('Close') + '</button></div>';
 			document.body.appendChild(noticeDialog);
 			noticeDialog.querySelector('[data-zavri]').addEventListener('click', function () { noticeDialog.close(); });
 		}
@@ -113,7 +113,7 @@
 			var errors = [];
 			var ok = finished.filter(function (s) {
 				if (!MAX_FILE || s.size <= MAX_FILE) { return true; }
-				errors.push(s.name + ': ' + T('Soubor je větší, než server dovoluje nahrát (nejvýš %s). Zmenšete ho, nebo požádejte správce hostingu o vyšší limit.').replace('%s', SCRIPT.getAttribute('data-max-soubor-text') || ''));
+				errors.push(s.name + ': ' + T('The file is larger than the server allows (%s at most). Make it smaller or ask your hosting provider to raise the limit.').replace('%s', SCRIPT.getAttribute('data-max-soubor-text') || ''));
 				return false;
 			});
 			if (errors.length) { announce(errors.join('\n')); }
@@ -137,7 +137,7 @@
 				if (j.chyby && j.chyby.length) { announce(j.chyby.join('\n')); }
 				return j.obrazky || [];
 			})
-			.catch(function () { announce(T('Nahrání se nezdařilo. Zkontrolujte připojení a zkuste to znovu.')); return []; });
+			.catch(function () { announce(T('Upload failed. Check your connection and try again.')); return []; });
 	}
 
 	function hasImages(transfer) {
@@ -154,14 +154,14 @@
 		if (!modal) {
 			modal = document.createElement('dialog');
 			modal.className = 'galerie-okno';
-			modal.innerHTML = '<div class="galerie-okno-hlava"><strong>' + T('Média') + '</strong>'
-				+ '<label class="tl">' + T('Nahrát nový') + '<input type="file" multiple hidden></label>'
+			modal.innerHTML = '<div class="galerie-okno-hlava"><strong>' + T('Media') + '</strong>'
+				+ '<label class="tl">' + T('Upload new') + '<input type="file" multiple hidden></label>'
 				// on a phone and tablet: take a photo straight into the text (CSS shows the button only on touch devices)
-				+ '<label class="navigace galerie-vyfotit">' + T('Vyfotit') + '<input type="file" accept="image/*" capture="environment" hidden></label>'
+				+ '<label class="navigace galerie-vyfotit">' + T('Take a photo') + '<input type="file" accept="image/*" capture="environment" hidden></label>'
 				+ '<button type="button" class="tl" data-vlozit hidden></button>' // „Vložit galerii (n)“ (Insert gallery) – only when selecting several photos
-				+ '<button type="button" class="navigace" data-zavri>' + T('Zavřít') + '</button></div>'
-				+ '<div class="galerie-okno-filtr"><select aria-label="' + T('Složka') + '"></select>'
-				+ '<input class="textpole" type="search" placeholder="' + T('Hledat v médiích…') + '" aria-label="' + T('Hledat v médiích') + '"></div>'
+				+ '<button type="button" class="navigace" data-zavri>' + T('Close') + '</button></div>'
+				+ '<div class="galerie-okno-filtr"><select aria-label="' + T('Folder') + '"></select>'
+				+ '<input class="textpole" type="search" placeholder="' + T('Search media…') + '" aria-label="' + T('Search media') + '"></div>'
 				+ '<p class="napoveda"></p><div class="galerie-mrizka"></div>' // the hint text is set on every opening;
 			document.body.appendChild(modal);
 			modal.querySelector('[data-zavri]').addEventListener('click', function () { modal.close(); });
@@ -190,7 +190,7 @@
 			if (o.soubor && !modal.sPrilohami) { return; } // main image, logo, gallery: images only
 			b.innerHTML = o.soubor ? '<span class="galerie-soubor"><span></span></span><span></span>' : '<img loading="lazy" alt=""><span></span>';
 			if (o.soubor) { b.firstChild.firstChild.textContent = o.pripona; } else { b.firstChild.src = o.nahled; }
-			b.lastChild.textContent = o.nazev || T('bez názvu');
+			b.lastChild.textContent = o.nazev || T('untitled');
 			b.addEventListener('click', function () {
 				if (!modal.vice) { modal.close(); modal.zpetne(o); return; }
 				var i = modal.vybrane.indexOf(o);
@@ -206,16 +206,16 @@
 			var query = filter === 'clanek' ? '&clanek=' + NEWS_ID : (filter !== '' ? '&sekce=' + filter : '');
 			var search = modal.querySelector('input[type=search]').value.trim();
 			if (search !== '') { query += '&hledat=' + encodeURIComponent(search); }
-			grid.textContent = T('Načítám…');
+			grid.textContent = T('Loading…');
 			fetch(GALLERY + '&action=listing' + query, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
 				var selection = modal.querySelector('select');
 				selection.textContent = '';
-				[['', T('Všechna média')]].concat(NEWS_ID ? [['clanek', T('V tomto textu')]] : [], [['0', T('Nezařazené')]], j.slozky.map(function (s) { return [String(s.id), T('Složka: ') + s.nazev]; })).forEach(function (v) {
+				[['', T('All media')]].concat(NEWS_ID ? [['clanek', T('In this text')]] : [], [['0', T('Nezařazené')]], j.slozky.map(function (s) { return [String(s.id), T('Folder: ') + s.nazev]; })).forEach(function (v) {
 					var o = document.createElement('option');
 					o.value = v[0]; o.textContent = v[1]; o.selected = v[0] === filter;
 					selection.appendChild(o);
 				});
-				grid.textContent = j.obrazky.length ? '' : (search !== '' ? T('Hledanému textu nic neodpovídá.') : T('Tady zatím žádné obrázky nejsou.'));
+				grid.textContent = j.obrazky.length ? '' : (search !== '' ? T('Nothing matches your search.') : T('No images here yet.'));
 				j.obrazky.forEach(function (o) { add(o, false); });
 				additional(query, 2, j.obrazky.length);
 			});
@@ -226,7 +226,7 @@
 			var tl = document.createElement('button');
 			tl.type = 'button';
 			tl.className = 'navigace media-dalsi';
-			tl.textContent = T('Načíst další');
+			tl.textContent = T('Load more');
 			tl.addEventListener('click', function () {
 				tl.disabled = true;
 				fetch(GALLERY + '&action=listing' + query + '&strana=' + pageNumber, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
@@ -245,12 +245,12 @@
 			var tl = modal.querySelector('[data-vlozit]');
 			tl.hidden = !modal.vice;
 			tl.disabled = modal.vybrane.length < 2;
-			tl.textContent = modal.vybrane.length < 2 ? T('Označte aspoň 2 fotky') : T('Vložit galerii (') + modal.vybrane.length + ')';
+			tl.textContent = modal.vybrane.length < 2 ? T('Select at least 2 photos') : T('Insert gallery (') + modal.vybrane.length + ')';
 		};
 		modal.oznac();
 		modal.querySelector('.napoveda').textContent = more
-			? T('Klepnutím označte fotky v pořadí, v jakém mají jít za sebou. Soubory sem můžete i přetáhnout.')
-			: T('Klepnutím obrázek vložíte. Soubory sem můžete i přetáhnout - nahrají se do zvolené složky.');
+			? T('Click photos in the order they should appear. You can also drop files here.')
+			: T('Click an image to insert it. You can also drop files here – they upload to the selected folder.');
 		modal.showModal();
 		load(modal.querySelector('select').value || '');
 	}
@@ -273,23 +273,23 @@
 	/* ---------- editor ---------- */
 
 	var BUTTONS = [
-		['¶', T('Odstavec'), function () { statement('formatBlock', 'P'); }],
+		['¶', T('Paragraph'), function () { statement('formatBlock', 'P'); }],
 		['H2', T('Mezititulek'), function () { statement('formatBlock', 'H2'); }, 'velky'],
-		['H3', T('Menší mezititulek'), function () { statement('formatBlock', 'H3'); }, 'velky'],
-		['B', T('Tučně (Ctrl+B)'), function () { statement('bold'); }],
-		['I', T('Kurzíva (Ctrl+I)'), function () { statement('italic'); }],
-		[T('odkaz'), T('Vložit odkaz (Ctrl+K)'), link],
-		[T('• seznam'), T('Odrážkový seznam'), function () { statement('insertUnorderedList'); }],
-		[T('1. seznam'), T('Číslovaný seznam'), function () { statement('insertOrderedList'); }, 'velky'],
-		[T('„citace“'), T('Citace'), function () { statement('formatBlock', 'BLOCKQUOTE'); }, 'velky'],
-		[T('obrázek'), T('Vložit obrázek z médií'), null, 'velky'],
-		[T('galerie'), T('Vložit fotogalerii - návštěvník si fotky prolistuje přes celou obrazovku'), 'galerie', 'velky'],
-		[T('tabulka'), T('Vložit tabulku 3 × 3 se záhlavím; řádky a sloupce pak přidáte tlačítky nad tabulkou'), function () {
+		['H3', T('Smaller subheading'), function () { statement('formatBlock', 'H3'); }, 'velky'],
+		['B', T('Bold (Ctrl+B)'), function () { statement('bold'); }],
+		['I', T('Italic (Ctrl+I)'), function () { statement('italic'); }],
+		[T('link'), T('Insert link (Ctrl+K)'), link],
+		[T('• list'), T('Bulleted list'), function () { statement('insertUnorderedList'); }],
+		[T('1. list'), T('Numbered list'), function () { statement('insertOrderedList'); }, 'velky'],
+		[T('“quote”'), T('Quote'), function () { statement('formatBlock', 'BLOCKQUOTE'); }, 'velky'],
+		[T('image'), T('Insert an image from Media'), null, 'velky'],
+		[T('gallery'), T('Insert a photo gallery – visitors can browse the photos full screen'), 'galerie', 'velky'],
+		[T('table'), T('Insert a 3 × 3 table with a header; add rows and columns with the buttons above the table'), function () {
 			var row = function (tag) { return '<tr><' + tag + '><br></' + tag + '><' + tag + '><br></' + tag + '><' + tag + '><br></' + tag + '></tr>'; };
 			statement('insertHTML', '<table><thead>' + row('th') + '</thead><tbody>' + row('td') + row('td') + '</tbody></table><p><br></p>');
 		}, 'velky'],
 		['—', T('Oddělovací čára'), function () { statement('insertHorizontalRule'); }, 'velky'],
-		['Tx', T('Odstranit formátování'), function () { statement('removeFormat'); statement('unlink'); }]
+		['Tx', T('Remove formatting'), function () { statement('removeFormat'); statement('unlink'); }]
 	];
 
 	function statement(name, value) { document.execCommand(name, false, value || null); }
@@ -307,12 +307,12 @@
 		if (!linkDialog) {
 			linkDialog = document.createElement('dialog');
 			linkDialog.className = 'galerie-okno odkaz-okno';
-			linkDialog.innerHTML = '<form method="dialog"><div class="galerie-okno-hlava"><strong>' + T('Odkaz') + '</strong></div>'
-				+ '<label>' + T('Adresa') + '<input class="textpole siroke" type="text" name="adresa" placeholder="https://… ' + T('nebo') + ' /o-nas" autocomplete="off"></label>'
-				+ '<label>' + T('…nebo najděte novinku webu') + '<input class="textpole siroke" type="search" name="hledat" placeholder="' + T('část titulku') + '" autocomplete="off"></label>'
+			linkDialog.innerHTML = '<form method="dialog"><div class="galerie-okno-hlava"><strong>' + T('Link') + '</strong></div>'
+				+ '<label>' + T('Adresa') + '<input class="textpole siroke" type="text" name="adresa" placeholder="https://… ' + T('or') + ' /o-nas" autocomplete="off"></label>'
+				+ '<label>' + T('…or find a news item on the site') + '<input class="textpole siroke" type="search" name="hledat" placeholder="' + T('part of the headline') + '" autocomplete="off"></label>'
 				+ '<div class="odkaz-vysledky" aria-live="polite"></div>'
-				+ '<label class="odkaz-volba"><input type="checkbox" name="nove"> ' + T('otevřít v novém okně') + '</label>'
-				+ '<div class="odkaz-tlacitka"><button type="submit" class="tl" value="ok">' + T('Vložit odkaz') + '</button> <button type="button" class="navigace" data-zrusit>' + T('Zrušit odkaz') + '</button> <button type="button" class="navigace" data-zavri>' + T('Zavřít') + '</button></div></form>';
+				+ '<label class="odkaz-volba"><input type="checkbox" name="nove"> ' + T('open in a new window') + '</label>'
+				+ '<div class="odkaz-tlacitka"><button type="submit" class="tl" value="ok">' + T('Insert link') + '</button> <button type="button" class="navigace" data-zrusit>' + T('Remove link') + '</button> <button type="button" class="navigace" data-zavri>' + T('Close') + '</button></div></form>';
 			document.body.appendChild(linkDialog);
 			var timer = null;
 			linkDialog.querySelector('[name=hledat]').addEventListener('input', function () {
@@ -321,7 +321,7 @@
 				if (q.length < 2) { results.textContent = ''; return; }
 				timer = setTimeout(function () {
 					fetch(ADMIN + '?module=news&action=search_json&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
-						results.textContent = j.clanky.length ? '' : T('Nic nenalezeno.');
+						results.textContent = j.clanky.length ? '' : T('Nothing found.');
 						j.clanky.forEach(function (c) {
 							var b = document.createElement('button');
 							b.type = 'button';
@@ -369,7 +369,7 @@
 		var surface = document.createElement('div');
 		surface.className = 'editor-plocha';
 		surface.contentEditable = 'true';
-		surface.style.setProperty('--ed-popis-galerie', JSON.stringify(T('Fotogalerie'))); // the label above a photo gallery is drawn by editor.css; a text in CSS could not be translated
+		surface.style.setProperty('--ed-popis-galerie', JSON.stringify(T('Photo gallery'))); // the label above a photo gallery is drawn by editor.css; a text in CSS could not be translated
 		surface.setAttribute('role', 'textbox');
 		surface.setAttribute('aria-multiline', 'true');
 		surface.setAttribute('aria-label', (field.labels && field.labels[0] ? field.labels[0].textContent : 'Text'));
@@ -381,7 +381,7 @@
 		function fromField() { surface.innerHTML = field.value.trim() || '<p><br></p>'; }
 		function count() {
 			var wordCount = (surface.innerText.trim().match(/\S+/g) || []).length;
-			state.firstChild.textContent = wordCount + T(' slov') + (small ? '' : T(' · čtení asi ') + Math.max(1, Math.round(wordCount / 200)) + ' min');
+			state.firstChild.textContent = wordCount + T(' words') + (small ? '' : T(' · reading time about ') + Math.max(1, Math.round(wordCount / 200)) + ' min');
 		}
 		function insertImage(gallery) {
 			var scope = window.getSelection().rangeCount ? window.getSelection().getRangeAt(0).cloneRange() : null;
@@ -408,7 +408,7 @@
 		var html = document.createElement('button');
 		html.type = 'button';
 		html.textContent = 'HTML';
-		html.title = T('Přepnout na zdrojový kód');
+		html.title = T('Switch to source code');
 		html.className = 'editor-html';
 		html.setAttribute('aria-pressed', 'false');
 		html.addEventListener('click', function () {
@@ -441,21 +441,21 @@
 			var b = node && node.closest('td, th');
 			return b && surface.contains(b) ? b : null;
 		};
-		[[T('+ řádek'), function (b) {
+		[[T('+ row'), function (b) {
 			var fresh = b.parentNode.cloneNode(true);
 			Array.prototype.forEach.call(fresh.children, function (c) { var td = document.createElement('td'); td.innerHTML = '<br>'; c.replaceWith(td); });
 			var body = b.closest('table').querySelector('tbody') || b.closest('table');
 			if (b.parentNode.parentNode.tagName === 'THEAD') { body.prepend(fresh); } else { b.parentNode.after(fresh); }
-		}], [T('+ sloupec'), function (b) {
+		}], [T('+ column'), function (b) {
 			var i = b.cellIndex;
 			Array.prototype.forEach.call(b.closest('table').rows, function (r) { var c = document.createElement(r.cells[i].tagName); c.innerHTML = '<br>'; r.cells[i].after(c); });
-		}], [T('− řádek'), function (b) {
+		}], [T('− row'), function (b) {
 			var t = b.closest('table');
 			if (t.rows.length > 1) { b.parentNode.remove(); } else { t.remove(); }
-		}], [T('− sloupec'), function (b) {
+		}], [T('− column'), function (b) {
 			var i = b.cellIndex, t = b.closest('table');
 			if (t.rows[0].cells.length > 1) { Array.prototype.forEach.call(t.rows, function (r) { r.deleteCell(i); }); } else { t.remove(); }
-		}], [T('smazat tabulku'), function (b) { b.closest('table').remove(); }]].forEach(function (a) {
+		}], [T('delete table'), function (b) { b.closest('table').remove(); }]].forEach(function (a) {
 			var tl = document.createElement('button');
 			tl.type = 'button';
 			tl.textContent = a[0];
@@ -510,7 +510,7 @@
 			var data = { cas: Date.now(), pole: {} };
 			field.forEach(function (p) { if (p.type === 'checkbox' || p.type === 'radio') { if (p.checked) { data.pole[p.name] = p.value; } else if (p.type === 'checkbox') { data.pole[p.name] = null; } } else { data.pole[p.name] = p.value; } });
 			try { localStorage.setItem(key, JSON.stringify(data)); } catch (e) { /* the browser did not allow storage - the server remains */ }
-			editors.forEach(function (ed) { ed.stav.textContent = T('rozepsaný text uložen v prohlížeči ') + time(Date.now(), true); });
+			editors.forEach(function (ed) { ed.stav.textContent = T('draft saved in your browser at ') + time(Date.now(), true); });
 			lastData = data;
 			if (!serverTimer) { serverTimer = setTimeout(saveToServer, 15000); }
 		}
@@ -524,7 +524,7 @@
 			fd.append('idc', String(NEWS_ID || 0));
 			fd.append('pole', JSON.stringify(lastData.pole));
 			fetch(draftUrl, { method: 'POST', body: fd, credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
-				if (j.ok) { editors.forEach(function (ed) { ed.stav.textContent = T('rozepsaný text uložen i na serveru ') + time(Date.now(), true); }); }
+				if (j.ok) { editors.forEach(function (ed) { ed.stav.textContent = T('draft also saved on the server at ') + time(Date.now(), true); }); }
 			}).catch(function () { /* offline, the copy stays in the browser */ });
 		}
 		function discardOnServer() {
@@ -551,7 +551,7 @@
 		if (!differs) { if (!isFromServer) { try { localStorage.removeItem(key); } catch (e) { /* nothing */ } } return; }
 		var tabList = document.createElement('p');
 		tabList.className = 'hlaska';
-		tabList.innerHTML = T(isFromServer ? 'Na serveru je neuložená rozepsaná verze z ' : 'V prohlížeči je neuložená rozepsaná verze z ') + time(storedForm.cas) + '. <button type="button" class="navigace">' + T('Obnovit ji') + '</button> <button type="button" class="navigace">' + T('Zahodit') + '</button>';
+		tabList.innerHTML = T(isFromServer ? 'The server holds an unsaved draft from ' : 'Your browser holds an unsaved draft from ') + time(storedForm.cas) + '. <button type="button" class="navigace">' + T('Restore it') + '</button> <button type="button" class="navigace">' + T('Discard') + '</button>';
 		form.parentNode.insertBefore(tabList, form);
 		tabList.children[0].addEventListener('click', function () {
 			field.forEach(function (p) {
@@ -571,7 +571,7 @@
 		var tl = document.createElement('button');
 		tl.type = 'button';
 		tl.className = 'navigace';
-		tl.textContent = T('Vybrat z médií');
+		tl.textContent = T('Choose from Media');
 		var preview = document.createElement('img');
 		preview.className = 'obrazek-nahled';
 		preview.alt = '';

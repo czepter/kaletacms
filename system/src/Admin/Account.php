@@ -31,20 +31,20 @@ final class Account
             switch ($r->postInt('smaz_token') > 0 ? 'token_smaz' : ($r->post('odpojit_klient') !== '' ? 'aplikace_odpojit' : $r->post('co'))) {
                 case 'profil':
                     if ($r->post('email') !== '' && filter_var($r->post('email'), FILTER_VALIDATE_EMAIL) === false) {
-                        $message = ['chyba', 'E-mail nemá platný tvar.'];
+                        $message = ['chyba', 'The e-mail address is not valid.'];
                         break;
                     }
                     $db->update('uzivatele', ['jmeno' => mb_substr($r->post('jmeno'), 0, 100), 'email' => mb_substr($r->post('email'), 0, 190), 'url' => mb_substr($r->post('url'), 0, 255), 'pozice' => mb_substr($r->post('pozice'), 0, 100), 'foto' => mb_substr($r->post('foto'), 0, 255), 'bio' => mb_substr($r->post('bio'), 0, 1200),
                         // admin language, Czech explicitly too – an empty value would mean the site language
                         'jazyk' => isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$r->post('jazyk')]) ? $r->post('jazyk') : ''], ['idu' => $user['idu']]);
-                    $message = ['ok', 'Údaje byly uloženy.'];
+                    $message = ['ok', 'Details saved.'];
                     break;
                 case 'heslo':
                     $newItems = (string) ($_POST['nove'] ?? '');
                     $message = match (true) {
-                        !password_verify((string) ($_POST['soucasne'] ?? ''), $user['password']) => ['chyba', 'Současné heslo není správné.'],
-                        mb_strlen($newItems) < 10 => ['chyba', 'Nové heslo musí mít alespoň 10 znaků.'],
-                        $newItems !== (string) ($_POST['nove2'] ?? '') => ['chyba', 'Nová hesla se neshodují.'],
+                        !password_verify((string) ($_POST['soucasne'] ?? ''), $user['password']) => ['chyba', 'The current password is not correct.'],
+                        mb_strlen($newItems) < 10 => ['chyba', 'The new password must be at least 10 characters long.'],
+                        $newItems !== (string) ($_POST['nove2'] ?? '') => ['chyba', 'The new passwords do not match.'],
                         default => null,
                     };
                     if ($message === null) {
@@ -53,7 +53,7 @@ final class Account
                         $app->auth()->refreshAfterPasswordChange($newHash); // this ends the other sign-ins of this account
                         $revoked = $r->postBool('zrusit_tokeny') ? $db->delete('api_tokeny', ['idu' => $user['idu']]) : 0;
                         ChangeLog::write($app, 'ucet', 'změna hesla' . ($revoked > 0 ? ', zrušeny tokeny napojení (' . $revoked . ')' : ''));
-                        $message = ['ok', $revoked > 0 ? 'Heslo bylo změněno, ostatní přihlášení ukončena a tokeny napojení zrušeny.' : 'Heslo bylo změněno a ostatní přihlášení tohoto účtu ukončena.'];
+                        $message = ['ok', $revoked > 0 ? 'The password has been changed, other sign-ins ended and connection tokens revoked.' : 'The password has been changed and other sign-ins of this account have been ended.'];
                     }
                     break;
                 case 'token_novy':
@@ -61,7 +61,7 @@ final class Account
                         break;
                     }
                     if ($app->auth()->isMissingRequired2fa($app->settings())) {
-                        $message = ['chyba', 'Web vyžaduje dvoufázové přihlášení – token vytvoříte, až si ho zapnete.'];
+                        $message = ['chyba', 'The website requires two-step sign-in – you can create a token once you turn it on.'];
                         break;
                     }
                     $token = 'kaleta_' . bin2hex(random_bytes(24));
@@ -71,12 +71,12 @@ final class Account
                     return $this->page(['newToken' => $token] + $data);
                 case 'token_smaz':
                     $db->delete('api_tokeny', ['idt' => $r->postInt('smaz_token'), 'idu' => $user['idu']]);
-                    $message = ['ok', 'Token byl zrušen.'];
+                    $message = ['ok', 'Token revoked.'];
                     break;
                 case 'aplikace_odpojit':
                     $db->delete('api_tokeny', ['klient' => $r->post('odpojit_klient'), 'idu' => $user['idu']]);
                     ChangeLog::write($app, 'ucet', 'odpojena aplikace');
-                    $message = ['ok', 'Aplikace je odpojená – do webu se už nedostane, dokud ji znovu nepovolíte.'];
+                    $message = ['ok', 'The application is disconnected – it will not get into the website until you allow it again.'];
                     break;
                 case 'totp_start':
                     $app->session->set('totp_nove', Totp::newSecret());
@@ -84,7 +84,7 @@ final class Account
                 case 'totp_potvrd':
                     $secret = (string) $app->session->get('totp_nove', '');
                     if ($secret === '' || !Totp::verify($secret, $r->post('kod'))) {
-                        $message = ['chyba', 'Kód nesouhlasí. Zkontrolujte čas v telefonu a zkuste to znovu.'];
+                        $message = ['chyba', 'The code does not match. Check the time on your phone and try again.'];
                         break;
                     }
                     [$codes, $json] = Totp::backupCodes();
@@ -99,17 +99,17 @@ final class Account
                 case 'klic_smaz':
                     $db->run('DELETE FROM {uzivatele_klice} WHERE idk = ? AND idu = ?', [$r->postInt('idk'), $user['idu']]);
                     ChangeLog::write($app, 'ucet', 'odebrán přihlašovací klíč');
-                    $message = ['ok', 'Přihlašovací klíč je odebrán.'];
+                    $message = ['ok', 'The passkey has been removed.'];
                     break;
                 case 'totp_vypni':
                     if (!password_verify((string) ($_POST['soucasne'] ?? ''), $user['password'])) {
-                        $message = ['chyba', 'Pro vypnutí zadejte správné heslo.'];
+                        $message = ['chyba', 'Enter the correct password to turn it off.'];
                         break;
                     }
                     $db->update('uzivatele', ['totp_tajemstvi' => '', 'totp_zalozni' => null], ['idu' => $user['idu']]);
                     $db->run('DELETE FROM {uzivatele_klice} WHERE idu = ?', [$user['idu']]); // keys replace the code from the app - without it they make no sense
                     ChangeLog::write($app, 'ucet', 'vypnuto dvoufázové přihlášení');
-                    $message = ['ok', 'Dvoufázové přihlášení je vypnuté.'];
+                    $message = ['ok', 'Two-factor sign-in is turned off.'];
                     break;
             }
             if ($message !== null) {
@@ -132,7 +132,7 @@ final class Account
         $app = $this->kernel->app;
         $user = $app->auth()->user();
         if ((string) $user['totp_tajemstvi'] === '') {
-            return Response::json(['chyba' => t('Nejdřív zapněte dvoufázové přihlášení.')], 400);
+            return Response::json(['chyba' => t('Turn on two-factor sign-in first.')], 400);
         }
         $url = $app->settings()->get('site_url') ?: $app->request->origin();
         if (!$save) {
@@ -155,15 +155,15 @@ final class Account
         }
         $hash = hash('sha256', Passkey::fromB64($new['id']));
         if ($app->db()->value('SELECT idk FROM {uzivatele_klice} WHERE otisk_id = ?', [$hash]) !== null) {
-            return Response::json(['chyba' => t('Tenhle klíč už je zaregistrovaný.')], 400);
+            return Response::json(['chyba' => t('This key is already registered.')], 400);
         }
         $name = mb_substr(trim($app->request->post('nazev')), 0, 80);
         $app->db()->insert('uzivatele_klice', [
-            'idu' => $user['idu'], 'nazev' => $name !== '' ? $name : t('Přihlašovací klíč'), 'otisk_id' => $hash, 'id_klice' => $new['id'],
+            'idu' => $user['idu'], 'nazev' => $name !== '' ? $name : t('Passkey'), 'otisk_id' => $hash, 'id_klice' => $new['id'],
             'verejny' => $new['klic'], 'alg' => $new['alg'], 'pocitadlo' => $new['pocitadlo'], 'vytvoreno' => date('Y-m-d H:i:s'),
         ]);
         ChangeLog::write($app, 'ucet', 'přidán přihlašovací klíč', $name);
-        $app->session->flash('ok', 'Přihlašovací klíč je přidán. Při příštím přihlášení ho můžete použít místo kódu z aplikace.');
+        $app->session->flash('ok', 'The passkey has been added. Next time you sign in you can use it instead of the code from the app.');
 
         return Response::json(['ok' => true]);
     }
@@ -174,7 +174,7 @@ final class Account
         $app = $this->kernel->app;
         $user = $app->db()->one('SELECT * FROM {uzivatele} WHERE idu = ?', [$app->auth()->id()]);
 
-        return $this->kernel->page('Můj účet', $app->view->render('admin/account', $data + [
+        return $this->kernel->page('My account', $app->view->render('admin/account', $data + [
             'app' => $app, 'user' => $user, 'csrf' => $app->session->csrfField(),
             'uri' => $data['newSecret'] !== '' ? Totp::uri($data['newSecret'], $user['user'], $app->settings()->get('site_name')) : '',
             'codesLeft' => count((array) json_decode((string) $user['totp_zalozni'], true)),

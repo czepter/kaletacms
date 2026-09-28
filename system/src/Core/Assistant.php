@@ -15,9 +15,9 @@ namespace Kaleta\Core;
 class Assistant
 {
     public const array MODELS = [
-        'claude-haiku-4-5-20251001' => 'Rychlý a úsporný (Claude Haiku 4.5)',
-        'claude-sonnet-5' => 'Vyvážený – doporučeno (Claude Sonnet 5)',
-        'claude-opus-5' => 'Nejpečlivější (Claude Opus 5)',
+        'claude-haiku-4-5-20251001' => 'Fast and economical (Claude Haiku 4.5)',
+        'claude-sonnet-5' => 'Balanced – recommended (Claude Sonnet 5)',
+        'claude-opus-5' => 'Most thorough (Claude Opus 5)',
     ];
 
     /** Keys of MODELS for the field type "vyber" in Settings. */
@@ -30,7 +30,7 @@ class Assistant
         'anthropic' => ['Anthropic (Claude)', 'https://api.anthropic.com/v1/messages', 'https://console.anthropic.com/'],
         'openai' => ['OpenAI', 'https://api.openai.com/v1/chat/completions', 'https://platform.openai.com/api-keys'],
         'google' => ['Google Gemini', 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', 'https://aistudio.google.com/apikey'],
-        'mistral' => ['Mistral AI (Evropa)', 'https://api.mistral.ai/v1/chat/completions', 'https://console.mistral.ai/api-keys'],
+        'mistral' => ['Mistral AI (Europe)', 'https://api.mistral.ai/v1/chat/completions', 'https://console.mistral.ai/api-keys'],
     ];
 
     public const string PROVIDER_KEYS = 'anthropic|openai|google|mistral';
@@ -63,7 +63,7 @@ class Assistant
     public function suggest(string $task, array $newsItem, ?string $image = null): array
     {
         if (!isset(self::TASKS[$task])) {
-            throw new \RuntimeException('Neznámý úkol.');
+            throw new \RuntimeException('Unknown task.');
         }
         [$prompt, $format] = self::TASKS[$task];
         $clean = fn (string $html): string => trim(html_entity_decode(strip_tags(preg_replace('#</(p|h[2-4]|li|blockquote|figcaption)>#i', "\n", $html) ?? $html), ENT_QUOTES | ENT_HTML5));
@@ -80,7 +80,7 @@ class Assistant
             $data = $image !== null && is_file($image) && filesize($image) < 4_500_000 ? file_get_contents($image) : false;
             $type = $data === false ? '' : (string) (new \finfo(FILEINFO_MIME_TYPE))->buffer($data);
             if ($data === false || !in_array($type, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], true)) {
-                throw new \RuntimeException('Obrázek se nepodařilo načíst – popis jde navrhnout jen k obrázkům nahraným do Médií.');
+                throw new \RuntimeException('The image could not be loaded – a description can only be suggested for images uploaded to Media.');
             }
             $content[] = ['type' => 'image', 'source' => ['type' => 'base64', 'media_type' => $type, 'data' => base64_encode($data)]];
             $material = mb_substr($material, 0, 1500);
@@ -98,7 +98,7 @@ class Assistant
         $text = implode('', array_map(fn (array $b): string => $b['type'] === 'text' ? $b['text'] : '', $response['content'] ?? []));
         $json = preg_match('/\{.*\}/s', $text, $m) ? json_decode($m[0], true) : null;
         if (!is_array($json)) {
-            throw new \RuntimeException('Asistent odpověděl nečitelně. Zkuste to prosím znovu.');
+            throw new \RuntimeException('The assistant\'s reply could not be read. Please try again.');
         }
         // the model's answer is untrusted input: strings only, without HTML
         $string = fn (mixed $v): string => trim(strip_tags(is_scalar($v) ? (string) $v : ''));
@@ -136,7 +136,7 @@ class Assistant
     {
         $prompt = trim(mb_substr($prompt, 0, 2000));
         if (mb_strlen($prompt) < 10) {
-            throw new \RuntimeException('Popište sekci aspoň jednou větou – co v ní má být a pro koho.');
+            throw new \RuntimeException('Describe the section in at least one sentence – what it should contain and for whom.');
         }
         $response = $this->call([
             'model' => $this->model(),
@@ -155,7 +155,7 @@ class Assistant
             $text = $m[1];
         }
         if (!str_contains($text, '<')) {
-            throw new \RuntimeException('Asistent nevrátil použitelnou sekci. Zkuste popis upřesnit.');
+            throw new \RuntimeException('The assistant did not return a usable section. Try refining the description.');
         }
 
         return trim($text);
@@ -170,10 +170,10 @@ class Assistant
     public function rewrite(string $text, string $instruction, bool $html): string
     {
         if (!isset(self::REWRITES[$instruction])) {
-            throw new \RuntimeException('Neznámý úkol.');
+            throw new \RuntimeException('Unknown task.');
         }
         if (trim(strip_tags($text)) === '') {
-            throw new \RuntimeException('Prvek nemá text, který by šel přepsat.');
+            throw new \RuntimeException('The element has no text to rewrite.');
         }
         $response = $this->call([
             'model' => $this->model(),
@@ -185,7 +185,7 @@ class Assistant
         ]);
         $result = trim(implode('', array_map(fn (array $b): string => ($b['type'] ?? '') === 'text' ? $b['text'] : '', $response['content'] ?? [])));
         if ($result === '') {
-            throw new \RuntimeException('Asistent odpověděl nečitelně. Zkuste to prosím znovu.');
+            throw new \RuntimeException('The assistant\'s reply could not be read. Please try again.');
         }
 
         // the model's answer is untrusted input
@@ -277,7 +277,7 @@ class Assistant
     public function translate(array $field, string $languageCode, array $plainFields = []): array
     {
         if (!isset(Language::AVAILABLE[$languageCode])) {
-            throw new \RuntimeException('Neznámý jazyk překladu.');
+            throw new \RuntimeException('Unknown translation language.');
         }
         $decomposed = [];
         $segments = [];
@@ -322,7 +322,7 @@ class Assistant
             $json = preg_match('/\{.*\}/s', $text, $m) ? json_decode($m[0], true) : null;
             $done = is_array($json) ? array_values((array) ($json['preklady'] ?? [])) : [];
             if (count($done) !== count($batch)) {
-                throw new \RuntimeException(($response['stop_reason'] ?? '') === 'max_tokens' ? 'Překlad se nevešel do odpovědi asistenta. Zkuste text rozdělit.' : 'Asistent vrátil neúplný překlad. Zkuste to prosím znovu.');
+                throw new \RuntimeException(($response['stop_reason'] ?? '') === 'max_tokens' ? 'Překlad se nevešel do odpovědi asistenta. Zkuste text rozdělit.' : 'The assistant returned an incomplete translation. Please try again.');
             }
             foreach (array_keys($batch) as $order => $i) {
                 $translations[$i] = is_scalar($done[$order]) ? (string) $done[$order] : '';
@@ -356,7 +356,7 @@ class Assistant
             return isset(self::MODELS[$model]) ? $model : 'claude-sonnet-5';
         }
         if (!preg_match('#^[A-Za-z0-9._:/-]{2,80}$#', $model) || isset(self::MODELS[$model])) {
-            throw new \RuntimeException('Zadejte název modelu zvoleného poskytovatele v nabídce Rozšíření (AI asistent).');
+            throw new \RuntimeException('Enter the model name of the chosen provider under Extensions (AI assistant).');
         }
 
         return $model;
@@ -388,7 +388,7 @@ class Assistant
         $provider = $this->provider();
         $name = self::PROVIDERS[$provider][0];
         if ($key === '') {
-            throw new \RuntimeException('Chybí klíč API – administrátor ho zadá v nabídce Rozšíření (AI asistent).');
+            throw new \RuntimeException('The API key is missing – an administrator enters it under Extensions (AI assistant).');
         }
         // the URL can be changed only by a constant in config.php (company proxy, gateway) – never from the administration, the key could be sent elsewhere that way
         $url = defined('KALETA_AI_URL') ? (string) constant('KALETA_AI_URL') : self::PROVIDERS[$provider][1];
@@ -419,12 +419,12 @@ class Assistant
         }
 
         throw new \RuntimeException(match (true) {
-            $code === 0 => t('Službu %s se nepodařilo kontaktovat. Zkontrolujte, že server smí navazovat odchozí spojení.', $name),
-            $code === 401, $code === 403 => t('Klíč API služby %s není platný. Zkontrolujte ho v nabídce Rozšíření.', $name),
-            $code === 429 => t('Služba %s je teď vytížená nebo je vyčerpaný limit klíče. Zkuste to za chvíli.', $name),
-            $code === 400 && str_contains((string) ($data['error']['message'] ?? ''), 'credit') => t('Na účtu služby %s došel kredit.', $name),
-            $code === 404 => t('Služba %s nezná zadaný model. Zkontrolujte jeho název v nabídce Rozšíření.', $name),
-            $code >= 500 => t('Služba %s má výpadek. Zkuste to za chvíli.', $name),
+            $code === 0 => t('Could not reach %s. Check that the server may make outgoing connections.', $name),
+            $code === 401, $code === 403 => t('The %s API key is not valid. Check it under Extensions.', $name),
+            $code === 429 => t('%s is busy right now or the key\'s limit is used up. Try again shortly.', $name),
+            $code === 400 && str_contains((string) ($data['error']['message'] ?? ''), 'credit') => t('The %s account has run out of credit.', $name),
+            $code === 404 => t('%s does not know the model. Check its name under Extensions.', $name),
+            $code >= 500 => t('%s is down. Try again shortly.', $name),
             default => 'Asistent hlásí chybu (' . $code . '): ' . mb_substr((string) ($data['error']['message'] ?? 'neznámá chyba'), 0, 200),
         });
     }

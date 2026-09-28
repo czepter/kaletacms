@@ -31,7 +31,7 @@ final class WpFile
     public static function folder(): string
     {
         if (!is_dir(self::FOLDER) && !@mkdir(self::FOLDER, 0775, true)) {
-            throw new \RuntimeException('Nelze vytvořit složku storage/import – zkontrolujte práva k zápisu.');
+            throw new \RuntimeException('Cannot create the storage/import folder – check write permissions.');
         }
         if (!is_file(self::FOLDER . '/.htaccess')) {
             @file_put_contents(self::FOLDER . '/.htaccess', "Require all denied\n");
@@ -88,7 +88,7 @@ final class WpFile
     public function verify(): void
     {
         if (strtolower(pathinfo($this->path, PATHINFO_EXTENSION)) !== 'xml') {
-            throw new \RuntimeException('Soubor musí mít příponu .xml – je to export z WordPressu (Nástroje → Export).');
+            throw new \RuntimeException('The file must have the .xml extension – it is an export from WordPress (Tools → Export).');
         }
         $this->verifyContent();
     }
@@ -102,7 +102,7 @@ final class WpFile
     {
         $size = (int) @filesize($this->path);
         if ($size === 0 || $size > self::MAX_BYTES) {
-            throw new \RuntimeException('Soubor je prázdný nebo větší než 1 GB. Velký web exportujte z WordPressu po částech (podle data).');
+            throw new \RuntimeException('The file is empty or larger than 1 GB. Export a large site from WordPress in parts (by date).');
         }
         $this->header();
     }
@@ -238,14 +238,14 @@ final class WpFile
     private function open(): \XMLReader
     {
         if (!class_exists(\XMLReader::class) || !class_exists(\DOMDocument::class)) {
-            throw new \RuntimeException('Na serveru chybí rozšíření PHP xmlreader nebo dom – bez nich nejde export z WordPressu přečíst.');
+            throw new \RuntimeException('The PHP extension xmlreader or dom is missing on the server – a WordPress export cannot be read without them.');
         }
         libxml_use_internal_errors(true);
         libxml_clear_errors();
         // LIBXML_NONET: nothing is loaded from the network. Deliberately WITHOUT LIBXML_NOENT (entity substitution) and WITHOUT LIBXML_DTDLOAD.
         $reader = new \XMLReader();
         if (!@$reader->open($this->path, null, LIBXML_NONET | LIBXML_COMPACT)) {
-            throw new \RuntimeException('Soubor se nepodařilo otevřít.');
+            throw new \RuntimeException('The file could not be opened.');
         }
 
         return $reader;
@@ -261,13 +261,13 @@ final class WpFile
             if ($reader->depth === 0) {
                 $namespaceUri = (string) $reader->getAttribute('xmlns:wp');
                 if ($reader->name !== 'rss' || !preg_match('#^https?://wordpress\.org/export/\d+\.\d+/?$#', $namespaceUri)) {
-                    throw new \RuntimeException('Tohle není export z WordPressu. Ve WordPressu otevřete Nástroje → Export, zvolte „Veškerý obsah“ a stáhněte soubor .xml.');
+                    throw new \RuntimeException('This is not a WordPress export. In WordPress open Tools → Export, choose “All content” and download the .xml file.');
                 }
             } elseif ($reader->depth === 1 && $reader->name === 'channel') {
                 return;
             }
         }
-        throw new \RuntimeException('V souboru chybí obsah webu (značka channel).');
+        throw new \RuntimeException('The file contains no site content (the channel element is missing).');
     }
 
     /** One step of the reader; guards against DOCTYPE and XML errors. */
@@ -285,12 +285,12 @@ final class WpFile
     private function check(\XMLReader $reader, bool $ok): bool
     {
         if ($ok && ($reader->nodeType === \XMLReader::DOC_TYPE || $reader->nodeType === \XMLReader::ENTITY_REF || $reader->nodeType === \XMLReader::ENTITY)) {
-            throw new \RuntimeException('Soubor obsahuje DOCTYPE nebo vlastní entity. Export z WordPressu nic takového nemá – soubor byl z bezpečnostních důvodů odmítnut.');
+            throw new \RuntimeException('The file contains a DOCTYPE or custom entities. A WordPress export never has them – the file was rejected for security reasons.');
         }
         $error = libxml_get_last_error();
         if (!$ok && $error !== false) {
             libxml_clear_errors();
-            throw new \RuntimeException('Soubor není platné XML – je poškozený nebo neúplný. Stáhněte export z WordPressu znovu. Chyba je na řádku:', $error->line);
+            throw new \RuntimeException('The file is not valid XML – it is damaged or incomplete. Download the export from WordPress again. The error is on line:', $error->line);
         }
 
         return $ok;
@@ -303,12 +303,12 @@ final class WpFile
         if (!$node instanceof \DOMElement) {
             $error = libxml_get_last_error();
             libxml_clear_errors();
-            throw new \RuntimeException('Soubor není platné XML – je poškozený nebo neúplný. Stáhněte export z WordPressu znovu. Chyba je na řádku:', $error !== false ? $error->line : 0);
+            throw new \RuntimeException('The file is not valid XML – it is damaged or incomplete. Download the export from WordPress again. The error is on line:', $error !== false ? $error->line : 0);
         }
         foreach ($node->getElementsByTagName('*') as $child) {
             foreach ($child->childNodes as $n) {
                 if ($n instanceof \DOMEntityReference) {
-                    throw new \RuntimeException('Soubor obsahuje DOCTYPE nebo vlastní entity. Export z WordPressu nic takového nemá – soubor byl z bezpečnostních důvodů odmítnut.');
+                    throw new \RuntimeException('The file contains a DOCTYPE or custom entities. A WordPress export never has them – the file was rejected for security reasons.');
                 }
             }
         }

@@ -18,23 +18,23 @@ use Kaleta\Core\Response;
 final class Roles extends Module
 {
     public const string IDENT = 'roles';
-    public const string NAME = 'Role';
-    public const string GROUP = 'Správa';
+    public const string NAME = 'Roles';
+    public const string GROUP = 'Administration';
     public const string ICON = 'uzivatele';
     public const bool ADMIN_ONLY = true;
     public const string PARENT = 'users';
 
     /** Levels of a custom role (administrator cannot be a custom role – that is the built-in role Administrator). */
     public const array LEVELS = [
-        Auth::AUTHOR => ['Píše vlastní obsah', 'Novinky jen své a bez vydávání – vydává editor.'],
-        Auth::EDITOR => ['Spravuje obsah všech', 'Upravuje a vydává novinky všech autorů.'],
+        Auth::AUTHOR => ['Writes own content', 'Only own news and without publishing – an editor publishes.'],
+        Auth::EDITOR => ['Manages everyone\'s content', 'Edits and publishes news by all authors.'],
     ];
 
     protected function actionList(): Response
     {
         $role = $this->db->all('SELECT r.*, (SELECT COUNT(*) FROM {uzivatele} u WHERE u.role = r.idr) AS clenu FROM {role} r ORDER BY r.nazev');
 
-        return $this->view('list', 'Role', ['role' => $role, 'names' => self::configurable()]);
+        return $this->view('list', 'Roles', ['role' => $role, 'names' => self::configurable()]);
     }
 
     protected function actionNew(): Response
@@ -46,7 +46,7 @@ final class Roles extends Module
     {
         $role = $this->db->one('SELECT * FROM {role} WHERE idr = ?', [$this->request->getInt('id')]);
 
-        return $role === null ? $this->error('Role neexistuje.', 404) : $this->form($role);
+        return $role === null ? $this->error('The role does not exist.', 404) : $this->form($role);
     }
 
     protected function actionSave(): Response
@@ -64,13 +64,13 @@ final class Roles extends Module
         ];
         $errors = [];
         if ($data['nazev'] === '') {
-            $errors['nazev'] = 'Vyplňte název role.';
-        } elseif (in_array(mb_strtolower($data['nazev']), array_map(fn (string $n): string => mb_strtolower(t($n)), ['Autor novinek', 'Editor', 'Správce']), true)
+            $errors['nazev'] = 'Fill in the role name.';
+        } elseif (in_array(mb_strtolower($data['nazev']), array_map(fn (string $n): string => mb_strtolower(t($n)), ['News author', 'Editor', 'Administrator']), true)
             || $this->db->value('SELECT idr FROM {role} WHERE nazev = ? AND idr <> ?', [$data['nazev'], $id]) !== null) {
-            $errors['nazev'] = 'Role s tímto názvem už existuje.';
+            $errors['nazev'] = 'A role with this name already exists.';
         }
         if ($data['moduly'] === '') {
-            $errors['moduly'] = 'Vyberte aspoň jednu sekci.';
+            $errors['moduly'] = 'Select at least one section.';
         }
         if ($errors !== []) {
             return $this->form(['idr' => $id] + $data, $errors);
@@ -84,7 +84,7 @@ final class Roles extends Module
             self::applyToMembers($db, $id);
         });
 
-        return $this->back('Role byla uložena.');
+        return $this->back('The role has been saved.');
     }
 
     protected function actionDelete(): Response
@@ -95,7 +95,7 @@ final class Roles extends Module
             $this->db->delete('role', ['idr' => $this->request->postInt('idr')]);
         }
 
-        return $this->back('Role byla smazána. Její členové si ponechali dosavadní přístup.');
+        return $this->back('The role has been deleted. Its members kept their current access.');
     }
 
     /** Overwrites the role's permissions for all its members (level and sections). An administrator is not changed – they always have everything. */
@@ -133,7 +133,7 @@ final class Roles extends Module
      */
     private function form(array $role, array $errors = []): Response
     {
-        return $this->view('form', (int) $role['idr'] > 0 ? 'Úprava role' : 'Nová role', [
+        return $this->view('form', (int) $role['idr'] > 0 ? 'Edit role' : 'New role', [
             'role' => $role, 'errors' => $errors, 'section' => self::configurable(),
             'selected' => array_filter(explode(',', (string) $role['moduly'])),
             'members' => (int) $role['idr'] > 0 ? $this->db->all('SELECT idu, user, jmeno FROM {uzivatele} WHERE role = ? ORDER BY user', [(int) $role['idr']]) : [],

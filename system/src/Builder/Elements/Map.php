@@ -14,16 +14,16 @@ use Kaleta\Builder\Element;
 final class Map extends Element
 {
     public const string TYPE = 'mapa';
-    public const string NAME = 'Mapa';
-    public const string DESCRIPTION = 'Mapa s adresou firmy – načte se až po klepnutí (soukromí, rychlost).';
+    public const string NAME = 'Map';
+    public const string DESCRIPTION = 'A map with the company address – loads only after a click (privacy, speed).';
     public const string ICON = 'mapa';
     public const array HTML_TAGS = ['figure', 'div'];
 
     public static function properties(): array
     {
         return [
-            'adresa' => ['typ' => 'text', 'popisek' => 'Adresa nebo souřadnice (prázdné = adresa firmy z Nastavení)', 'vychozi' => '', 'max' => 200],
-            'priblizeni' => ['typ' => 'vyber', 'popisek' => 'Přiblížení', 'vychozi' => '15', 'moznosti' => ['11' => 'město', '13' => 'čtvrť', '15' => 'ulice', '17' => 'dům']],
+            'adresa' => ['typ' => 'text', 'popisek' => 'Address or coordinates (empty = company address from Settings)', 'vychozi' => '', 'max' => 200],
+            'priblizeni' => ['typ' => 'vyber', 'popisek' => 'Zoom', 'vychozi' => '15', 'moznosti' => ['11' => 'město', '13' => 'čtvrť', '15' => 'ulice', '17' => 'dům']],
         ];
     }
 
@@ -49,14 +49,14 @@ final class Map extends Element
         $url = $p['obsah']['adresa'] !== '' ? $p['obsah']['adresa']
             : ($siteSettings->get('company_gps') !== '' ? $siteSettings->get('company_gps') : trim(implode(', ', array_filter([$siteSettings->get('company_street'), $siteSettings->get('company_postcode') . ' ' . $siteSettings->get('company_city')])), ', '));
         if (trim($url) === '') {
-            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Vyplňte adresu v panelu Obsah nebo v Nastavení → Firma.')) . '</div>' : '';
+            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Fill in the address in the Content panel or in Settings → Company.')) . '</div>' : '';
         }
         $q = rawurlencode($url);
         $embedUrl = 'https://maps.google.com/maps?q=' . $q . '&z=' . (int) $p['obsah']['priblizeni'] . '&output=embed';
         $link = $siteSettings->get('company_map') !== '' && $p['obsah']['adresa'] === '' ? $siteSettings->get('company_map') : 'https://www.google.com/maps/search/?api=1&query=' . $q;
-        $button = '<button type="button" data-vlozit="' . e($embedUrl) . '" data-titulek="' . e(t('Mapa: %s', $url)) . '">'
-            . '<strong>' . e(t('Zobrazit mapu')) . '</strong><span>' . e($url) . '</span><small>' . e(t('Po klepnutí se načte z Google Map.')) . '</small></button>';
-        $labelText = '<figcaption><a href="' . e($link) . '" target="_blank" rel="noopener">' . e(t('Otevřít v mapách')) . '</a></figcaption>';
+        $button = '<button type="button" data-vlozit="' . e($embedUrl) . '" data-titulek="' . e(t('Map: %s', $url)) . '">'
+            . '<strong>' . e(t('Show map')) . '</strong><span>' . e($url) . '</span><small>' . e(t('Loads from Google Maps after a click.')) . '</small></button>';
+        $labelText = '<figcaption><a href="' . e($link) . '" target="_blank" rel="noopener">' . e(t('Open in maps')) . '</a></figcaption>';
 
         return $p['znacka'] === 'figure'
             ? '<figure' . Text::withClass($a, 'ka-mapa') . '>' . $button . $labelText . '</figure>'

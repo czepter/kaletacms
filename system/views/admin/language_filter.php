@@ -11,7 +11,7 @@ if ($siteLanguages === []) {
     return;
 }
 ?>
-	<label><?= e(t('Jazyk:')) ?>
+	<label><?= e(t('Language:')) ?>
 		<select name="jazyk"<?= !empty($submitOnChange) ? ' data-odeslat-pri-zmene' : '' ?>>
 			<option value=""><?= e(t('všechny')) ?></option>
 <?php foreach ($siteLanguages as $code): ?>

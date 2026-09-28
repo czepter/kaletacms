@@ -72,7 +72,7 @@ final class NewsText
         }, $html) ?? $html;
 
         return count($items) < 3 ? $html
-            : '<nav class="ka-osnova" aria-label="' . e(t('Obsah')) . '"><strong>' . e(t('Obsah')) . '</strong><ol>' . implode('', $items) . '</ol></nav>' . $html;
+            : '<nav class="ka-osnova" aria-label="' . e(t('Content')) . '"><strong>' . e(t('Content')) . '</strong><ol>' . implode('', $items) . '</ol></nav>' . $html;
     }
 
     /**
@@ -93,15 +93,15 @@ final class NewsText
             'X' => 'https://x.com/intent/post?url=' . $u . '&text=' . $t,
             'LinkedIn' => 'https://www.linkedin.com/sharing/share-offsite/?url=' . $u,
             'WhatsApp' => 'https://wa.me/?text=' . $t . '%20' . $u,
-            'E-mail' => 'mailto:?subject=' . $t . '&body=' . $u,
+            'Email' => 'mailto:?subject=' . $t . '&body=' . $u,
         ];
-        $html = '<aside class="ka-sdileni" aria-label="' . e(t('Sdílet')) . '"><span>' . e(t('Sdílet')) . '</span>'
-            . '<button type="button" data-sdilet data-adresa="' . e($url) . '" data-titulek="' . e((string) $newsItem['titulek']) . '" hidden>' . e(t('Sdílet…')) . '</button>';
+        $html = '<aside class="ka-sdileni" aria-label="' . e(t('Share')) . '"><span>' . e(t('Share')) . '</span>'
+            . '<button type="button" data-sdilet data-adresa="' . e($url) . '" data-titulek="' . e((string) $newsItem['titulek']) . '" hidden>' . e(t('Share…')) . '</button>';
         foreach ($networks as $name => $link) {
-            $html .= '<a href="' . e($link) . '"' . ($name === 'E-mail' ? '' : ' target="_blank" rel="noopener nofollow"') . '>' . e($name) . '</a>';
+            $html .= '<a href="' . e($link) . '"' . ($name === 'Email' ? '' : ' target="_blank" rel="noopener nofollow"') . '>' . e($name) . '</a>';
         }
 
-        return $html . '<button type="button" data-kopirovat="' . e($url) . '" data-hotovo="' . e(t('Zkopírováno')) . '">' . e(t('Kopírovat odkaz')) . '</button></aside>';
+        return $html . '<button type="button" data-kopirovat="' . e($url) . '" data-hotovo="' . e(t('Copied')) . '">' . e(t('Copy link')) . '</button></aside>';
     }
 
     /**
@@ -117,7 +117,7 @@ final class NewsText
         $photo = (string) $newsItem['autor_foto'];
         $photo = $photo === '' ? '' : (preg_match('#^(https?:)?/#i', $photo) ? $photo : $this->app->request->basePath() . '/' . $photo);
 
-        return '<aside class="ka-autor" aria-label="' . e(t('O autorovi')) . '">'
+        return '<aside class="ka-autor" aria-label="' . e(t('About the author')) . '">'
             . ($photo !== '' ? '<img src="' . e($photo) . '" alt="" width="72" height="72" loading="lazy">' : '')
             . '<div><strong class="ka-autor-jmeno">' . e($newsItem['autor_jm']) . '</strong>'
             . ($newsItem['autor_pozice'] !== '' ? '<span>' . e($newsItem['autor_pozice']) . '</span>' : '')
@@ -147,10 +147,10 @@ final class NewsText
             return '';
         }
         if ($embedUrl === '') {
-            return '<div class="ka-medium-odkaz"><a class="ka-tl" href="' . e($mediaUrl) . '" rel="noopener">▶ ' . e(t('Přehrát')) . '</a></div>';
+            return '<div class="ka-medium-odkaz"><a class="ka-tl" href="' . e($mediaUrl) . '" rel="noopener">▶ ' . e(t('Play')) . '</a></div>';
         }
         // a third-party player is embedded only after a click: until then nothing is sent to that service (privacy, speed)
         return '<figure class="ka-medium"><button type="button" class="ka-medium-spustit" data-vlozit="' . e($embedUrl) . '" data-titulek="' . e($title) . '">'
-            . '<span aria-hidden="true">▶</span> ' . e(t('Přehrát video')) . '<small>' . e(t('Obsah se načte ze služby')) . ' ' . e((string) parse_url($embedUrl, PHP_URL_HOST)) . '</small></button></figure>';
+            . '<span aria-hidden="true">▶</span> ' . e(t('Play video')) . '<small>' . e(t('Content will load from')) . ' ' . e((string) parse_url($embedUrl, PHP_URL_HOST)) . '</small></button></figure>';
     }
 }

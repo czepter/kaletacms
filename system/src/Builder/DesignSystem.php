@@ -17,12 +17,12 @@ use Kaleta\Front\SiteIdentity;
 final class DesignSystem
 {
     /** Colors the site chooses; the other shades are computed from them. */
-    public const array COLORS = ['primarni' => 'Hlavní', 'sekundarni' => 'Doplňková', 'text' => 'Text', 'pozadi' => 'Pozadí', 'plocha' => 'Plocha (karty, patička)'];
+    public const array COLORS = ['primarni' => 'Primary', 'sekundarni' => 'Secondary', 'text' => 'Text', 'pozadi' => 'Pozadí', 'plocha' => 'Surface (cards, footer)'];
 
     /** Color tokens to choose from in the builder (key => description). */
     public const array COLOR_TOKENS = [
-        'primarni' => 'Hlavní', 'primarni-jemna' => 'Hlavní – jemná', 'na-primarni' => 'Text na hlavní', 'sekundarni' => 'Doplňková',
-        'text' => 'Text', 'tlumeny' => 'Tlumený text', 'pozadi' => 'Pozadí', 'plocha' => 'Plocha', 'linka' => 'Linka', 'bila' => 'Bílá', 'cerna' => 'Černá',
+        'primarni' => 'Primary', 'primarni-jemna' => 'Primary – soft', 'na-primarni' => 'Text on primary', 'sekundarni' => 'Secondary',
+        'text' => 'Text', 'tlumeny' => 'Muted text', 'pozadi' => 'Pozadí', 'plocha' => 'Surface', 'linka' => 'Linka', 'bila' => 'White', 'cerna' => 'Black',
     ];
 
     public const array SPACES = ['2xs' => 0.25, 'xs' => 0.5, 's' => 0.75, 'm' => 1, 'l' => 1.5, 'xl' => 2.5, '2xl' => 4, '3xl' => 6];
@@ -39,17 +39,17 @@ final class DesignSystem
      * („Nadpis sekce“, „Perex“) and a change in Appearance shows on the whole site. key => [name, step, weight, line height, heading font]
      */
     public const array TYPOGRAPHY = [
-        'titulek' => ['Hlavní titulek', '5', 800, 1.1, true],
-        'nadpis-sekce' => ['Nadpis sekce', '4', 700, 1.15, true],
+        'titulek' => ['Main title', '5', 800, 1.1, true],
+        'nadpis-sekce' => ['Section heading', '4', 700, 1.15, true],
         'podnadpis' => ['Podnadpis', '2', 600, 1.3, true],
-        'perex' => ['Perex', '1', 400, 1.55, false],
-        'text' => ['Běžný text', '0', 400, 1.6, false],
-        'drobny' => ['Drobný text', '-1', 400, 1.5, false],
-        'nadtitulek' => ['Nadtitulek', '-1', 600, 1.3, false],
+        'perex' => ['Lead', '1', 400, 1.55, false],
+        'text' => ['Body text', '0', 400, 1.6, false],
+        'drobny' => ['Small text', '-1', 400, 1.5, false],
+        'nadtitulek' => ['Eyebrow', '-1', 600, 1.3, false],
     ];
 
     /** Font weights offered for typography styles. */
-    public const array FONT_WEIGHTS = [300 => 'tenké', 400 => 'normální', 500 => 'střední', 600 => 'polotučné', 700 => 'tučné', 800 => 'extra tučné'];
+    public const array FONT_WEIGHTS = [300 => 'tenké', 400 => 'normální', 500 => 'střední', 600 => 'polotučné', 700 => 'tučné', 800 => 'extra bold'];
 
     /**
      * Order of the cascade layers for the whole site: tokens, shared elements (image/web.css), layout, base of builder elements, classes, element styles.
@@ -70,30 +70,30 @@ final class DesignSystem
     ];
 
     /** Typographic scale ratios (step n = base × ratio^n): the larger, the more the headings differ from the text. */
-    public const array RATIOS = ['1.125' => 'jemný (1,125)', '1.2' => 'klidný (1,2)', '1.25' => 'vyvážený (1,25)', '1.333' => 'výrazný (1,333)', '1.414' => 'dramatický (1,414)', '1.5' => 'plakátový (1,5)'];
+    public const array RATIOS = ['1.125' => 'subtle (1.125)', '1.2' => 'calm (1.2)', '1.25' => 'balanced (1.25)', '1.333' => 'strong (1.333)', '1.414' => 'dramatic (1.414)', '1.5' => 'poster (1.5)'];
 
     /**
      * Presets: the whole appearance of the site in one click, then it can be fine-tuned. Keys not given have the default value.
      * key => [name, description, values]
      */
     public const array PRESETS = [
-        'firemni' => ['Firemní', 'Modrá, bezpatkové písmo, střídmé zaoblení', [
+        'firemni' => ['Business', 'Blue, sans-serif type, modest rounding', [
             'barvy' => ['primarni' => '#2b5be3', 'sekundarni' => '#0f766e', 'text' => '#16181d', 'pozadi' => '#ffffff', 'plocha' => '#f5f6f8'],
             'pismo_titulky' => 'moderni', 'pismo_text' => 'moderni', 'pomer_min' => 1.2, 'pomer_max' => 1.25, 'zaobleni' => 'm',
         ]],
-        'remeslo' => ['Řemeslo', 'Teplé zemité barvy, patkové titulky', [
+        'remeslo' => ['Řemeslo', 'Warm earthy colours, serif headings', [
             'barvy' => ['primarni' => '#9a3412', 'sekundarni' => '#3f6212', 'text' => '#1c1917', 'pozadi' => '#fffbf5', 'plocha' => '#f5ede1'],
             'pismo_titulky' => 'klasicke', 'pismo_text' => 'moderni', 'pomer_min' => 1.2, 'pomer_max' => 1.333, 'zaobleni' => 's',
         ]],
-        'pratelsky' => ['Přátelský', 'Svěží zelená, zaoblené písmo i rohy', [
+        'pratelsky' => ['Friendly', 'Fresh green, rounded type and corners', [
             'barvy' => ['primarni' => '#047857', 'sekundarni' => '#7c3aed', 'text' => '#132a22', 'pozadi' => '#ffffff', 'plocha' => '#effaf5'],
             'pismo_titulky' => 'zaoblene', 'pismo_text' => 'moderni', 'pomer_min' => 1.2, 'pomer_max' => 1.25, 'zaobleni' => 'l',
         ]],
-        'elegantni' => ['Elegantní', 'Tmavé tóny, velké patkové nadpisy, ostré hrany', [
+        'elegantni' => ['Elegant', 'Dark tones, large serif headings, sharp edges', [
             'barvy' => ['primarni' => '#1e293b', 'sekundarni' => '#a16207', 'text' => '#0f172a', 'pozadi' => '#fcfcfa', 'plocha' => '#f1f0ea'],
             'pismo_titulky' => 'elegantni', 'pismo_text' => 'knizni', 'pomer_min' => 1.25, 'pomer_max' => 1.414, 'zaobleni' => '0',
         ]],
-        'technologie' => ['Technologie', 'Fialová, výrazný grotesk, velký kontrast', [
+        'technologie' => ['Technology', 'Purple, bold grotesque, high contrast', [
             'barvy' => ['primarni' => '#6d28d9', 'sekundarni' => '#0e7490', 'text' => '#0b0b12', 'pozadi' => '#ffffff', 'plocha' => '#f4f3fb'],
             'pismo_titulky' => 'grotesk', 'pismo_text' => 'moderni', 'pomer_min' => 1.25, 'pomer_max' => 1.414, 'zaobleni' => 'm',
         ]],
@@ -114,11 +114,11 @@ final class DesignSystem
     {
         $b = $ds['barvy'];
         $pairs = [
-            ['Text na pozadí', $b['text'], $b['pozadi']],
-            ['Text na ploše', $b['text'], $b['plocha']],
-            ['Odkaz (hlavní barva) na pozadí', $b['primarni'], $b['pozadi']],
-            ['Text tlačítka na hlavní barvě', self::contrastColor($b['primarni']), $b['primarni']],
-            ['Doplňková barva na pozadí', $b['sekundarni'], $b['pozadi']],
+            ['Text on background', $b['text'], $b['pozadi']],
+            ['Text on surface', $b['text'], $b['plocha']],
+            ['Link (primary colour) on background', $b['primarni'], $b['pozadi']],
+            ['Button text on primary colour', self::contrastColor($b['primarni']), $b['primarni']],
+            ['Secondary colour on background', $b['sekundarni'], $b['pozadi']],
         ];
 
         return array_map(fn (array $d): array => ['popis' => $d[0], 'pomer' => $p = self::contrast($d[1], $d[2]), 'ok' => $p >= 4.5], $pairs);

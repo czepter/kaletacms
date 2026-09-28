@@ -32,12 +32,12 @@ final class Check
                 $id = isset($p['id']) ? (string) $p['id'] : null;
                 $type = $p['typ'] ?? '';
                 if ($type === 'tlacitko' && in_array($o['odkaz'] ?? '', ['', '#'], true)) {
-                    $findings[] = ['id' => $id, 'zprava' => t('Tlačítko „%s“ nikam nevede – doplňte odkaz.', self::text($o['text'] ?? ''))];
+                    $findings[] = ['id' => $id, 'zprava' => t('The button “%s” leads nowhere – add a link.', self::text($o['text'] ?? ''))];
                 }
                 if ($type === 'obrazek' && ($o['src'] ?? '') === '') {
-                    $findings[] = ['id' => $id, 'zprava' => t('Obrázek není vybraný – na webu se nezobrazí.')];
+                    $findings[] = ['id' => $id, 'zprava' => t('No image selected – it will not appear on the site.')];
                 } elseif ($type === 'obrazek' && ($o['alt'] ?? '') === '' && !$tags($o['src'])) {
-                    $findings[] = ['id' => $id, 'zprava' => t('Obrázek nemá popis pro nevidomé (alt).')];
+                    $findings[] = ['id' => $id, 'zprava' => t('The image has no description for blind visitors (alt).')];
                 }
                 // a heading with the p tag (big number, label) does not belong in the outline
                 if ($type === 'nadpis' && preg_match('/^h([1-6])$/', (string) ($p['znacka'] ?? 'h2'), $m)) {
@@ -52,14 +52,14 @@ final class Check
         if ($headings) {
             $h1 = array_values(array_filter($outline, static fn (array $n): bool => $n[1] === 1));
             if ($h1 === []) {
-                $findings[] = ['id' => $outline[0][0] ?? null, 'zprava' => t('Stránka nemá hlavní nadpis (h1) – vyhledávače i čtečky podle něj poznají, o čem je.')];
+                $findings[] = ['id' => $outline[0][0] ?? null, 'zprava' => t('The page has no main heading (h1) – search engines and screen readers use it to tell what the page is about.')];
             }
             if (count($h1) > 1) {
-                $findings[] = ['id' => $h1[1][0], 'zprava' => t('Stránka má víc hlavních nadpisů (h1) – nechte jen jeden.')];
+                $findings[] = ['id' => $h1[1][0], 'zprava' => t('The page has more than one main heading (h1) – keep just one.')];
             }
             foreach ($outline as $i => $n) {
                 if ($i > 0 && $n[1] > $outline[$i - 1][1] + 1) {
-                    $findings[] = ['id' => $n[0], 'zprava' => t('Nadpis „%s“ přeskakuje úroveň (h%d → h%d).', mb_substr($n[2], 0, 40), $outline[$i - 1][1], $n[1])];
+                    $findings[] = ['id' => $n[0], 'zprava' => t('The heading “%s” skips a level (h%d → h%d).', mb_substr($n[2], 0, 40), $outline[$i - 1][1], $n[1])];
                 }
             }
         }

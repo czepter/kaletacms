@@ -7,8 +7,10 @@ namespace Kaleta\Core;
 /**
  * Site language and translations of template texts.
  *
- * Texts in templates are in Czech and wrapped in the function t('Číst dál'); for another language they are looked up in the dictionary
- * system/jazyky/<code>.php (Czech => translation). What is missing in the dictionary is taken from the English one (and for Czech it stays Czech) - the site never breaks.
+ * Texts in templates and code are wrapped in the function t('Read more'). The source text is English (since 1.4.1; texts
+ * not switched yet are still Czech) and is looked up in the dictionary system/jazyky/<code>.php (source text => translation),
+ * Czech included (cs.php). What is missing in the dictionary is taken from the English one, otherwise the source text is
+ * shown as it is - the site never breaks.
  * The language of the whole site is set in Settings (site_language); the extension "jazyky" adds more language versions
  * at URLs /en/… - each has its own pages, categories and news. A new language = dictionaries system/jazyky/<code>.php
  * (site), admin-<code>.php and install-<code>.php + an entry in AVAILABLE.
@@ -66,6 +68,8 @@ final class Language
     public const string CODES = 'cs|en|bg|ca|da|de|el|es|et|fi|fr|ga|hr|hu|is|it|lt|lv|mt|nl|no|pl|pt|ro|sk|sl|sq|sr|bs|mk|sv|tr|uk|ru|hi|id|ja|ko|vi|zh';
 
     private static string $code = 'cs';
+
+    private static bool $loaded = false;
     private static string $column = '';
 
     /** @var array<string, string> */
@@ -86,9 +90,14 @@ final class Language
     public static function set(string $code, string $dictionarySet = ''): void
     {
         self::$code = isset(self::AVAILABLE[$code]) ? $code : 'cs';
+        self::$loaded = true;
         self::$dictionary = [];
         self::$baseOnly = false;
         if (self::$code === 'cs') {
+            // the source texts are English since 1.4.1; Czech is a dictionary like any other (texts still Czech pass through)
+            $file = KALETA_SYSTEM . '/jazyky/' . $dictionarySet . 'cs.php';
+            self::$dictionary = is_file($file) ? require $file : [];
+
             return;
         }
         $file = KALETA_SYSTEM . '/jazyky/' . $dictionarySet . self::$code . '.php';
@@ -154,6 +163,9 @@ final class Language
 
     public static function t(string $text, string|int ...$values): string
     {
+        if (!self::$loaded) {
+            self::set(self::$code); // texts before the first set() (early errors, tools) use the default language too
+        }
         $translation = self::$dictionary[$text] ?? $text;
 
         return $values === [] ? $translation : sprintf($translation, ...$values);

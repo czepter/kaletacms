@@ -35,7 +35,7 @@ final class SiteExport
     public static function create(Db $db, Settings $settings): array
     {
         if (!is_dir(Backup::FOLDER) && !mkdir(Backup::FOLDER, 0775, true)) {
-            throw new \RuntimeException('Nelze vytvořit složku storage/zalohy - zkontrolujte práva k zápisu.');
+            throw new \RuntimeException('The folder storage/zalohy cannot be created - check the write permissions.');
         }
         @set_time_limit(300);
         $base = Backup::FOLDER . '/export-' . date('Ymd-His');
@@ -44,20 +44,20 @@ final class SiteExport
         if (!class_exists(\ZipArchive::class)) {
             self::cleanUp();
 
-            return ['soubor' => basename($json), 'media' => false, 'duvod' => 'Na serveru chybí rozšíření PHP zip, export proto obsahuje jen data (JSON). Složku media/ si stáhněte přes FTP.'];
+            return ['soubor' => basename($json), 'media' => false, 'duvod' => 'The PHP zip extension is missing on the server, so the export contains data only (JSON). Download the media/ folder over FTP.'];
         }
 
         $files = self::media();
         $size = array_sum($files);
         $freeSpace = @disk_free_space(Backup::FOLDER);
         $reason = match (true) {
-            $size > self::MAX_MEDIA => 'Média mají přes 1 GB, export proto obsahuje jen data (JSON). Složku media/ si stáhněte přes FTP.',
-            $freeSpace !== false && $size * 1.1 + (int) filesize($json) > $freeSpace => 'Na disku není dost místa pro archiv s médii, export proto obsahuje jen data (JSON). Složku media/ si stáhněte přes FTP.',
+            $size > self::MAX_MEDIA => 'The media exceed 1 GB, so the export contains data only (JSON). Download the media/ folder over FTP.',
+            $freeSpace !== false && $size * 1.1 + (int) filesize($json) > $freeSpace => 'There is not enough disk space for an archive with media, so the export contains data only (JSON). Download the media/ folder over FTP.',
             default => '',
         };
         $zip = new \ZipArchive();
         if ($zip->open($base . '.zip', \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
-            throw new \RuntimeException('Archiv se nepodařilo vytvořit - zkontrolujte práva k zápisu do storage/zalohy.');
+            throw new \RuntimeException('The archive could not be created – check write permissions for storage/zalohy.');
         }
         $zip->addFile($json, 'obsah.json');
         $zip->addFromString('README.txt', self::readme($reason === ''));
@@ -70,7 +70,7 @@ final class SiteExport
         }
         if (!$zip->close()) {
             @unlink($base . '.zip');
-            throw new \RuntimeException('Archiv se nepodařilo dokončit - nejspíš došlo místo na disku.');
+            throw new \RuntimeException('The archive could not be finished – the disk is probably full.');
         }
         unlink($json);
         self::cleanUp();
@@ -105,7 +105,7 @@ final class SiteExport
     {
         $f = fopen($path, 'wb');
         if ($f === false) {
-            throw new \RuntimeException('Nelze zapisovat do storage/zalohy - zkontrolujte práva k zápisu.');
+            throw new \RuntimeException('Cannot write to storage/zalohy – check write permissions.');
         }
         fwrite($f, '{"format":"kaleta-export","verze_formatu":1,"kaleta":' . self::json(KALETA_VERSION) . ',"vytvoreno":' . self::json(date('c')) . ',"nastaveni":' . self::json(self::settings($db)));
 

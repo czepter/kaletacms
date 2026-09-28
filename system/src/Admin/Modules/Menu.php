@@ -18,7 +18,7 @@ final class Menu extends Module
 {
     public const string IDENT = 'menu';
     public const string NAME = 'Menu';
-    public const string GROUP = 'Vzhled';
+    public const string GROUP = 'Appearance';
     public const string ICON = 'menu';
     public const bool ADMIN_ONLY = true;
 
@@ -47,12 +47,12 @@ final class Menu extends Module
         if ($this->request->isPost()) {
             $items = json_decode((string) ($_POST['polozky'] ?? ''), true);
             if (!is_array($items)) {
-                return $this->back('Menu se nepodařilo uložit – zkuste to prosím znovu.', '', ['umisteni' => $location, 'jazyk' => $language], 'chyba');
+                return $this->back('The menu could not be saved – please try again.', '', ['umisteni' => $location, 'jazyk' => $language], 'chyba');
             }
             MenuWebu::save($this->db, $location, $language, $items);
         }
 
-        return $this->back('Menu bylo uloženo.', '', ['umisteni' => $location, 'jazyk' => $language]);
+        return $this->back('The menu has been saved.', '', ['umisteni' => $location, 'jazyk' => $language]);
     }
 
     /** The main menu returns to being assembled automatically from pages "in menu"; the footer menu is emptied. */
@@ -63,7 +63,7 @@ final class Menu extends Module
             MenuWebu::save($this->db, $location, $language, null);
         }
 
-        return $this->back($location === 'hlavni' ? 'Menu se zase skládá samo ze stránek zařazených do navigace.' : 'Menu v patičce je prázdné.', '', ['umisteni' => $location, 'jazyk' => $language]);
+        return $this->back($location === 'hlavni' ? 'The menu is again built automatically from pages in the navigation.' : 'The footer menu is empty.', '', ['umisteni' => $location, 'jazyk' => $language]);
     }
 
     /** @return array{0: string, 1: string} location and language (column) from the URL */

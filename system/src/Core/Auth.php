@@ -41,7 +41,7 @@ final class Auth
             [Antispam::hash($ip)],
         );
         if ($attempts >= 10) {
-            return t('Příliš mnoho pokusů o přihlášení. Zkuste to znovu za 15 minut.');
+            return t('Too many sign-in attempts. Try again in 15 minutes.');
         }
 
         $user = $this->db->one('SELECT * FROM {uzivatele} WHERE user = ?', [$login]);
@@ -59,13 +59,13 @@ final class Auth
                     : ['pocet_chyb' => $errorCount], ['idu' => $user['idu']]);
             }
 
-            return t('Chybné jméno nebo heslo.');
+            return t('Wrong user name or password.');
         }
         if ($user['blokovat']) {
-            return t('Účet je zablokován. Obraťte se na administrátora.');
+            return t('The account is blocked. Contact an administrator.');
         }
         if ($user['zamceno_do'] !== null && strtotime($user['zamceno_do']) > time()) {
-            return t('Účet je po řadě chybných pokusů dočasně zamčený. Zkuste to znovu za 15 minut.');
+            return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
         }
 
         if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
@@ -116,17 +116,17 @@ final class Auth
     public function verifyCode(string $code, string $ip): ?string
     {
         if (!$this->isAwaitingCode()) {
-            return t('Přihlášení vypršelo, začněte prosím znovu.');
+            return t('The sign-in has expired, please start again.');
         }
         $attempts = (int) $this->db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [Antispam::hash($ip)]);
         if ($attempts >= 10) {
-            return t('Příliš mnoho pokusů. Zkuste to znovu za 15 minut.');
+            return t('Too many attempts. Try again in 15 minutes.');
         }
         $user = $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [(int) $this->session->get('idu_ceka')['idu']]);
         if ($user !== null && $user['zamceno_do'] !== null && strtotime($user['zamceno_do']) > time()) {
             $this->session->remove('idu_ceka');
 
-            return t('Účet je po řadě chybných pokusů dočasně zamčený. Zkuste to znovu za 15 minut.');
+            return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
         }
         $backupCodes = $user === null ? null : Totp::useBackupCode($user['totp_zalozni'], $code);
         if ($user === null || (!Totp::verify($user['totp_tajemstvi'], $code) && $backupCodes === null)) {
@@ -139,7 +139,7 @@ final class Auth
                     : ['pocet_chyb' => $errorCount], ['idu' => $user['idu']]);
             }
 
-            return t('Kód není správný.');
+            return t('The code is not correct.');
         }
         $this->db->update('uzivatele', ['pocet_chyb' => 0], ['idu' => $user['idu']]);
         if ($backupCodes !== null) {
@@ -191,11 +191,11 @@ final class Auth
     public function verifyKey(array $response, string $siteUrl, string $ip): ?string
     {
         if (!$this->isAwaitingCode()) {
-            return t('Přihlášení vypršelo, začněte prosím znovu.');
+            return t('The sign-in has expired, please start again.');
         }
         $attempts = (int) $this->db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [Antispam::hash($ip)]);
         if ($attempts >= 10) {
-            return t('Příliš mnoho pokusů. Zkuste to znovu za 15 minut.');
+            return t('Too many attempts. Try again in 15 minutes.');
         }
         $challenge = (string) $this->session->get('klic_vyzva', '');
         $this->session->remove('klic_vyzva'); // the challenge is valid for one attempt
@@ -203,12 +203,12 @@ final class Auth
         if ($user !== null && $user['zamceno_do'] !== null && strtotime($user['zamceno_do']) > time()) {
             $this->session->remove('idu_ceka');
 
-            return t('Účet je po řadě chybných pokusů dočasně zamčený. Zkuste to znovu za 15 minut.');
+            return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
         }
         $key = $user === null ? null : $this->db->one('SELECT * FROM {uzivatele_klice} WHERE idu = ? AND otisk_id = ?', [$user['idu'], hash('sha256', Passkey::fromB64((string) ($response['id'] ?? '')))]);
         try {
             if ($key === null) {
-                throw new \RuntimeException('Tenhle klíč k účtu nepatří.');
+                throw new \RuntimeException('This key does not belong to the account.');
             }
             $counter = Passkey::verifySignIn($response, $challenge, Passkey::origin($siteUrl), Passkey::rpId($siteUrl), (string) $key['verejny'], (int) $key['pocitadlo']);
         } catch (\RuntimeException $e) {

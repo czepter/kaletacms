@@ -4,7 +4,7 @@ $icons = ['ok' => '✓', 'varovani' => '!', 'chyba' => '✕'];
 $summary = Kaleta\Core\Health::summary($checks);
 $group = '';
 ?>
-<p class="hlaska hlaska-<?= ['ok' => 'ok', 'varovani' => 'varovani', 'chyba' => 'chyba'][$summary] ?>"><?= e(t(['ok' => 'Vše v pořádku.', 'varovani' => 'Systém běží, některé položky si zaslouží pozornost.', 'chyba' => 'Nalezeny chyby, které brání správnému provozu.'][$summary])) ?></p>
+<p class="hlaska hlaska-<?= ['ok' => 'ok', 'varovani' => 'varovani', 'chyba' => 'chyba'][$summary] ?>"><?= e(t(['ok' => 'Everything is fine.', 'varovani' => 'The system is running, but some items deserve attention.', 'chyba' => 'Errors were found that prevent the site from running properly.'][$summary])) ?></p>
 <div class="tab-obal">
 <table class="vypis">
 <tbody>
@@ -22,33 +22,33 @@ $group = '';
 </table>
 </div>
 <fieldset>
-<legend><?= e(t('Pošta')) ?></legend>
-<p><button class="navigace" type="submit" formaction="<?= e($module->url('test_mail')) ?>"><?= e(t('Odeslat zkušební e-mail na adresu webu')) ?></button></p>
+<legend><?= e(t('Mail')) ?></legend>
+<p><button class="navigace" type="submit" formaction="<?= e($module->url('test_mail')) ?>"><?= e(t('Send a test e-mail to the site address')) ?></button></p>
 </fieldset>
 <fieldset>
-<legend><?= e(t('Záznam chyb')) ?></legend>
+<legend><?= e(t('Error log')) ?></legend>
 <?php if ($errorLog === []): ?>
-<p><?= e(t('Žádné chyby – záznam je prázdný.')) ?></p>
+<p><?= e(t('No errors – the log is empty.')) ?></p>
 <?php else: ?>
 <pre class="log-chyb"><?php foreach (array_reverse($errorLog) as $row): ?><?= e(mb_strimwidth(str_replace(KALETA_ROOT, '', $row), 0, 400, '…')) . "\n" ?><?php endforeach ?></pre>
-<p><button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('delete_log')) ?>" data-potvrdit="<?= e(t('Vyprázdnit záznam chyb?')) ?>"><?= e(t('Vyprázdnit záznam')) ?></button> <span class="smltxt"><?= e(t('Nejnovější nahoře, posledních 40 záznamů ze souboru storage/log/chyby.log.')) ?></span></p>
+<p><button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('delete_log')) ?>" data-potvrdit="<?= e(t('Clear the error log?')) ?>"><?= e(t('Clear the log')) ?></button> <span class="smltxt"><?= e(t('Newest first, the last 40 entries from storage/log/chyby.log.')) ?></span></p>
 <?php endif ?>
 </fieldset>
 <fieldset>
-<legend><?= e(t('Úlohy na pozadí (cron)')) ?></legend>
-<p><?= e(t('Naplánované novinky, oznámení a odeslání pošty se spouštějí při návštěvách webu. Web s menší návštěvností je zpřesní, když tuto adresu zavoláte každých 5 minut cronem hostingu:')) ?></p>
+<legend><?= e(t('Background jobs (cron)')) ?></legend>
+<p><?= e(t('Scheduled news, notifications and outgoing mail run on site visits. A low-traffic site makes them more precise by calling this address every 5 minutes from your hosting\'s cron:')) ?></p>
 <?php if ($tasksToken !== ''): ?>
 <p><code>*/5 * * * * curl -s "<?= e($siteUrl) ?>ulohy?token=<?= e($tasksToken) ?>" &gt; /dev/null</code></p>
 <?php endif ?>
-<p><button class="navigace" type="submit" name="novy_token_ulohy" value="1"><?= e(t($tasksToken !== '' ? 'Vytvořit novou adresu (stará přestane platit)' : 'Vytvořit adresu pro cron')) ?></button></p>
+<p><button class="navigace" type="submit" name="novy_token_ulohy" value="1"><?= e(t($tasksToken !== '' ? 'Create a new address (the old one stops working)' : 'Create the cron address')) ?></button></p>
 </fieldset>
 <fieldset>
 <legend><?= e(t('Monitoring')) ?></legend>
 <?php if ($values['health_token'] !== ''): ?>
-<p><?= e(t('Stav ve formátu JSON pro dohledové nástroje (UptimeRobot, Zabbix…):')) ?><br><code><?= e($siteUrl) ?>stav.json?token=<?= e($values['health_token']) ?></code></p>
+<p><?= e(t('Status in JSON format for monitoring tools (UptimeRobot, Zabbix…):')) ?><br><code><?= e($siteUrl) ?>stav.json?token=<?= e($values['health_token']) ?></code></p>
 <?php else: ?>
-<p><?= e(t('Dohledový nástroj může stav číst jako JSON. Nejprve vytvořte přístupový token.')) ?></p>
+<p><?= e(t('A monitoring tool can read the status as JSON. Create an access token first.')) ?></p>
 <?php endif ?>
 <input type="hidden" name="health_token" value="<?= e($values['health_token']) ?>">
-<p><button class="navigace" type="submit" name="novy_token" value="1"><?= e(t($values['health_token'] !== '' ? 'Vytvořit nový token (starý přestane platit)' : 'Vytvořit token')) ?></button></p>
+<p><button class="navigace" type="submit" name="novy_token" value="1"><?= e(t($values['health_token'] !== '' ? 'Create a new token (the old one stops working)' : 'Create token')) ?></button></p>
 </fieldset>

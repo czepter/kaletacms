@@ -11,8 +11,8 @@ use Kaleta\Builder\Element;
 final class Grid extends Element
 {
     public const string TYPE = 'mrizka';
-    public const string NAME = 'Mřížka';
-    public const string DESCRIPTION = 'Sloupce, které se na menší obrazovce samy zalomí pod sebe.';
+    public const string NAME = 'Grid';
+    public const string DESCRIPTION = 'Columns that stack on smaller screens by themselves.';
     public const string ICON = 'mrizka';
     public const string GROUP = 'Rozložení';
     public const bool CONTAINER = true;

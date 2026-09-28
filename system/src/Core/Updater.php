@@ -95,20 +95,20 @@ final class Updater
         // runs from the public site, where the admin dictionary is not loaded – Language::runWith() loads it just for this moment
         // (also for installation error messages).
         [$subject, $text] = Language::runWith(Language::defaults($s), function () use ($app, $a, $s, $newVersion): array {
-            $result = t('Je k dispozici bezpečnostní aktualizace %s. Nainstalujte ji v administraci: Nastavení → Zálohy a aktualizace.', (string) $newVersion['verze']);
+            $result = t('Security update %s is available. Install it in the administration: Settings → Backups and updates.', (string) $newVersion['verze']);
             if ($s->bool('auto_updates')) {
                 try {
                     Backup::create($app->db(), 'predaktualizaci');
                     $a->install($app->db());
-                    $result = t('Bezpečnostní aktualizace %s byla nainstalována automaticky. Před instalací vznikla záloha databáze.', (string) $newVersion['verze']);
+                    $result = t('Security update %s was installed automatically. A database backup was created before the installation.', (string) $newVersion['verze']);
                 } catch (\Throwable $e) {
-                    $result .= ' ' . t('Automatická instalace se nezdařila: %s', $e->getMessage());
+                    $result .= ' ' . t('The automatic installation failed: %s', $e->getMessage());
                 }
             }
 
             return [
-                t('Kaleta: bezpečnostní aktualizace %s', (string) $newVersion['verze']),
-                $result . "\n\n" . t('Změny:') . "\n- " . implode("\n- ", $newVersion['zmeny']) . "\n\n" . $s->get('site_name'),
+                t('Kaleta: security update %s', (string) $newVersion['verze']),
+                $result . "\n\n" . t('Changes:') . "\n- " . implode("\n- ", $newVersion['zmeny']) . "\n\n" . $s->get('site_name'),
             ];
         }, 'admin-');
         $recipient = $s->get('site_email');
@@ -125,26 +125,26 @@ final class Updater
     public function install(?Db $db = null): string
     {
         if (!class_exists(\ZipArchive::class) || !function_exists('sodium_crypto_sign_verify_detached')) {
-            throw new \RuntimeException(t('Server nemá rozšíření zip nebo sodium - aktualizujte ručně nahráním souborů přes FTP.'));
+            throw new \RuntimeException(t('The server lacks the zip or sodium extension – update manually by uploading the files over FTP.'));
         }
         $m = $this->manifest();
         if (!version_compare((string) $m['verze'], KALETA_VERSION, '>')) {
-            throw new \RuntimeException(t('Žádná novější verze není k dispozici.'));
+            throw new \RuntimeException(t('No newer version is available.'));
         }
         if (version_compare(PHP_VERSION, (string) ($m['min_php'] ?? '8.4'), '<')) {
-            throw new \RuntimeException(t('Nová verze vyžaduje PHP %s, na serveru běží %s.', (string) $m['min_php'], PHP_VERSION));
+            throw new \RuntimeException(t('The new version requires PHP %s; the server runs %s.', (string) $m['min_php'], PHP_VERSION));
         }
         if (!is_writable($this->root) || !is_writable($this->root . '/system')) {
-            throw new \RuntimeException(t('Soubory systému nejsou zapisovatelné - aktualizujte ručně přes FTP.'));
+            throw new \RuntimeException(t('The system files are not writable – update manually over FTP.'));
         }
         if (Signature::keys($this->keyFile) === []) {
-            throw new \RuntimeException(t('Chybí veřejný klíč vydavatele (system/aktualizace.pub), balíček nelze ověřit.'));
+            throw new \RuntimeException(t('The publisher\'s public key (system/aktualizace.pub) is missing, the package cannot be verified.'));
         }
 
         // lock: an automatic update from background tasks and an administrator's click (or two visits at once) must not overwrite files simultaneously
         $lock = fopen(KALETA_ROOT . '/storage/cache/aktualizace.zamek', 'c');
         if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
-            throw new \RuntimeException(t('Aktualizace už právě běží. Zkuste to za chvíli.'));
+            throw new \RuntimeException(t('An update is already running. Try again in a moment.'));
         }
         $workDir = KALETA_ROOT . '/storage/cache/aktualizace-' . bin2hex(random_bytes(4));
         $zip = $workDir . '.zip';
@@ -152,11 +152,11 @@ final class Updater
             $this->download((string) $m['url'], $zip);
             $sha = hash_file('sha256', $zip);
             if (!hash_equals(strtolower((string) $m['sha256']), $sha)) {
-                throw new \RuntimeException(t('Kontrolní součet balíčku nesouhlasí.'));
+                throw new \RuntimeException(t('The package checksum does not match.'));
             }
             // the signature also covers the security-release flag: whoever controlled only the site with the manifest must not declare a regular release a security one
             if (!Signature::isValid(Signature::packageMessage((string) $m['verze'], $sha, !empty($m['bezpecnostni'])), (string) $m['podpis'], $this->keyFile)) {
-                throw new \RuntimeException(t('Podpis balíčku není platný - balíček nepochází od vydavatele Kalety.'));
+                throw new \RuntimeException(t('The package signature is not valid – the package does not come from the Kaleta publisher.'));
             }
             $files = $this->extract($zip, $workDir);
             $previous = $this->releaseFiles();
@@ -174,15 +174,15 @@ final class Updater
                         continue;
                     }
                     if (!is_dir(dirname($target)) && !mkdir(dirname($target), 0775, true)) {
-                        throw new \RuntimeException(t('Nelze vytvořit složku %s.', dirname($relativePath)));
+                        throw new \RuntimeException(t('Cannot create the folder %s.', dirname($relativePath)));
                     }
                     if (is_file($target)) {
                         if (!is_dir(dirname($setAside . '/' . $relativePath)) && !mkdir(dirname($setAside . '/' . $relativePath), 0775, true) || !copy($target, $setAside . '/' . $relativePath)) {
-                            throw new \RuntimeException(t('Nelze zapsat soubor %s.', 'storage/cache'));
+                            throw new \RuntimeException(t('Cannot write the file %s.', 'storage/cache'));
                         }
                     }
                     if (!copy($workDir . '/' . $relativePath, $target)) {
-                        throw new \RuntimeException(t('Nelze zapsat soubor %s.', $relativePath));
+                        throw new \RuntimeException(t('Cannot write the file %s.', $relativePath));
                     }
                     $written[] = $relativePath;
                 }
@@ -195,7 +195,7 @@ final class Updater
                     is_file($setAside . '/' . $relativePath) ? @copy($setAside . '/' . $relativePath, $this->root . '/' . $relativePath) : @unlink($this->root . '/' . $relativePath);
                 }
                 self::deleteFolder($setAside);
-                throw new \RuntimeException($e->getMessage() . ' ' . t('Soubory webu jsou vrácené do stavu před aktualizací.'), 0, $e);
+                throw new \RuntimeException($e->getMessage() . ' ' . t('The website files have been returned to their state before the update.'), 0, $e);
             }
             self::deleteFolder($setAside);
             self::cleanUpObsolete($this->root, $previous, $files);
@@ -220,7 +220,7 @@ final class Updater
         $json = $this->http($this->url(), 200 * 1024, 6); // short limit: the check runs after the page is sent, but not every server can detach it
         $m = json_decode($json, true);
         if (!is_array($m) || !isset($m['verze'], $m['url'], $m['sha256'], $m['podpis']) || !preg_match('/^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$/', (string) $m['verze'])) {
-            throw new \RuntimeException(t('Soubor s informací o aktualizaci nemá platný tvar.'));
+            throw new \RuntimeException(t('The update information file is not in a valid format.'));
         }
         $m['zmeny'] = array_values(array_filter(array_map(fn ($z): string => mb_substr((string) $z, 0, 300), (array) ($m['zmeny'] ?? []))));
 
@@ -237,14 +237,14 @@ final class Updater
         $host = (string) parse_url($url, PHP_URL_HOST);
         $isLocal = in_array($host, ['localhost', '127.0.0.1'], true);
         if (!preg_match('#^https://#i', $url) && !($isLocal && preg_match('#^http://#i', $url))) {
-            throw new \RuntimeException(t('Zdroj aktualizací musí být na adrese https://.'));
+            throw new \RuntimeException(t('The update source must use an https:// address.'));
         }
         $data = @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => $timeoutSeconds, 'follow_location' => 1, 'max_redirects' => 5, 'header' => "User-Agent: Kaleta/" . KALETA_VERSION . "\r\n"]]), 0, $maxBytes + 1);
         if ($data === false || $data === '') {
-            throw new \RuntimeException(t('Zdroj aktualizací není dostupný (%s).', $host));
+            throw new \RuntimeException(t('The update source is not reachable (%s).', $host));
         }
         if (strlen($data) > $maxBytes) {
-            throw new \RuntimeException(t('Stahovaný soubor je nečekaně velký.'));
+            throw new \RuntimeException(t('The downloaded file is unexpectedly large.'));
         }
 
         return $data;
@@ -259,7 +259,7 @@ final class Updater
     {
         $zip = new \ZipArchive();
         if ($zip->open($zipFile) !== true) {
-            throw new \RuntimeException(t('Balíček nelze otevřít.'));
+            throw new \RuntimeException(t('The package cannot be opened.'));
         }
         $fileNames = [];
         for ($i = 0; $i < $zip->numFiles; $i++) {
@@ -276,7 +276,7 @@ final class Updater
                 continue;
             }
             if (str_contains($relativePath, '..') || str_starts_with($relativePath, '/') || str_contains($relativePath, "\0") || str_contains($relativePath, '\\')) {
-                throw new \RuntimeException(t('Balíček obsahuje nebezpečnou cestu.'));
+                throw new \RuntimeException(t('The package contains an unsafe path.'));
             }
             foreach (self::PROTECTED_PATHS as $protectedPath) {
                 if ($relativePath === $protectedPath || (str_ends_with($protectedPath, '/') && str_starts_with($relativePath, $protectedPath))) {
@@ -292,7 +292,7 @@ final class Updater
         }
         $zip->close();
         if (!in_array('system/bootstrap.php', $files, true) || !in_array('index.php', $files, true)) {
-            throw new \RuntimeException(t('Balíček neobsahuje Kaletu.'));
+            throw new \RuntimeException(t('The package does not contain Kaleta.'));
         }
 
         return $files;

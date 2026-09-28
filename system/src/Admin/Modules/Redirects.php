@@ -15,8 +15,8 @@ use Kaleta\Core\Response;
 final class Redirects extends Module
 {
     public const string IDENT = 'redirects';
-    public const string NAME = 'Přesměrování';
-    public const string GROUP = 'Správa';
+    public const string NAME = 'Redirects';
+    public const string GROUP = 'Administration';
     public const string ICON = 'presmerovani';
     public const string EXTENSION = 'presmerovani';
     public const bool ADMIN_ONLY = true;
@@ -46,7 +46,7 @@ final class Redirects extends Module
         $total = (int) $this->db->value('SELECT COUNT(*) FROM {presmerovani} ' . $whereParts, $params);
         $pageNumber = max(1, min((int) ceil(max(1, $total) / self::PER_PAGE), $this->request->getInt('strana', 1)));
 
-        return $this->view('list', 'Přesměrování', [
+        return $this->view('list', 'Redirects', [
             'records' => $this->db->all('SELECT * FROM {presmerovani} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'total' => $total, 'pageNumber' => $pageNumber, 'pageCount' => (int) ceil($total / self::PER_PAGE), 'search' => $search,
             'edit' => $this->request->getInt('upravit') > 0 ? $this->db->one('SELECT * FROM {presmerovani} WHERE idp = ?', [$this->request->getInt('upravit')]) : null,
@@ -63,7 +63,7 @@ final class Redirects extends Module
         $z = (string) parse_url($this->request->post('z_adresy'), PHP_URL_PATH);
         $commandName = $this->request->post('na_adresu');
         if (trim($z, '/') === '' || $commandName === '' || (!preg_match('#^https?://#i', $commandName) && !preg_match('#^/?[^\s:]*$#', $commandName))) {
-            return $this->back('Vyplňte starou adresu (cestu na tomto webu) a cíl – cestu, nebo celou adresu https://…', type: 'chyba');
+            return $this->back('Enter the old address (a path on this site) and the target – a path or a full https://… URL', type: 'chyba');
         }
         $target = preg_match('#^https?://#i', $commandName) ? $commandName : trim($commandName, '/');
         $idp = $this->request->postInt('idp');
@@ -76,7 +76,7 @@ final class Redirects extends Module
         $this->db->run('UPDATE {presmerovani} SET typ = ? WHERE z_adresy = ?', [$this->request->postInt('typ') === 302 ? 302 : 301, trim($z, '/ ')]);
         $this->db->delete('nenalezeno', ['cesta' => trim($z, '/')]);
 
-        return $this->back('Přesměrování bylo uloženo.');
+        return $this->back('Redirect saved.');
     }
 
     /** Empties the overview of not-found URLs. */
@@ -86,7 +86,7 @@ final class Redirects extends Module
             $this->db->run('DELETE FROM {nenalezeno}');
         }
 
-        return $this->back('Přehled nenalezených adres je prázdný.');
+        return $this->back('The list of addresses not found is empty.');
     }
 
     protected function actionDelete(): Response
@@ -95,6 +95,6 @@ final class Redirects extends Module
             $this->db->delete('presmerovani', ['idp' => $this->request->postInt('idp')]);
         }
 
-        return $this->back('Přesměrování bylo smazáno.');
+        return $this->back('Redirect deleted.');
     }
 }

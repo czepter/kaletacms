@@ -1,11 +1,11 @@
 <?php /** The "Soukromí a cookies" (Privacy and cookies) tab. */ ?>
 <fieldset>
-<legend><?= e(t('Cookie lišta')) ?></legend>
+<legend><?= e(t('Cookie bar')) ?></legend>
 <div class="karty-volby karty-volby-text">
 <?php foreach ([
-    'vestavena' => ['Vestavěná lišta', 'Doporučeno. Zobrazí se jen tehdy, když je co odsouhlasit; měření se spustí až po souhlasu.'],
-    'externi' => ['Externí služba', 'Cookiebot, CookieYes, Usercentrics… Vložíte jejich kód.'],
-    'zadna' => ['Žádná', 'Měřicí kódy se spouštějí hned. Jen když souhlas řešíte jinak.'],
+    'vestavena' => ['Built-in banner', 'Recommended. Shown only when there is something to consent to; tracking starts only after consent.'],
+    'externi' => ['External service', 'Cookiebot, CookieYes, Usercentrics… You paste in their code.'],
+    'zadna' => ['None', 'Tracking codes run immediately. Only if you handle consent another way.'],
 ] as $key => [$name, $description]): ?>
 	<label class="karta-volba">
 		<input type="radio" name="cookies_mode" value="<?= e($key) ?>"<?= $values['cookies_mode'] === $key ? ' checked' : '' ?>>
@@ -15,19 +15,19 @@
 <?php endforeach ?>
 </div>
 <?php
-$field('cookies_text', 'Text lišty', 'radky');
-$field('cookies_policy_url', 'Odkaz na zásady', 'text', 'Např. /zasady-ochrany-soukromi – stránku vytvoříte v sekci Stránky.', 'maxlength="255"');
+$field('cookies_text', 'Banner text', 'radky');
+$field('cookies_policy_url', 'Link to the policy', 'text', 'E.g. /privacy-policy – create the page in the Pages section.', 'maxlength="255"');
 ?>
 </fieldset>
 <details class="pokrocile"<?= $values['cookies_mode'] === 'externi' || $values['marketing_code'] !== '' ? ' open' : '' ?>>
-<summary><?= e(t('Kódy a evidence')) ?></summary>
+<summary><?= e(t('Codes and records')) ?></summary>
 <?php
-$field('cookies_external_code', 'Kód externí služby', 'kod', 'Skript od poskytovatele (u Cookiebotu řádek s data-cbid). Načte se jako první.', 'spellcheck="false"');
-$field('marketing_code', 'Marketingové kódy', 'kod', 'Meta Pixel, Sklik retargeting, Google Ads… Spustí se až po souhlasu s marketingem.', 'spellcheck="false"');
-$field('cookies_log', 'Evidovat souhlasy', 'ano', 'Čas, náhodný identifikátor a zvolené kategorie – bez IP adresy. Doklad pro případnou kontrolu.');
-$field('cookies_log_months', 'Uchovávat záznamy o souhlasech (měsíců)', 'cislo', 'Starší záznamy se mažou automaticky. 0 = nemazat.', 'min="0" max="120"');
+$field('cookies_external_code', 'External service code', 'kod', 'The script from your provider (for Cookiebot, the line with data-cbid). It loads first.', 'spellcheck="false"');
+$field('marketing_code', 'Marketing codes', 'kod', 'Meta Pixel, Sklik retargeting, Google Ads… Runs only after marketing consent is given.', 'spellcheck="false"');
+$field('cookies_log', 'Log consents', 'ano', 'Time, a random identifier and the chosen categories – no IP address. Evidence in case of an audit.');
+$field('cookies_log_months', 'Keep consent records (months)', 'cislo', 'Older records are deleted automatically. 0 = keep.', 'min="0" max="120"');
 ?>
 </details>
 <?php if ($consents !== []): ?>
-<p class="napoveda"><?= e(t('Souhlasy za posledních 30 dní:')) ?> <?= implode(' · ', array_map(fn (array $r): string => e($r['kategorie'] === 'nic' ? t('jen nezbytné') : $r['kategorie']) . ' ' . (int) $r['pocet'] . '×', $consents)) ?></p>
+<p class="napoveda"><?= e(t('Consents in the last 30 days:')) ?> <?= implode(' · ', array_map(fn (array $r): string => e($r['kategorie'] === 'nic' ? t('necessary only') : $r['kategorie']) . ' ' . (int) $r['pocet'] . '×', $consents)) ?></p>
 <?php endif ?>

@@ -242,7 +242,7 @@ final class Kernel
             // background tasks for cron: this way low-traffic sites publish a scheduled news item and send mail on time
             $token = $this->app->settings()->get('tasks_token');
             if ($token === '' || !hash_equals($token, $request->get('token'))) {
-                return new Response(t('Neplatný token.') . "\n", 403, ['Content-Type' => 'text/plain; charset=utf-8']);
+                return new Response(t('Invalid token.') . "\n", 403, ['Content-Type' => 'text/plain; charset=utf-8']);
             }
             $done = [];
             try {
@@ -262,7 +262,7 @@ final class Kernel
         if ($path === '/stav.json') {
             $token = $this->app->settings()->get('health_token');
             if ($token === '' || !hash_equals($token, $request->get('token'))) {
-                return Response::json(['chyba' => 'Neplatný token.'], 403);
+                return Response::json(['chyba' => 'Invalid token.'], 403);
             }
             // monitoring always gets the texts in Czech - they must not change with the language of the shown site version
             $checks = Language::runWith('cs', fn (): array => \Kaleta\Core\Health::checks($this->app));
@@ -382,7 +382,7 @@ final class Kernel
             $parentPage = $db->one('SELECT seo_link, titulek FROM {stranky} WHERE (ids = ? OR preklad_z = ?) AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL LIMIT 1', [$original, $original, Language::siteColumn()]);
         }
         $this->breadcrumbs([$parentPage !== null && $parentPage['titulek'] !== '' ? (string) $parentPage['titulek'] : $collection['nazev'], $parentPage !== null ? $this->app->url((string) $parentPage['seo_link']) : ''],
-            [$item['nazev'] ?? t('Ukázková položka'), '']);
+            [$item['nazev'] ?? t('Sample item'), '']);
         $this->collectionItem = $item !== null ? [(int) $collection['idk'], (string) $collection['seo_link'], (string) $item['seo_link']] : null;
         $k = $this->context();
         $k->item = $item !== null ? \Kaleta\Builder\Collections::values($collection, $item, $this->app->url(...)) : \Kaleta\Builder\Collections::sample($collection);
@@ -587,7 +587,7 @@ final class Kernel
         $antispam = new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings());
         if (mb_strlen($q) >= 3) {
             if ($antispam->count($this->app->request->ip(), 'hledani', 0, 1) >= 30) {
-                return new Response(t('Příliš mnoho hledání za sebou. Zkuste to prosím za chvíli.'), 429, ['Content-Type' => 'text/plain; charset=utf-8', 'Retry-After' => '60']);
+                return new Response(t('Too many searches in a row. Please try again in a moment.'), 429, ['Content-Type' => 'text/plain; charset=utf-8', 'Retry-After' => '60']);
             }
             $antispam->write($this->app->request->ip(), 'hledani', 0);
         }
@@ -653,7 +653,7 @@ final class Kernel
             }
         }
 
-        return $this->page(t('Stránka nenalezena'), $this->view->render('nenalezeno', ['url' => $this->app->url(...), 'stranky' => $this->menuPages(), 'novinky' => Extensions::isEnabled($this->app->settings(), 'novinky')]), ['noindex' => true, 'cast' => 'nenalezeno'], 404);
+        return $this->page(t('Page not found'), $this->view->render('nenalezeno', ['url' => $this->app->url(...), 'stranky' => $this->menuPages(), 'novinky' => Extensions::isEnabled($this->app->settings(), 'novinky')]), ['noindex' => true, 'cast' => 'nenalezeno'], 404);
     }
 
     /**
@@ -1008,7 +1008,7 @@ final class Kernel
             'meta' => $meta + ['hlavni' => false, 'popis' => '', 'klicova_slova' => $siteSettings->get('keywords'), 'obrazek' => '', 'typ' => 'website', 'noindex' => false],
             'obsah' => $content,
             'hlava' => $seo->head($title, $meta + ['jazyky' => $languages], $newsItem),
-            'pata' => $seo->foot() . $popups . ($this->editHereUrl !== '' ? '<a class="ka-upravit-zde" href="' . e($this->editHereUrl) . '">' . e(t('Upravit zde')) . '</a>' : ''),
+            'pata' => $seo->foot() . $popups . ($this->editHereUrl !== '' ? '<a class="ka-upravit-zde" href="' . e($this->editHereUrl) . '">' . e(t('Edit here')) . '</a>' : ''),
             'stranky' => $this->menuPages(),
             'menu' => $this->menu('hlavni'),
             'menu_paticka' => $this->menu('paticka'),

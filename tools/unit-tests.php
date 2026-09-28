@@ -89,7 +89,8 @@ check('Šablony: zrušená šablona „default“ se nevrátila', is_dir(dirname
 
 /* ---------- the English dictionary covers site and admin texts ---------- */
 $missingTranslation = static function (string $dictionary, array $patterns): array {
-    $translations = require dirname(__DIR__) . '/system/jazyky/' . $dictionary;
+    // a source text is Czech (then the English dictionary has it) or English since 1.4.1 (then the Czech one has it)
+    $translations = (require dirname(__DIR__) . '/system/jazyky/' . $dictionary) + (require dirname(__DIR__) . '/system/jazyky/' . str_replace('en.php', 'cs.php', $dictionary));
     $missing = [];
     foreach ($patterns as $pattern) {
         foreach (glob(dirname(__DIR__) . '/' . $pattern) ?: [] as $file) {
@@ -224,6 +225,8 @@ check('Cesty: požadavek na vnitřní cestu a kanonickou podobu', [Routes::inter
     [['/novinky/stitek/x', '/news/tag/x'], ['/novinky/x', '/news/x'], ['/novinky', '/novinky'], ['/o-nas', '/o-nas']]);
 // dictionaries of other site languages: only keys of the English dictionary (and English day and month names for dates in words), the same %s and tags
 $enDictionary = require KALETA_ROOT . '/system/jazyky/en.php';
+// English source texts (1.4.1+) are keys too: their "English translation" is the text itself
+$enDictionary += array_combine(array_keys(require KALETA_ROOT . '/system/jazyky/cs.php'), array_keys(require KALETA_ROOT . '/system/jazyky/cs.php'));
 $dataNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 $brokenDictionaries = [];
 foreach (glob(KALETA_ROOT . '/system/jazyky/[a-z][a-z].php') ?: [] as $file) {
@@ -401,7 +404,7 @@ foreach ([...array_values(Kaleta\Core\Extensions::CATALOG), ...array_values(Kale
     $keys[$card['popis'] ?? $card[1]] = true;
 }
 foreach (['en'] as $code) {
-    $dictionary = require KALETA_ROOT . '/system/jazyky/install-' . $code . '.php';
+    $dictionary = (require KALETA_ROOT . '/system/jazyky/install-' . $code . '.php') + (require KALETA_ROOT . '/system/jazyky/install-cs.php');
     // international words are not translated (the dictionary tool does not write identical entries)
     $missing = array_values(array_diff(array_keys($keys), array_keys($dictionary), ['Server', 'Port', 'E-mail', 'Newsletter']));
     check('instalátor: úplný slovník ' . $code, $missing, []);
@@ -809,9 +812,9 @@ check('Knihovna: česky se odkazuje na české adresy', Kaleta\Builder\Library::
 check('Knihovna: jazyk se po sestavení sekce vrátí', Kaleta\Core\Language::code(), 'cs');
 $librarySchema = array_column(Kaleta\Builder\Build::schema(true, 'en')['prvky'], 'vlastnosti', 'typ');
 check('Stavba::schema: výchozí obsah prvků v jazyce stránky', [$librarySchema['nadpis']['text']['vychozi'], $librarySchema['tlacitko']['text']['vychozi']], ['Heading', 'Contact us']);
-$libraryEnDictionary = require KALETA_ROOT . '/system/jazyky/en.php';
+$libraryEnDictionary = (require KALETA_ROOT . '/system/jazyky/en.php') + (require KALETA_ROOT . '/system/jazyky/cs.php');
 preg_match_all("/\bt\('((?:[^'\\\\]|\\\\.)*)'\)/", file_get_contents(KALETA_ROOT . '/system/src/Builder/Library.php') . implode('', array_map('file_get_contents', glob(KALETA_ROOT . '/system/src/Builder/Elements/*.php'))), $libraryTexts);
-check('Knihovna a prvky: všechny ukázkové texty mají anglický překlad', array_values(array_diff(array_unique($libraryTexts[1]), array_keys($libraryEnDictionary), ['Menu', 'Standard', 'Video'])), []);
+check('Knihovna a prvky: všechny ukázkové texty mají anglický překlad', array_values(array_diff(array_unique(array_map('stripslashes', $libraryTexts[1])), array_keys($libraryEnDictionary), ['Menu', 'Standard', 'Video'])), []);
 
 check('Firma::hodiny: rozsah dnů, víc úseků, zavřeno', Kaleta\Front\Company::parseOpeningHours("Po–Pá 8:00–17:00\nÚt 8-12, 13-17\nNe zavřeno"), [
     ['dny' => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], 'od' => '08:00', 'do' => '17:00'],
@@ -842,8 +845,10 @@ check('Stavba::vycisti: značky {{pole}} v obrázku a odkazu projdou', [$collect
 preg_match_all("/\bT\('((?:[^'\\\\]|\\\\.)*)'\)/", (string) file_get_contents(KALETA_ROOT . '/image/stavitel.js'), $enJs);
 preg_match('/window\.KALETA_PREKLAD = (\{.*\});/s', (string) file_get_contents(KALETA_ROOT . '/image/jazyky/admin-en.js'), $enJsDictionary);
 $enJsKeys = array_keys((array) json_decode((string) preg_replace(['#^\s*//.*$#m', '/,\s*\}$/'], ['', '}'], $enJsDictionary[1] ?? '{}'), true));
+preg_match('/window\.KALETA_PREKLAD = (\{.*\});/s', (string) file_get_contents(KALETA_ROOT . '/image/jazyky/admin-cs.js'), $csJsDictionary);
+$enJsKeys = [...$enJsKeys, ...array_keys((array) json_decode($csJsDictionary[1] ?? '{}', true))];
 check('Builder: všechny texty editoru mají anglický překlad', array_values(array_diff(array_unique(array_map('stripslashes', $enJs[1])), $enJsKeys, ['Tablet', 'Menu'])), []);
-$enAdmin = require KALETA_ROOT . '/system/jazyky/admin-en.php';
+$enAdmin = (require KALETA_ROOT . '/system/jazyky/admin-en.php') + (require KALETA_ROOT . '/system/jazyky/admin-cs.php');
 $enSchema = Kaleta\Builder\Build::schema(true, 'cs', true);
 $enTexts = array_merge(array_column($enSchema['prvky'], 'nazev'), array_column($enSchema['prvky'], 'popis'), array_column($enSchema['prvky'], 'skupina'), array_values($enSchema['skupiny_stylu']));
 $enFields = function (array $properties) use (&$enFields, &$enTexts): void {
@@ -963,7 +968,7 @@ try {
 } catch (RuntimeException $e) {
     $aiError = $e->getMessage();
 }
-check('Asistent: u jiného poskytovatele než Claude je potřeba zadat jeho model', str_contains($aiError, 'Zadejte název modelu'), true);
+check('Asistent: u jiného poskytovatele než Claude je potřeba zadat jeho model', str_contains($aiError, 'Enter the model name'), true);
 
 /* ---------- class renames (tools/rename.php) ---------- */
 $classAliases = require KALETA_SYSTEM . '/class-aliases.php';

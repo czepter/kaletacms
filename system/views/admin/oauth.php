@@ -11,12 +11,12 @@
 $role = t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '');
 ?>
 <div class="oauth-souhlas">
-	<p class="oauth-kdo"><strong><?= e($pending['nazev']) ?></strong> <?= e(t('chce pracovat s webem %s.', $app->settings()->get('site_name'))) ?></p>
-	<p><?= e(t('Bude jednat s právy vašeho účtu %s (%s): číst a upravovat stránky, novinky, části webu a vzhled – stejně jako vy v administraci. Stavby a novinky ukládá jako koncept.', (string) $user['user'], $role)) ?></p>
-	<p class="napoveda"><?= e(t('Po povolení se vrátíte do aplikace na adrese %s. Připojení kdykoli zrušíte v Můj účet → Připojené aplikace.', $url)) ?></p>
+	<p class="oauth-kdo"><strong><?= e($pending['nazev']) ?></strong> <?= e(t('wants to work with the website %s.', $app->settings()->get('site_name'))) ?></p>
+	<p><?= e(t('It will act with the permissions of your account %s (%s): read and edit pages, news, site parts and appearance – just like you in the administration. Builds and news are saved as drafts.', (string) $user['user'], $role)) ?></p>
+	<p class="napoveda"><?= e(t('After allowing it you return to the application at %s. You can revoke the connection at any time in My account → Connected applications.', $url)) ?></p>
 	<form method="post" action="<?= e($app->url('admin.php?action=oauth')) ?>" class="tlacitka">
 		<?= $csrf ?>
-		<button class="tl" type="submit" name="povolit" value="1"><?= e(t('Povolit přístup')) ?></button>
-		<button class="navigace" type="submit" name="povolit" value="0"><?= e(t('Nepovolit')) ?></button>
+		<button class="tl" type="submit" name="povolit" value="1"><?= e(t('Allow access')) ?></button>
+		<button class="navigace" type="submit" name="povolit" value="0"><?= e(t('Deny')) ?></button>
 	</form>
 </div>

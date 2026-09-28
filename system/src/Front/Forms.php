@@ -84,7 +84,7 @@ final class Forms
                 'vyber', 'volba' => $value === '' || in_array($value, Form::options($field), true) ? $value : null,
                 'datum' => $value === '' || (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) && checkdate((int) substr($value, 5, 2), (int) substr($value, 8, 2), (int) substr($value, 0, 4))) ? $value : null,
                 'cislo' => $value === '' || preg_match('/^-?\d{1,12}([.,]\d{1,6})?$/', $value) ? $value : null,
-                'souhlas' => $value === '1' ? t('ano') : '',
+                'souhlas' => $value === '1' ? t('yes') : '',
                 default => mb_substr(str_replace("\n", ' ', $value), 0, 300),
             };
             if ($value === null || ($field['povinne'] && $value === '')) {
@@ -118,7 +118,7 @@ final class Forms
             // confirmation to the sender: only the thank-you text and the form name – not the message content, so the form
             // cannot be abused to send out other people's texts
             $siteSettings = $this->app->settings();
-            Mail::send($siteSettings, $email, t('Potvrzení: %s', $siteSettings->get('site_name')), $element['obsah']['dekujeme'] . "\n\n—\n" . $siteSettings->get('site_name') . "\n" . rtrim($siteSettings->get('site_url') ?: $r->origin(), '/'), '');
+            Mail::send($siteSettings, $email, t('Confirmation: %s', $siteSettings->get('site_name')), $element['obsah']['dekujeme'] . "\n\n—\n" . $siteSettings->get('site_name') . "\n" . rtrim($siteSettings->get('site_url') ?: $r->origin(), '/'), '');
         }
         $thankYouUrl = (string) ($element['obsah']['dekovna'] ?? '');
         // the browser reads „/\cizi.cz“ as //cizi.cz – a backslash in the thank-you page URL is rejected
@@ -215,8 +215,8 @@ final class Forms
         }
         $url = rtrim($siteSettings->get('site_url') !== '' ? $siteSettings->get('site_url') : $this->app->request->origin(), '/');
         $text = implode("\n\n", array_map(fn (array $d): string => $d[0] . ":\n" . $d[1], $data))
-            . ($campaign !== '' ? "\n\n" . t('Kampaň') . ":\n" . self::campaignText($campaign) : '')
-            . "\n\n—\n" . t('Poptávka v administraci: %s', $url . $this->app->url('admin.php?module=enquiries&action=detail&id=' . $idp));
+            . ($campaign !== '' ? "\n\n" . t('Campaign') . ":\n" . self::campaignText($campaign) : '')
+            . "\n\n—\n" . t('Enquiry in the administration: %s', $url . $this->app->url('admin.php?module=enquiries&action=detail&id=' . $idp));
         Mail::send($siteSettings, $recipient, t('%s: %s', $element['obsah']['nazev'], $siteSettings->get('site_name')), $text, '', $email !== '' ? ['Reply-To' => $email] : []);
     }
 }

@@ -12,13 +12,13 @@ final class Text extends Element
 {
     public const string TYPE = 'text';
     public const string NAME = 'Text';
-    public const string DESCRIPTION = 'Odstavce, seznamy, odkazy a tabulky z editoru.';
+    public const string DESCRIPTION = 'Paragraphs, lists, links and tables from the editor.';
     public const string ICON = 'text';
     public const array HTML_TAGS = ['div'];
 
     public static function properties(): array
     {
-        return ['html' => ['typ' => 'html', 'popisek' => 'Text', 'vychozi' => '<p>' . t('Sem napište text. Stačí pár vět, které návštěvníkovi řeknou, co ho tu čeká.') . '</p>']];
+        return ['html' => ['typ' => 'html', 'popisek' => 'Text', 'vychozi' => '<p>' . t('Write your text here. A few sentences telling visitors what they will find here are enough.') . '</p>']];
     }
 
     public static function baseCss(): string

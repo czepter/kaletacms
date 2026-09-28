@@ -33,7 +33,7 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
     $hintHtml = $hint !== '' ? '<span class="napoveda">' . (str_contains($hint, '<') ? $hint : Kaleta\Admin\MenuPaths::links($app->url('admin.php'), $hint, ['config', 'vzhled', 'bloky'])) . '</span>' : '';
     echo '<div class="radek">';
     if ($kind === 'ano') {
-        echo '<span class="popisek">' . e($labelText) . '</span><div class="volby"><label><input type="checkbox" name="' . e($key) . '" value="1"' . ($h === '1' ? ' checked' : '') . '> ' . e(t('Ano')) . '</label>' . $hintHtml . '</div>';
+        echo '<span class="popisek">' . e($labelText) . '</span><div class="volby"><label><input type="checkbox" name="' . e($key) . '" value="1"' . ($h === '1' ? ' checked' : '') . '> ' . e(t('Yes')) . '</label>' . $hintHtml . '</div>';
     } elseif ($kind === 'radky' || $kind === 'kod') {
         echo '<label for="' . e($key) . '">' . e($labelText) . '</label><div><textarea class="textbox nizky' . ($kind === 'kod' ? ' kod' : '') . '" id="' . e($key) . '" name="' . e($key) . '" rows="4" ' . $attributes . '>' . e($h) . '</textarea>' . $hintHtml . '</div>';
     } else {
@@ -44,7 +44,7 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
 };
 ?>
 <?php if ($module::IDENT === 'settings'): ?>
-<nav class="zalozky" aria-label="<?= e(t('Sekce nastavení')) ?>">
+<nav class="zalozky" aria-label="<?= e(t('Settings sections')) ?>">
 <?php foreach (Settings::TABS as $key => $name): ?>
 	<a href="<?= e($module->url('', ['tab' => $key])) ?>"<?= $tab === $key ? ' class="aktivni" aria-current="page"' : '' ?>><?= e(t($name)) ?></a>
 <?php endforeach ?>
@@ -52,11 +52,11 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
 <?php endif ?>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>">
 <?php /* the first submit button in the form determines what Enter does: save the settings (not a backup, an update check or a test e-mail) */ ?>
-<button type="submit" class="vychozi-odeslani" tabindex="-1" aria-hidden="true"><?= e(t('Uložit nastavení')) ?></button>
+<button type="submit" class="vychozi-odeslani" tabindex="-1" aria-hidden="true"><?= e(t('Save settings')) ?></button>
 <?= $csrf ?>
 <input type="hidden" name="tab" value="<?= e($tab) ?>">
 <?php require __DIR__ . '/' . $tab . '.php'; ?>
 <?php if ($tab !== 'health'): ?>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit nastavení')) ?>"></p>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save settings')) ?>"></p>
 <?php endif ?>
 </form>

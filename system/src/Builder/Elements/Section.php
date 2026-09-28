@@ -12,7 +12,7 @@ final class Section extends Element
 {
     public const string TYPE = 'sekce';
     public const string NAME = 'Sekce';
-    public const string DESCRIPTION = 'Pás přes celou šířku stránky s obsahem uprostřed.';
+    public const string DESCRIPTION = 'A full-width band with centred content.';
     public const string ICON = 'sekce';
     public const string GROUP = 'Rozložení';
     public const bool CONTAINER = true;
@@ -21,8 +21,8 @@ final class Section extends Element
     public static function properties(): array
     {
         return [
-            'sirka' => ['typ' => 'vyber', 'popisek' => 'Šířka obsahu', 'vychozi' => 'obsah', 'moznosti' => ['obsah' => 'šířka webu', 'uzka' => 'úzká (text)', 'plna' => 'celá šířka']],
-            'video' => ['typ' => 'odkaz', 'popisek' => 'Video na pozadí (MP4 nebo WebM z Médií, bez zvuku)', 'vychozi' => '', 'media' => 'video'], // editor: a pick from Media, not a link
+            'sirka' => ['typ' => 'vyber', 'popisek' => 'Content width', 'vychozi' => 'obsah', 'moznosti' => ['obsah' => 'site width', 'uzka' => 'narrow (text)', 'plna' => 'full width']],
+            'video' => ['typ' => 'odkaz', 'popisek' => 'Background video (MP4 or WebM from Media, no sound)', 'vychozi' => '', 'media' => 'video'], // editor: a pick from Media, not a link
         ];
     }
 

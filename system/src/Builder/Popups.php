@@ -19,32 +19,32 @@ final class Popups
 {
     /** type => [name, popover] – the window and the full screen close with a click outside (auto), the panel and bars do not (manual) */
     public const array TYPES = [
-        'okno' => ['Okno uprostřed', 'auto'],
-        'panel' => ['Vysouvací panel v rohu', 'manual'],
-        'lista-nahore' => ['Lišta nahoře', 'manual'],
-        'lista-dole' => ['Lišta dole', 'manual'],
-        'cela' => ['Přes celou obrazovku', 'auto'],
+        'okno' => ['Window in the middle', 'auto'],
+        'panel' => ['Slide-in panel in the corner', 'manual'],
+        'lista-nahore' => ['Bar at the top', 'manual'],
+        'lista-dole' => ['Bar at the bottom', 'manual'],
+        'cela' => ['Full screen', 'auto'],
     ];
 
     /** trigger => [name, value unit ('' = without a value)] */
     public const array TRIGGERS = [
-        'cas' => ['Po zadaném počtu sekund', 's'],
-        'posun' => ['Po odrolování části stránky', '%'],
-        'odchod' => ['Když se návštěvník chystá odejít', ''],
-        'necinnost' => ['Po zadaném počtu sekund nečinnosti', 's'],
-        'stranky' => ['Po zadaném počtu stránek v návštěvě', 'stránek'],
-        'klik' => ['Jen kliknutím na odkaz nebo tlačítko', ''],
+        'cas' => ['After a number of seconds', 's'],
+        'posun' => ['After scrolling part of the page', '%'],
+        'odchod' => ['When the visitor is about to leave', ''],
+        'necinnost' => ['After a number of seconds without activity', 's'],
+        'stranky' => ['After a number of pages in the visit', 'stránek'],
+        'klik' => ['Only by clicking a link or button', ''],
     ];
 
     public const array FREQUENCIES = [
-        'relace' => 'Jednou za návštěvu',
-        'dni' => 'Jednou za zadaný počet dní',
-        'zavreni' => 'Dokud ho návštěvník nezavře',
-        'odeslani' => 'Dokud návštěvník neodešle formulář v okně',
-        'vzdy' => 'Pokaždé, když se spouštěč splní',
+        'relace' => 'Once per visit',
+        'dni' => 'Once every number of days',
+        'zavreni' => 'Until the visitor closes it',
+        'odeslani' => 'Until the visitor sends the form in it',
+        'vzdy' => 'Every time the trigger is met',
     ];
 
-    public const array DEVICES = ['vse' => 'Všechna zařízení', 'pocitac' => 'Jen počítač a tablet', 'telefon' => 'Jen telefon'];
+    public const array DEVICES = ['vse' => 'All devices', 'pocitac' => 'Computer and tablet only', 'telefon' => 'Phone only'];
 
     public const string ADDRESS_PATTERN = '/^[a-z0-9][a-z0-9-]{0,59}$/';
 
@@ -157,7 +157,7 @@ final class Popups
 
         return '<div id="' . e($id) . '" class="ka-popup ka-popup--' . e($type) . '" popover="' . self::TYPES[$type][1] . '" role="' . ($dialog ? 'dialog' : 'region') . '"'
             . ' aria-label="' . e($p['nazev']) . '"' . implode('', array_map(fn (string $k, string $v): string => ' data-' . $k . '="' . e($v) . '"', array_keys($data), $data)) . '>'
-            . '<button type="button" class="ka-popup-zavrit" popovertarget="' . e($id) . '" popovertargetaction="hide" aria-label="' . e(t('Zavřít')) . '">×</button>'
+            . '<button type="button" class="ka-popup-zavrit" popovertarget="' . e($id) . '" popovertargetaction="hide" aria-label="' . e(t('Close')) . '">×</button>'
             . '<div class="ka-popup-obsah stavba">' . $content . '</div></div>';
     }
 
@@ -171,12 +171,12 @@ final class Popups
 
     /** Ready-made popups for a new popup: key => [name, description, type, trigger, value]. */
     public const array LIBRARY = [
-        'newsletter' => ['Přihlášení k newsletteru', 'Nadpis, krátký text a pole pro e-mail s potvrzením odběru.', 'okno', 'posun', 50],
-        'magnet' => ['Materiál ke stažení za e-mail', 'Nabídka průvodce nebo ceníku výměnou za kontakt – formulář jde do Poptávek.', 'okno', 'odchod', 0],
-        'lista' => ['Oznamovací lišta', 'Úzká lišta nahoře s krátkou zprávou a odkazem.', 'lista-nahore', 'cas', 1],
-        'sleva' => ['Sleva nebo akce', 'Výrazná nabídka s kódem a tlačítkem.', 'okno', 'cas', 15],
-        'udalost' => ['Pozvánka na událost', 'Panel v rohu s datem, místem a odkazem na registraci.', 'panel', 'cas', 8],
-        'prazdny' => ['Prázdné okno', 'Nadpis a text – zbytek poskládáte v builderu.', 'okno', 'klik', 0],
+        'newsletter' => ['Přihlášení k newsletteru', 'A heading, a short text and an e-mail field with confirmed sign-up.', 'okno', 'posun', 50],
+        'magnet' => ['Download for an e-mail', 'A guide or price list in exchange for contact details – the form goes to Enquiries.', 'okno', 'odchod', 0],
+        'lista' => ['Announcement bar', 'A slim bar at the top with a short message and a link.', 'lista-nahore', 'cas', 1],
+        'sleva' => ['Discount or offer', 'A bold offer with a code and a button.', 'okno', 'cas', 15],
+        'udalost' => ['Event invitation', 'A corner panel with the date, the place and a registration link.', 'panel', 'cas', 8],
+        'prazdny' => ['Blank pop-up', 'A heading and a text – build the rest in the builder.', 'okno', 'klik', 0],
     ];
 
     /** Build of a ready-made popup in the content language. */
@@ -186,15 +186,15 @@ final class Popups
             $n = Build::fresh(...);
             $h = fn (string $text, string $htmlTag = 'h2'): array => ['znacka' => $htmlTag] + $n('nadpis', ['text' => $text]);
             $children = match ($key) {
-                'newsletter' => [$h(t('Novinky jednou za měsíc')), $n('text', ['html' => '<p>' . e(t('Tipy a novinky z našeho oboru. Žádný spam, odhlásit se můžete jedním kliknutím.')) . '</p>']), $n('newsletter')],
-                'magnet' => [$h(t('Stáhněte si průvodce zdarma')), $n('text', ['html' => '<p>' . e(t('Pošleme vám ho e-mailem. Kontakt použijeme jen k odpovědi.')) . '</p>']),
-                    $n('formular', ['nazev' => t('Průvodce ke stažení'), 'dekujeme' => t('Děkujeme! Průvodce vám pošleme e-mailem.'), 'tlacitko' => t('Poslat průvodce'),
-                        'pole' => [['popisek' => t('Jméno'), 'typ' => 'text', 'povinne' => false, 'moznosti' => ''], ['popisek' => t('E-mail'), 'typ' => 'email', 'povinne' => true, 'moznosti' => ''],
-                            ['popisek' => t('Souhlasím se zpracováním osobních údajů za účelem vyřízení poptávky.'), 'typ' => 'souhlas', 'povinne' => true, 'moznosti' => '']]])],
-                'lista' => [$n('kontejner', [], [$h(t('Nově otevíráme i v sobotu dopoledne.'), 'p'), $n('tlacitko', ['text' => t('Více informací'), 'odkaz' => '#', 'varianta' => 'odkaz'])])],
-                'sleva' => [$h(t('Sleva 10 % na první objednávku')), $n('text', ['html' => '<p>' . e(t('Při objednávce zadejte kód')) . ' <strong>' . e(t('VITEJTE10')) . '</strong>.</p>']), $n('tlacitko', ['text' => t('Chci slevu'), 'odkaz' => '#'])],
-                'udalost' => [$h(t('Den otevřených dveří'), 'h3'), $n('text', ['html' => '<p>' . e(t('Sobota 12. října, 10–16 h. Přijďte se podívat, jak pracujeme.')) . '</p>']), $n('tlacitko', ['text' => t('Chci přijít'), 'odkaz' => '#'])],
-                default => [$h(t('Nadpis okna')), $n('text', ['html' => '<p>' . e(t('Krátký text okna.')) . '</p>'])],
+                'newsletter' => [$h(t('News once a month')), $n('text', ['html' => '<p>' . e(t('Tips and news from our field. No spam – unsubscribe with one click.')) . '</p>']), $n('newsletter')],
+                'magnet' => [$h(t('Download the free guide')), $n('text', ['html' => '<p>' . e(t('We will send it by e-mail. We use your contact only to reply.')) . '</p>']),
+                    $n('formular', ['nazev' => t('Guide download'), 'dekujeme' => t('Thank you! We will send you the guide by e-mail.'), 'tlacitko' => t('Send me the guide'),
+                        'pole' => [['popisek' => t('Jméno'), 'typ' => 'text', 'povinne' => false, 'moznosti' => ''], ['popisek' => t('Email'), 'typ' => 'email', 'povinne' => true, 'moznosti' => ''],
+                            ['popisek' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'typ' => 'souhlas', 'povinne' => true, 'moznosti' => '']]])],
+                'lista' => [$n('kontejner', [], [$h(t('We are now also open on Saturday mornings.'), 'p'), $n('tlacitko', ['text' => t('More information'), 'odkaz' => '#', 'varianta' => 'odkaz'])])],
+                'sleva' => [$h(t('10% off your first order')), $n('text', ['html' => '<p>' . e(t('Enter the code')) . ' <strong>' . e(t('WELCOME10')) . '</strong>.</p>']), $n('tlacitko', ['text' => t('Get the discount'), 'odkaz' => '#'])],
+                'udalost' => [$h(t('Open day'), 'h3'), $n('text', ['html' => '<p>' . e(t('Saturday 12 October, 10 am – 4 pm. Come and see how we work.')) . '</p>']), $n('tlacitko', ['text' => t('I want to come'), 'odkaz' => '#'])],
+                default => [$h(t('Window heading')), $n('text', ['html' => '<p>' . e(t('A short text for the window.')) . '</p>'])],
             };
             if ($key === 'lista') {
                 $children[0]['styl'] = ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'row', 'zarovnani' => 'center', 'rozmisteni' => 'center', 'mezera' => 's']];

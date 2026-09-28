@@ -15,18 +15,18 @@ use Kaleta\Builder\Element;
 final class LanguageSwitcher extends Element
 {
     public const string TYPE = 'jazyky';
-    public const string NAME = 'Přepínač jazyků';
-    public const string DESCRIPTION = 'Výběr jazykové verze webu – řada zkratek, nebo rozbalovací nabídka (třeba v patičce).';
+    public const string NAME = 'Language switcher';
+    public const string DESCRIPTION = 'Choose the language version of the site – a row of codes or a dropdown (for example in the footer).';
     public const string ICON = 'svet';
-    public const string GROUP = 'Části webu';
+    public const string GROUP = 'Site parts';
     public const array HTML_TAGS = ['nav'];
     public const bool PARTS_ONLY = true;
 
     public static function properties(): array
     {
         return [
-            'styl' => ['typ' => 'vyber', 'popisek' => 'Podoba', 'vychozi' => 'nabidka', 'moznosti' => ['nabidka' => 'rozbalovací nabídka', 'rada' => 'zkratky v řadě']],
-            'smer' => ['typ' => 'vyber', 'popisek' => 'Nabídka se otevře', 'vychozi' => 'nahoru', 'moznosti' => ['nahoru' => 'nahoru (patička)', 'dolu' => 'dolů (záhlaví)']],
+            'styl' => ['typ' => 'vyber', 'popisek' => 'Podoba', 'vychozi' => 'nabidka', 'moznosti' => ['nabidka' => 'dropdown', 'rada' => 'codes in a row']],
+            'smer' => ['typ' => 'vyber', 'popisek' => 'The dropdown opens', 'vychozi' => 'nahoru', 'moznosti' => ['nahoru' => 'upwards (footer)', 'dolu' => 'downwards (header)']],
         ];
     }
 
@@ -35,7 +35,7 @@ final class LanguageSwitcher extends Element
         if ($k->languageList === []) {
             // a single language: nothing on the site, in the builder only a notice where languages are enabled
             return $k->editor ? '<span' . $a . ' style="display:inline-block;padding:.4rem .8rem;border:1px dashed currentColor;border-radius:999px;font-size:.85rem">'
-                . e(t('Přepínač jazyků – ukáže se, když má web víc jazykových verzí')) . '</span>' : '';
+                . e(t('Language switcher – it shows when the site has more language versions')) . '</span>' : '';
         }
 
         return $k->app->view->render('front/jazyky', ['jazyky' => $k->languageList, 'styl' => $p['obsah']['styl'] ?? 'nabidka', 'smer' => $p['obsah']['smer'] ?? 'nahoru', 'atributy' => Text::withClass($a, 'ka-jazyky-prvek')]);

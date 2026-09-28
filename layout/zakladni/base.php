@@ -57,7 +57,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 <?= $hlava ?>
 </head>
 <body>
-<a class="preskocit" href="#obsah"><?= e(t('Přeskočit na obsah')) ?></a>
+<a class="preskocit" href="#obsah"><?= e(t('Skip to content')) ?></a>
 <?php if (($casti['hlavicka'] ?? null) !== null): ?>
 <?= $casti['hlavicka'] ?>
 <?php else: ?>
@@ -65,7 +65,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 	<div class="obal hlavicka-obal">
 		<a class="logo" href="<?= e($url('')) ?>"<?= $jeAktivni('') ? ' aria-current="page"' : '' ?>><?php if ($web->get('logo') !== ''): ?><img src="<?= e(preg_match('#^(https?:)?/#', $web->get('logo')) ? $web->get('logo') : $url($web->get('logo'))) ?>" alt="<?= e($nazevWebu) ?>"><?php else: ?><?= e($nazevWebu) ?><?php endif ?></a>
 		<button class="menu-tl" type="button" popovertarget="navigace" aria-label="<?= e(t('Menu')) ?>"><span aria-hidden="true"></span></button>
-		<nav class="navigace" id="navigace" popover aria-label="<?= e(t('Hlavní navigace')) ?>">
+		<nav class="navigace" id="navigace" popover aria-label="<?= e(t('Main navigation')) ?>">
 			<ul>
 				<?= $menu_html($menu, $cesta, $url('')) ?>
 			</ul>
@@ -94,7 +94,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 			<p><a href="mailto:<?= e($web->get('company_email')) ?>"><?= e($web->get('company_email')) ?></a></p>
 <?php endif ?>
 		</div>
-		<nav aria-label="<?= e(t('Odkazy v patičce')) ?>">
+		<nav aria-label="<?= e(t('Footer links')) ?>">
 			<ul>
 <?php $plocha = []; foreach ($menu_paticka as $p) { $plocha[] = ['deti' => []] + $p; array_push($plocha, ...$p['deti']); } // no expanding in the footer ?>
 				<?= $menu_html($plocha, $cesta, $url('')) ?>

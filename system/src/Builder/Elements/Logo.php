@@ -12,15 +12,15 @@ final class Logo extends Element
 {
     public const string TYPE = 'logo';
     public const string NAME = 'Logo';
-    public const string DESCRIPTION = 'Logo webu z nastavení Vzhledu, jinak název webu – odkaz na úvodní stránku.';
+    public const string DESCRIPTION = 'The site logo from Appearance, otherwise the site name – a link to the home page.';
     public const string ICON = 'logo';
-    public const string GROUP = 'Části webu';
+    public const string GROUP = 'Site parts';
     public const array HTML_TAGS = ['a'];
     public const bool PARTS_ONLY = true;
 
     public static function properties(): array
     {
-        return ['nazev' => ['typ' => 'prepinac', 'popisek' => 'Vedle loga i název webu', 'vychozi' => false]];
+        return ['nazev' => ['typ' => 'prepinac', 'popisek' => 'Site name next to the logo', 'vychozi' => false]];
     }
 
     public static function baseCss(): string

@@ -286,7 +286,7 @@ final class WpImport
         [$home, $text] = WpContent::introAndText($p['perex'], $p['obsah'], $state['prilohy']);
         $colorScheme = $p['rubriky'] === [] ? $this->defaultCategory($state) : $this->category((string) array_key_first($p['rubriky']), (string) reset($p['rubriky']), $state);
         $language = (string) $this->db->value('SELECT jazyk FROM {kategorie} WHERE idt = ?', [$colorScheme]); // the news item takes over the category's language, as when saving in the admin
-        $title = mb_substr($p['titulek'] !== '' ? $p['titulek'] : t('(bez názvu)'), 0, 255);
+        $title = mb_substr($p['titulek'] !== '' ? $p['titulek'] : t('(untitled)'), 0, 255);
         $now = date('Y-m-d H:i:s');
 
         $seo = self::availableSlug(
@@ -331,7 +331,7 @@ final class WpImport
 
             return;
         }
-        $title = mb_substr($p['titulek'] !== '' ? $p['titulek'] : t('(bez názvu)'), 0, 200);
+        $title = mb_substr($p['titulek'] !== '' ? $p['titulek'] : t('(untitled)'), 0, 200);
         $language = Language::column($this->settings, (string) $state['volby']['jazyk']);
         // a page has its slug directly under the site root, so it must not take a slug the system uses
         $seo = self::availableSlug(

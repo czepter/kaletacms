@@ -24,36 +24,36 @@
 <body class="login">
 <div class="login-karta">
 <?= $app->view->render('admin/logo', ['height' => 36]) ?>
-<h1><?= e(t('Přihlášení do administrace')) ?></h1>
+<h1><?= e(t('Sign in to the administration')) ?></h1>
 <?php if ($error !== null): ?>
 <p class="hlaska hlaska-chyba" role="alert"><?= e($error) ?></p>
 <?php elseif ($app->request->get('heslo') === 'zmeneno'): ?>
-<p class="hlaska hlaska-ok" role="status"><?= e(t('Heslo je změněno. Přihlaste se novým heslem.')) ?></p>
+<p class="hlaska hlaska-ok" role="status"><?= e(t('The password has been changed. Sign in with the new password.')) ?></p>
 <?php endif ?>
 <form method="post" action="<?= e($app->url('admin.php')) ?>">
 <?= $app->session->csrfField() ?>
 <?php if ($code): ?>
 <input type="hidden" name="krok" value="kod">
-<p><?= e(t('Zadejte šestimístný kód z ověřovací aplikace. Nemáte telefon? Použijte jeden ze záložních kódů.')) ?></p>
-<div class="login-pole"><label for="kod"><?= e(t('Ověřovací kód:')) ?></label> <input class="textpole" type="text" id="kod" name="kod" size="20" maxlength="12" inputmode="numeric" autocomplete="one-time-code" required autofocus></div>
+<p><?= e(t('Enter the six-digit code from your authenticator app. No phone? Use one of your backup codes.')) ?></p>
+<div class="login-pole"><label for="kod"><?= e(t('Verification code:')) ?></label> <input class="textpole" type="text" id="kod" name="kod" size="20" maxlength="12" inputmode="numeric" autocomplete="one-time-code" required autofocus></div>
 <?php else: ?>
 <div class="login-pole"><label for="user"><?= e(t('Přihlašovací jméno')) ?></label> <input class="textpole" type="text" id="user" name="user" value="<?= e($login) ?>" size="20" maxlength="40" autocomplete="username" required autofocus></div>
-<div class="login-pole"><label for="password"><?= e(t('Heslo')) ?></label> <input class="textpole" type="password" id="password" name="password" size="20" autocomplete="current-password" required></div>
+<div class="login-pole"><label for="password"><?= e(t('Password')) ?></label> <input class="textpole" type="password" id="password" name="password" size="20" autocomplete="current-password" required></div>
 <?php endif ?>
-<p><input class="tl" type="submit" value="<?= e(t($code ? 'Ověřit kód' : 'Přihlásit se')) ?>"></p>
+<p><input class="tl" type="submit" value="<?= e(t($code ? 'Verify code' : 'Přihlásit se')) ?>"></p>
 </form>
 <?php if ($code && !empty($keys)): ?>
 <form method="post" action="<?= e($app->url('admin.php')) ?>" data-klice="<?= e($app->url('admin.php')) ?>">
 <?= $app->session->csrfField() ?>
-<p class="login-nebo"><?= e(t('nebo')) ?></p>
-<p><button class="tl" type="button" data-klic-prihlasit><?= e(t('Přihlásit se otiskem prstu nebo klíčem')) ?></button></p>
+<p class="login-nebo"><?= e(t('or')) ?></p>
+<p><button class="tl" type="button" data-klic-prihlasit><?= e(t('Sign in with fingerprint or passkey')) ?></button></p>
 <p class="hlaska hlaska-chyba" data-klic-chyba hidden role="alert"></p>
-<p class="smltxt" data-klic-nepodporuje hidden><?= e(t('Tento prohlížeč přihlašovací klíče nepodporuje, nebo web neběží na HTTPS.')) ?></p>
+<p class="smltxt" data-klic-nepodporuje hidden><?= e(t('This browser does not support passkeys, or the site is not running on HTTPS.')) ?></p>
 </form>
 <script src="<?= e($app->url('image/klice.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
 <?php endif ?>
 <?php if (!$code): ?>
-<p class="login-odkaz"><a href="<?= e($app->url('admin.php?action=password')) ?>"><?= e(t('Zapomenuté heslo?')) ?></a></p>
+<p class="login-odkaz"><a href="<?= e($app->url('admin.php?action=password')) ?>"><?= e(t('Forgotten your password?')) ?></a></p>
 <?php endif ?>
 </div>
 </body>

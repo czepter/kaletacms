@@ -15,20 +15,20 @@ use Kaleta\Builder\Element;
 final class Gallery extends Element
 {
     public const string TYPE = 'galerie';
-    public const string NAME = 'Galerie';
-    public const string DESCRIPTION = 'Mřížka fotek, které se po klepnutí otevřou přes celou obrazovku.';
+    public const string NAME = 'Gallery';
+    public const string DESCRIPTION = 'A grid of photos that open full screen when clicked.';
     public const string ICON = 'galerie';
     public const array HTML_TAGS = ['figure', 'div'];
 
     public static function properties(): array
     {
         return [
-            'fotky' => ['typ' => 'polozky', 'popisek' => 'Fotky', 'max' => 60, 'vychozi' => [], 'pole' => [
-                'src' => ['typ' => 'obrazek', 'popisek' => 'Fotka', 'vychozi' => ''],
-                'alt' => ['typ' => 'text', 'popisek' => 'Popis (pro nevidomé i pod fotkou v prohlížečce)', 'vychozi' => '', 'max' => 300],
+            'fotky' => ['typ' => 'polozky', 'popisek' => 'Photos', 'max' => 60, 'vychozi' => [], 'pole' => [
+                'src' => ['typ' => 'obrazek', 'popisek' => 'Photo', 'vychozi' => ''],
+                'alt' => ['typ' => 'text', 'popisek' => 'Description (for blind visitors and under the photo in the viewer)', 'vychozi' => '', 'max' => 300],
             ]],
-            'pomer' => ['typ' => 'vyber', 'popisek' => 'Tvar náhledů', 'vychozi' => '4 / 3', 'moznosti' => ['4 / 3' => 'na šířku 4 : 3', '1 / 1' => 'čtverec', '3 / 4' => 'na výšku 3 : 4', '16 / 9' => 'široký 16 : 9']],
-            'popisek' => ['typ' => 'text', 'popisek' => 'Popisek galerie', 'vychozi' => '', 'max' => 300],
+            'pomer' => ['typ' => 'vyber', 'popisek' => 'Thumbnail shape', 'vychozi' => '4 / 3', 'moznosti' => ['4 / 3' => 'landscape 4 : 3', '1 / 1' => 'čtverec', '3 / 4' => 'portrait 3 : 4', '16 / 9' => 'wide 16 : 9']],
+            'popisek' => ['typ' => 'text', 'popisek' => 'Gallery caption', 'vychozi' => '', 'max' => 300],
         ];
     }
 
@@ -55,7 +55,7 @@ final class Gallery extends Element
                 . ' alt="' . e($f['alt']) . '" loading="lazy" style="aspect-ratio:' . e($o['pomer']) . '">';
         }
         if ($html === '') {
-            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Přidejte fotky v panelu Obsah.')) . '</div>' : '';
+            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Add photos in the Content panel.')) . '</div>' : '';
         }
         if ($o['popisek'] !== '') {
             $html .= $p['znacka'] === 'figure' ? '<figcaption>' . e($o['popisek']) . '</figcaption>' : '<p>' . e($o['popisek']) . '</p>';

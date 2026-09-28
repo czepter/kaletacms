@@ -32,13 +32,13 @@ final class RemoteBackup
     private static function ftp(Settings $s, string $path): void
     {
         if (!function_exists('ftp_connect')) {
-            throw new \RuntimeException('Na serveru chybí rozšíření PHP pro FTP.');
+            throw new \RuntimeException('The PHP extension for FTP is missing on the server.');
         }
         $host = $s->get('backup_host');
         // encrypted FTPS only: the backup contains passwords and secret keys, over plain FTP they would travel the network
         // readable (the FTP password too)
         if (!function_exists('ftp_ssl_connect')) {
-            throw new \RuntimeException('Server neumí šifrované FTP (FTPS). Zálohu posílejte do úložiště S3, nebo si ji stahujte ručně.');
+            throw new \RuntimeException('The server cannot use encrypted FTP (FTPS). Send backups to S3 storage, or download them manually.');
         }
         $connection = @ftp_ssl_connect($host, 21, 15);
         if ($connection === false) {

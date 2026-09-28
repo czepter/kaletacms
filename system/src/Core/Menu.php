@@ -12,7 +12,7 @@ namespace Kaleta\Core;
 final class Menu
 {
     /** @var array<string, string> location => label */
-    public const array LOCATIONS = ['hlavni' => 'Hlavní menu', 'paticka' => 'Menu v patičce'];
+    public const array LOCATIONS = ['hlavni' => 'Main menu', 'paticka' => 'Footer menu'];
 
     public const array TYPES = ['stranka', 'odkaz', 'novinky', 'skupina'];
 

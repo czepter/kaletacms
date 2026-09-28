@@ -64,7 +64,7 @@ final class Installer
         $requirements = $this->requirements();
         $data = [
             'db_host' => 'localhost', 'db_port' => '3306', 'db_name' => '', 'db_user' => '', 'db_password' => '', 'db_prefix' => 'ka_',
-            'nazev_webu' => t('Můj web'), 'user' => 'admin', 'jmeno' => '', 'email' => '',
+            'nazev_webu' => t('My website'), 'user' => 'admin', 'jmeno' => '', 'email' => '',
             'casove_pasmo' => self::TIME_ZONES[$this->language], 'web' => 'firemni', 'jazyk_webu' => $this->language,
         ];
         $errors = [];
@@ -107,11 +107,11 @@ final class Installer
         $write = fn (string $path): bool => is_writable(KALETA_ROOT . $path);
 
         return [
-            ['nazev' => t('PHP 8.4 nebo novější'), 'ok' => PHP_VERSION_ID >= 80400, 'info' => t('běží') . ' ' . PHP_VERSION],
-            ['nazev' => t('Rozšíření pdo_mysql'), 'ok' => extension_loaded('pdo_mysql'), 'info' => t('připojení k databázi MySQL / MariaDB')],
-            ['nazev' => t('Rozšíření mbstring'), 'ok' => extension_loaded('mbstring'), 'info' => t('práce s češtinou')],
-            ['nazev' => t('Zápis do kořenové složky'), 'ok' => $write(''), 'info' => t('kvůli vytvoření config.php')],
-            ['nazev' => t('Zápis do složky storage/'), 'ok' => $write('/storage/log') && $write('/storage/cache'), 'info' => t('logy a cache')],
+            ['nazev' => t('PHP 8.4 or newer'), 'ok' => PHP_VERSION_ID >= 80400, 'info' => t('running') . ' ' . PHP_VERSION],
+            ['nazev' => t('pdo_mysql extension'), 'ok' => extension_loaded('pdo_mysql'), 'info' => t('connection to a MySQL / MariaDB database')],
+            ['nazev' => t('mbstring extension'), 'ok' => extension_loaded('mbstring'), 'info' => t('working with accented text (UTF-8)')],
+            ['nazev' => t('Write access to the root folder'), 'ok' => $write(''), 'info' => t('needed to create config.php')],
+            ['nazev' => t('Write access to the storage/ folder'), 'ok' => $write('/storage/log') && $write('/storage/cache'), 'info' => t('logs and cache')],
         ];
     }
 
@@ -124,21 +124,21 @@ final class Installer
     {
         $errors = [];
         if (!preg_match('/^[a-z][a-z0-9_]{0,15}$/', $d['db_prefix'])) {
-            $errors['db_prefix'] = t('Předpona: malá písmena, číslice a podtržítko, nejvýše 16 znaků (např. ka_).');
+            $errors['db_prefix'] = t('Prefix: lowercase letters, digits and underscore, at most 16 characters (e.g. ka_).');
         }
         if ($d['db_name'] === '' || $d['db_user'] === '') {
-            $errors['db_name'] = t('Vyplňte název databáze a uživatele.');
+            $errors['db_name'] = t('Fill in the database name and user.');
         }
         if (!preg_match('/^[a-zA-Z0-9._-]{2,40}$/', $d['user'])) {
-            $errors['user'] = t('Přihlašovací jméno: 2-40 znaků, písmena bez diakritiky, číslice, tečka, pomlčka, podtržítko.');
+            $errors['user'] = t('Username: 2–40 characters, letters without accents, digits, dot, hyphen, underscore.');
         }
         if (mb_strlen($password) < 10) {
-            $errors['password'] = t('Heslo musí mít alespoň 10 znaků.');
+            $errors['password'] = t('The password must be at least 10 characters long.');
         } elseif ($password !== $password2) {
-            $errors['password'] = t('Hesla se neshodují.');
+            $errors['password'] = t('The passwords do not match.');
         }
         if ($d['email'] !== '' && filter_var($d['email'], FILTER_VALIDATE_EMAIL) === false) {
-            $errors['email'] = t('E-mail nemá platný tvar.');
+            $errors['email'] = t('The e-mail address is not valid.');
         }
         if ($errors !== []) {
             return $errors;
@@ -167,7 +167,7 @@ final class Installer
             [$d['db_prefix'] . 'user'],
         );
         if ((int) $exists > 0) {
-            return ['db_prefix' => t('V databázi už tabulky s touto předponou existují. Zvolte jinou předponu, nebo je nejprve odstraňte.')];
+            return ['db_prefix' => t('Tables with this prefix already exist in the database. Choose another prefix or remove them first.')];
         }
 
         try {
@@ -176,12 +176,12 @@ final class Installer
             }
             $this->createDefaultData($db, $d, $password, $extensions);
         } catch (\PDOException $e) {
-            return ['db_name' => t('Vytvoření tabulek selhalo:') . ' ' . $e->getMessage()];
+            return ['db_name' => t('Creating the tables failed:') . ' ' . $e->getMessage()];
         }
 
         $content = "<?php\n/**\n * Kaleta - konfigurace vytvořená instalátorem " . date('j. n. Y') . ".\n */\n\nreturn " . var_export($config, true) . ";\n";
         if (file_put_contents(KALETA_ROOT . '/config.php', $content, LOCK_EX) === false) {
-            return ['db_name' => t('Tabulky jsou vytvořeny, ale nepodařilo se zapsat config.php. Zkontrolujte práva k zápisu.')];
+            return ['db_name' => t('The tables were created, but config.php could not be written. Check the write permissions.')];
         }
 
         return [];
@@ -195,11 +195,11 @@ final class Installer
     private static function connectionError(\PDOException $e): array
     {
         return match ((int) ($e->errorInfo[1] ?? $e->getCode())) {
-            1045 => ['db_user' => t('Uživatelské jméno nebo heslo k databázi nesedí. Zkontrolujte je v administraci hostingu.')],
-            1044 => ['db_name' => t('Uživatel k této databázi nemá přístup. Přidělte mu ji v administraci hostingu.')],
-            1049 => ['db_name' => t('Databáze s tímto názvem na serveru není. Založte ji v administraci hostingu, nebo opravte název.')],
-            2002, 2005, 2006 => ['db_host' => t('K databázovému serveru se nepodařilo připojit. Zkontrolujte server a port.')],
-            default => ['db_name' => t('K databázi se nepodařilo připojit:') . ' ' . $e->getMessage()],
+            1045 => ['db_user' => t('The database user name or password is wrong. Check them in your hosting control panel.')],
+            1044 => ['db_name' => t('This user has no access to the database. Grant it in your hosting control panel.')],
+            1049 => ['db_name' => t('There is no database with this name on the server. Create it in your hosting control panel or correct the name.')],
+            2002, 2005, 2006 => ['db_host' => t('Could not connect to the database server. Check the server and port.')],
+            default => ['db_name' => t('Could not connect to the database:') . ' ' . $e->getMessage()],
         };
     }
 
@@ -229,10 +229,10 @@ final class Installer
             $x = fn (string $text): string => \Kaleta\Core\Language::runWith($siteLanguage, fn (): string => t($text));
             // skeleton of a typical company site: home, about us, services, contact – the texts are only a guide to what belongs on the page
             $pages = [
-                [$x('Úvod'), 'uvod', 0, '<h1>' . e($d['nazev_webu']) . '</h1><p>' . e($x('Jednou větou: co děláte a pro koho. Tuto stránku upravíte v administraci v sekci Stránky.')) . '</p>'],
-                [$x('O nás'), slugify($x('O nás')), 1, '<p>' . e($x('Kdo jste, jak dlouho to děláte a proč vám zákazníci věří.')) . '</p>'],
-                [$x('Služby'), slugify($x('Služby')), 1, '<p>' . e($x('Co nabízíte – každou službu krátce a srozumitelně.')) . '</p>'],
-                [$x('Kontakt'), slugify($x('Kontakt')), 1, '<p>' . e($x('Adresa, telefon, e-mail a otevírací doba.')) . '</p>'],
+                [$x('Úvod'), 'uvod', 0, '<h1>' . e($d['nazev_webu']) . '</h1><p>' . e($x('In one sentence: what you do and for whom. Edit this page in the administration under Pages.')) . '</p>'],
+                [$x('About us'), slugify($x('About us')), 1, '<p>' . e($x('Who you are, how long you have been doing it and why customers trust you.')) . '</p>'],
+                [$x('Services'), slugify($x('Services')), 1, '<p>' . e($x('What you offer – each service briefly and clearly.')) . '</p>'],
+                [$x('Contact'), slugify($x('Contact')), 1, '<p>' . e($x('Address, phone, e-mail and opening hours.')) . '</p>'],
             ];
             // pages straight from builder sections according to the chosen sample site – a new site looks like a site, not like an empty template
             $siteSettings = Library::SITES[$d['web']] ?? Library::SITES['firemni'];
@@ -252,7 +252,7 @@ final class Installer
             // privacy policy: a skeleton to fill in, in the site language (the site dictionary, not the installer's), hidden until the
             // administrator fills it in and publishes it (First steps remind of it); outside the main menu, linked from the footer,
             // the cookie bar and the consent in the form
-            [$privacyPolicy, $privacyPolicyText] = \Kaleta\Core\Language::runWith($siteLanguage, fn (): array => [t('Zásady ochrany osobních údajů'), Library::privacyPolicyText()]);
+            [$privacyPolicy, $privacyPolicyText] = \Kaleta\Core\Language::runWith($siteLanguage, fn (): array => [t('Privacy policy'), Library::privacyPolicyText()]);
             $privacyPolicyId = $db->insert('stranky', ['titulek' => $privacyPolicy, 'seo_link' => slugify($privacyPolicy), 'text' => $privacyPolicyText, 'zobrazit' => 0, 'v_menu' => 0, 'poradi' => 90]);
             \Kaleta\Core\Menu::save($db, 'paticka', '', [['typ' => 'stranka', 'ids' => $privacyPolicyId, 'text' => '']]);
 
@@ -270,10 +270,10 @@ final class Installer
             }
             $category = $db->insert('kategorie', ['nazev' => $x('Aktuality'), 'seo_link' => slugify($x('Aktuality')), 'popis' => '']);
             $db->insert('novinky', [
-                'seo_link' => slugify($x('Vítejte v Kaletě')),
-                'titulek' => $x('Vítejte v Kaletě'),
-                'uvod' => '<p>' . e($x('Web je nainstalovaný a připravený. Tuto novinku můžete v administraci upravit nebo smazat.')) . '</p>',
-                'text' => '<p>' . e($x('Do administrace se dostanete na adrese admin.php. Na přehledu vás provedou První kroky: dejte webu tvář, vyplňte údaje o firmě a připravte stránky.')) . '</p>',
+                'seo_link' => slugify($x('Our new website is live')),
+                'titulek' => $x('Our new website is live'),
+                'uvod' => '<p>' . e($x('Welcome to our new website. This is where we will share news about our work, projects and offers.')) . '</p>',
+                'text' => '<p>' . e($x('We have rebuilt the website so that it is easier to see what we do and how to get in touch. Have a look around – and if you have a question, just write to us.')) . '</p>',
                 'tema' => $category,
                 'autor' => $admin,
                 'datum' => date('Y-m-d H:i:s'),

@@ -12,15 +12,15 @@ final class Search extends Element
 {
     public const string TYPE = 'hledani';
     public const string NAME = 'Vyhledávání';
-    public const string DESCRIPTION = 'Pole pro hledání na webu – do záhlaví, na stránku 404 nebo k výpisu.';
+    public const string DESCRIPTION = 'A website search field – for the header, the 404 page or a listing.';
     public const string ICON = 'hledat';
     public const array HTML_TAGS = ['form'];
 
     public static function properties(): array
     {
         return [
-            'napoveda' => ['typ' => 'text', 'popisek' => 'Text v prázdném poli', 'vychozi' => t('Hledat na webu…'), 'max' => 80],
-            'tlacitko' => ['typ' => 'text', 'popisek' => 'Tlačítko', 'vychozi' => t('Hledat'), 'max' => 40],
+            'napoveda' => ['typ' => 'text', 'popisek' => 'Placeholder text', 'vychozi' => t('Search the website…'), 'max' => 80],
+            'tlacitko' => ['typ' => 'text', 'popisek' => 'Button', 'vychozi' => t('Hledat'), 'max' => 40],
         ];
     }
 
@@ -37,7 +37,7 @@ final class Search extends Element
         $id = 'hl-' . $p['id'];
 
         return '<form' . Text::withClass($a, 'ka-hledani') . ' role="search" method="get" action="' . e($k->url('hledani')) . '">'
-            . '<label class="ka-jen-ctecka" for="' . e($id) . '">' . e(t('Hledat na webu')) . '</label>'
+            . '<label class="ka-jen-ctecka" for="' . e($id) . '">' . e(t('Search the website')) . '</label>'
             . '<input type="search" id="' . e($id) . '" name="q" minlength="3" maxlength="100" placeholder="' . e($o['napoveda']) . '" required>'
             . '<button type="submit">' . e($o['tlacitko']) . '</button></form>';
     }

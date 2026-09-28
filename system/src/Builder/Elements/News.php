@@ -14,17 +14,17 @@ final class News extends Element
     public const string TYPE = 'novinky';
     public const string EXTENSION = 'novinky';
     public const string NAME = 'Novinky';
-    public const string DESCRIPTION = 'Poslední novinky jako karty – aktualizují se samy.';
+    public const string DESCRIPTION = 'Latest news as cards – they update themselves.';
     public const string ICON = 'clanek';
-    public const string GROUP = 'Dynamické';
+    public const string GROUP = 'Dynamic';
     public const array HTML_TAGS = ['div'];
 
     public static function properties(): array
     {
         return [
-            'pocet' => ['typ' => 'cislo', 'popisek' => 'Počet novinek', 'vychozi' => 3, 'min' => 1, 'max' => 12],
-            'kategorie' => ['typ' => 'text', 'popisek' => 'Jen z kategorie (adresa, nepovinné)', 'vychozi' => '', 'max' => 120],
-            'obrazky' => ['typ' => 'prepinac', 'popisek' => 'Zobrazit obrázky', 'vychozi' => true],
+            'pocet' => ['typ' => 'cislo', 'popisek' => 'Number of news items', 'vychozi' => 3, 'min' => 1, 'max' => 12],
+            'kategorie' => ['typ' => 'text', 'popisek' => 'Only from category (address, optional)', 'vychozi' => '', 'max' => 120],
+            'obrazky' => ['typ' => 'prepinac', 'popisek' => 'Show images', 'vychozi' => true],
         ];
     }
 
@@ -60,7 +60,7 @@ final class News extends Element
                 . '<p>' . e(mb_strimwidth(trim(html_entity_decode(strip_tags($n['uvod']), ENT_QUOTES | ENT_HTML5)), 0, 180, '…')) . '</p></article>';
         }
         if ($html === '' && $k->editor) {
-            $html = '<p>' . e(t('Zatím tu nejsou žádné novinky.')) . '</p>';
+            $html = '<p>' . e(t('There is no news yet.')) . '</p>';
         }
 
         return '<div' . $a . '>' . $html . '</div>';

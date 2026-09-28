@@ -20,13 +20,13 @@ class Settings extends Module
 {
     public const string IDENT = 'settings';
     public const string NAME = 'Nastavení';
-    public const string GROUP = 'Správa';
+    public const string GROUP = 'Administration';
     public const string ICON = 'nastaveni';
     public const bool ADMIN_ONLY = true;
 
     public const array TABS = [
-        'general' => 'Základní', 'company' => 'Firma', 'seo' => 'SEO a GEO',
-        'analytics' => 'Měření', 'cookies' => 'Soukromí a cookies', 'mail' => 'Pošta', 'backups' => 'Zálohy a aktualizace', 'health' => 'Stav systému',
+        'general' => 'General', 'company' => 'Company', 'seo' => 'SEO and GEO',
+        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'backups' => 'Backups and updates', 'health' => 'System status',
     ];
 
     /** Company types for the field company_type (vyber:…). */
@@ -96,7 +96,7 @@ class Settings extends Module
         $names = array_map(fn (string $key): string => preg_match('/\$pole\(\s*\'' . preg_quote($key, '/') . '\',\s*\'([^\']+)\'/', $template, $m) ? '„' . t($m[1]) . '“' : $key, $errors);
         $this->app->session->set('konfigurace_chybne', ['tab' => $tab, 'pole' => $errors, 'hodnoty' => $given]);
 
-        return $this->back(t('Tato pole nemají platný tvar a neuložila se: %s. Opravte je prosím (jsou zvýrazněná), ostatní nastavení je uložené.', implode(', ', $names)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'chyba');
+        return $this->back(t('These fields have an invalid format and were not saved: %s. Please correct them (they are highlighted); the other settings are saved.', implode(', ', $names)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'chyba');
     }
 
     protected function actionList(): Response
@@ -180,7 +180,7 @@ class Settings extends Module
                 Categories::createDefault($this->db, $settings); // news enabled after installation: right away with a category, as from the installation
             }
             if (($this->request->post('ai_key') !== '' || $this->request->post('ai_provider') !== $this->request->post('ai_poskytovatel_puvodni')) && $settings->get('ai_key') !== '' && ($keyError = (new \Kaleta\Core\Assistant($settings))->verifyKey()) !== null) {
-                return $this->back(t('Nastavení je uložené, ale klíč asistenta nefunguje: %s', t($keyError)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'chyba');
+                return $this->back(t('The settings are saved, but the assistant key does not work: %s', t($keyError)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'chyba');
             }
         }
         if ($this->request->postBool('novy_token_ulohy')) {
@@ -191,7 +191,7 @@ class Settings extends Module
         }
 
         return $errors === []
-            ? $this->back('Nastavení bylo uloženo.', '', static::IDENT === 'settings' ? ['tab' => $tab] : [])
+            ? $this->back('Settings saved.', '', static::IDENT === 'settings' ? ['tab' => $tab] : [])
             : $this->rejectInvalid($tab, $errors, $given);
     }
 
@@ -203,21 +203,21 @@ class Settings extends Module
         try {
             $file = Backup::create($this->db);
         } catch (\Throwable $e) {
-            return $this->back(t('Zálohu se nepodařilo vytvořit: %s', t($e->getMessage())), '', ['tab' => 'backups'], 'chyba');
+            return $this->back(t('The backup could not be created: %s', t($e->getMessage())), '', ['tab' => 'backups'], 'chyba');
         }
         $remote = \Kaleta\Core\RemoteBackup::upload($this->app->settings(), (string) Backup::path($file));
         if ($remote !== null) {
-            return $this->back(t('Záloha %s je hotová, ale kopii mimo server se nepodařilo nahrát: %s', $file, t($remote)), '', ['tab' => 'backups'], 'chyba');
+            return $this->back(t('Backup %s is ready, but the off-site copy could not be uploaded: %s', $file, t($remote)), '', ['tab' => 'backups'], 'chyba');
         }
 
-        return $this->back(t('Záloha %s je hotová.', $file), '', ['tab' => 'backups']);
+        return $this->back(t('Backup %s is ready.', $file), '', ['tab' => 'backups']);
     }
 
     protected function actionDownloadBackup(): Response
     {
         $path = Backup::path($this->request->get('soubor'));
         if ($path === null) {
-            return $this->error('Záloha neexistuje.', 404);
+            return $this->error('Backup does not exist.', 404);
         }
 
         return new Response((string) file_get_contents($path), 200, [
@@ -234,7 +234,7 @@ class Settings extends Module
             unlink($path);
         }
 
-        return $this->back('Záloha byla smazána.', '', ['tab' => 'backups']);
+        return $this->back('Backup deleted.', '', ['tab' => 'backups']);
     }
 
     /** Empties the application error log. */
@@ -244,7 +244,7 @@ class Settings extends Module
             file_put_contents(KALETA_ROOT . '/storage/log/chyby.log', '');
         }
 
-        return $this->back('Záznam chyb je prázdný.', '', ['tab' => 'health']);
+        return $this->back('The error log is empty.', '', ['tab' => 'health']);
     }
 
     /**
@@ -287,11 +287,11 @@ class Settings extends Module
             }
             \Kaleta\Front\Cache::clear();
 
-            return $this->back(t('Obnova se nezdařila: %s', t($e->getMessage())) . ' ' . ($reverted ? t('Databáze je zpět ve stavu před obnovou.') : (isset($safetyBackup) ? t('Stav před obnovou je v záloze %s – obnovte ji prosím.', $safetyBackup) : '')), '', ['tab' => 'backups'], 'chyba');
+            return $this->back(t('Obnova se nezdařila: %s', t($e->getMessage())) . ' ' . ($reverted ? t('The database is back in its state before the restore.') : (isset($safetyBackup) ? t('The state before the restore is in backup %s – please restore it.', $safetyBackup) : '')), '', ['tab' => 'backups'], 'chyba');
         }
         \Kaleta\Front\Cache::clear();
 
-        return $this->back(t('Databáze byla obnovena ze zálohy (příkazů: %d). Stav před obnovou je uložený v záloze %s.', $statementCount, $safetyBackup), '', ['tab' => 'backups']);
+        return $this->back(t('The database has been restored from the backup (statements: %d). The state before the restore is saved in backup %s.', $statementCount, $safetyBackup), '', ['tab' => 'backups']);
     }
 
     /** Checks again whether a newer version is available. */
@@ -314,17 +314,17 @@ class Settings extends Module
             Backup::create($this->db, 'predaktualizaci');
             $version = (new Updater($this->app->settings()))->install($this->app->db());
         } catch (\Throwable $e) {
-            return $this->back(t('Aktualizace se nezdařila: %s Na webu se nic nezměnilo.', t($e->getMessage())), '', ['tab' => 'backups'], 'chyba');
+            return $this->back(t('The update failed: %s Nothing has changed on the site.', t($e->getMessage())), '', ['tab' => 'backups'], 'chyba');
         }
 
-        return $this->back(t('Systém byl aktualizován na verzi %s. Databáze se upraví sama při příštím načtení administrace.', $version), '', ['tab' => 'backups']);
+        return $this->back(t('The system has been updated to version %s. The database will update itself the next time the administration loads.', $version), '', ['tab' => 'backups']);
     }
 
     /** Backup of uploaded media: a ZIP of the media/ folder for download. */
     protected function actionMediaBackup(): Response
     {
         if (!class_exists(\ZipArchive::class) || !is_dir(KALETA_ROOT . '/media')) {
-            return $this->back('Na serveru chybí rozšíření zip – média si stáhněte přes FTP.', '', ['tab' => 'backups'], 'chyba');
+            return $this->back('The zip extension is missing on the server – download the media via FTP.', '', ['tab' => 'backups'], 'chyba');
         }
         $file = KALETA_ROOT . '/storage/cache/media-' . bin2hex(random_bytes(6)) . '.zip';
         $zip = new \ZipArchive();
@@ -338,7 +338,7 @@ class Settings extends Module
         }
         $zip->close();
         if (!is_file($file)) {
-            return $this->back('Ve složce media/ zatím nic není.', '', ['tab' => 'backups'], 'chyba');
+            return $this->back('There is nothing in the media/ folder yet.', '', ['tab' => 'backups'], 'chyba');
         }
         register_shutdown_function(static fn () => @unlink($file));
         header('Content-Type: application/zip');
@@ -353,22 +353,22 @@ class Settings extends Module
     {
         $recipient = $this->app->settings()->get('site_email');
         if (!$this->request->isPost() || $recipient === '') {
-            return $this->back('Nejprve vyplňte E-mail webu v záložce Základní.', '', ['tab' => $this->request->post('tab') === 'mail' ? 'mail' : 'health'], 'chyba');
+            return $this->back('First fill in the Site e-mail on the General tab.', '', ['tab' => $this->request->post('tab') === 'mail' ? 'mail' : 'health'], 'chyba');
         }
         $siteSettings = $this->app->settings()->get('site_name');
         // the site e-mail has no account with a language: the message goes in the site's default language (like the rest of the site's mail)
         [$subject, $text] = \Kaleta\Core\Language::runWith(\Kaleta\Core\Language::defaults($this->app->settings()), fn (): array => [
-            t('Zkušební zpráva z %s', $siteSettings),
-            t('Dobrý den,') . "\n\n" . t('tato zpráva potvrzuje, že web %s umí odesílat e-maily.', $siteSettings) . "\n\nKaleta " . KALETA_VERSION,
+            t('Test message from %s', $siteSettings),
+            t('Hello,') . "\n\n" . t('this message confirms that the website %s can send e-mail.', $siteSettings) . "\n\nKaleta " . KALETA_VERSION,
         ], 'admin-');
         $ok = \Kaleta\Core\Mail::send($this->app->settings(), $recipient, $subject, $text, queueOnFailure: false);
         $back = $this->request->post('tab') === 'mail' ? 'mail' : 'health';
 
         return $this->back(
             match (true) {
-                !$ok => t('Odeslání selhalo: %s', t(\Kaleta\Core\Mail::$error)),
-                $this->app->settings()->get('mail_mode') === 'smtp' => t('Zpráva byla předána k odeslání na %s. Pokud nedorazí, zkontrolujte spam.', $recipient),
-                default => t('Zpráva byla předána k odeslání na %s. Pokud nedorazí, zkontrolujte spam – nebo nastavte odesílání přes SMTP (Nastavení → Pošta).', $recipient),
+                !$ok => t('Sending failed: %s', t(\Kaleta\Core\Mail::$error)),
+                $this->app->settings()->get('mail_mode') === 'smtp' => t('The message has been handed over for delivery to %s. If it does not arrive, check your spam folder.', $recipient),
+                default => t('The message has been handed over for delivery to %s. If it does not arrive, check your spam folder – or set up sending via SMTP (Settings → Mail).', $recipient),
             },
             '',
             ['tab' => $back],

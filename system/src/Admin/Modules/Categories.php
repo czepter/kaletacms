@@ -18,8 +18,8 @@ final class Categories extends Module
 {
     public const string IDENT = 'categories';
     public const string EXTENSION = 'novinky';
-    public const string NAME = 'Kategorie';
-    public const string GROUP = 'Obsah';
+    public const string NAME = 'Categories';
+    public const string GROUP = 'Content';
     public const string ICON = 'rubriky';
     public const string PARENT = 'news';
 
@@ -56,7 +56,7 @@ final class Categories extends Module
     {
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
 
-        return $this->view('list', 'Kategorie', ['category' => self::listAll($this->db, $column), 'siteLanguages' => $siteLanguages, 'language' => $language]);
+        return $this->view('list', 'Categories', ['category' => self::listAll($this->db, $column), 'siteLanguages' => $siteLanguages, 'language' => $language]);
     }
 
     protected function actionNew(): Response
@@ -68,7 +68,7 @@ final class Categories extends Module
     {
         $category = $this->db->one('SELECT * FROM {kategorie} WHERE idt = ?', [$this->request->getInt('id')]);
 
-        return $category === null ? $this->error('Kategorie neexistuje.', 404) : $this->form($category);
+        return $category === null ? $this->error('The category does not exist.', 404) : $this->form($category);
     }
 
     protected function actionSave(): Response
@@ -87,7 +87,7 @@ final class Categories extends Module
         ];
         $data['preklad_z'] = $data['jazyk'] === '' ? null : ($this->db->value("SELECT idt FROM {kategorie} WHERE idt = ? AND jazyk = '' AND idt <> ?", [$r->postInt('preklad_z'), $id]) ?: null);
         if ($data['nazev'] === '') {
-            return $this->form(['idt' => $id] + $data, ['nazev' => 'Vyplňte název kategorie.']);
+            return $this->form(['idt' => $id] + $data, ['nazev' => 'Fill in the category name.']);
         }
 
         $data['seo_link'] = \Kaleta\Core\Slug::makeUnique($data['seo_link'], fn (string $a): bool => $this->db->value('SELECT idt FROM {kategorie} WHERE seo_link = ? AND idt <> ?', [$a, $id]) !== null, 120);
@@ -104,7 +104,7 @@ final class Categories extends Module
             $this->db->insert('kategorie', $data);
         }
 
-        return $this->back('Kategorie byla uložena.');
+        return $this->back('Category saved.');
     }
 
     protected function actionDelete(): Response
@@ -114,11 +114,11 @@ final class Categories extends Module
         }
         $id = $this->request->postInt('idt');
         if ((int) $this->db->value('SELECT COUNT(*) FROM {novinky} WHERE tema = ?', [$id]) > 0) {
-            return $this->back('Kategorii nelze smazat, dokud v ní jsou novinky (i v koši). Nejprve je přesuňte jinam.', type: 'chyba');
+            return $this->back('The category cannot be deleted while it contains news items (including those in the trash). Move them elsewhere first.', type: 'chyba');
         }
         $this->db->delete('kategorie', ['idt' => $id]);
 
-        return $this->back('Kategorie byla smazána.');
+        return $this->back('Category deleted.');
     }
 
     /**
@@ -127,6 +127,6 @@ final class Categories extends Module
      */
     private function form(array $category, array $errors = []): Response
     {
-        return $this->view('form', $category['idt'] ? 'Úprava kategorie' : 'Nová kategorie', ['category' => $category, 'errors' => $errors]);
+        return $this->view('form', $category['idt'] ? 'Edit category' : 'New category', ['category' => $category, 'errors' => $errors]);
     }
 }

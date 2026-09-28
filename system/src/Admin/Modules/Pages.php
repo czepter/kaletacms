@@ -20,8 +20,8 @@ final class Pages extends Module
     }
 
     public const string IDENT = 'pages';
-    public const string NAME = 'Stránky';
-    public const string GROUP = 'Obsah';
+    public const string NAME = 'Pages';
+    public const string GROUP = 'Content';
     public const string ICON = 'stranky';
 
     /** Slugs that belong to the system and a page cannot have. */
@@ -55,7 +55,7 @@ final class Pages extends Module
         }
         unset($s);
 
-        return $this->view('list', 'Stránky', [
+        return $this->view('list', 'Pages', [
             'pages' => $trash || $search !== '' ? $pages : self::sortAsTree($pages),
             'trash' => $trash, 'search' => $search, 'siteLanguages' => $siteLanguages, 'language' => $language,
             'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NOT NULL'),
@@ -107,7 +107,7 @@ final class Pages extends Module
     {
         $page = $this->db->one('SELECT * FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$this->request->getInt('id')]);
 
-        return $page === null ? $this->error('Stránka neexistuje.', 404) : $this->form($page);
+        return $page === null ? $this->error('Page does not exist.', 404) : $this->form($page);
     }
 
     /** Saving from editing "directly on the site" (views/front/upravit.php): only the page's name and text. */
@@ -127,7 +127,7 @@ final class Pages extends Module
             $this->saveVersion((int) $page['ids'], $page['titulek'], (string) $page['text']); // an edit directly on the site goes to the history as in the admin
         }
         $this->db->update('stranky', ['titulek' => $title, 'text' => $text, 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $page['ids']]);
-        \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'úprava přímo na webu', mb_substr($title, 0, 80));
+        \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'edited directly on the site', mb_substr($title, 0, 80));
 
         return $this->redirectToSite($r->post('zpet'));
     }
@@ -142,7 +142,7 @@ final class Pages extends Module
             return null;
         }
 
-        return $this->back('Zveřejněné stránky upravuje, zveřejňuje a maže jen editor nebo správce. Můžete připravit novou skrytou stránku.', '', [], 'chyba');
+        return $this->back('Only an editor or administrator edits, publishes and deletes published pages. You can prepare a new hidden page.', '', [], 'chyba');
     }
 
     protected function actionSave(): Response
@@ -192,19 +192,19 @@ final class Pages extends Module
         $data['preklad_z'] = $data['jazyk'] === '' ? null : ($this->db->value("SELECT ids FROM {stranky} WHERE ids = ? AND jazyk = '' AND ids <> ?", [$r->postInt('preklad_z'), $id]) ?: null);
         $errors = [];
         if ($data['titulek'] === '') {
-            $errors['titulek'] = 'Vyplňte název stránky.';
+            $errors['titulek'] = 'Enter the page title.';
         }
         if ($r->post('seo_link') === '') {
             // slug from the name: a taken one gets a number (o-nas-2), as with news
             $data['seo_link'] = $this->availableSlug($data['seo_link'], $id);
         }
         if ($parent === null && (in_array($data['seo_link'], self::RESERVED_SLUGS, true) || isset(\Kaleta\Core\Language::AVAILABLE[$data['seo_link']]))) {
-            $errors['seo_link'] = 'Tuto adresu používá systém, zvolte jinou.';
+            $errors['seo_link'] = 'This URL is used by the system, choose another one.';
         } elseif (($other = $this->db->one('SELECT ids, smazano FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$data['seo_link'], $id])) !== null) {
-            $errors['seo_link'] = $other['smazano'] !== null ? 'Tuto adresu má stránka v koši – obnovte ji, nebo ji smažte natrvalo.' : 'Stránka s touto adresou už existuje.';
+            $errors['seo_link'] = $other['smazano'] !== null ? 'A page in the trash uses this address – restore it or delete it permanently.' : 'A page with this URL already exists.';
         }
         if ($id > 0 && $id === $this->app->settings()->int('home_page') && !$data['zobrazit']) {
-            $errors['zobrazit'] = 'Úvodní stránku nejde skrýt. Nejdřív v Nastavení → Základní vyberte jinou úvodní stránku.';
+            $errors['zobrazit'] = 'The home page cannot be hidden. First choose another home page in Settings → General.';
         }
         if ($errors !== []) {
             $previous = $id > 0 ? $this->db->one('SELECT stavba, stavba_koncept FROM {stranky} WHERE ids = ?', [$id]) : null;
@@ -234,7 +234,7 @@ final class Pages extends Module
             if ($template !== null && $data['text'] === '') {
                 $this->db->update('stranky', ['text' => \Kaleta\Builder\Library::privacyPolicyText()], ['ids' => $id]);
 
-                return $this->back('Stránka je založená s kostrou zásad – doplňte údaje v hranatých závorkách.', 'edit', ['id' => $id]);
+                return $this->back('The page has been created with a privacy policy outline – fill in the details in square brackets.', 'edit', ['id' => $id]);
             }
         }
         // assembled menu (Vzhled → Menu, Appearance → Menu): the checkbox "v navigaci" (in navigation) adds the page to the menu or removes it
@@ -243,7 +243,7 @@ final class Pages extends Module
             return \Kaleta\Core\Response::redirect($this->url('builder', ['id' => $id]));
         }
 
-        return $this->back('Stránka byla uložena.');
+        return $this->back('Page saved.');
     }
 
     /* ---------- builder (actions in Admin\BuilderActions) ---------- */
@@ -287,7 +287,7 @@ final class Pages extends Module
 
         return [
             'adresa' => $url, 'nahled' => $url . '?stavba=koncept&editor=1', 'zobrazena' => (bool) $page['zobrazit'], 'casti' => false, 'nadpisy' => true,
-            'zpet' => ['adresa' => $this->url(), 'text' => t('Stránky')], 'nastaveni' => $this->url('edit', ['id' => (int) $page['ids']]),
+            'zpet' => ['adresa' => $this->url(), 'text' => t('Pages')], 'nastaveni' => $this->url('edit', ['id' => (int) $page['ids']]),
             'podpis' => 'stranka:' . (int) $page['ids'],
         ];
     }
@@ -307,7 +307,7 @@ final class Pages extends Module
             $this->db->update('stranky', ['stavba' => null, 'stavba_koncept' => null], ['ids' => $page['ids']]);
         }
 
-        return $this->back('Stránka zobrazuje text z editoru (obsah stavby bez rozložení). Stavbu najdete ve verzích, když otevřete builder.', 'edit', ['id' => (int) ($page['ids'] ?? 0)]);
+        return $this->back('The page shows the text from the editor (the build\'s content without the layout). You will find the build in versions when you open the builder.', 'edit', ['id' => (int) ($page['ids'] ?? 0)]);
     }
 
     /** @return array<string, mixed>|null */
@@ -363,7 +363,7 @@ final class Pages extends Module
         $this->saveVersion((int) $page['ids'], $page['titulek'], (string) $page['text']);
         $this->db->update('stranky', ['titulek' => $version['titulek'], 'text' => $version['text'], 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $page['ids']]);
 
-        return $this->back(t('Obnovena verze z %s.', format_date($version['datum'], true)), 'edit', ['id' => (int) $page['ids']]);
+        return $this->back(t('Version from %s restored.', format_date($version['datum'], true)), 'edit', ['id' => (int) $page['ids']]);
     }
 
     /** The page as a JSON file (name, description and build) – for transfer to another site running Kaleta. */
@@ -371,7 +371,7 @@ final class Pages extends Module
     {
         $s = $this->loadPage($this->request->getInt('id'));
         if ($s === null) {
-            return $this->error('Stránka neexistuje.', 404);
+            return $this->error('Page does not exist.', 404);
         }
         $json = (string) json_encode(['format' => 'kaleta-stranka', 'verze' => 1, 'titulek' => $s['titulek'], 'popis' => $s['popis'], 'text' => $s['text'],
             'stavba' => Build::fromJson($s['stavba_koncept'] ?? $s['stavba'])], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
@@ -385,7 +385,7 @@ final class Pages extends Module
         $file = $_FILES['soubor']['tmp_name'] ?? '';
         $data = $this->request->isPost() && is_uploaded_file($file) && filesize($file) < 5_000_000 ? json_decode((string) file_get_contents($file), true) : null;
         if (!is_array($data) || ($data['format'] ?? '') !== 'kaleta-stranka' || trim((string) ($data['titulek'] ?? '')) === '') {
-            return $this->back('Soubor není export stránky.', '', [], 'chyba');
+            return $this->back('The file is not a page export.', '', [], 'chyba');
         }
         $title = mb_substr(trim((string) $data['titulek']), 0, 200);
         $record = ['titulek' => $title, 'seo_link' => $this->availableSlug(slugify($title, 110), 0), 'popis' => mb_substr((string) ($data['popis'] ?? ''), 0, 300),
@@ -396,7 +396,7 @@ final class Pages extends Module
         }
         $id = $this->db->insert('stranky', $record);
 
-        return $this->back('Stránka je importovaná jako skrytá – zkontrolujte ji a zveřejněte.', 'edit', ['id' => $id]);
+        return $this->back('The page has been imported as hidden – check it and publish it.', 'edit', ['id' => $id]);
     }
 
     /** A free slug derived from $base: o-nas, o-nas-2, o-nas-3… */
@@ -416,11 +416,11 @@ final class Pages extends Module
             return $refusal;
         }
         if ($ids === $this->app->settings()->int('home_page')) {
-            return $this->back('Úvodní stránku nejde smazat. Nejdřív v Nastavení → Základní vyberte jinou úvodní stránku.', '', [], 'chyba');
+            return $this->back('The home page cannot be deleted. First choose another home page in Settings → General.', '', [], 'chyba');
         }
         $this->db->run('UPDATE {stranky} SET smazano = NOW(), zobrazit = 0 WHERE ids = ? AND smazano IS NULL', [$ids]);
 
-        return $this->back(t('Stránka je v koši. Obnovit ji můžete %d dní.', self::TRASH_DAYS));
+        return $this->back(t('The page is in the trash. You can restore it for %d days.', self::TRASH_DAYS));
     }
 
     /** Restore from the trash: the page returns hidden, only the user publishes it. */
@@ -430,7 +430,7 @@ final class Pages extends Module
             $this->db->run('UPDATE {stranky} SET smazano = NULL WHERE ids = ?', [$this->request->postInt('ids')]);
         }
 
-        return $this->back('Stránka je obnovená jako skrytá – zveřejníte ji v jejím nastavení.');
+        return $this->back('The page has been restored as hidden – publish it in its settings.');
     }
 
     protected function actionDeletePermanently(): Response
@@ -442,7 +442,7 @@ final class Pages extends Module
             $this->db->run('DELETE FROM {stranky} WHERE ids = ? AND smazano IS NOT NULL', [$this->request->postInt('ids')]);
         }
 
-        return $this->back('Stránka byla smazána natrvalo.', '', ['stav' => 'kos']);
+        return $this->back('The page has been permanently deleted.', '', ['stav' => 'kos']);
     }
 
     /** Pages in the trash longer than TRASH_DAYS are deleted permanently (called by Admin\Kernel). */
@@ -459,7 +459,7 @@ final class Pages extends Module
             return $this->back();
         }
         $copy = array_diff_key($page, ['ids' => 0, 'smazano' => 0]);
-        $copy['titulek'] = mb_substr(t('%s (kopie)', $page['titulek']), 0, 200);
+        $copy['titulek'] = mb_substr(t('%s (copy)', $page['titulek']), 0, 200);
         $copy['seo_link'] = $this->availableSlug(mb_substr($page['seo_link'] . '-kopie', 0, 110), 0);
         $copy['zobrazit'] = 0;
         $copy['v_menu'] = 0; // the copy does not get into the navigation until someone adds it there
@@ -467,7 +467,7 @@ final class Pages extends Module
         $copy['zmeneno'] = date('Y-m-d H:i:s');
         $id = $this->db->insert('stranky', $copy);
 
-        return $this->back('Kopie stránky je skrytá – upravte ji a zveřejněte.', 'edit', ['id' => $id]);
+        return $this->back('The copy of the page is hidden – edit it and publish it.', 'edit', ['id' => $id]);
     }
 
     /**
@@ -479,7 +479,7 @@ final class Pages extends Module
         $language = (string) ($page['jazyk'] ?? '');
         $custom = (string) ($page['seo_link'] ?? '');
 
-        return $this->view('form', $page['ids'] ? 'Úprava stránky' : 'Nová stránka', [
+        return $this->view('form', $page['ids'] ? 'Edit page' : 'New page', [
             'page' => $page, 'errors' => $errors,
             // possible parent pages: the same language, not the page itself nor its subpages
             'parents' => array_values(array_filter($this->db->all('SELECT ids, titulek, seo_link FROM {stranky} WHERE jazyk = ? AND smazano IS NULL AND ids <> ? ORDER BY seo_link', [$language, (int) $page['ids']]),

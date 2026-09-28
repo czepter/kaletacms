@@ -23,7 +23,10 @@ clients. They keep their Czech names; the rename tool never touches string liter
 
 Renamed later, each with a migration or an alias so old links and data keep working:
 
-- UI source strings `t('…')`, now Czech sentences (phase 6: English source, Czech moves to a dictionary).
+- UI source strings `t('…')` / `T('…')`: English since 1.4.1 (step 6, `tools/rename/6-texts.php`); Czech is a dictionary like
+  any other language (`system/jazyky/cs.php`, `admin-cs.php`, `install-cs.php`, `image/jazyky/admin-cs.js`). About 160 texts
+  stay Czech for now (one Czech text with two English translations, or two Czech texts sharing one), and the other
+  dictionaries keep their Czech keys, so a Czech text passed from data still translates.
 
 Old class names keep working through `system/class-aliases.php` until 2.0. Old admin URLs of 1.3 (bookmarks, links in
 sent e-mails; parameters modul, akce, zalozka with Czech values) are translated by `Admin\LegacyUrls` and redirected to the

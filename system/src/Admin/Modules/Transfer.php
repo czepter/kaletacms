@@ -24,8 +24,8 @@ use Kaleta\Core\WpFile;
 final class Transfer extends Module
 {
     public const string IDENT = 'transfer';
-    public const string NAME = 'Import a export';
-    public const string GROUP = 'Správa';
+    public const string NAME = 'Import and export';
+    public const string GROUP = 'Administration';
     public const string ICON = 'b-archiv';
     public const bool ADMIN_ONLY = true;
 
@@ -36,7 +36,7 @@ final class Transfer extends Module
             $files[] = $s + ['stav' => WpImport::loadState($s['soubor'])];
         }
 
-        return $this->view('list', 'Import a export', [
+        return $this->view('list', 'Import and export', [
             'files' => $files,
             'uploadLimit' => min(self::bytes((string) ini_get('upload_max_filesize')), self::bytes((string) ini_get('post_max_size'))),
             'missingXml' => !class_exists(\XMLReader::class) || !class_exists(\Dom\HTMLDocument::class),
@@ -52,10 +52,10 @@ final class Transfer extends Module
     {
         $file = $this->request->file('soubor');
         if (!$this->request->isPost() || $file === null || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) {
-            return $this->back('Soubor se nepodařilo nahrát. Je-li větší, než server dovoluje, nahrajte ho přes FTP do složky storage/import/.', type: 'chyba');
+            return $this->back('The file could not be uploaded. If it is larger than the server allows, upload it over FTP into the storage/import/ folder.', type: 'chyba');
         }
         if (strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION)) !== 'xml') {
-            return $this->back('Soubor musí mít příponu .xml – je to export z WordPressu (Nástroje → Export).', type: 'chyba');
+            return $this->back('The file must have the .xml extension – it is an export from WordPress (Tools → Export).', type: 'chyba');
         }
         try {
             $name = WpFile::uploadName((string) $file['name']);
@@ -63,7 +63,7 @@ final class Transfer extends Module
             // verify first, only then save: nothing that is not a WordPress export gets into the folder
             (new WpFile((string) $file['tmp_name']))->verifyContent();
             if (!move_uploaded_file((string) $file['tmp_name'], $target)) {
-                throw new \RuntimeException('Soubor se nepodařilo uložit – zkontrolujte práva k zápisu do storage/import.');
+                throw new \RuntimeException('The file could not be saved – check write permissions for storage/import.');
             }
         } catch (\RuntimeException $e) {
             return $this->back(self::message($e), type: 'chyba');
@@ -78,7 +78,7 @@ final class Transfer extends Module
         $file = $this->request->post('soubor');
         $path = WpFile::path($file);
         if (!$this->request->isPost() || $path === null) {
-            return $this->back('Soubor neexistuje.', type: 'chyba');
+            return $this->back('The file does not exist.', type: 'chyba');
         }
         try {
             (new WpFile($path))->verify();
@@ -104,7 +104,7 @@ final class Transfer extends Module
             WpImport::deleteState($this->request->post('soubor'));
         }
 
-        return $this->back('Soubor byl smazán. Převedený obsah na webu zůstává.');
+        return $this->back('The file has been deleted. The imported content stays on the site.');
     }
 
     /* ---------- import: 2. preview and options ---------- */
@@ -117,7 +117,7 @@ final class Transfer extends Module
         }
         $settings = $this->app->settings();
 
-        return $this->view('preview', 'Import z WordPressu', [
+        return $this->view('preview', 'Import from WordPress', [
             'state' => $state,
             'languages' => array_merge([Language::defaults($settings)], Language::additional($settings)),
             'categories' => $this->db->all('SELECT idt, nazev, jazyk FROM {kategorie} ORDER BY jazyk, nazev'),
@@ -156,7 +156,7 @@ final class Transfer extends Module
     {
         $state = $this->state();
         if ($state === null) {
-            return $this->back('Soubor neexistuje.', type: 'chyba');
+            return $this->back('The file does not exist.', type: 'chyba');
         }
         $error = '';
         if ($this->request->isPost() && in_array($state['faze'], ['analyza', 'import', 'obrazky'], true)) {
@@ -178,7 +178,7 @@ final class Transfer extends Module
             return $this->back('', 'preview', ['soubor' => $state['soubor']]);
         }
 
-        return $this->view('progress', 'Import z WordPressu', [
+        return $this->view('progress', 'Import from WordPress', [
             'state' => $state, 'error' => $error,
             'canDownload' => ImageDownloader::isAvailable() && extension_loaded('gd'),
             'domain' => ImageDownloader::domainFromUrl((string) $state['web']['adresa']),
@@ -233,7 +233,7 @@ final class Transfer extends Module
             $this->app->session->flash('info', $result['duvod']);
         }
 
-        return $this->back('Export je hotový – stáhněte si ho ze seznamu níže.');
+        return $this->back('The export is ready – download it from the list below.');
     }
 
     /**
@@ -245,7 +245,7 @@ final class Transfer extends Module
     {
         $path = SiteExport::path($this->request->get('soubor'));
         if ($path === null) {
-            return $this->error('Export neexistuje.', 404);
+            return $this->error('The export does not exist.', 404);
         }
         session_write_close();
         while (ob_get_level() > 0) {
@@ -267,7 +267,7 @@ final class Transfer extends Module
             unlink($path);
         }
 
-        return $this->back('Export byl smazán.');
+        return $this->back('The export has been deleted.');
     }
 
     /** Exception message in the admin language; the number (XML line, response code) is carried by getCode(), so that the text can be translated. */

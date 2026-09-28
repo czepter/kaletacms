@@ -25,12 +25,12 @@ $language = Kaleta\Core\Language::code();
 </head>
 <body class="stavitel-telo">
 <?= $app->session->csrfField() ?>
-<noscript><p class="hlaska hlaska-chyba"><?= e(t('Builder potřebuje JavaScript. Obsah stránky jde upravit i bez něj ve formuláři stránky.')) ?></p></noscript>
-<div class="st-uzky" role="note"><p><strong><?= e(t('Builder potřebuje větší obrazovku.')) ?></strong> <?= e(t('Stránky skládejte na počítači nebo tabletu. Na telefonu upravíte texty tlačítkem „Upravit zde“ přímo na webu.')) ?></p>
-	<p><a href="<?= e($app->url('admin.php')) ?>"><?= e(t('Zpět do administrace')) ?></a></p></div>
+<noscript><p class="hlaska hlaska-chyba"><?= e(t('The builder needs JavaScript. The page content can also be edited without it in the page form.')) ?></p></noscript>
+<div class="st-uzky" role="note"><p><strong><?= e(t('The builder needs a larger screen.')) ?></strong> <?= e(t('Build pages on a computer or tablet. On a phone, edit texts with the “Edit here” button right on the website.')) ?></p>
+	<p><a href="<?= e($app->url('admin.php')) ?>"><?= e(t('Back to the administration')) ?></a></p></div>
 <div class="st" id="stavitel" hidden></div>
 <script type="application/json" id="stavitel-data"><?= json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
-<?php if ($language !== 'cs' && is_file(KALETA_ROOT . '/image/jazyky/admin-' . $language . '.js')): ?>
+<?php if (is_file(KALETA_ROOT . '/image/jazyky/admin-' . $language . '.js')): ?>
 <script src="<?= e($app->url('image/jazyky/admin-' . $language . '.js')) ?>?v=<?= $version ?>"></script>
 <?php endif ?>
 <script src="<?= e($app->url('image/admin.js')) ?>?v=<?= $version ?>" defer></script>

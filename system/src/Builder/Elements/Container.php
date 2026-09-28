@@ -11,8 +11,8 @@ use Kaleta\Builder\Element;
 final class Container extends Element
 {
     public const string TYPE = 'kontejner';
-    public const string NAME = 'Kontejner';
-    public const string DESCRIPTION = 'Skupina prvků pod sebou nebo vedle sebe – karta, řada tlačítek.';
+    public const string NAME = 'Container';
+    public const string DESCRIPTION = 'A group of elements stacked or side by side – a card, a row of buttons.';
     public const string ICON = 'kontejner';
     public const string GROUP = 'Rozložení';
     public const bool CONTAINER = true;
@@ -20,7 +20,7 @@ final class Container extends Element
 
     public static function properties(): array
     {
-        return ['odkaz' => ['typ' => 'odkaz', 'popisek' => 'Celý kontejner jako odkaz (nepovinné)', 'vychozi' => '']];
+        return ['odkaz' => ['typ' => 'odkaz', 'popisek' => 'Whole container as a link (optional)', 'vychozi' => '']];
     }
 
     public static function defaultStyle(): array

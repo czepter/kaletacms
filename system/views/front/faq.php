@@ -9,7 +9,7 @@ if ($faq === []) {
 }
 ?>
 <section class="faq obal-uzky">
-	<h2><?= e(t('Otázky a odpovědi')) ?></h2>
+	<h2><?= e(t('Questions and answers')) ?></h2>
 <?php foreach ($faq as [$otazka, $odpoved]): ?>
 	<details>
 		<summary><?= e($otazka) ?></summary>

@@ -15,7 +15,7 @@ final class SocialLinks extends Element
 {
     public const string TYPE = 'socialni';
     public const string NAME = 'Sociální sítě';
-    public const string DESCRIPTION = 'Ikony s odkazy na profily firmy (adresy z Nastavení).';
+    public const string DESCRIPTION = 'Icons linking to the company profiles (addresses from Settings).';
     public const string ICON = 'socialni';
     public const array HTML_TAGS = ['ul'];
 
@@ -30,7 +30,7 @@ final class SocialLinks extends Element
 
     public static function properties(): array
     {
-        return ['nazvy' => ['typ' => 'prepinac', 'popisek' => 'Zobrazit i názvy sítí', 'vychozi' => false]];
+        return ['nazvy' => ['typ' => 'prepinac', 'popisek' => 'Show network names too', 'vychozi' => false]];
     }
 
     public static function baseCss(): string
@@ -55,7 +55,7 @@ final class SocialLinks extends Element
                 . ($p['obsah']['nazvy'] ? '<span>' . e($name) . '</span>' : '') . '</a></li>';
         }
         if ($html === '') {
-            return $k->editor ? '<p' . $a . '>' . e(t('Sociální sítě doplníte v Nastavení.')) . '</p>' : '';
+            return $k->editor ? '<p' . $a . '>' . e(t('Add social networks under Settings.')) . '</p>' : '';
         }
 
         return '<ul' . Text::withClass($a, 'ka-socialni') . '>' . $html . '</ul>';

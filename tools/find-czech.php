@@ -3,7 +3,7 @@
  * Finds Czech in the English interface (tools/test-english.sh). Two modes:
  *
  *   php tools/find-czech.php stranka.html…   visible text of pages (text, title, placeholder, aria-label, alt, buttons, data-potvrdit)
- *   php tools/find-czech.php --js            Czech texts in admin scripts (image/*.js) without an entry in the image/jazyky/admin-en.js dictionary
+ *   php tools/find-czech.php --js            texts in admin scripts (image/*.js) that are neither translated in image/jazyky/admin-en.js nor an English source text (admin-cs.js)
  *
  * Recognizes Czech by three signs: letters with a caron or an acute accent; text that is a Czech dictionary key with an English
  * translation (= t() is missing or the translation was not used); common Czech words without diacritics as standalone words
@@ -41,9 +41,9 @@ function dictionaries(string $root): array
 }
 
 /** @return array<string, string> */
-function jsDictionary(string $root): array
+function jsDictionary(string $root, string $code = 'en'): array
 {
-    preg_match('/window\.KALETA_PREKLAD = (\{.*\});/s', (string) file_get_contents($root . '/image/jazyky/admin-en.js'), $m);
+    preg_match('/window\.KALETA_PREKLAD = (\{.*\});/s', (string) file_get_contents($root . '/image/jazyky/admin-' . $code . '.js'), $m);
 
     return (array) json_decode((string) preg_replace(['#^\s*//.*$#m', '/,\s*\}$/'], ['', '}'], $m[1] ?? '{}'), true);
 }
@@ -76,7 +76,8 @@ function czechWords(string $text): array
 
 if (($argv[1] ?? '') === '--js') {
     // every Czech text of the admin scripts (also one translated only indirectly via T(popisek)) must have a dictionary entry
-    $dictionary = jsDictionary($root);
+    // English source texts (in admin-cs.js) need no English entry
+    $dictionary = jsDictionary($root) + jsDictionary($root, 'cs');
     $findings = [];
     foreach (['admin', 'editor', 'menu', 'pomocnik', 'stavitel', 'klice', 'tema'] as $file) {
         foreach (jsStrings((string) file_get_contents($root . '/image/' . $file . '.js')) as [$line, $text, $inT]) {

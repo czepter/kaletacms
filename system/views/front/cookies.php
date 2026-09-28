@@ -13,26 +13,26 @@
 ?>
 <div class="cookies-lista" id="cookies-lista" role="dialog" aria-modal="false" aria-labelledby="cookies-nadpis" hidden>
 	<div class="cookies-obsah">
-		<strong id="cookies-nadpis"><?= e(t('Soukromí a cookies')) ?></strong>
-		<p><?= nl2br(e($text)) ?><?php if ($zasady !== ''): ?> <a href="<?= e($zasady) ?>"><?= e(t('Více informací')) ?></a><?php endif ?></p>
+		<strong id="cookies-nadpis"><?= e(t('Privacy and cookies')) ?></strong>
+		<p><?= nl2br(e($text)) ?><?php if ($zasady !== ''): ?> <a href="<?= e($zasady) ?>"><?= e(t('More information')) ?></a><?php endif ?></p>
 		<div class="cookies-volby" hidden>
-			<label><input type="checkbox" checked disabled> <?= e(t('Nezbytné – bez nich web nefunguje')) ?></label>
+			<label><input type="checkbox" checked disabled> <?= e(t('Necessary – the site does not work without them')) ?></label>
 <?php if ($analytika): ?>
-			<label><input type="checkbox" data-kategorie="analytika"> <?= e(t('Analytické – anonymní měření návštěvnosti')) ?></label>
+			<label><input type="checkbox" data-kategorie="analytika"> <?= e(t('Analytics – anonymous traffic measurement')) ?></label>
 <?php endif ?>
 <?php if ($marketing): ?>
-			<label><input type="checkbox" data-kategorie="marketing"> <?= e(t('Marketingové – měření kampaní a cílení reklamy')) ?></label>
+			<label><input type="checkbox" data-kategorie="marketing"> <?= e(t('Marketing – campaign measurement and ad targeting')) ?></label>
 <?php endif ?>
 		</div>
 		<div class="cookies-tlacitka">
-			<button type="button" data-cookies="vse"><?= e(t('Přijmout vše')) ?></button>
-			<button type="button" data-cookies="nic"><?= e(t('Jen nezbytné')) ?></button>
+			<button type="button" data-cookies="vse"><?= e(t('Accept all')) ?></button>
+			<button type="button" data-cookies="nic"><?= e(t('Only necessary')) ?></button>
 			<button type="button" data-cookies="nastavit" class="cookies-odkaz"><?= e(t('Nastavení')) ?></button>
-			<button type="button" data-cookies="ulozit" hidden><?= e(t('Uložit výběr')) ?></button>
+			<button type="button" data-cookies="ulozit" hidden><?= e(t('Save selection')) ?></button>
 		</div>
 	</div>
 </div>
-<button type="button" class="cookies-znovu" id="cookies-znovu" hidden><?= e(t('Nastavení cookies')) ?></button>
+<button type="button" class="cookies-znovu" id="cookies-znovu" hidden><?= e(t('Cookie settings')) ?></button>
 <style>
 .cookies-lista { position: fixed; z-index: 1000; left: 16px; right: 16px; bottom: 16px; max-width: 560px; margin: 0 auto 0 0; padding: 18px 20px; border: 1px solid #D0D5DD; border-radius: 10px; background: #FFFFFF; color: #14171F; box-shadow: 0 12px 40px rgb(0 0 0 / 0.18); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
 .cookies-lista p { margin: 6px 0 12px; }

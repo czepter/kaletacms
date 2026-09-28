@@ -107,35 +107,35 @@ final class Passkey
         $data = self::fromB64((string) ($response['authenticatorData'] ?? ''));
         $flags = self::verifyData($data, $rpId);
         if (($flags & self::FLAG_AT) === 0 || strlen($data) < 55) {
-            throw new \RuntimeException('Odpověď neobsahuje nový klíč.');
+            throw new \RuntimeException('The response does not contain a new key.');
         }
         $idLength = (ord($data[53]) << 8) | ord($data[54]);
         if ($idLength < 1 || $idLength > 1023 || strlen($data) < 55 + $idLength + 1) {
-            throw new \RuntimeException('Identifikátor klíče má neplatnou délku.');
+            throw new \RuntimeException('The key identifier has an invalid length.');
         }
         $id = substr($data, 55, $idLength);
         $rest = substr($data, 55 + $idLength); // the public key as the authenticator wrote it (COSE)
 
         $alg = (int) ($response['publicKeyAlgorithm'] ?? 0);
         if (!in_array($alg, self::ALGORITHMS, true)) {
-            throw new \RuntimeException('Zařízení nabídlo algoritmus, který systém nepodporuje.');
+            throw new \RuntimeException('The device offered an algorithm the system does not support.');
         }
         $der = self::fromB64((string) ($response['publicKey'] ?? ''));
         $pem = "-----BEGIN PUBLIC KEY-----\n" . chunk_split(base64_encode($der), 64, "\n") . "-----END PUBLIC KEY-----\n";
         $key = $der === '' ? false : openssl_pkey_get_public($pem);
         $description = $key === false ? false : openssl_pkey_get_details($key);
         if ($description === false) {
-            throw new \RuntimeException('Veřejný klíč zařízení se nepodařilo načíst.');
+            throw new \RuntimeException('The device\'s public key could not be read.');
         }
         if ($alg === -7) {
             // ES256: curve P-256 and the same point (x, y) must also be in the data signed by the authenticator
             $ec = $description['ec'] ?? null;
             if ($description['type'] !== OPENSSL_KEYTYPE_EC || !is_array($ec) || ($ec['curve_name'] ?? '') !== 'prime256v1'
                 || !str_contains($rest, str_pad((string) $ec['x'], 32, "\0", STR_PAD_LEFT)) || !str_contains($rest, str_pad((string) $ec['y'], 32, "\0", STR_PAD_LEFT))) {
-                throw new \RuntimeException('Veřejný klíč neodpovídá datům zařízení.');
+                throw new \RuntimeException('The public key does not match the data from the device.');
             }
         } elseif ($description['type'] !== OPENSSL_KEYTYPE_RSA || $description['bits'] < 2048 || !str_contains($rest, (string) $description['rsa']['n'])) {
-            throw new \RuntimeException('Veřejný klíč neodpovídá datům zařízení.');
+            throw new \RuntimeException('The public key does not match the data from the device.');
         }
 
         return ['id' => self::b64($id), 'klic' => $pem, 'alg' => $alg, 'pocitadlo' => self::counter($data)];
@@ -156,13 +156,13 @@ final class Passkey
         $signature = self::fromB64((string) ($response['signature'] ?? ''));
         $key = openssl_pkey_get_public($publicKeyPem);
         if ($key === false || $signature === '' || openssl_verify($data . hash('sha256', $client, true), $signature, $key, OPENSSL_ALGO_SHA256) !== 1) {
-            throw new \RuntimeException('Podpis zařízení neplatí.');
+            throw new \RuntimeException('The signature from the device is not valid.');
         }
         // devices that keep a counter must increase it; the same or a lower value = someone copied the key.
         // Synced keys (iCloud, Google) always send zero - for them the check has nothing to compare.
         $counter = self::counter($data);
         if (($counter !== 0 || $storedCounter !== 0) && $counter <= $storedCounter) {
-            throw new \RuntimeException('Počitadlo klíče se vrátilo zpět - klíč mohl být zkopírován. Odeberte ho a zaregistrujte znovu.');
+            throw new \RuntimeException('The key counter went backwards – the key may have been copied. Remove it and register it again.');
         }
 
         return $counter;
@@ -174,16 +174,16 @@ final class Passkey
         $json = self::fromB64($b64);
         $client = json_decode($json, true);
         if (!is_array($client) || ($client['type'] ?? '') !== $type) {
-            throw new \RuntimeException('Odpověď zařízení má nečekaný typ.');
+            throw new \RuntimeException('The response from the device has an unexpected type.');
         }
         if ($challenge === '' || !is_string($client['challenge'] ?? null) || !hash_equals($challenge, rtrim($client['challenge'], '='))) {
-            throw new \RuntimeException('Odpověď nepatří k tomuto pokusu. Zkuste to znovu.');
+            throw new \RuntimeException('The response does not belong to this attempt. Please try again.');
         }
         if (!is_string($client['origin'] ?? null) || !hash_equals($origin, strtolower($client['origin']))) {
-            throw new \RuntimeException('Odpověď vznikla na jiné adrese, než je adresa webu v Nastavení.');
+            throw new \RuntimeException('The response was created at a different address than the site address in Settings.');
         }
         if (!empty($client['crossOrigin'])) {
-            throw new \RuntimeException('Odpověď vznikla ve vloženém okně cizí stránky.');
+            throw new \RuntimeException('The response was created in an embedded frame of another site.');
         }
 
         return $json;
@@ -193,14 +193,14 @@ final class Passkey
     private static function verifyData(string $data, string $rpId): int
     {
         if (strlen($data) < 37) {
-            throw new \RuntimeException('Data zařízení jsou neúplná.');
+            throw new \RuntimeException('The data from the device is incomplete.');
         }
         if ($rpId === '' || !hash_equals(hash('sha256', $rpId, true), substr($data, 0, 32))) {
-            throw new \RuntimeException('Klíč patří k jiné doméně.');
+            throw new \RuntimeException('The key belongs to a different domain.');
         }
         $flags = ord($data[32]);
         if (($flags & self::FLAG_UP) === 0) {
-            throw new \RuntimeException('Zařízení nepotvrdilo přítomnost uživatele.');
+            throw new \RuntimeException('The device did not confirm that a user was present.');
         }
 
         return $flags;

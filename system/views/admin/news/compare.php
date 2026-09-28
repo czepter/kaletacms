@@ -13,18 +13,18 @@ $added = $title['pridano'] + $home['pridano'] + $text['pridano'];
 $deleted = $title['smazano'] + $home['smazano'] + $text['smazano'];
 ?>
 <p class="navigace-radek">
-	<a class="navigace" href="<?= e($module->url('edit', ['id' => (int) $newsItem['idc']])) ?>"><?= e(t('Zpět do novinky')) ?></a>
-	<a class="navigace" href="<?= e($module->url('versions', ['id' => (int) $newsItem['idc'], 'idr' => (int) $versions['idr']])) ?>"><?= e(t('Načíst tuto verzi do editoru')) ?></a>
+	<a class="navigace" href="<?= e($module->url('edit', ['id' => (int) $newsItem['idc']])) ?>"><?= e(t('Back to the news item')) ?></a>
+	<a class="navigace" href="<?= e($module->url('versions', ['id' => (int) $newsItem['idc'], 'idr' => (int) $versions['idr']])) ?>"><?= e(t('Load this version into the editor')) ?></a>
 </p>
-<p><?= e(t('Verze z %s', format_date($versions['datum'], true))) ?><?= ($versions['kdo_jm'] ?? '') !== '' ? ' · ' . e($versions['kdo_jm']) : '' ?> → <?= e(t('současné znění')) ?>.
-	<ins><?= e(t('přidáno')) ?>: <?= $added ?></ins> · <del><?= e(t('smazáno')) ?>: <?= $deleted ?></del></p>
+<p><?= e(t('Version from %s', format_date($versions['datum'], true))) ?><?= ($versions['kdo_jm'] ?? '') !== '' ? ' · ' . e($versions['kdo_jm']) : '' ?> → <?= e(t('current text')) ?>.
+	<ins><?= e(t('added')) ?>: <?= $added ?></ins> · <del><?= e(t('deleted')) ?>: <?= $deleted ?></del></p>
 <?php if ($added + $deleted === 0): ?>
-<p class="hlaska"><?= e(t('Text se od této verze nezměnil (změny formátování a obrázků se neporovnávají).')) ?></p>
+<p class="hlaska"><?= e(t('The text has not changed since this version (formatting and image changes are not compared).')) ?></p>
 <?php endif ?>
 <div class="porovnani">
 	<h2><?= e(t('Titulek')) ?></h2>
 	<div class="porovnani-titulek"><?= $title['html'] ?></div>
-	<h2><?= e(t('Perex (úvod)')) ?></h2>
+	<h2><?= e(t('Lead paragraph')) ?></h2>
 	<?= $home['html'] ?>
 	<h2><?= e(t('Text')) ?></h2>
 	<?= $text['html'] ?>

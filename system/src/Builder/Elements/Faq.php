@@ -14,19 +14,19 @@ use Kaleta\Builder\Element;
 final class Faq extends Element
 {
     public const string TYPE = 'faq';
-    public const string NAME = 'Otázky a odpovědi (akordeon)';
-    public const string DESCRIPTION = 'Rozbalovací položky – otázky (FAQ pro vyhledávače) nebo jakýkoli obsah, který nemusí být vidět hned.';
+    public const string NAME = 'Questions and answers (accordion)';
+    public const string DESCRIPTION = 'Expandable items – questions (FAQ for search engines) or any content that need not be visible straight away.';
     public const string ICON = 'faq';
     public const array HTML_TAGS = ['div'];
 
     public static function properties(): array
     {
-        return ['polozky' => ['typ' => 'polozky', 'popisek' => 'Otázky', 'max' => 30, 'pole' => [
-            'otazka' => ['typ' => 'text', 'popisek' => 'Otázka', 'vychozi' => '', 'max' => 300],
-            'odpoved' => ['typ' => 'html', 'popisek' => 'Odpověď', 'vychozi' => ''],
-        ], 'vychozi' => [['otazka' => t('Jak dlouho trvá realizace?'), 'odpoved' => '<p>' . t('Obvykle dva až čtyři týdny podle rozsahu.') . '</p>'], ['otazka' => t('Kolik to stojí?'), 'odpoved' => '<p>' . t('Cenu vám připravíme na míru – ozvěte se nám.') . '</p>']]],
-            'jedna' => ['typ' => 'prepinac', 'popisek' => 'Otevřená vždy jen jedna položka', 'vychozi' => false],
-            'faq' => ['typ' => 'prepinac', 'popisek' => 'Jsou to otázky a odpovědi (FAQ pro vyhledávače)', 'vychozi' => true]];
+        return ['polozky' => ['typ' => 'polozky', 'popisek' => 'Questions', 'max' => 30, 'pole' => [
+            'otazka' => ['typ' => 'text', 'popisek' => 'Question', 'vychozi' => '', 'max' => 300],
+            'odpoved' => ['typ' => 'html', 'popisek' => 'Answer', 'vychozi' => ''],
+        ], 'vychozi' => [['otazka' => t('How long does a project take?'), 'odpoved' => '<p>' . t('Usually two to four weeks, depending on scope.') . '</p>'], ['otazka' => t('How much does it cost?'), 'odpoved' => '<p>' . t('We will prepare a tailored quote – just get in touch.') . '</p>']]],
+            'jedna' => ['typ' => 'prepinac', 'popisek' => 'Only one item open at a time', 'vychozi' => false],
+            'faq' => ['typ' => 'prepinac', 'popisek' => 'These are questions and answers (FAQ for search engines)', 'vychozi' => true]];
     }
 
     public static function baseCss(): string

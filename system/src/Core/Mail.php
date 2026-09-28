@@ -80,7 +80,7 @@ final class Mail
         self::$error = '';
         $from = $siteSettings->get('mail_from') !== '' ? $siteSettings->get('mail_from') : $siteSettings->get('site_email');
         if ($from === '' || filter_var($recipient, FILTER_VALIDATE_EMAIL) === false || preg_match('/[\x00-\x20\x7F"<>]/', $recipient)) {
-            self::$error = $from === '' ? 'Není vyplněný e-mail webu (Nastavení → Základní) ani adresa odesílatele.' : 'Adresa příjemce nemá platný tvar.';
+            self::$error = $from === '' ? 'Není vyplněný e-mail webu (Nastavení → Základní) ani adresa odesílatele.' : 'The recipient address is not valid.';
 
             return false;
         }
@@ -119,13 +119,13 @@ final class Mail
             }
         }
         if (!function_exists('mail')) {
-            self::$error = 'Funkce mail() je na serveru vypnutá – nastavte odesílání přes SMTP.';
+            self::$error = 'The mail() function is disabled on the server – set up sending via SMTP.';
 
             return false;
         }
         $ok = @mail($recipient, $encodedSubject, $body, implode("\r\n", $rows));
         if (!$ok) {
-            self::$error = 'Server zprávu odmítl odeslat (funkce mail() selhala).';
+            self::$error = 'The server refused to send the message (the mail() function failed).';
         }
 
         return $ok;
@@ -153,7 +153,7 @@ final class Mail
         $encryption = $siteSettings->get('smtp_encryption');
         $port = $siteSettings->int('smtp_port') ?: ($encryption === 'ssl' ? 465 : 587);
         if (!preg_match('/^[a-z0-9.-]+$/i', $host)) {
-            throw new \RuntimeException('Adresa SMTP serveru nemá platný tvar.');
+            throw new \RuntimeException('The SMTP server address is not valid.');
         }
         $connection = @stream_socket_client(($encryption === 'ssl' ? 'ssl://' : 'tcp://') . $host . ':' . $port, $number, $error, 10);
         if ($connection === false) {
@@ -167,7 +167,7 @@ final class Mail
         if ($encryption === 'tls') {
             self::statement('STARTTLS', [220]);
             if (@stream_socket_enable_crypto($connection, true, STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT) !== true) {
-                throw new \RuntimeException('Šifrované spojení (STARTTLS) se nepodařilo navázat – server má nejspíš neplatný certifikát.');
+                throw new \RuntimeException('The encrypted connection (STARTTLS) could not be established – the server probably has an invalid certificate.');
             }
             $options = self::statement($me, [250]);
         }
@@ -191,7 +191,7 @@ final class Mail
     private static function statement(string $statement, array $expected, bool $secret = false): string
     {
         if (@fwrite(self::$connection, $statement . "\r\n") === false) {
-            throw new \RuntimeException('Spojení se SMTP serverem se přerušilo.');
+            throw new \RuntimeException('The connection to the SMTP server was interrupted.');
         }
 
         return self::response($expected, $secret ? '(přihlašovací údaje)' : strtok($statement, "\r\n "));
@@ -204,7 +204,7 @@ final class Mail
         do {
             $row = fgets(self::$connection, 1024);
             if ($row === false) {
-                throw new \RuntimeException('SMTP server neodpověděl včas.');
+                throw new \RuntimeException('The SMTP server did not respond in time.');
             }
             $response .= $row;
         } while (isset($row[3]) && $row[3] === '-');

@@ -14,17 +14,17 @@ use Kaleta\Builder\Element;
 final class Progress extends Element
 {
     public const string TYPE = 'prubeh';
-    public const string NAME = 'Ukazatele průběhu';
-    public const string DESCRIPTION = 'Pruhy s procenty – plnění cíle, podíl, úroveň dovedností.';
+    public const string NAME = 'Progress bars';
+    public const string DESCRIPTION = 'Bars with percentages – goal progress, share, skill level.';
     public const string ICON = 'prubeh';
     public const array HTML_TAGS = ['div'];
 
     public static function properties(): array
     {
-        return ['polozky' => ['typ' => 'polozky', 'popisek' => 'Ukazatele', 'max' => 12, 'pole' => [
+        return ['polozky' => ['typ' => 'polozky', 'popisek' => 'Bars', 'max' => 12, 'pole' => [
             'nazev' => ['typ' => 'text', 'popisek' => 'Název', 'vychozi' => '', 'max' => 120],
-            'hodnota' => ['typ' => 'cislo', 'popisek' => 'Procenta', 'vychozi' => 50, 'min' => 0, 'max' => 100],
-        ], 'vychozi' => [['nazev' => t('Projekty dokončené v termínu'), 'hodnota' => 96], ['nazev' => t('Zákazníci, kteří se vracejí'), 'hodnota' => 78]]]];
+            'hodnota' => ['typ' => 'cislo', 'popisek' => 'Percent', 'vychozi' => 50, 'min' => 0, 'max' => 100],
+        ], 'vychozi' => [['nazev' => t('Projects delivered on time'), 'hodnota' => 96], ['nazev' => t('Returning customers'), 'hodnota' => 78]]]];
     }
 
     public static function baseCss(): string

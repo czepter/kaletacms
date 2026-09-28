@@ -12,7 +12,7 @@
  */
 $p = $state['prehled'];
 $options = $state['volby'];
-$statuses = ['publish' => 'vydané', 'future' => 'naplánované', 'draft' => 'koncepty', 'pending' => 'čekají na schválení', 'private' => 'soukromé', 'trash' => 'v koši', 'auto-draft' => 'automatické koncepty', 'inherit' => 'revize'];
+$statuses = ['publish' => 'vydané', 'future' => 'naplánované', 'draft' => 'koncepty', 'pending' => 'pending review', 'private' => 'soukromé', 'trash' => 'in trash', 'auto-draft' => 'auto-drafts', 'inherit' => 'revize'];
 $byStatus = function (array $counts) use ($statuses): string {
     $parts = [];
     foreach ($counts as $s => $count) {
@@ -24,29 +24,29 @@ $byStatus = function (array $counts) use ($statuses): string {
 $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['publish' => 1, 'future' => 1, 'draft' => 1, 'pending' => 1]));
 ?>
 <?= $app->view->render('admin/transfer/steps', ['step' => 2]) ?>
-<p><?= e(t('Soubor %s – web „%s“ (%s). Zatím se nic neimportovalo; tohle je jen přehled toho, co v souboru je.', $state['soubor'], $state['web']['nazev'], $state['web']['adresa'])) ?></p>
+<p><?= e(t('File %s – site “%s” (%s). Nothing has been imported yet; this is only an overview of what the file contains.', $state['soubor'], $state['web']['nazev'], $state['web']['adresa'])) ?></p>
 <div class="dlazdice">
-	<div class="dlazdice-polozka"><strong><?= (int) array_sum($p['clanky']) ?></strong><span><?= e(t('Příspěvky')) ?><?= $p['clanky'] !== [] ? ': ' . e($byStatus($p['clanky'])) : '' ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= (int) array_sum($p['stranky']) ?></strong><span><?= e(t('Stránky')) ?><?= $p['stranky'] !== [] ? ': ' . e($byStatus($p['stranky'])) : '' ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= (int) $p['rubriky'] ?></strong><span><?= e(t('Kategorie (založí se ty, které mají příspěvky)')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= (int) $p['stitky'] ?></strong><span><?= e(t('Štítky')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= (int) $p['prilohy'] ?></strong><span><?= e(t('Soubory v knihovně médií')) ?> · <?= e(t('obrázků v textech: %s', (int) $p['obrazky'])) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= (int) $p['autori'] ?></strong><span><?= e(t('Autoři')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) array_sum($p['clanky']) ?></strong><span><?= e(t('Posts')) ?><?= $p['clanky'] !== [] ? ': ' . e($byStatus($p['clanky'])) : '' ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) array_sum($p['stranky']) ?></strong><span><?= e(t('Pages')) ?><?= $p['stranky'] !== [] ? ': ' . e($byStatus($p['stranky'])) : '' ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) $p['rubriky'] ?></strong><span><?= e(t('Categories (those with posts are created)')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) $p['stitky'] ?></strong><span><?= e(t('Tags')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) $p['prilohy'] ?></strong><span><?= e(t('Files in the media library')) ?> · <?= e(t('images in texts: %s', (int) $p['obrazky'])) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) $p['autori'] ?></strong><span><?= e(t('Authors')) ?></span></div>
 </div>
 
 <div class="hlaska hlaska-varovani">
-<p><strong><?= e(t('Co se nepřevede')) ?></strong></p>
+<p><strong><?= e(t('What will not be converted')) ?></strong></p>
 <ul>
-	<li><?= e(t('Účty a hesla uživatelů – novinky budou patřit vám. Komentáře se nepřenášejí.')) ?></li>
-	<li><?= e(t('Nabídky (menu), widgety, vzhled a nastavení doplňků – navigaci si na novém webu sestavíte znovu.')) ?></li>
-	<li><?= e(t('Soukromé příspěvky, koš, revize a automatické koncepty. Příspěvek chráněný heslem se převede jako koncept.')) ?></li>
+	<li><?= e(t('User accounts and passwords – the news items will belong to you. Comments are not transferred.')) ?></li>
+	<li><?= e(t('Menus, widgets, appearance and plugin settings – you will rebuild the navigation on the new site.')) ?></li>
+	<li><?= e(t('Private posts, trash, revisions and auto-drafts. A password-protected post is imported as a draft.')) ?></li>
 <?php if ($p['jine'] !== []): ?>
-	<li><?= e(t('Vlastní typy obsahu:')) ?> <?= e(implode(', ', array_map(fn (string $type, int $count): string => $type . ' (' . $count . ')', array_keys($p['jine']), $p['jine']))) ?></li>
+	<li><?= e(t('Custom content types:')) ?> <?= e(implode(', ', array_map(fn (string $type, int $count): string => $type . ' (' . $count . ')', array_keys($p['jine']), $p['jine']))) ?></li>
 <?php endif ?>
 <?php if ($p['zkratky'] !== []): ?>
-	<li><?= e(t('Zkratky doplňků (formuláře, buildery stránek…) – značka zmizí, text uvnitř zůstane:')) ?> <?= e(implode(', ', array_map(fn (string $z, int $count): string => '[' . $z . '] ' . $count . '×', array_keys($p['zkratky']), $p['zkratky']))) ?></li>
+	<li><?= e(t('Plug-in shortcodes (forms, page builders…) – the tag disappears, the text inside stays:')) ?> <?= e(implode(', ', array_map(fn (string $z, int $count): string => '[' . $z . '] ' . $count . '×', array_keys($p['zkratky']), $p['zkratky']))) ?></li>
 <?php endif ?>
-	<li><?= e(t('Obrázky zatím zůstanou na starém webu; po importu je můžete jedním tlačítkem stáhnout k sobě.')) ?></li>
+	<li><?= e(t('Images stay on the old site for now; after the import you can download them to your site with one button.')) ?></li>
 </ul>
 </div>
 
@@ -54,30 +54,30 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <?= $csrf ?>
 <input type="hidden" name="soubor" value="<?= e($state['soubor']) ?>">
 <fieldset>
-<legend><?= e(t('Volby importu')) ?></legend>
+<legend><?= e(t('Import options')) ?></legend>
 <?php if (count($languages) > 1): ?>
-<div class="radek"><label for="jazyk"><?= e(t('Jazyková verze')) ?></label><div><select id="jazyk" name="jazyk">
+<div class="radek"><label for="jazyk"><?= e(t('Language version')) ?></label><div><select id="jazyk" name="jazyk">
 <?php foreach ($languages as $i => $code): ?>
-	<option value="<?= $i === 0 ? '' : e($code) ?>"<?= ($i === 0 ? '' : $code) === $options['jazyk'] ? ' selected' : '' ?>><?= e(Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code) ?><?= $i === 0 ? ' – ' . e(t('výchozí jazyk webu')) : '' ?></option>
+	<option value="<?= $i === 0 ? '' : e($code) ?>"<?= ($i === 0 ? '' : $code) === $options['jazyk'] ? ' selected' : '' ?>><?= e(Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code) ?><?= $i === 0 ? ' – ' . e(t('default site language')) : '' ?></option>
 <?php endforeach ?>
-</select><span class="napoveda"><?= e(t('Do které jazykové verze webu nové kategorie a stránky patří.')) ?></span></div></div>
+</select><span class="napoveda"><?= e(t('Which language version of the site the new categories and pages belong to.')) ?></span></div></div>
 <?php endif ?>
-<div class="radek"><span class="popisek"><?= e(t('Co importovat')) ?></span><div class="volby">
-	<label><input type="checkbox" name="koncepty" value="1"<?= $options['koncepty'] ? ' checked' : '' ?>> <?= e(t('koncepty a příspěvky čekající na schválení (%s)', (int) (($p['clanky']['draft'] ?? 0) + ($p['clanky']['pending'] ?? 0)))) ?></label>
-	<label><input type="checkbox" name="stranky" value="1"<?= $options['stranky'] ? ' checked' : '' ?>> <?= e(t('stránky (%s)', $converts($p['stranky']))) ?></label>
-	<label><input type="checkbox" name="stavitel" value="1"<?= ($options['stavitel'] ?? true) ? ' checked' : '' ?>> <?= e(t('stránky rovnou do builderu – upravíte je vizuálně; původní text zůstane jako záloha')) ?></label>
-	<label><input type="checkbox" name="presmerovani" value="1"<?= $options['presmerovani'] ? ' checked' : '' ?>> <?= e(t('přesměrování ze starých adres na nové')) ?></label>
+<div class="radek"><span class="popisek"><?= e(t('What to import')) ?></span><div class="volby">
+	<label><input type="checkbox" name="koncepty" value="1"<?= $options['koncepty'] ? ' checked' : '' ?>> <?= e(t('drafts and posts pending review (%s)', (int) (($p['clanky']['draft'] ?? 0) + ($p['clanky']['pending'] ?? 0)))) ?></label>
+	<label><input type="checkbox" name="stranky" value="1"<?= $options['stranky'] ? ' checked' : '' ?>> <?= e(t('pages (%s)', $converts($p['stranky']))) ?></label>
+	<label><input type="checkbox" name="stavitel" value="1"<?= ($options['stavitel'] ?? true) ? ' checked' : '' ?>> <?= e(t('pages straight into the builder – edit them visually; the original text stays as a backup')) ?></label>
+	<label><input type="checkbox" name="presmerovani" value="1"<?= $options['presmerovani'] ? ' checked' : '' ?>> <?= e(t('redirects from old addresses to new ones')) ?></label>
 </div></div>
 <?php if (!$redirectsEnabled): ?>
-<p class="napoveda"><?= e(t('Přesměrování se zapíší, ale začnou platit, až zapnete rozšíření Přesměrování.')) ?></p>
+<p class="napoveda"><?= e(t('The redirects will be saved but only take effect once you turn on the Redirects extension.')) ?></p>
 <?php endif ?>
-<div class="radek"><label for="rubrika"><?= e(t('Příspěvky bez kategorie dát do')) ?></label><div><select id="rubrika" name="rubrika">
-	<option value="0"><?= e(t('nové kategorie „Nezařazené“')) ?></option>
+<div class="radek"><label for="rubrika"><?= e(t('Put posts without a category into')) ?></label><div><select id="rubrika" name="rubrika">
+	<option value="0"><?= e(t('a new “Uncategorised” category')) ?></option>
 <?php foreach ($categories as $r): ?>
 	<option value="<?= (int) $r['idt'] ?>"<?= (int) $r['idt'] === (int) $options['rubrika'] ? ' selected' : '' ?>><?= e($r['nazev']) ?><?= $r['jazyk'] !== '' ? ' (' . e($r['jazyk']) . ')' : '' ?></option>
 <?php endforeach ?>
 </select></div></div>
 </fieldset>
-<p class="napoveda"><?= e(t('Importované novinky se neoznamují: žádný webhook ani IndexNow. Před větším importem si v Nastavení → Zálohy a aktualizace vytvořte zálohu databáze.')) ?></p>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Spustit import')) ?>"> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Zpět')) ?></a></p>
+<p class="napoveda"><?= e(t('Imported news is not announced: no webhook or IndexNow. Before a larger import, create a database backup in Settings → Backups and updates.')) ?></p>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Start import')) ?>"> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back')) ?></a></p>
 </form>

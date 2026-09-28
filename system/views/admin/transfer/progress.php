@@ -17,38 +17,38 @@ $running = in_array($state['faze'], ['analyza', 'import', 'obrazky'], true);
 ?>
 <?= $app->view->render('admin/transfer/steps', ['step' => $state['faze'] === 'analyza' ? 2 : 3]) ?>
 <?php if ($error !== ''): ?>
-<p class="hlaska hlaska-chyba"><?= e(t('Import se zastavil:')) ?> <?= e($error) ?></p>
-<p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Zpět na Import a export')) ?></a></p>
+<p class="hlaska hlaska-chyba"><?= e(t('The import has stopped:')) ?> <?= e($error) ?></p>
+<p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 <?php elseif ($running): ?>
 <?php if ($state['faze'] === 'analyza'): ?>
-<p class="hlaska" role="status"><?= e(t('Čtu soubor %s: prošel jsem %s položek. Nechte stránku otevřenou.', $state['soubor'], (int) $state['pozice'])) ?></p>
+<p class="hlaska" role="status"><?= e(t('Reading file %s: %s items processed. Keep this page open.', $state['soubor'], (int) $state['pozice'])) ?></p>
 <?php elseif ($state['faze'] === 'import'): ?>
-<p class="hlaska" role="status"><?= e(t('Importuji: %s z %s položek. Nechte stránku otevřenou, pokračuji sám.', (int) $state['pozice'], (int) $state['celkem'])) ?></p>
+<p class="hlaska" role="status"><?= e(t('Importing: %s of %s items. Keep this page open, it continues by itself.', (int) $state['pozice'], (int) $state['celkem'])) ?></p>
 <progress class="prenos-prubeh" max="<?= max(1, (int) $state['celkem']) ?>" value="<?= (int) $state['pozice'] ?>"></progress>
 <?php else: ?>
-<p class="hlaska" role="status"><?= e(t('Stahuji obrázky ze starého webu: hotovo %s z %s novinek a stránek, staženo %s obrázků. Nechte stránku otevřenou, pokračuji sám.', (int) $o['hotovo'], (int) $o['celkem'], (int) $o['stazeno'])) ?></p>
+<p class="hlaska" role="status"><?= e(t('Downloading images from the old site: %s of %s news items and pages done, %s images downloaded. Keep this page open, I will continue automatically.', (int) $o['hotovo'], (int) $o['celkem'], (int) $o['stazeno'])) ?></p>
 <progress class="prenos-prubeh" max="<?= max(1, (int) $o['celkem']) ?>" value="<?= (int) $o['hotovo'] ?>"></progress>
 <?php endif ?>
 <form method="post" action="<?= e($module->url('progress', ['soubor' => $state['soubor']])) ?>" data-auto-odeslat="600">
 	<?= $csrf ?>
-	<p><button class="tl" type="submit"><?= e(t('Pokračovat')) ?></button></p>
+	<p><button class="tl" type="submit"><?= e(t('Continue')) ?></button></p>
 </form>
 <?php else: ?>
-<p class="hlaska hlaska-ok"><?= e(t('Import obsahu je hotový.')) ?></p>
+<p class="hlaska hlaska-ok"><?= e(t('The content import is finished.')) ?></p>
 <div class="dlazdice">
-	<div class="dlazdice-polozka"><strong><?= (int) $v['clanky'] ?></strong><span><?= e(t('Nové novinky')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= (int) $v['stranky'] ?></strong><span><?= e(t('Nové stránky')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= (int) $v['rubriky'] ?></strong><span><?= e(t('Nové kategorie')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= (int) $v['presmerovani'] ?></strong><span><?= e(t('Přesměrování ze starých adres')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= (int) $v['preskoceno'] ?></strong><span><?= e(t('Přeskočeno (převedeno už dříve)')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) $v['clanky'] ?></strong><span><?= e(t('New news items')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) $v['stranky'] ?></strong><span><?= e(t('New pages')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) $v['rubriky'] ?></strong><span><?= e(t('New categories')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) $v['presmerovani'] ?></strong><span><?= e(t('Redirects from old addresses')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) $v['preskoceno'] ?></strong><span><?= e(t('Skipped (already imported earlier)')) ?></span></div>
 </div>
-<p class="navigace-radek"><a class="navigace" href="<?= e($app->url('admin.php?module=news')) ?>"><?= e(t('Zobrazit novinky')) ?></a> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Zpět na Import a export')) ?></a></p>
+<p class="navigace-radek"><a class="navigace" href="<?= e($app->url('admin.php?module=news')) ?>"><?= e(t('Show news')) ?></a> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 
-<h2><?= e(t('Obrázky ze starého webu')) ?></h2>
+<h2><?= e(t('Images from the old site')) ?></h2>
 <?php if ($state['faze'] === 'obrazky-hotovo'): ?>
-<p class="hlaska <?= (int) $o['chyb'] > 0 ? 'hlaska-varovani' : 'hlaska-ok' ?>"><?= e(t('Staženo %s obrázků, nepodařilo se %s.', (int) $o['stazeno'], (int) $o['chyb'])) ?></p>
+<p class="hlaska <?= (int) $o['chyb'] > 0 ? 'hlaska-varovani' : 'hlaska-ok' ?>"><?= e(t('%s images downloaded, %s failed.', (int) $o['stazeno'], (int) $o['chyb'])) ?></p>
 <?php if ($o['chyby'] !== []): ?>
-<details class="pokrocile"><summary><?= e(t('Poslední obrázky, které se nepodařilo stáhnout')) ?></summary><ul>
+<details class="pokrocile"><summary><?= e(t('Latest images that could not be downloaded')) ?></summary><ul>
 <?php foreach ($o['chyby'] as $row): ?>
 	<li><?= e($row) ?></li>
 <?php endforeach ?>
@@ -56,12 +56,12 @@ $running = in_array($state['faze'], ['analyza', 'import', 'obrazky'], true);
 <?php endif ?>
 <?php endif ?>
 <?php if (!$canDownload): ?>
-<p class="hlaska"><?= e(t('Tento server neumí stahovat soubory z jiných webů (chybí curl i allow_url_fopen, případně rozšíření GD). Obrázky přeneste ručně: nahrajte je do Médií a v článcích je vyměňte.')) ?></p>
+<p class="hlaska"><?= e(t('This server cannot download files from other sites (both curl and allow_url_fopen are missing, or the GD extension). Move the images manually: upload them to Media and replace them in the articles.')) ?></p>
 <?php elseif ($domain === ''): ?>
-<p class="hlaska"><?= e(t('V souboru chybí adresa starého webu, obrázky proto nejde stáhnout.')) ?></p>
+<p class="hlaska"><?= e(t('The file does not contain the address of the old site, so the images cannot be downloaded.')) ?></p>
 <?php else: ?>
-<p><?= e(t('Novinky a stránky zatím ukazují obrázky ze starého webu. Stažením se hlavní obrázky novinek a obrázky v textech uloží do Médií (zmenší se, vzniknou náhledy a WebP) a odkazy v textech se přepíší. Stahuje se výhradně z domény %s a starý web musí být ještě dostupný.', $domain)) ?></p>
+<p><?= e(t('News and pages still show images from the old site. Downloading saves the main news images and images in texts to Media (resized, with thumbnails and WebP) and rewrites the links in the texts. Images are downloaded only from the domain %s, and the old site must still be available.', $domain)) ?></p>
 <form method="post" action="<?= e($module->url('images')) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($state['soubor']) ?>">
-	<p><button class="tl" type="submit"><?= e(t($state['faze'] === 'obrazky-hotovo' ? 'Zkusit stáhnout znovu' : 'Stáhnout obrázky ze starého webu')) ?></button></p></form>
+	<p><button class="tl" type="submit"><?= e(t($state['faze'] === 'obrazky-hotovo' ? 'Try downloading again' : 'Download images from the old site')) ?></button></p></form>
 <?php endif ?>
 <?php endif ?>

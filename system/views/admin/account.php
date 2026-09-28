@@ -20,22 +20,22 @@ $action = e($app->url('admin.php?action=account'));
 ?>
 <?php if ($backupCodes !== []): ?>
 <div class="hlaska hlaska-ok">
-	<p><strong><?= e(t('Dvoufázové přihlášení je zapnuté.')) ?></strong> <?= e(t('Uložte si záložní kódy – každý jde použít jednou, když nebudete mít telefon. Už se nezobrazí.')) ?></p>
+	<p><strong><?= e(t('Two-factor sign-in is on.')) ?></strong> <?= e(t('Save your backup codes – each works once when you do not have your phone. They will not be shown again.')) ?></p>
 	<p class="zalozni-kody"><?= implode(' &nbsp; ', array_map(e(...), $backupCodes)) ?></p>
 </div>
 <?php endif ?>
 
 <form class="formular" method="post" action="<?= $action ?>">
 <?= $csrf ?><input type="hidden" name="co" value="profil">
-<fieldset><legend><?= e(t('Moje údaje')) ?></legend>
-<div class="radek"><span class="popisek"><?= e(t('Přihlašovací jméno')) ?></span><div><?= e($user['user']) ?> <span class="napoveda"><?= e(t('Mění správce v sekci Uživatelé.')) ?></span></div></div>
-<div class="radek"><label for="jmeno"><?= e(t('Jméno')) ?></label><div><input class="textpole siroke" type="text" id="jmeno" name="jmeno" value="<?= e($user['jmeno']) ?>" maxlength="100"><span class="napoveda"><?= e(t('Zobrazuje se u novinek na webu.')) ?></span></div></div>
-<div class="radek"><label for="email"><?= e(t('E-mail')) ?></label><input class="textpole siroke" type="email" id="email" name="email" value="<?= e($user['email']) ?>" maxlength="190"></div>
-<div class="radek"><label for="url"><?= e(t('Můj web')) ?></label><input class="textpole siroke" type="url" id="url" name="url" value="<?= e($user['url']) ?>" maxlength="255" placeholder="https://"></div>
-<div class="radek"><label for="pozice"><?= e(t('Pozice ve firmě')) ?></label><input class="textpole siroke" type="text" id="pozice" name="pozice" value="<?= e($user['pozice']) ?>" maxlength="100" placeholder="<?= e(t('např. vedoucí obchodu')) ?>"></div>
-<div class="radek"><label for="foto"><?= e(t('Moje fotka')) ?></label><div><input class="textpole siroke" type="text" id="foto" name="foto" value="<?= e($user['foto']) ?>" maxlength="255" data-obrazek><span class="napoveda"><?= e(t('Čtvercová fotka, stačí 300 × 300 px.')) ?></span></div></div>
-<div class="radek"><label for="bio"><?= e(t('Pár vět o mně')) ?></label><div><textarea class="textbox nizky" id="bio" name="bio" rows="4" maxlength="1200"><?= e((string) $user['bio']) ?></textarea><span class="napoveda"><?= e(t('Zobrazí se jako medailonek pod vašimi novinkami. Čím se ve firmě zabýváte a co máte za sebou.')) ?></span></div></div>
-<div class="radek"><label for="jazyk"><?= e(t('Jazyk administrace')) ?></label><div><select id="jazyk" name="jazyk">
+<fieldset><legend><?= e(t('My details')) ?></legend>
+<div class="radek"><span class="popisek"><?= e(t('Přihlašovací jméno')) ?></span><div><?= e($user['user']) ?> <span class="napoveda"><?= e(t('Changed by an administrator in Users.')) ?></span></div></div>
+<div class="radek"><label for="jmeno"><?= e(t('Jméno')) ?></label><div><input class="textpole siroke" type="text" id="jmeno" name="jmeno" value="<?= e($user['jmeno']) ?>" maxlength="100"><span class="napoveda"><?= e(t('Shown with news items on the site.')) ?></span></div></div>
+<div class="radek"><label for="email"><?= e(t('Email')) ?></label><input class="textpole siroke" type="email" id="email" name="email" value="<?= e($user['email']) ?>" maxlength="190"></div>
+<div class="radek"><label for="url"><?= e(t('My website')) ?></label><input class="textpole siroke" type="url" id="url" name="url" value="<?= e($user['url']) ?>" maxlength="255" placeholder="https://"></div>
+<div class="radek"><label for="pozice"><?= e(t('Position in the company')) ?></label><input class="textpole siroke" type="text" id="pozice" name="pozice" value="<?= e($user['pozice']) ?>" maxlength="100" placeholder="<?= e(t('e.g. head of sales')) ?>"></div>
+<div class="radek"><label for="foto"><?= e(t('My photo')) ?></label><div><input class="textpole siroke" type="text" id="foto" name="foto" value="<?= e($user['foto']) ?>" maxlength="255" data-obrazek><span class="napoveda"><?= e(t('A square photo, 300 × 300 px is enough.')) ?></span></div></div>
+<div class="radek"><label for="bio"><?= e(t('A few sentences about me')) ?></label><div><textarea class="textbox nizky" id="bio" name="bio" rows="4" maxlength="1200"><?= e((string) $user['bio']) ?></textarea><span class="napoveda"><?= e(t('Shown as a short profile under your news items. What you do in the company and your background.')) ?></span></div></div>
+<div class="radek"><label for="jazyk"><?= e(t('Administration language')) ?></label><div><select id="jazyk" name="jazyk">
 <?php
 // the selected language is the one the admin actually runs in (without an own choice, the site language, if the admin supports it)
 $adminLanguage = $user['jazyk'] ?: Kaleta\Core\Language::defaults($app->settings());
@@ -45,18 +45,18 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <?php endforeach ?>
 </select><span class="napoveda">Language · Jazyk</span></div></div>
 </fieldset>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit údaje')) ?>"></p>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save details')) ?>"></p>
 </form>
 
 <form class="formular" method="post" action="<?= $action ?>" autocomplete="off">
 <?= $csrf ?><input type="hidden" name="co" value="heslo">
 <fieldset><legend><?= e(t('Změna hesla')) ?></legend>
-<div class="radek"><label for="soucasne"><?= e(t('Současné heslo')) ?></label><div><input class="textpole" type="password" id="soucasne" name="soucasne" size="30" autocomplete="current-password" required></div></div>
-<div class="radek"><label for="nove"><?= e(t('Nové heslo')) ?></label><div><input class="textpole" type="password" id="nove" name="nove" size="30" minlength="10" autocomplete="new-password" required><span class="napoveda"><?= e(t('Alespoň 10 znaků.')) ?></span></div></div>
-<div class="radek"><label for="nove2"><?= e(t('Nové heslo znovu')) ?></label><div><input class="textpole" type="password" id="nove2" name="nove2" size="30" autocomplete="new-password" required></div></div>
+<div class="radek"><label for="soucasne"><?= e(t('Current password')) ?></label><div><input class="textpole" type="password" id="soucasne" name="soucasne" size="30" autocomplete="current-password" required></div></div>
+<div class="radek"><label for="nove"><?= e(t('New password')) ?></label><div><input class="textpole" type="password" id="nove" name="nove" size="30" minlength="10" autocomplete="new-password" required><span class="napoveda"><?= e(t('At least 10 characters.')) ?></span></div></div>
+<div class="radek"><label for="nove2"><?= e(t('New password again')) ?></label><div><input class="textpole" type="password" id="nove2" name="nove2" size="30" autocomplete="new-password" required></div></div>
 <?php if ($tokens !== []): ?>
-<div class="radek"><span class="popisek"><?= e(t('Napojení')) ?></span><div class="volby"><label><input type="checkbox" name="zrusit_tokeny" value="1" checked> <?= e(t('zrušit i tokeny napojení (Claude, API)')) ?></label>
-	<span class="napoveda"><?= e(t('Token funguje bez hesla i bez dvoufázového přihlášení. Měníte-li heslo kvůli podezření na zneužití, nechte zaškrtnuté a napojení pak vytvořte znovu.')) ?></span></div></div>
+<div class="radek"><span class="popisek"><?= e(t('Connections')) ?></span><div class="volby"><label><input type="checkbox" name="zrusit_tokeny" value="1" checked> <?= e(t('also revoke connection tokens (Claude, API)')) ?></label>
+	<span class="napoveda"><?= e(t('A token works without the password and without two-factor sign-in. If you are changing the password because you suspect misuse, leave this ticked and create the connection again afterwards.')) ?></span></div></div>
 <?php endif ?>
 </fieldset>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Změnit heslo')) ?>"></p>
@@ -64,26 +64,26 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 
 <form class="formular" method="post" action="<?= $action ?>" autocomplete="off">
 <?= $csrf ?>
-<fieldset><legend><?= e(t('Dvoufázové přihlášení')) ?></legend>
+<fieldset><legend><?= e(t('Two-factor sign-in')) ?></legend>
 <?php if ($user['totp_tajemstvi'] !== ''): ?>
-<p><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span> <?= e(t('Při přihlášení zadáváte kromě hesla i kód z aplikace. Zbývá záložních kódů: %d.', $codesLeft)) ?></p>
+<p><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span> <?= e(t('When signing in you enter a code from the app in addition to your password. Backup codes left: %d.', $codesLeft)) ?></p>
 <input type="hidden" name="co" value="totp_vypni">
-<div class="radek"><label for="vyp-heslo"><?= e(t('Heslo pro potvrzení')) ?></label><div><input class="textpole" type="password" id="vyp-heslo" name="soucasne" size="30" autocomplete="current-password" required></div></div>
-<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Vypnout dvoufázové přihlášení')) ?></button></p>
+<div class="radek"><label for="vyp-heslo"><?= e(t('Password to confirm')) ?></label><div><input class="textpole" type="password" id="vyp-heslo" name="soucasne" size="30" autocomplete="current-password" required></div></div>
+<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Turn off two-factor sign-in')) ?></button></p>
 <?php elseif ($newSecret !== ''): ?>
 <input type="hidden" name="co" value="totp_potvrd">
 <ol>
-	<li><?= e(t('V ověřovací aplikaci (Google Authenticator, Microsoft Authenticator, 1Password, Aegis…) přidejte nový účet naskenováním QR kódu:')) ?><br>
-		<span class="totp-qr"><?= Kaleta\Core\Qr::svg($uri, t('QR kód pro ověřovací aplikaci')) ?></span><br>
-		<?= e(t('Nejde to naskenovat? Přidejte účet ručním zadáním klíče:')) ?><br><code class="totp-klic"><?= e(trim(chunk_split($newSecret, 4, ' '))) ?></code><br><small><a href="<?= e($uri) ?>"><?= e(t('Na mobilu můžete klepnout sem – odkaz otevře ověřovací aplikaci.')) ?></a></small></li>
-	<li><?= e(t('Opište šestimístný kód, který aplikace ukazuje:')) ?></li>
+	<li><?= e(t('In your authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, Aegis…) add a new account by scanning the QR code:')) ?><br>
+		<span class="totp-qr"><?= Kaleta\Core\Qr::svg($uri, t('QR code for the authenticator app')) ?></span><br>
+		<?= e(t('Cannot scan it? Add the account by typing the key:')) ?><br><code class="totp-klic"><?= e(trim(chunk_split($newSecret, 4, ' '))) ?></code><br><small><a href="<?= e($uri) ?>"><?= e(t('On a phone you can tap here – the link opens your authenticator app.')) ?></a></small></li>
+	<li><?= e(t('Enter the six-digit code shown by the app:')) ?></li>
 </ol>
-<div class="radek"><label for="kod"><?= e(t('Kód z aplikace')) ?></label><div><input class="textpole" type="text" id="kod" name="kod" size="12" maxlength="7" inputmode="numeric" autocomplete="one-time-code" required autofocus></div></div>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Potvrdit a zapnout')) ?>"></p>
+<div class="radek"><label for="kod"><?= e(t('Code from the app')) ?></label><div><input class="textpole" type="text" id="kod" name="kod" size="12" maxlength="7" inputmode="numeric" autocomplete="one-time-code" required autofocus></div></div>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Confirm and turn on')) ?>"></p>
 <?php else: ?>
-<p><?= e(t('Účet je chráněný jen heslem. S dvoufázovým přihlášením se bez vašeho telefonu nepřihlásí ani ten, kdo heslo uhodne nebo ukradne.')) ?></p>
+<p><?= e(t('Your account is protected by a password only. With two-factor sign-in, nobody can sign in without your phone – even if they guess or steal the password.')) ?></p>
 <input type="hidden" name="co" value="totp_start">
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Zapnout dvoufázové přihlášení')) ?>"></p>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Turn on two-factor sign-in')) ?>"></p>
 <?php endif ?>
 </fieldset>
 </form>
@@ -91,19 +91,19 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <?php if ($user['totp_tajemstvi'] !== ''): ?>
 <form class="formular" method="post" action="<?= $action ?>" data-klice="<?= $action ?>">
 <?= $csrf ?>
-<fieldset><legend><?= e(t('Přihlašovací klíče')) ?></legend>
-<p><?= e(t('Otisk prstu, Face ID, Windows Hello nebo bezpečnostní klíč místo opisování kódu z aplikace. Kód a záložní kódy fungují dál – pro případ, že zařízení nebudete mít u sebe.')) ?></p>
+<fieldset><legend><?= e(t('Passkeys')) ?></legend>
+<p><?= e(t('Fingerprint, Face ID, Windows Hello or a security key instead of typing the code from the app. The code and the backup codes keep working – in case you do not have the device with you.')) ?></p>
 <?php if ($keys !== []): ?>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><?= e(t('Zařízení')) ?></th><th scope="col"><?= e(t('Přidáno')) ?></th><th scope="col"><?= e(t('Naposledy použito')) ?></th><th scope="col"><?= e(t('Akce')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Zařízení')) ?></th><th scope="col"><?= e(t('Added')) ?></th><th scope="col"><?= e(t('Last used')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($keys as $k): ?>
 <tr>
 	<td><?= e($k['nazev']) ?></td>
 	<td class="cislo"><?= e(format_date((string) $k['vytvoreno'])) ?></td>
 	<td class="cislo"><?= $k['pouzito'] !== null ? e(format_date((string) $k['pouzito'])) : '–' ?></td>
-	<td class="akce"><button class="navigace nebezpecne" type="submit" name="idk" value="<?= (int) $k['idk'] ?>" data-potvrdit="<?= e(t('Odebrat přihlašovací klíč? Přihlásit se půjde dál kódem z aplikace.')) ?>"><?= e(t('Smazat')) ?></button></td>
+	<td class="akce"><button class="navigace nebezpecne" type="submit" name="idk" value="<?= (int) $k['idk'] ?>" data-potvrdit="<?= e(t('Remove this passkey? You can still sign in with the code from the app.')) ?>"><?= e(t('Smazat')) ?></button></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -111,10 +111,10 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 </div>
 <input type="hidden" name="co" value="klic_smaz">
 <?php endif ?>
-<div class="radek"><label for="klic-nazev"><?= e(t('Název zařízení')) ?></label><div><input class="textpole" type="text" id="klic-nazev" name="nazev" size="30" maxlength="80" placeholder="<?= e(t('např. MacBook, telefon')) ?>"></div></div>
-<p class="tlacitka"><button class="navigace" type="button" data-klic-pridat><?= e(t('Přidat klíč z tohoto zařízení')) ?></button></p>
+<div class="radek"><label for="klic-nazev"><?= e(t('Device name')) ?></label><div><input class="textpole" type="text" id="klic-nazev" name="nazev" size="30" maxlength="80" placeholder="<?= e(t('e.g. MacBook, phone')) ?>"></div></div>
+<p class="tlacitka"><button class="navigace" type="button" data-klic-pridat><?= e(t('Add a passkey from this device')) ?></button></p>
 <p class="hlaska hlaska-chyba" data-klic-chyba hidden role="alert"></p>
-<p class="napoveda" data-klic-nepodporuje hidden><?= e(t('Tento prohlížeč přihlašovací klíče nepodporuje, nebo web neběží na HTTPS.')) ?></p>
+<p class="napoveda" data-klic-nepodporuje hidden><?= e(t('This browser does not support passkeys, or the site is not running on HTTPS.')) ?></p>
 </fieldset>
 </form>
 <script src="<?= e($app->url('image/klice.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
@@ -123,31 +123,31 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <?php if ($claude): ?>
 <form class="formular" method="post" action="<?= $action ?>">
 <?= $csrf ?>
-<fieldset id="claude"><legend><?= e(t('Napojení na Claude')) ?></legend>
+<fieldset id="claude"><legend><?= e(t('Claude connection')) ?></legend>
 <?php if ($newToken !== ''): ?>
 <div class="hlaska hlaska-ok">
-	<p><strong><?= e(t('Token je vytvořený.')) ?></strong> <?= e(t('Zkopírujte si ho teď – už se nezobrazí.')) ?></p>
+	<p><strong><?= e(t('The token has been created.')) ?></strong> <?= e(t('Copy it now – it will not be shown again.')) ?></p>
 	<p><code class="totp-klic"><?= e($newToken) ?></code></p>
-	<p><?= e(t('V Claude Code spusťte:')) ?></p>
+	<p><?= e(t('In Claude Code, run:')) ?></p>
 	<p><code class="totp-klic" style="font-size:12px">claude mcp add --transport http kaleta <?= e($mcpUrl) ?> --header "Authorization: Bearer <?= e($newToken) ?>"</code></p>
-	<p class="napoveda"><?= e(t('V aplikaci Claude token nepotřebujete: přidejte vlastní konektor s adresou %s a přístup potvrďte přihlášením.', $mcpUrl)) ?></p>
+	<p class="napoveda"><?= e(t('In the Claude app you do not need a token: add a custom connector with the address %s and confirm access by signing in.', $mcpUrl)) ?></p>
 </div>
 <?php endif ?>
-<p><?= e(t('Nejjednodušší je přidat v aplikaci Claude vlastní konektor s adresou %s – Claude vás pošle sem přihlásit a potvrdit přístup, žádný token nekopírujete. Token níže je pro Claude Code a jiné nástroje bez přihlášení.', $mcpUrl)) ?></p>
+<p><?= e(t('The easiest way is to add a custom connector in the Claude app with the address %s – Claude sends you here to sign in and confirm access, no token to copy. The token below is for Claude Code and other tools without sign-in.', $mcpUrl)) ?></p>
 <?php if ($apps !== []): ?>
-<h2><?= e(t('Připojené aplikace')) ?></h2>
+<h2><?= e(t('Connected applications')) ?></h2>
 <?php foreach ($apps as $a): ?>
-<p><span class="stitek"><?= e($a['nazev']) ?></span> <?= e(t('připojena %s', format_date($a['vytvoren']))) ?>, <?= e($a['pouzit'] ? t('naposledy použita %s', format_date($a['pouzit'], true)) : t('zatím nepoužita')) ?>
-	<button class="navigace nebezpecne" type="submit" name="odpojit_klient" value="<?= e($a['klient']) ?>" data-potvrdit="<?= e(t('Odpojit aplikaci? Do webu se už nedostane, dokud ji znovu nepovolíte.')) ?>"><?= e(t('Odpojit')) ?></button></p>
+<p><span class="stitek"><?= e($a['nazev']) ?></span> <?= e(t('connected %s', format_date($a['vytvoren']))) ?>, <?= e($a['pouzit'] ? t('naposledy použita %s', format_date($a['pouzit'], true)) : t('zatím nepoužita')) ?>
+	<button class="navigace nebezpecne" type="submit" name="odpojit_klient" value="<?= e($a['klient']) ?>" data-potvrdit="<?= e(t('Disconnect the application? It will not get into the website until you allow it again.')) ?>"><?= e(t('Disconnect')) ?></button></p>
 <?php endforeach ?>
 <?php endif ?>
-<p><?= e(t('Claude bude s webem pracovat')) ?> <strong><?= e(t('vaším jménem a s vašimi právy')) ?></strong>: <?= e(t((int) $user['admin'] === 2 ? 'psát a upravovat stránky a novinky, spravovat kategorie, kolekce a vzhled webu.' : 'psát a upravovat novinky.')) ?> <?= e(t('Nové novinky zakládá jako koncepty a nové stránky jako skryté. Všechny jeho zásahy najdete v Protokolu změn. Token chraňte jako heslo.')) ?></p>
+<p><?= e(t('Claude will work with the site')) ?> <strong><?= e(t('in your name and with your permissions')) ?></strong>: <?= e(t((int) $user['admin'] === 2 ? 'write and edit pages and news, and manage categories, collections and the look of the site.' : 'write and edit news.')) ?> <?= e(t('It creates new news items as drafts and new pages as hidden. All its changes are in the Change log. Protect the token like a password.')) ?></p>
 <?php foreach ($tokens as $t): ?>
-<p><span class="stitek"><?= e($t['nazev']) ?></span> <?= e(t('vytvořen %s', format_date($t['vytvoren']))) ?>, <?= e($t['pouzit'] ? t('naposledy použit %s', format_date($t['pouzit'], true)) : t('zatím nepoužit')) ?>
-	<button class="navigace nebezpecne" type="submit" name="smaz_token" value="<?= (int) $t['idt'] ?>" data-potvrdit="<?= e(t('Zrušit token? Claude se jím už nepřihlásí.')) ?>"><?= e(t('Zrušit token')) ?></button></p>
+<p><span class="stitek"><?= e($t['nazev']) ?></span> <?= e(t('created %s', format_date($t['vytvoren']))) ?>, <?= e($t['pouzit'] ? t('naposledy použit %s', format_date($t['pouzit'], true)) : t('zatím nepoužit')) ?>
+	<button class="navigace nebezpecne" type="submit" name="smaz_token" value="<?= (int) $t['idt'] ?>" data-potvrdit="<?= e(t('Revoke the token? Claude will no longer be able to sign in with it.')) ?>"><?= e(t('Revoke token')) ?></button></p>
 <?php endforeach ?>
-<div class="radek"><label for="token-nazev"><?= e(t('Název nového tokenu')) ?></label><div><input class="textpole" type="text" id="token-nazev" name="nazev" maxlength="100" size="30" placeholder="<?= e(t('např. Claude na notebooku')) ?>"></div></div>
-<p class="tlacitka"><button class="tl" type="submit" name="co" value="token_novy"><?= e(t('Vytvořit token')) ?></button></p>
+<div class="radek"><label for="token-nazev"><?= e(t('Name of the new token')) ?></label><div><input class="textpole" type="text" id="token-nazev" name="nazev" maxlength="100" size="30" placeholder="<?= e(t('e.g. Claude on my laptop')) ?>"></div></div>
+<p class="tlacitka"><button class="tl" type="submit" name="co" value="token_novy"><?= e(t('Create token')) ?></button></p>
 </fieldset>
 </form>
 <?php endif ?>

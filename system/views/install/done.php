@@ -11,7 +11,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title><?= e(t('Instalace Kalety')) ?></title>
+<title><?= e(t('Kaleta installation')) ?></title>
 <link rel="icon" type="image/svg+xml" href="<?= e($base) ?>/image/kaleta-znacka.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="<?= e($base) ?>/image/kaleta-znacka-32.png">
 <link rel="apple-touch-icon" href="<?= e($base) ?>/image/kaleta-znacka-180.png">
@@ -22,20 +22,20 @@
 <header class="uvod">
 	<div class="znacka"><?php $height = 40; $markOnly = false; require KALETA_SYSTEM . '/views/admin/logo.php'; ?></div>
 <?php if ($alreadyInstalled): ?>
-	<h1><?= e(t('Kaleta je už nainstalovaná')) ?></h1>
-	<p><?= e(t('Soubor config.php existuje, instalátor proto nic nemění.')) ?></p>
+	<h1><?= e(t('Kaleta is already installed')) ?></h1>
+	<p><?= e(t('The config.php file exists, so the installer changes nothing.')) ?></p>
 <?php else: ?>
-	<h1><?= e(t('Hotovo, web běží')) ?></h1>
-	<p><?= e(t('Databáze je připravena a konfigurace zapsána.')) ?></p>
+	<h1><?= e(t('Done, your website is running')) ?></h1>
+	<p><?= e(t('The database is ready and the configuration has been written.')) ?></p>
 <?php endif ?>
 </header>
 <?php if ($deleted): ?>
-<p class="hlaska hlaska-ok"><?= e(t('Soubor install.php se z bezpečnostních důvodů smazal sám – nic dalšího dělat nemusíte.')) ?></p>
+<p class="hlaska hlaska-ok"><?= e(t('For security reasons install.php has deleted itself – there is nothing else you need to do.')) ?></p>
 <?php else: ?>
-<p class="hlaska <?= $alreadyInstalled ? 'hlaska-chyba' : 'hlaska-ok' ?>"><?= e(t('Z bezpečnostních důvodů teď ze serveru smažte soubor')) ?> <strong>install.php</strong>.</p>
+<p class="hlaska <?= $alreadyInstalled ? 'hlaska-chyba' : 'hlaska-ok' ?>"><?= e(t('For security reasons, now delete this file from the server:')) ?> <strong>install.php</strong>.</p>
 <?php endif ?>
 <div class="akce">
-	<a class="tlacitko" href="<?= e($base) ?>/admin.php"><?= e(t('Přejít do administrace')) ?></a>
+	<a class="tlacitko" href="<?= e($base) ?>/admin.php"><?= e(t('Go to the administration')) ?></a>
 	<a class="tlacitko druhe" href="<?= e($base) ?>/"><?= e(t('Zobrazit web')) ?></a>
 </div>
 </main>

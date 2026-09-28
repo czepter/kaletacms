@@ -18,19 +18,19 @@ final class Company
 {
     /** schema.org business types (key => label in Settings). */
     public const array TYPES = [
-        'Organization' => 'firma bez provozovny pro zákazníky',
-        'LocalBusiness' => 'provozovna (obecně)',
-        'HomeAndConstructionBusiness' => 'řemeslo a stavebnictví',
-        'ProfessionalService' => 'profesní služby (poradenství, agentura)',
-        'LegalService' => 'právní služby',
-        'AccountingService' => 'účetnictví a daně',
-        'MedicalBusiness' => 'zdravotnictví a péče',
-        'AutomotiveBusiness' => 'autoservis a auta',
+        'Organization' => 'company without premises for customers',
+        'LocalBusiness' => 'business premises (general)',
+        'HomeAndConstructionBusiness' => 'crafts and construction',
+        'ProfessionalService' => 'professional services (consulting, agency)',
+        'LegalService' => 'legal services',
+        'AccountingService' => 'accounting and tax',
+        'MedicalBusiness' => 'health and care',
+        'AutomotiveBusiness' => 'car service and cars',
         'Store' => 'obchod',
-        'FoodEstablishment' => 'restaurace, kavárna',
+        'FoodEstablishment' => 'restaurant, café',
         'LodgingBusiness' => 'ubytování',
-        'SportsActivityLocation' => 'sport a fitness',
-        'EducationalOrganization' => 'škola a kurzy',
+        'SportsActivityLocation' => 'sport and fitness',
+        'EducationalOrganization' => 'school and courses',
     ];
 
     /** Days of the week: abbreviations (Czech and English) → schema.org. */
@@ -118,7 +118,7 @@ final class Company
             'email' => $s->get('company_email'),
             'telephone' => $s->get('company_phone'),
             'vatID' => $s->get('company_vat_id'),
-            'identifier' => $s->get('company_id') !== '' ? ['@type' => 'PropertyValue', 'propertyID' => $s->get('company_country') === 'CZ' ? 'IČO' : 'Company ID', 'value' => $s->get('company_id')] : null,
+            'identifier' => $s->get('company_id') !== '' ? ['@type' => 'PropertyValue', 'propertyID' => $s->get('company_country') === 'CZ' ? 'Company ID' : 'Company ID', 'value' => $s->get('company_id')] : null,
             'address' => count($url) > 1 ? $url : null,
             'geo' => is_numeric($lat) && is_numeric($lng) ? ['@type' => 'GeoCoordinates', 'latitude' => (float) $lat, 'longitude' => (float) $lng] : null,
             'hasMap' => $s->get('company_map'),

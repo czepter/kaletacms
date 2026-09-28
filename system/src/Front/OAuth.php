@@ -133,8 +133,8 @@ final class OAuth
         $client = $this->client($r->get('client_id'));
         $redirectUri = $r->get('redirect_uri');
         if ($client === null || !in_array($redirectUri, json_decode((string) $client['presmerovani'], true) ?: [], true)) {
-            return new Response('<!doctype html><meta charset="utf-8"><title>' . e(t('Neplatná žádost o přihlášení')) . '</title><p style="font:16px system-ui;margin:3em">'
-                . e(t('Aplikace se na tomto webu neohlásila správně (neznámý klient nebo adresa pro návrat). Připojte ji prosím znovu.')) . '</p>', 400, ['Content-Type' => 'text/html; charset=utf-8']);
+            return new Response('<!doctype html><meta charset="utf-8"><title>' . e(t('Invalid sign-in request')) . '</title><p style="font:16px system-ui;margin:3em">'
+                . e(t('The application did not register correctly with this website (unknown client or return address). Please connect it again.')) . '</p>', 400, ['Content-Type' => 'text/html; charset=utf-8']);
         }
         $back = fn (string $error, string $description): Response => Response::redirect(self::withParams($redirectUri, ['error' => $error, 'error_description' => $description, 'state' => $r->get('state'), 'iss' => $this->issuer()]));
         if ($r->get('response_type') !== 'code') {

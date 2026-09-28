@@ -18,20 +18,20 @@
 		<input type="hidden" name="id" value="<?= (int) ($zaznam['idc'] ?? $zaznam['ids']) ?>">
 		<input type="hidden" name="zpet" value="<?= e($zpet) ?>">
 <?php if ($chyba): ?>
-		<p class="ka-upravit-hlaska"><?= e(t('Titulek nesmí zůstat prázdný.')) ?></p>
+		<p class="ka-upravit-hlaska"><?= e(t('The title must not be empty.')) ?></p>
 <?php endif ?>
 		<p><label for="ka-titulek"><?= e(t('Titulek')) ?></label>
 			<input class="ka-upravit-titulek" type="text" id="ka-titulek" name="titulek" value="<?= e($zaznam['titulek']) ?>" maxlength="200" required></p>
 <?php if ($typ === 'novinka'): ?>
-		<p><label for="ka-uvod"><?= e(t('Perex')) ?></label>
+		<p><label for="ka-uvod"><?= e(t('Lead')) ?></label>
 			<textarea id="ka-uvod" name="uvod" rows="4" data-editor="maly"><?= e($zaznam['uvod']) ?></textarea></p>
 <?php endif ?>
 		<p><label for="ka-text"><?= e(t('Text')) ?></label>
 			<textarea id="ka-text" name="text" rows="18" data-editor><?= e($zaznam['text']) ?></textarea></p>
 		<div class="ka-upravit-lista">
 			<button class="ka-tl" type="submit"><?= e(t('Uložit')) ?></button>
-			<a class="ka-tl ka-tl-vedlejsi" href="<?= e($zpet) ?>"><?= e(t('Zrušit')) ?></a>
-			<a class="ka-upravit-vse" href="<?= e($app->url('admin.php?module=' . ($typ === 'novinka' ? 'novinky' : 'stranky') . '&action=edit&id=' . (int) ($zaznam['idc'] ?? $zaznam['ids']))) ?>"><?= e(t('Všechna nastavení v administraci')) ?></a>
+			<a class="ka-tl ka-tl-vedlejsi" href="<?= e($zpet) ?>"><?= e(t('Cancel')) ?></a>
+			<a class="ka-upravit-vse" href="<?= e($app->url('admin.php?module=' . ($typ === 'novinka' ? 'novinky' : 'stranky') . '&action=edit&id=' . (int) ($zaznam['idc'] ?? $zaznam['ids']))) ?>"><?= e(t('All settings in the administration')) ?></a>
 		</div>
 	</form>
 </article>

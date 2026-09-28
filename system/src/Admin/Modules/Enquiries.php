@@ -15,8 +15,8 @@ final class Enquiries extends Module
 {
     public const string IDENT = 'enquiries';
     public const string EXTENSION = 'poptavky';
-    public const string NAME = 'Poptávky';
-    public const string GROUP = 'Obsah';
+    public const string NAME = 'Enquiries';
+    public const string GROUP = 'Content';
     public const string ICON = 'poptavky';
 
     public const array STATUSES = [0 => 'nová', 1 => 'přečtená', 2 => 'vyřízená'];
@@ -44,7 +44,7 @@ final class Enquiries extends Module
         $whereParts = $conditions === [] ? '' : 'WHERE ' . implode(' AND ', $conditions);
         $pageNumber = max(1, $this->request->getInt('strana', 1));
 
-        return $this->view('list', 'Poptávky', [
+        return $this->view('list', 'Enquiries', [
             'enquiries' => $this->db->all('SELECT idp, datum, formular, stranka, email, stav, data, prirazeno FROM {poptavky} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'total' => (int) $this->db->value('SELECT COUNT(*) FROM {poptavky} ' . $whereParts, $params),
             'filter' => $filter, 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
@@ -57,14 +57,14 @@ final class Enquiries extends Module
     {
         $p = $this->db->one('SELECT * FROM {poptavky} WHERE idp = ?', [$this->request->getInt('id')]);
         if ($p === null) {
-            return $this->error('Poptávka neexistuje.', 404);
+            return $this->error('The enquiry does not exist.', 404);
         }
         if ((int) $p['stav'] === 0) {
             $this->db->update('poptavky', ['stav' => 1], ['idp' => $p['idp']]);
             $p['stav'] = 1;
         }
 
-        return $this->view('detail', t('Poptávka') . ' #' . $p['idp'], ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: [],
+        return $this->view('detail', t('Enquiry') . ' #' . $p['idp'], ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: [],
             'users' => $this->listAssignees((int) $p['prirazeno'])]);
     }
 
@@ -93,7 +93,7 @@ final class Enquiries extends Module
                 'prirazeno' => $who > 0 && isset($this->listAssignees((int) $this->db->value('SELECT prirazeno FROM {poptavky} WHERE idp = ?', [$idp]))[$who]) ? $who : null], ['idp' => $idp]);
         }
 
-        return $this->back('Poznámka byla uložena.', 'detail', ['id' => $idp]);
+        return $this->back('The note has been saved.', 'detail', ['id' => $idp]);
     }
 
     /** Form attachment for download (only for a signed-in user with access to enquiries). */
@@ -103,7 +103,7 @@ final class Enquiries extends Module
         $item = ($p !== null ? (json_decode((string) $p['data'], true) ?: []) : [])[$this->request->getInt('pole')] ?? null;
         $path = is_array($item) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#', (string) ($item[2] ?? '')) ? KALETA_ROOT . '/storage/prilohy/' . $item[2] : null;
         if ($path === null || !is_file($path)) {
-            return $this->error('Příloha už neexistuje.', 404);
+            return $this->error('The attachment no longer exists.', 404);
         }
         $displayName = preg_replace('/ \([^)]*\)$/', '', (string) $item[1]) ?: basename($path);
 
@@ -123,11 +123,11 @@ final class Enquiries extends Module
             self::deleteAttachments($this->db->all('SELECT data FROM {poptavky} WHERE idp IN (' . $v . ')'));
             $this->db->run('DELETE FROM {poptavky} WHERE idp IN (' . $v . ')');
 
-            return $this->back(t('Smazáno poptávek: %d.', count($ids)));
+            return $this->back(t('Enquiries deleted: %d.', count($ids)));
         }
         $this->db->run('UPDATE {poptavky} SET stav = 2 WHERE idp IN (' . $v . ')');
 
-        return $this->back(t('Vyřízeno poptávek: %d.', count($ids)));
+        return $this->back(t('Enquiries resolved: %d.', count($ids)));
     }
 
     /** @param list<array{data: string}> $rows */
@@ -149,7 +149,7 @@ final class Enquiries extends Module
             $this->db->update('poptavky', ['stav' => isset(self::STATUSES[$state]) ? $state : 1], ['idp' => $this->request->postInt('idp')]);
         }
 
-        return $this->back($this->request->postInt('stav') === 2 ? 'Poptávka je vyřízená.' : 'Poptávka je znovu otevřená.');
+        return $this->back($this->request->postInt('stav') === 2 ? 'The enquiry is resolved.' : 'The enquiry is open again.');
     }
 
     protected function actionDelete(): Response
@@ -159,7 +159,7 @@ final class Enquiries extends Module
             $this->db->delete('poptavky', ['idp' => $this->request->postInt('idp')]);
         }
 
-        return $this->back('Poptávka byla smazána.');
+        return $this->back('The enquiry was deleted.');
     }
 
     /** Saving the period after which enquiries delete themselves (administrator only). */
@@ -169,7 +169,7 @@ final class Enquiries extends Module
             $this->app->settings()->set('enquiries_months', (string) max(0, min(120, $this->request->postInt('mesice'))));
         }
 
-        return $this->back('Nastavení poptávek bylo uloženo.');
+        return $this->back('Enquiry settings saved.');
     }
 
     /** All enquiries to CSV (UTF-8 with BOM, semicolon – opens directly in Excel). */
@@ -177,7 +177,7 @@ final class Enquiries extends Module
     {
         $f = fopen('php://temp', 'w+');
         fwrite($f, "\xEF\xBB\xBF");
-        fputcsv($f, [t('Číslo'), t('Datum'), t('Formulář'), t('Stav'), t('E-mail'), t('Stránka'), t('Kampaň'), t('Obsah')], ';', '"', '');
+        fputcsv($f, [t('Number'), t('Date'), t('Form'), t('Status'), t('Email'), t('Page'), t('Campaign'), t('Content')], ';', '"', '');
         foreach ($this->db->all('SELECT * FROM {poptavky} ORDER BY idp') as $p) {
             $content = implode("\n", array_map(fn (array $d): string => $d[0] . ': ' . $d[1], json_decode((string) $p['data'], true) ?: []));
             // a cell starting with = + - @ would run as a formula in a spreadsheet

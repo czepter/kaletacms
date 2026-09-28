@@ -14,16 +14,16 @@ use Kaleta\Builder\Element;
 final class Rating extends Element
 {
     public const string TYPE = 'hodnoceni';
-    public const string NAME = 'Hodnocení';
-    public const string DESCRIPTION = 'Hvězdičky s hodnotou a počtem recenzí (např. z Google).';
+    public const string NAME = 'Rating';
+    public const string DESCRIPTION = 'Stars with a score and number of reviews (e.g. from Google).';
     public const string ICON = 'hvezda';
     public const array HTML_TAGS = ['div', 'p'];
 
     public static function properties(): array
     {
         return [
-            'hodnota' => ['typ' => 'text', 'popisek' => 'Hodnocení (0–5, např. 4,8)', 'vychozi' => '4,8', 'max' => 4],
-            'text' => ['typ' => 'text', 'popisek' => 'Text vedle hvězdiček', 'vychozi' => t('z 5 · 120 recenzí'), 'max' => 120],
+            'hodnota' => ['typ' => 'text', 'popisek' => 'Rating (0–5, e.g. 4.8)', 'vychozi' => '4,8', 'max' => 4],
+            'text' => ['typ' => 'text', 'popisek' => 'Text next to the stars', 'vychozi' => t('out of 5 · 120 reviews'), 'max' => 120],
         ];
     }
 
@@ -51,7 +51,7 @@ final class Rating extends Element
         $svg = '<svg viewBox="0 0 128 24" aria-hidden="true" focusable="false"><defs><clipPath id="hv-' . e($p['id']) . '"><rect width="' . $width . '" height="24"/></clipPath></defs>'
             . '<g class="ka-hodnoceni-prazdne">' . $stars . '</g><g class="ka-hodnoceni-plne" clip-path="url(#hv-' . e($p['id']) . ')">' . $stars . '</g></svg>';
 
-        return '<' . $p['znacka'] . Text::withClass($a, 'ka-hodnoceni') . ' role="img" aria-label="' . e(t('Hodnocení %s z 5', $number) . ($o['text'] !== '' ? ' – ' . $o['text'] : '')) . '">'
+        return '<' . $p['znacka'] . Text::withClass($a, 'ka-hodnoceni') . ' role="img" aria-label="' . e(t('Rated %s out of 5', $number) . ($o['text'] !== '' ? ' – ' . $o['text'] : '')) . '">'
             . $svg . '<strong aria-hidden="true">' . e($number) . '</strong>' . ($o['text'] !== '' ? '<span aria-hidden="true">' . e($o['text']) . '</span>' : '') . '</' . $p['znacka'] . '>';
     }
 }

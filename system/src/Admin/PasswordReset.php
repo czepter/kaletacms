@@ -43,7 +43,7 @@ final class PasswordReset
             $ip = Antispam::hash($app->request->ip());
             $attempts = (int) $app->db()->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'obnova' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [$ip]);
             if ($attempts >= 5) {
-                $error = t('Příliš mnoho žádostí. Zkuste to znovu za 15 minut.');
+                $error = t('Too many requests. Try again in 15 minutes.');
             } else {
                 $app->db()->insert('kontrola_ip', ['ip_adresa' => $ip, 'typ' => 'obnova', 'cas' => date('Y-m-d H:i:s')]);
                 $who = trim($app->request->post('kdo'));
@@ -74,16 +74,16 @@ final class PasswordReset
         $language = (string) ($user['jazyk'] ?? '') !== '' ? (string) $user['jazyk'] : Language::defaults($app->settings());
         $siteSettings = $app->settings()->get('site_name');
         [$subject, $text] = Language::runWith($language, fn (): array => match ($reason) {
-            'pozvanka' => [t('Pozvánka do administrace') . ' – ' . $siteSettings,
-                t('Dobrý den,') . "\n\n" . t('dostali jste přístup do administrace webu %s. Vaše přihlašovací jméno je %s.', $siteSettings, (string) $user['user'])
-                    . "\n\n" . t('Heslo si nastavíte na této adrese (platí 3 dny a jde použít jednou):') . "\n" . $link],
-            'spravce' => [t('Nové heslo do administrace') . ' – ' . $siteSettings,
-                t('Dobrý den,') . "\n\n" . t('správce webu %s vám poslal odkaz na nastavení nového hesla k účtu %s.', $siteSettings, (string) $user['user'])
-                    . "\n\n" . t('Heslo si nastavíte na této adrese (platí 3 dny a jde použít jednou):') . "\n" . $link],
-            default => [t('Nové heslo do administrace') . ' – ' . $siteSettings,
-                t('Dobrý den,') . "\n\n" . t('někdo (nejspíš vy) požádal o nové heslo k účtu %s v administraci webu %s.', (string) $user['user'], $siteSettings)
-                    . "\n\n" . t('Nové heslo nastavíte na této adrese (platí hodinu a jde použít jednou):') . "\n" . $link
-                    . "\n\n" . t('Pokud jste o nové heslo nežádali, e-mail smažte – heslo zůstává beze změny.')],
+            'pozvanka' => [t('Invitation to the administration') . ' – ' . $siteSettings,
+                t('Hello,') . "\n\n" . t('you have been given access to the administration of the website %s. Your username is %s.', $siteSettings, (string) $user['user'])
+                    . "\n\n" . t('Set your password at this address (valid for 3 days, single use):') . "\n" . $link],
+            'spravce' => [t('New administration password') . ' – ' . $siteSettings,
+                t('Hello,') . "\n\n" . t('the administrator of %s has sent you a link to set a new password for the account %s.', $siteSettings, (string) $user['user'])
+                    . "\n\n" . t('Set your password at this address (valid for 3 days, single use):') . "\n" . $link],
+            default => [t('New administration password') . ' – ' . $siteSettings,
+                t('Hello,') . "\n\n" . t('someone (most likely you) asked for a new password for the account %s in the administration of %s.', (string) $user['user'], $siteSettings)
+                    . "\n\n" . t('Set a new password at this address (valid for one hour, can be used once):') . "\n" . $link
+                    . "\n\n" . t('If you did not ask for a new password, delete this e-mail – your password stays unchanged.')],
         }, 'admin-');
         Mail::send($app->settings(), (string) $user['email'], $subject, $text);
         ChangeLog::write($app, 'prihlaseni', 'obnova-hesla', ($reason === 'pozvanka' ? 'pozvánka' : 'odeslán odkaz') . ', účet: ' . $user['user']);
@@ -96,15 +96,15 @@ final class PasswordReset
             ? $app->db()->one('SELECT * FROM {uzivatele} WHERE obnova_otisk = ? AND blokovat = 0 AND obnova_cas > ?', [hash('sha256', $token), date('Y-m-d H:i:s', time() - self::LINK_LIFETIME)])
             : null;
         if ($user === null) {
-            return $this->page(['step' => 'neplatny', 'sent' => false, 'error' => t('Odkaz už neplatí nebo byl použit. Požádejte o nový.')], 400);
+            return $this->page(['step' => 'neplatny', 'sent' => false, 'error' => t('The link has expired or has already been used. Request a new one.')], 400);
         }
         $error = null;
         if ($app->request->isPost()) {
             $password = (string) ($_POST['password'] ?? '');
             if (mb_strlen($password) < 10) {
-                $error = t('Heslo musí mít alespoň 10 znaků.');
+                $error = t('The password must be at least 10 characters long.');
             } elseif ($password !== (string) ($_POST['password2'] ?? '')) {
-                $error = t('Hesla se neshodují.');
+                $error = t('The passwords do not match.');
             } else {
                 $app->db()->update('uzivatele', [
                     'password' => password_hash($password, PASSWORD_DEFAULT), 'obnova_otisk' => '', 'obnova_cas' => null, 'pocet_chyb' => 0, 'zamceno_do' => null,

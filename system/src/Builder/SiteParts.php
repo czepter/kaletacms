@@ -14,11 +14,11 @@ final class SiteParts
 {
     /** type => [name, description] */
     public const array TYPES = [
-        'hlavicka' => ['Záhlaví', 'Logo a navigace nahoře na každé stránce.'],
-        'paticka' => ['Patička', 'Kontakty, odkazy a copyright dole na každé stránce.'],
-        'novinka' => ['Detail novinky', 'Obálka kolem textu novinky – třeba výzva k akci nebo další novinky pod textem.'],
-        'vypis' => ['Výpis novinek', 'Obálka kolem výpisu novinek, kategorie, štítku a hledání.'],
-        'nenalezeno' => ['Stránka nenalezena (404)', 'Obálka kolem hlášení, že stránka neexistuje – třeba s odkazy dál.'],
+        'hlavicka' => ['Header', 'Logo and navigation at the top of every page.'],
+        'paticka' => ['Footer', 'Contacts, links and copyright at the bottom of every page.'],
+        'novinka' => ['Detail novinky', 'A wrapper around the news item – a call to action or more news below the text, for example.'],
+        'vypis' => ['News list', 'A wrapper around the news list, category, tag and search results.'],
+        'nenalezeno' => ['Page not found (404)', 'A wrapper around the page-not-found message – e.g. with links onward.'],
     ];
 
     /** Parts that can have variants for selected pages (a landing page without navigation, a different footer…). */

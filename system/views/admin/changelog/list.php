@@ -14,15 +14,15 @@
  */
 // names of the admin modules (including those added later) and a few places outside modules
 $names = array_map(fn (string $class): string => $class::NAME, array_combine(array_map(fn (string $class): string => $class::IDENT, Kaleta\Admin\Kernel::MODULES), Kaleta\Admin\Kernel::MODULES))
-    + ['asistent' => 'AI asistent', 'mcp' => 'Claude (MCP)', 'claude' => 'Claude (MCP)', 'prihlaseni' => 'Přihlášení', 'ucet' => 'Můj účet'];
-$action = ['uloz' => 'uložení', 'smaz' => 'smazání', 'smaz_natrvalo' => 'smazání natrvalo', 'obnov' => 'obnovení z koše', 'duplikuj' => 'kopie',
-    'vydat' => 'vydání', 'hromadne' => 'hromadná akce', 'nahraj' => 'nahrání', 'login' => 'přihlášení', 'neuspech' => 'neúspěšný pokus',
-    'zalohuj' => 'záloha', 'aktualizuj' => 'aktualizace systému', 'slozka' => 'složka', 'automaticky' => 'automatické menu',
-    'uloz_variantu' => 'uložení varianty', 'sablona' => 'návrat na výchozí podobu', 'stav' => 'změna stavu', 'import' => 'import', 'stavba_text' => 'návrat k textu',
+    + ['asistent' => 'AI assistant', 'mcp' => 'Claude (MCP)', 'claude' => 'Claude (MCP)', 'prihlaseni' => 'Přihlášení', 'ucet' => 'My account'];
+$action = ['uloz' => 'uložení', 'smaz' => 'smazání', 'smaz_natrvalo' => 'deleted permanently', 'obnov' => 'restored from trash', 'duplikuj' => 'kopie',
+    'vydat' => 'vydání', 'hromadne' => 'bulk action', 'nahraj' => 'nahrání', 'login' => 'přihlášení', 'neuspech' => 'failed attempt',
+    'zalohuj' => 'záloha', 'aktualizuj' => 'system update', 'slozka' => 'složka', 'automaticky' => 'automatic menu',
+    'uloz_variantu' => 'variant saved', 'sablona' => 'back to default design', 'stav' => 'status change', 'import' => 'import', 'stavba_text' => 'back to text',
     // Claude's (MCP) writes by tool
-    'obnov_verzi' => 'obnovení verze', 'zahod_koncept' => 'zahození konceptu', 'vytvor_kolekci' => 'nová kolekce', 'uprav_kolekci' => 'úprava kolekce', 'uloz_polozku_kolekce' => 'uložení položky kolekce', 'uloz_popup' => 'uložení pop-up okna', 'stavba_z_html' => 'úprava stavby', 'stavba_uloz' => 'úprava stavby',
-    'stavba_uprav' => 'úprava stavby', 'vloz_sekci' => 'úprava stavby', 'uloz_tridy' => 'úprava sdílených tříd', 'nahraj_soubor' => 'nahrání souboru', 'uprav_nastaveni' => 'úprava nastavení', 'uloz_presmerovani' => 'úprava přesměrování', 'smaz_stranku' => 'stránka do koše', 'publikuj_stavbu' => 'publikování',
-    'uprav_design_system' => 'úprava design systemu', 'vytvor_stranku' => 'nová stránka', 'uprav_stranku' => 'úprava stránky', 'vytvor_novinku' => 'nová novinka', 'uprav_novinku' => 'úprava novinky', 'vytvor_kategorii' => 'nová kategorie', 'uloz_menu' => 'úprava menu'];
+    'obnov_verzi' => 'version restored', 'zahod_koncept' => 'draft discarded', 'vytvor_kolekci' => 'collection created', 'uprav_kolekci' => 'collection changed', 'uloz_polozku_kolekce' => 'collection item saved', 'uloz_popup' => 'pop-up saved', 'stavba_z_html' => 'build changed', 'stavba_uloz' => 'build changed',
+    'stavba_uprav' => 'build changed', 'vloz_sekci' => 'build changed', 'uloz_tridy' => 'shared classes changed', 'nahraj_soubor' => 'file uploaded', 'uprav_nastaveni' => 'settings changed', 'uloz_presmerovani' => 'redirects changed', 'smaz_stranku' => 'page moved to trash', 'publikuj_stavbu' => 'publikování',
+    'uprav_design_system' => 'design system changed', 'vytvor_stranku' => 'page created', 'uprav_stranku' => 'page changed', 'vytvor_novinku' => 'news item created', 'uprav_novinku' => 'news item changed', 'vytvor_kategorii' => 'category created', 'uloz_menu' => 'menu changed'];
 // actions logged since 1.4 have the English names of Admin\LegacyUrls
 foreach (Kaleta\Admin\LegacyUrls::ACTIONS as $old => $new) {
     if (isset($action[$old])) {
@@ -32,22 +32,22 @@ foreach (Kaleta\Admin\LegacyUrls::ACTIONS as $old => $new) {
 ?>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
 	<input type="hidden" name="module" value="changelog">
-	<label><?= e(t('Uživatel:')) ?> <select name="kdo" data-odeslat-pri-zmene><option value="0"><?= e(t('všichni')) ?></option>
+	<label><?= e(t('User:')) ?> <select name="kdo" data-odeslat-pri-zmene><option value="0"><?= e(t('všichni')) ?></option>
 <?php foreach ($users as $userId => $displayName): ?>
 		<option value="<?= (int) $userId ?>"<?= $who === (int) $userId ? ' selected' : '' ?>><?= e($displayName) ?></option>
 <?php endforeach ?>
 	</select></label>
-	<label><?= e(t('Kde:')) ?> <select name="kde" data-odeslat-pri-zmene><option value=""><?= e(t('všude')) ?></option>
+	<label><?= e(t('Where:')) ?> <select name="kde" data-odeslat-pri-zmene><option value=""><?= e(t('everywhere')) ?></option>
 <?php foreach ($modules as $m): ?>
 		<option value="<?= e($m) ?>"<?= $whereParts === $m ? ' selected' : '' ?>><?= e(isset($names[$m]) ? t($names[$m]) : $m) ?></option>
 <?php endforeach ?>
 	</select></label>
-	<label><?= e(t('Podrobnost obsahuje:')) ?> <input class="textpole" type="search" name="hledat" value="<?= e($search) ?>" size="18"></label>
-	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>"> (<?= e(t('Celkem:')) ?> <?= $total ?>)
+	<label><?= e(t('Detail contains:')) ?> <input class="textpole" type="search" name="hledat" value="<?= e($search) ?>" size="18"></label>
+	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>"> (<?= e(t('Total:')) ?> <?= $total ?>)
 </form>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><?= e(t('Kdy')) ?></th><th scope="col"><?= e(t('Kdo')) ?></th><th scope="col"><?= e(t('Kde')) ?></th><th scope="col"><?= e(t('Co')) ?></th><th scope="col"><?= e(t('Podrobnost')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('When')) ?></th><th scope="col"><?= e(t('Who')) ?></th><th scope="col"><?= e(t('Where')) ?></th><th scope="col"><?= e(t('What')) ?></th><th scope="col"><?= e(t('Podrobnost')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($records as $z): ?>
 <tr<?= $z['akce'] === 'neuspech' ? ' class="nevydany"' : '' ?>>
@@ -68,4 +68,4 @@ foreach (Kaleta\Admin\LegacyUrls::ACTIONS as $old => $new) {
 <?php endfor ?>
 </p>
 <?php endif ?>
-<p class="smltxt"><?= e(t('Protokol se uchovává půl roku.')) ?></p>
+<p class="smltxt"><?= e(t('The log is kept for six months.')) ?></p>

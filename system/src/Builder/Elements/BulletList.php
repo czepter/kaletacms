@@ -11,15 +11,15 @@ final class BulletList extends Element
 {
     public const string TYPE = 'seznam';
     public const string NAME = 'Seznam';
-    public const string DESCRIPTION = 'Výčet bodů – s odrážkami, čísly nebo fajfkami.';
+    public const string DESCRIPTION = 'A list of points – with bullets, numbers or ticks.';
     public const string ICON = 'seznam';
     public const array HTML_TAGS = ['ul', 'ol'];
 
     public static function properties(): array
     {
         return [
-            'polozky' => ['typ' => 'radky', 'popisek' => 'Položky (každá na řádek)', 'vychozi' => t('První výhoda') . "\n" . t('Druhá výhoda') . "\n" . t('Třetí výhoda'), 'max' => 4000],
-            'styl' => ['typ' => 'vyber', 'popisek' => 'Odrážky', 'vychozi' => 'odrazky', 'moznosti' => ['odrazky' => 'běžné', 'fajfky' => 'fajfky', 'bez' => 'bez odrážek']],
+            'polozky' => ['typ' => 'radky', 'popisek' => 'Items (one per line)', 'vychozi' => t('First benefit') . "\n" . t('Second benefit') . "\n" . t('Third benefit'), 'max' => 4000],
+            'styl' => ['typ' => 'vyber', 'popisek' => 'Bullets', 'vychozi' => 'odrazky', 'moznosti' => ['odrazky' => 'běžné', 'fajfky' => 'fajfky', 'bez' => 'no bullets']],
         ];
     }
 

@@ -16,17 +16,17 @@ final class Newsletter extends Element
 {
     public const string TYPE = 'newsletter';
     public const string NAME = 'Odběr novinek';
-    public const string DESCRIPTION = 'Pole pro e-mail s potvrzením odběru – adresy najdete v administraci v Odběratelích.';
+    public const string DESCRIPTION = 'An e-mail field with subscription confirmation – you will find the addresses under Subscribers in the administration.';
     public const string ICON = 'newsletter';
-    public const string GROUP = 'Dynamické';
+    public const string GROUP = 'Dynamic';
     public const string EXTENSION = 'newsletter';
     public const array HTML_TAGS = ['form'];
 
     public static function properties(): array
     {
         return [
-            'tlacitko' => ['typ' => 'text', 'popisek' => 'Tlačítko', 'vychozi' => t('Odebírat'), 'max' => 40],
-            'souhlas' => ['typ' => 'text', 'popisek' => 'Text pod polem', 'vychozi' => t('Pošleme vám jen novinky a nabídky. Odhlásit se můžete jedním kliknutím v každém e-mailu.'), 'max' => 300],
+            'tlacitko' => ['typ' => 'text', 'popisek' => 'Button', 'vychozi' => t('Subscribe'), 'max' => 40],
+            'souhlas' => ['typ' => 'text', 'popisek' => 'Text below the field', 'vychozi' => t('We only send news and offers. You can unsubscribe with one click in every e-mail.'), 'max' => 300],
         ];
     }
 
@@ -47,9 +47,9 @@ final class Newsletter extends Element
         $id = 'nl-' . $p['id'];
         $result = $r->get('odber');
         $message = match ($result) {
-            'ok' => t('Děkujeme! Poslali jsme vám e-mail s odkazem – odběr potvrďte kliknutím na něj.'),
-            'chyba' => t('Zkontrolujte prosím e-mailovou adresu.'),
-            'limit' => t('Příliš mnoho pokusů za sebou. Zkuste to prosím za chvíli.'),
+            'ok' => t('Thank you! We have sent you an e-mail with a link – click it to confirm your subscription.'),
+            'chyba' => t('Please check the e-mail address.'),
+            'limit' => t('Too many attempts in a row. Please try again in a moment.'),
             default => '',
         };
         $antispam = new Antispam($k->app->db(), $k->app->settings());
@@ -61,8 +61,8 @@ final class Newsletter extends Element
 
         return '<form' . Text::withClass($a, 'ka-newsletter') . ' method="post" action="' . e($k->url('odber')) . '">'
             . ($message !== '' ? '<p class="ka-newsletter-hlaska" role="status">' . e($message) . '</p>' : '')
-            . '<label class="ka-jen-ctecka" for="' . e($id) . '-email">' . e(t('Váš e-mail')) . '</label>'
-            . '<div class="ka-newsletter-radek"><input type="email" id="' . e($id) . '-email" name="email" autocomplete="email" required maxlength="190" placeholder="' . e(t('vas@email.cz')) . '">'
+            . '<label class="ka-jen-ctecka" for="' . e($id) . '-email">' . e(t('Your e-mail')) . '</label>'
+            . '<div class="ka-newsletter-radek"><input type="email" id="' . e($id) . '-email" name="email" autocomplete="email" required maxlength="190" placeholder="' . e(t('you@example.com')) . '">'
             . '<button type="submit">' . e($o['tlacitko']) . '</button></div>'
             . ($o['souhlas'] !== '' ? '<small>' . e($o['souhlas']) . '</small>' : '')
             . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '"><input type="hidden" name="kotva" value="' . e($anchor) . '">'

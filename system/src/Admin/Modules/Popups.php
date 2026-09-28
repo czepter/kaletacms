@@ -21,19 +21,19 @@ final class Popups extends Module
     use BuilderActions;
 
     public const string IDENT = 'popups';
-    public const string NAME = 'Pop-up okna';
-    public const string GROUP = 'Vzhled';
+    public const string NAME = 'Pop-ups';
+    public const string GROUP = 'Appearance';
     public const string ICON = 'popupy';
     public const bool ADMIN_ONLY = true;
 
     protected function actionList(): Response
     {
-        return $this->view('list', 'Pop-up okna', ['popups' => Okna::all($this->db)]);
+        return $this->view('list', 'Pop-ups', ['popups' => Okna::all($this->db)]);
     }
 
     protected function actionNew(): Response
     {
-        return $this->view('new', 'Nové pop-up okno', []);
+        return $this->view('new', 'New pop-up', []);
     }
 
     /** A new popup from a ready-made pattern: build draft in the site language, type and trigger from the pattern, disabled – straight into the builder. */
@@ -58,7 +58,7 @@ final class Popups extends Module
     {
         $p = Okna::byId($this->db, $this->request->getInt('id'));
 
-        return $p === null ? $this->error('Pop-up okno neexistuje.', 404) : $this->view('form', $p['nazev'], ['p' => $p] + $this->options());
+        return $p === null ? $this->error('The pop-up does not exist.', 404) : $this->view('form', $p['nazev'], ['p' => $p] + $this->options());
     }
 
     protected function actionSave(): Response
@@ -70,11 +70,11 @@ final class Popups extends Module
         }
         $name = mb_substr(trim($r->post('nazev')), 0, 100);
         if ($name === '') {
-            return $this->back('Okno musí mít název.', 'edit', ['id' => $p['idpp']], 'chyba');
+            return $this->back('The pop-up needs a name.', 'edit', ['id' => $p['idpp']], 'chyba');
         }
         $url = $r->post('adresa') !== '' ? slugify($r->post('adresa'), 60) : $p['adresa'];
         if (!preg_match(Okna::ADDRESS_PATTERN, $url) || $this->db->value('SELECT idpp FROM {popupy} WHERE adresa = ? AND idpp <> ?', [$url, $p['idpp']]) !== null) {
-            return $this->back(t('Adresu „%s“ už používá jiné okno.', $url), 'edit', ['id' => $p['idpp']], 'chyba');
+            return $this->back(t('Another window already uses the address “%s”.', $url), 'edit', ['id' => $p['idpp']], 'chyba');
         }
         // "na celém webu" (on the whole site): the choice of places is inactive in the form and is not sent – it stays saved in case you return to it
         $selected = $r->post('kde') === 'vybrane';
@@ -97,7 +97,7 @@ final class Popups extends Module
         ], ['idpp' => $p['idpp']]);
         \Kaleta\Front\Cache::clear();
 
-        return $this->back('Nastavení okna bylo uloženo.');
+        return $this->back('The pop-up settings were saved.');
     }
 
     /** Enable or disable the popup on the site; only a published one can be enabled. */
@@ -110,12 +110,12 @@ final class Popups extends Module
         // from the popup settings you stay in the settings, from the list in the list
         [$action, $args] = $this->request->post('z') === 'edit' ? ['edit', ['id' => $p['idpp']]] : ['', []];
         if (!$p['aktivni'] && $p['stavba'] === null) {
-            return $this->back('Okno nejdřív publikujte v builderu – teprve pak ho jde zapnout.', $action, $args, 'chyba');
+            return $this->back('Publish the pop-up in the builder first – then you can turn it on.', $action, $args, 'chyba');
         }
         $this->db->update('popupy', ['aktivni' => $p['aktivni'] ? 0 : 1], ['idpp' => $p['idpp']]);
         \Kaleta\Front\Cache::clear();
 
-        return $this->back($p['aktivni'] ? 'Okno je vypnuté – na webu se už neukáže.' : 'Okno je zapnuté a ukáže se na webu podle pravidel.', $action, $args);
+        return $this->back($p['aktivni'] ? 'The pop-up is off – it no longer shows on the site.' : 'The pop-up is on and shows on the site according to its rules.', $action, $args);
     }
 
     protected function actionReset(): Response
@@ -124,7 +124,7 @@ final class Popups extends Module
             $this->db->update('popupy', ['zobrazeni' => 0, 'zavreni' => 0, 'konverze' => 0], ['idpp' => $this->request->postInt('idpp')]);
         }
 
-        return $this->back('Počitadla okna jsou vynulovaná.');
+        return $this->back('The pop-up counters were reset.');
     }
 
     protected function actionDelete(): Response
@@ -134,7 +134,7 @@ final class Popups extends Module
             \Kaleta\Front\Cache::clear();
         }
 
-        return $this->back('Pop-up okno bylo smazáno.');
+        return $this->back('The pop-up was deleted.');
     }
 
     /** Pages and collections for the choice "where the popup appears", site languages. @return array<string, mixed> */
@@ -179,8 +179,8 @@ final class Popups extends Module
 
         return [
             'adresa' => $url . '?stavba=koncept', 'nahled' => $url . '?stavba=koncept&editor=1', 'zobrazena' => (bool) $p['aktivni'], 'casti' => false,
-            'zpet' => ['adresa' => $this->url(), 'text' => t('Pop-up okna')], 'nastaveni' => $this->url('edit', ['id' => $p['idpp']]),
-            'textNastaveni' => t('Nastavení okna (kdy a kde se ukáže)'), 'podpis' => 'popup:' . $p['idpp'],
+            'zpet' => ['adresa' => $this->url(), 'text' => t('Pop-ups')], 'nastaveni' => $this->url('edit', ['id' => $p['idpp']]),
+            'textNastaveni' => t('Pop-up settings (when and where it shows)'), 'podpis' => 'popup:' . $p['idpp'],
         ];
     }
 }

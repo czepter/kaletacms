@@ -14,14 +14,14 @@
  */
 $error = fn (string $field): string => isset($errors[$field]) ? '<span class="chyba-pole" role="alert">' . e(t($errors[$field])) . '</span>' : '';
 $role = [
-    0 => ['Autor novinek', 'Píše a upravuje vlastní novinky. Vydává je editor.'],
-    1 => ['Editor', 'Spravuje veškerý obsah webu – stránky, novinky, média – a vydává.'],
-    2 => ['Správce', 'Všechno včetně uživatelů, vzhledu a nastavení webu.'],
+    0 => ['News author', 'Writes and edits their own news. An editor publishes them.'],
+    1 => ['Editor', 'Manages all site content – pages, news, media – and publishes.'],
+    2 => ['Administrator', 'Everything, including users, appearance and site settings.'],
 ];
 ?>
-<p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Zpět na přehled')) ?></a></p>
+<p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to overview')) ?></a></p>
 <?php if (($summary ?? '') !== ''): ?>
-<p class="hlaska"><strong><?= e(t('Co teď smí:')) ?></strong> <?= e($summary) ?></p>
+<p class="hlaska"><strong><?= e(t('What this user may do now:')) ?></strong> <?= e($summary) ?></p>
 <?php endif ?>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>" autocomplete="off">
 <?= $csrf ?>
@@ -35,22 +35,22 @@ $role = [
 	<div><input class="textpole" type="text" id="user" name="user" value="<?= e($author['user']) ?>" maxlength="40" size="30" required><?= $error('user') ?></div>
 </div>
 <div class="radek">
-	<label for="email"><?= e(t('E-mail')) ?></label>
+	<label for="email"><?= e(t('Email')) ?></label>
 	<div><input class="textpole siroke" type="email" id="email" name="email" value="<?= e($author['email']) ?>" maxlength="190"><?= $error('email') ?></div>
 </div>
 <div class="radek">
-	<label for="password"><?= e(t($author['idu'] ? 'Nové heslo' : 'Heslo')) ?></label>
+	<label for="password"><?= e(t($author['idu'] ? 'New password' : 'Password')) ?></label>
 	<div><input class="textpole" type="password" id="password" name="password" size="30" minlength="10" autocomplete="new-password">
 	<label style="font-weight:normal"><input type="checkbox" data-ukaz-heslo="password"> <?= e(t('zobrazit')) ?></label><?= $error('password') ?>
-	<span class="napoveda"><?= e(t('Alespoň 10 znaků.')) ?> <?= e(t($author['idu'] ? 'Nechte prázdné, pokud heslo neměníte.' : 'Uživatel si ho pak změní v nabídce Můj účet.')) ?></span>
+	<span class="napoveda"><?= e(t('At least 10 characters.')) ?> <?= e(t($author['idu'] ? 'Leave empty if you are not changing the password.' : 'The user can change it later under My account.')) ?></span>
 <?php if (!$author['idu']): ?>
-	<label style="font-weight:normal"><input type="checkbox" name="pozvat" value="1"> <?= e(t('Místo hesla poslat pozvánku e-mailem – heslo si uživatel nastaví sám')) ?></label>
+	<label style="font-weight:normal"><input type="checkbox" name="pozvat" value="1"> <?= e(t('Instead of a password, send an e-mail invitation – the user sets their own password')) ?></label>
 <?php endif ?>
 	</div>
 </div>
 
 <fieldset>
-<legend><?= e(t('Role')) ?></legend>
+<legend><?= e(t('Roles')) ?></legend>
 <div class="karty-volby karty-volby-text">
 <?php foreach ($role as $value => [$name, $description]): ?>
 	<label class="karta-volba">
@@ -63,47 +63,47 @@ $role = [
 	<label class="karta-volba">
 		<input type="radio" name="admin" value="r<?= (int) $customRole['idr'] ?>"<?= (int) ($author['role'] ?? 0) === (int) $customRole['idr'] ? ' checked' : '' ?><?= $isSelf ? ' disabled' : '' ?>>
 		<strong><?= e($customRole['nazev']) ?></strong>
-		<span><?= e($customRole['popis'] !== '' ? $customRole['popis'] : t('Vlastní role')) ?></span>
+		<span><?= e($customRole['popis'] !== '' ? $customRole['popis'] : t('Custom role')) ?></span>
 	</label>
 <?php endforeach ?>
 </div>
-<p class="napoveda"><a href="<?= e($app->url('admin.php?module=roles')) ?>"><?= e(t('Vlastní role')) ?></a> – <?= e(t('pojmenovaná sada sekcí, třeba jen Poptávky pro obchodníka.')) ?></p>
+<p class="napoveda"><a href="<?= e($app->url('admin.php?module=roles')) ?>"><?= e(t('Custom role')) ?></a> – <?= e(t('a named set of sections, for example only Enquiries for a salesperson.')) ?></p>
 <?php if ($isSelf): ?>
-<p class="napoveda"><?= e(t('Vlastní účet nemůžete zbavit práv správce.')) ?></p>
+<p class="napoveda"><?= e(t('You cannot remove administrator rights from your own account.')) ?></p>
 <?php endif ?>
 </fieldset>
 
 <details class="pokrocile"<?= $manual || $author['blokovat'] || !empty($author['url']) ? ' open' : '' ?>>
-<summary><?= e(t('Podrobné nastavení')) ?></summary>
+<summary><?= e(t('Detailed settings')) ?></summary>
 <div class="radek">
-	<label for="url"><?= e(t('Web uživatele')) ?></label>
+	<label for="url"><?= e(t('User\'s website')) ?></label>
 	<input class="textpole siroke" type="url" id="url" name="url" value="<?= e($author['url']) ?>" maxlength="255" placeholder="https://">
 </div>
 <div class="radek">
-	<span class="popisek"><?= e(t('Přístup do sekcí')) ?></span>
+	<span class="popisek"><?= e(t('Access to areas')) ?></span>
 	<div class="volby">
-		<label><input type="checkbox" name="rucne" value="1"<?= $manual ? ' checked' : '' ?>> <?= e(t('nastavit ručně (jinak podle role)')) ?></label><br>
+		<label><input type="checkbox" name="rucne" value="1"<?= $manual ? ' checked' : '' ?>> <?= e(t('set manually (otherwise by role)')) ?></label><br>
 <?php foreach ($modules as $ident => $name): ?>
 		<label style="margin-left:22px"><input type="checkbox" name="moduly[]" value="<?= e($ident) ?>"<?= in_array($ident, $hasModules, true) ? ' checked' : '' ?>> <?= e(t($name)) ?></label><br>
 <?php endforeach ?>
-		<span class="napoveda"><?= e(t('Autor má běžně jen Novinky, editor všechny obsahové sekce, správce vše. U vlastní role platí sekce z role.')) ?></span>
+		<span class="napoveda"><?= e(t('An author usually has only News, an editor all content sections, an administrator everything. With a custom role, the role\'s sections apply.')) ?></span>
 	</div>
 </div>
 <?php if (!empty($author['totp_tajemstvi'])): ?>
 <div class="radek">
-	<span class="popisek"><?= e(t('Dvoufázové přihlášení')) ?></span>
-	<div class="volby"><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span> <label><input type="checkbox" name="totp_reset" value="1"> <?= e(t('vypnout (uživatel ztratil telefon i záložní kódy)')) ?></label></div>
+	<span class="popisek"><?= e(t('Two-factor sign-in')) ?></span>
+	<div class="volby"><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span> <label><input type="checkbox" name="totp_reset" value="1"> <?= e(t('turn off (the user lost both their phone and backup codes)')) ?></label></div>
 </div>
 <?php endif ?>
 <?php if (!$isSelf): ?>
 <div class="radek">
-	<span class="popisek"><?= e(t('Zablokovat účet')) ?></span>
-	<div class="volby"><label><input type="checkbox" name="blokovat" value="1"<?= $author['blokovat'] ? ' checked' : '' ?>> <?= e(t('uživatel se nepřihlásí')) ?></label></div>
+	<span class="popisek"><?= e(t('Block account')) ?></span>
+	<div class="volby"><label><input type="checkbox" name="blokovat" value="1"<?= $author['blokovat'] ? ' checked' : '' ?>> <?= e(t('user cannot sign in')) ?></label></div>
 </div>
 <?php endif ?>
 </details>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($author['idu'] ? 'Uložit' : 'Přidat uživatele')) ?>"></p>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($author['idu'] ? 'Uložit' : 'Add user')) ?>"></p>
 </form>
 <?php if ($author['idu'] && $author['email'] !== '' && !$author['blokovat']): ?>
-<div class="navigace-radek akce-dole"><form class="vradku" method="post" action="<?= e($module->url('password_link')) ?>" data-potvrdit="<?= e(t('Poslat uživateli e-mailem odkaz na nastavení nového hesla?')) ?>"><?= $csrf ?><input type="hidden" name="idu" value="<?= (int) $author['idu'] ?>"><input type="hidden" name="user" value="<?= e($author['user']) ?>"><button class="navigace" type="submit"><?= e(t('Poslat odkaz na nové heslo')) ?></button></form></div>
+<div class="navigace-radek akce-dole"><form class="vradku" method="post" action="<?= e($module->url('password_link')) ?>" data-potvrdit="<?= e(t('Send the user an e-mail link to set a new password?')) ?>"><?= $csrf ?><input type="hidden" name="idu" value="<?= (int) $author['idu'] ?>"><input type="hidden" name="user" value="<?= e($author['user']) ?>"><button class="navigace" type="submit"><?= e(t('Send a new password link')) ?></button></form></div>
 <?php endif ?>

@@ -15,17 +15,17 @@ use Kaleta\Builder\Element;
 final class Icon extends Element
 {
     public const string TYPE = 'ikona';
-    public const string NAME = 'Ikona';
-    public const string DESCRIPTION = 'Jednoduchá ikona (fajfka, telefon, hvězda…) – barvu a velikost nastavíte stylem.';
+    public const string NAME = 'Icon';
+    public const string DESCRIPTION = 'A simple icon (check, phone, star…) – set its colour and size with the style.';
     public const string ICON = 'ikona';
     public const array HTML_TAGS = ['span', 'div'];
 
     public static function properties(): array
     {
         return [
-            'ikona' => ['typ' => 'vyber', 'popisek' => 'Ikona', 'vychozi' => 'fajfka-kruh', 'moznosti' => Icons::options()],
-            'tvar' => ['typ' => 'vyber', 'popisek' => 'Podklad', 'vychozi' => '', 'moznosti' => ['' => 'bez podkladu', 'kruh' => 'kruh', 'ctverec' => 'zaoblený čtverec']],
-            'popis' => ['typ' => 'text', 'popisek' => 'Popis pro čtečky (prázdné = jen ozdoba)', 'vychozi' => '', 'max' => 120],
+            'ikona' => ['typ' => 'vyber', 'popisek' => 'Icon', 'vychozi' => 'fajfka-kruh', 'moznosti' => Icons::options()],
+            'tvar' => ['typ' => 'vyber', 'popisek' => 'Podklad', 'vychozi' => '', 'moznosti' => ['' => 'no background', 'kruh' => 'kruh', 'ctverec' => 'rounded square']],
+            'popis' => ['typ' => 'text', 'popisek' => 'Description for screen readers (empty = decorative only)', 'vychozi' => '', 'max' => 120],
         ];
     }
 

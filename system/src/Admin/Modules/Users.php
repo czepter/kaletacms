@@ -16,7 +16,7 @@ final class Users extends Module
 {
     public const string IDENT = 'users';
     public const string NAME = 'Uživatelé';
-    public const string GROUP = 'Správa';
+    public const string GROUP = 'Administration';
     public const string ICON = 'uzivatele';
     public const bool ADMIN_ONLY = true;
 
@@ -44,7 +44,7 @@ final class Users extends Module
     {
         $author = $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ?', [$this->request->getInt('id')]);
 
-        return $author === null ? $this->error('Uživatel neexistuje.', 404) : $this->form($author);
+        return $author === null ? $this->error('User does not exist.', 404) : $this->form($author);
     }
 
     protected function actionSave(): Response
@@ -88,24 +88,24 @@ final class Users extends Module
 
         $errors = [];
         if (!preg_match('/^[a-zA-Z0-9._-]{2,40}$/', $data['user'])) {
-            $errors['user'] = 'Přihlašovací jméno: 2-40 znaků, jen písmena bez diakritiky, číslice, tečka, pomlčka a podtržítko.';
+            $errors['user'] = 'Username: 2-40 characters, only letters without diacritics, digits, period, hyphen and underscore.';
         } elseif ($this->db->value('SELECT idu FROM {uzivatele} WHERE user = ? AND idu <> ?', [$data['user'], $id]) !== null) {
             $errors['user'] = 'Toto přihlašovací jméno už používá jiný uživatel.';
         }
         if ($data['email'] !== '' && filter_var($data['email'], FILTER_VALIDATE_EMAIL) === false) {
-            $errors['email'] = 'E-mail nemá platný tvar.';
+            $errors['email'] = 'The e-mail address is not valid.';
         }
         $password = $r->post('password');
         $invite = $id === 0 && $r->postBool('pozvat');
         if ($invite && $data['email'] === '') {
-            $errors['email'] = 'Pozvánka potřebuje e-mail.';
+            $errors['email'] = 'An invitation needs an e-mail.';
         }
         if ($invite && $password === '') {
             // the invited user sets the password themselves from the link in the e-mail; until then they cannot sign in (nobody knows the random password)
             $data['password'] = password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT);
         } elseif ($password !== '' || $id === 0) {
             if (mb_strlen($password) < 10) {
-                $errors['password'] = 'Heslo musí mít alespoň 10 znaků.';
+                $errors['password'] = 'The password must be at least 10 characters long.';
             } else {
                 $data['password'] = password_hash($password, PASSWORD_DEFAULT);
             }
@@ -136,10 +136,10 @@ final class Users extends Module
         if ($invite) {
             (new \Kaleta\Admin\PasswordReset($this->app))->sendLink(['idu' => $id] + $data, 'pozvanka');
 
-            return $this->back(t('Uživatel je založený a pozvánka odešla na %s.', $data['email']));
+            return $this->back(t('The user has been created and the invitation sent to %s.', $data['email']));
         }
 
-        return $this->back('Uživatel byl uložen.');
+        return $this->back('User saved.');
     }
 
     /** The administrator sends the user a link to set a new password (valid for 3 days). */
@@ -147,11 +147,11 @@ final class Users extends Module
     {
         $user = $this->request->isPost() ? $this->db->one("SELECT * FROM {uzivatele} WHERE idu = ? AND email <> '' AND blokovat = 0", [$this->request->postInt('idu')]) : null;
         if ($user === null) {
-            return $this->back('Uživatel nemá e-mail nebo je zablokovaný.', '', [], 'chyba');
+            return $this->back('The user has no e-mail or is blocked.', '', [], 'chyba');
         }
         (new \Kaleta\Admin\PasswordReset($this->app))->sendLink($user, 'spravce');
 
-        return $this->back(t('Odkaz na nové heslo odešel na %s.', $user['email']));
+        return $this->back(t('The new password link has been sent to %s.', $user['email']));
     }
 
     /**
@@ -163,18 +163,18 @@ final class Users extends Module
     public static function summary(int $role, array $modules, bool $blocked = false): string
     {
         if ($blocked) {
-            return t('Účet je zablokovaný – do administrace se nepřihlásí.');
+            return t('The account is blocked – it cannot sign in to the administration.');
         }
         if ($role >= Auth::ADMIN) {
-            return t('Smí všechno včetně nastavení webu a správy uživatelů.');
+            return t('May do everything, including site settings and user management.');
         }
         $parts = [];
         if (!in_array('novinky', $modules, true)) {
-            $parts[] = t('Nepíše novinky');
+            $parts[] = t('Does not write news');
         } elseif ($role >= Auth::EDITOR) {
-            $parts[] = t('Píše, upravuje a vydává novinky všech autorů');
+            $parts[] = t('Writes, edits and publishes news by all authors');
         } else {
-            $parts[] = t('Píše a upravuje vlastní novinky, vydává je editor');
+            $parts[] = t('Writes and edits their own news; an editor publishes it');
         }
         $names = [];
         foreach (Kernel::MODULES as $class) {
@@ -184,7 +184,7 @@ final class Users extends Module
         }
         $sentence = implode(', ', $parts) . '.';
         if ($names !== []) {
-            $sentence .= ' ' . t('Dál má přístup k: %s.', implode(', ', $names));
+            $sentence .= ' ' . t('Also has access to: %s.', implode(', ', $names));
         }
 
         return $sentence;
@@ -217,11 +217,11 @@ final class Users extends Module
         }
         $id = $this->request->postInt('idu');
         if ($id === $this->app->auth()->id()) {
-            return $this->back('Nemůžete smazat sám sebe.', type: 'chyba');
+            return $this->back('You cannot delete yourself.', type: 'chyba');
         }
         $this->db->delete('uzivatele', ['idu' => $id]);
 
-        return $this->back('Uživatel byl smazán. Jeho novinky zůstaly zachované bez autora.');
+        return $this->back('The user has been deleted. Their news items remain, without an author.');
     }
 
     /**
@@ -245,7 +245,7 @@ final class Users extends Module
             (bool) $author['blokovat'],
         ) : '';
 
-        return $this->view('form', $id ? 'Úprava uživatele' : 'Nový uživatel', [
+        return $this->view('form', $id ? 'Edit user' : 'New user', [
             'author' => $author,
             'customRoles' => $this->db->all('SELECT idr, nazev, popis FROM {role} ORDER BY nazev'),
             'summary' => $summary,

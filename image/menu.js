@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	const empty = formEl.querySelector('[data-menu-prazdne]');
 	const pages = Object.fromEntries(data.stranky.map((s) => [s.ids, s]));
 	const items = data.polozky.map((p) => Object.assign({ deti: [] }, p, { deti: (p.deti || []).map((d) => Object.assign({}, d)) }));
-	const NAMES = { stranka: T('Stránka'), odkaz: T('Odkaz'), novinky: T('Novinky'), skupina: T('Skupina') };
+	const NAMES = { stranka: T('Page'), odkaz: T('Link'), novinky: T('Novinky'), skupina: T('Group') };
 	let dragged = null;
 
 	function el(tag, attributes, ...children) {
@@ -61,24 +61,24 @@ document.addEventListener('DOMContentLoaded', function () {
 	}
 
 	function row(p, path) {
-		const pageName = p.typ === 'stranka' ? (pages[p.ids] || { titulek: T('smazaná stránka') }).titulek : '';
+		const pageName = p.typ === 'stranka' ? (pages[p.ids] || { titulek: T('deleted page') }).titulek : '';
 		const tl = (text, description, fn, disabled) => el('button', { type: 'button', class: 'menu-tl', title: description, 'aria-label': description, disabled: disabled, onclick: () => fn(path) }, text);
-		const text = el('input', { class: 'textpole', type: 'text', maxlength: 80, value: p.text || '', 'aria-label': T('Text v menu'),
-			placeholder: p.typ === 'stranka' ? pageName : p.typ === 'novinky' ? T('Novinky') : T('Text v menu'),
+		const text = el('input', { class: 'textpole', type: 'text', maxlength: 80, value: p.text || '', 'aria-label': T('Menu text'),
+			placeholder: p.typ === 'stranka' ? pageName : p.typ === 'novinky' ? T('Novinky') : T('Menu text'),
 			oninput: (e) => { p.text = e.target.value; } });
 		const i = path[path.length - 1];
 		const rowEl = el('div', { class: 'menu-radek' },
-			el('span', { class: 'menu-uchyt', draggable: 'true', 'aria-hidden': 'true', title: T('Přetažením změníte pořadí') }, '⠿'),
+			el('span', { class: 'menu-uchyt', draggable: 'true', 'aria-hidden': 'true', title: T('Drag to reorder') }, '⠿'),
 			el('span', { class: 'stitek' }, NAMES[p.typ]),
-			p.typ === 'stranka' && pages[p.ids] && pages[p.ids].skryta ? el('span', { class: 'stitek stitek-koncept', title: T('Skrytá stránka se v menu na webu neukáže.') }, T('skrytá')) : null,
+			p.typ === 'stranka' && pages[p.ids] && pages[p.ids].skryta ? el('span', { class: 'stitek stitek-koncept', title: T('A hidden page does not appear in the menu on the site.') }, T('hidden')) : null,
 			text,
-			p.typ === 'odkaz' ? el('input', { class: 'textpole', type: 'text', maxlength: 500, value: p.url || '', placeholder: 'https://… ' + T('nebo') + ' /cesta', 'aria-label': T('Adresa odkazu'), oninput: (e) => { p.url = e.target.value.trim(); } }) : null,
-			p.typ === 'odkaz' ? el('label', { class: 'menu-okno' }, el('input', { type: 'checkbox', checked: !!p.nove_okno, onchange: (e) => { p.nove_okno = e.target.checked; } }), ' ' + T('nové okno')) : null,
+			p.typ === 'odkaz' ? el('input', { class: 'textpole', type: 'text', maxlength: 500, value: p.url || '', placeholder: 'https://… ' + T('or') + ' /cesta', 'aria-label': T('Link address'), oninput: (e) => { p.url = e.target.value.trim(); } }) : null,
+			p.typ === 'odkaz' ? el('label', { class: 'menu-okno' }, el('input', { type: 'checkbox', checked: !!p.nove_okno, onchange: (e) => { p.nove_okno = e.target.checked; } }), ' ' + T('new window')) : null,
 			el('span', { class: 'menu-akce' },
-				tl('↑', T('Posunout výš'), (c) => move(c, -1), i === 0),
-				tl('↓', T('Posunout níž'), (c) => move(c, 1), i === field(path).length - 1),
-				path.length === 1 ? tl('→', T('Do podmenu položky nad ní'), indent, i === 0 || p.deti.length > 0) : tl('←', T('Z podmenu o úroveň výš'), outdent),
-				tl('✕', T('Odebrat z menu'), remove)));
+				tl('↑', T('Move up'), (c) => move(c, -1), i === 0),
+				tl('↓', T('Move down'), (c) => move(c, 1), i === field(path).length - 1),
+				path.length === 1 ? tl('→', T('Into the submenu of the item above'), indent, i === 0 || p.deti.length > 0) : tl('←', T('Out of the submenu, one level up'), outdent),
+				tl('✕', T('Remove from menu'), remove)));
 		const li = el('li', { class: 'menu-polozka' }, rowEl);
 		li.dataset.cesta = path.join(',');
 		// dragged by the handle (the whole item would prevent selecting text in the fields)
@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', function () {
 				const empty = [...li.querySelector('.menu-radek').querySelectorAll('input.textpole')].find((x) => !x.value.trim()) || li.querySelector('input');
 				empty.setAttribute('aria-invalid', 'true');
 				empty.addEventListener('input', () => empty.removeAttribute('aria-invalid'), { once: true });
-				notify(p.typ === 'odkaz' ? T('Vlastní odkaz potřebuje text i adresu.') : T('Skupina potřebuje text.'), empty);
+				notify(p.typ === 'odkaz' ? T('A custom link needs both text and an address.') : T('A group needs text.'), empty);
 				return;
 			}
 		}

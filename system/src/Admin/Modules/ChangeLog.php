@@ -11,8 +11,8 @@ use Kaleta\Core\Response;
 final class ChangeLog extends Module
 {
     public const string IDENT = 'changelog';
-    public const string NAME = 'Protokol změn';
-    public const string GROUP = 'Správa';
+    public const string NAME = 'Change log';
+    public const string GROUP = 'Administration';
     public const string ICON = 'protokol';
     public const bool ADMIN_ONLY = true;
 
@@ -42,7 +42,7 @@ final class ChangeLog extends Module
         $pageCount = max(1, (int) ceil($total / self::PER_PAGE));
         $pageNumber = max(1, min($pageCount, $this->request->getInt('strana', 1)));
 
-        return $this->view('list', 'Protokol změn', [
+        return $this->view('list', 'Change log', [
             'records' => $this->db->all('SELECT * FROM {protokol}' . $sql . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'users' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} ORDER BY 2"),
             'modules' => array_column($this->db->all('SELECT DISTINCT modul FROM {protokol} ORDER BY modul'), 'modul'),

@@ -23,42 +23,42 @@ final class Health
         $siteSettings = $app->settings();
 
         // --- server (names and texts go through t(); the "stav" values are not translated - monitoring reads them)
-        $add(t('Server'), t('Verze PHP'), PHP_VERSION_ID >= 80400, PHP_VERSION_ID >= 80400 ? PHP_VERSION : t('%s - systém vyžaduje 8.4 nebo novější', PHP_VERSION));
-        foreach (['pdo_mysql' => t('databáze'), 'mbstring' => t('text s diakritikou'), 'gd' => t('zpracování obrázků')] as $ext => $purpose) {
-            $add(t('Server'), t('Rozšíření %s', $ext), extension_loaded($ext), extension_loaded($ext) ? $purpose : t('%s - chybí', $purpose));
+        $add(t('Server'), t('PHP version'), PHP_VERSION_ID >= 80400, PHP_VERSION_ID >= 80400 ? PHP_VERSION : t('%s - the system requires 8.4 or newer', PHP_VERSION));
+        foreach (['pdo_mysql' => t('database'), 'mbstring' => t('text with diacritics'), 'gd' => t('image processing')] as $ext => $purpose) {
+            $add(t('Server'), t('Extension %s', $ext), extension_loaded($ext), extension_loaded($ext) ? $purpose : t('%s - missing', $purpose));
         }
-        foreach (['exif' => t('správné otočení fotek z mobilu'), 'intl' => t('řazení podle češtiny'), 'curl' => t('oznamování novinek vyhledávačům')] as $ext => $purpose) {
-            $add(t('Server'), t('Rozšíření %s', $ext), extension_loaded($ext) ? 'ok' : 'varovani', extension_loaded($ext) ? $purpose : t('%s - doporučeno doinstalovat', $purpose));
+        foreach (['exif' => t('correct rotation of photos from phones'), 'intl' => t('language-aware sorting'), 'curl' => t('notifying search engines about new content')] as $ext => $purpose) {
+            $add(t('Server'), t('Extension %s', $ext), extension_loaded($ext) ? 'ok' : 'varovani', extension_loaded($ext) ? $purpose : t('%s - installing it is recommended', $purpose));
         }
-        $add(t('Server'), t('Limit nahrávaných souborů'), self::bytes((string) ini_get('upload_max_filesize')) >= 8 * 1024 * 1024 ? 'ok' : 'varovani', 'upload_max_filesize = ' . ini_get('upload_max_filesize') . ', post_max_size = ' . ini_get('post_max_size'));
+        $add(t('Server'), t('Upload size limit'), self::bytes((string) ini_get('upload_max_filesize')) >= 8 * 1024 * 1024 ? 'ok' : 'varovani', 'upload_max_filesize = ' . ini_get('upload_max_filesize') . ', post_max_size = ' . ini_get('post_max_size'));
         $freeSpace = @disk_free_space(KALETA_ROOT);
         if ($freeSpace !== false) {
-            $add(t('Server'), t('Volné místo na disku'), $freeSpace > 200 * 1024 * 1024 ? 'ok' : 'varovani', self::size((int) $freeSpace));
+            $add(t('Server'), t('Free disk space'), $freeSpace > 200 * 1024 * 1024 ? 'ok' : 'varovani', self::size((int) $freeSpace));
         }
 
         // --- database
-        $add(t('Databáze'), t('Server'), 'ok', (string) $db->value('SELECT VERSION()'));
+        $add(t('Database'), t('Server'), 'ok', (string) $db->value('SELECT VERSION()'));
         $pending = Migration::latest() - max(1, $siteSettings->int('db_version'));
-        $add(t('Databáze'), t('Struktura databáze'), $pending <= 0, $pending <= 0 ? t('aktuální (verze %d)', $siteSettings->int('db_version')) : t('čeká %d aktualizací - proběhnou při příštím načtení administrace', $pending));
+        $add(t('Database'), t('Database structure'), $pending <= 0, $pending <= 0 ? t('up to date (version %d)', $siteSettings->int('db_version')) : t('%d updates pending - they will run the next time the administration loads', $pending));
         $size = (int) $db->value('SELECT COALESCE(SUM(data_length + index_length), 0) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ?', [addcslashes($db->prefix, '_%') . '%']);
-        $add(t('Databáze'), t('Velikost'), 'ok', t('%s, novinek: %d', self::size($size), (int) $db->value('SELECT COUNT(*) FROM {novinky}')));
+        $add(t('Database'), t('Velikost'), 'ok', t('%s, news items: %d', self::size($size), (int) $db->value('SELECT COUNT(*) FROM {novinky}')));
 
         // --- files and security
-        foreach (['media' => t('nahrané obrázky'), 'storage/log' => t('záznam chyb'), 'storage/cache' => t('dočasná data')] as $folder => $purpose) {
+        foreach (['media' => t('uploaded images'), 'storage/log' => t('error log'), 'storage/cache' => t('temporary data')] as $folder => $purpose) {
             $ok = is_dir(KALETA_ROOT . '/' . $folder) ? is_writable(KALETA_ROOT . '/' . $folder) : is_writable(KALETA_ROOT);
-            $add(t('Soubory'), t('Zápis do %s/', $folder), $ok, $ok ? $purpose : t('%s - nastavte práva k zápisu', $purpose));
+            $add(t('Files'), t('Write access to %s/', $folder), $ok, $ok ? $purpose : t('%s - set write permissions', $purpose));
         }
-        $add(t('Bezpečnost'), t('Instalátor'), !is_file(KALETA_ROOT . '/install.php') ? 'ok' : 'varovani', is_file(KALETA_ROOT . '/install.php') ? t('soubor install.php je stále na serveru - smažte ho') : t('install.php je odstraněn'));
-        $add(t('Bezpečnost'), 'HTTPS', $app->request->isHttps() ? 'ok' : 'varovani', $app->request->isHttps() ? t('web běží na šifrovaném spojení') : t('web neběží na HTTPS - přihlašovací údaje putují nešifrovaně'));
-        $add(t('Bezpečnost'), t('Ladicí režim'), !$app->debug(), $app->debug() ? t('v config.php je debug = true; na ostrém webu vypněte') : t('vypnutý'));
-        $add(t('Bezpečnost'), t('Bezpečnostní hlavičky'), 'ok', t('systém odesílá X-Content-Type-Options, Referrer-Policy a X-Frame-Options; administrace navíc Content-Security-Policy a zákaz ukládání do mezipaměti'));
+        $add(t('Bezpečnost'), t('Instalátor'), !is_file(KALETA_ROOT . '/install.php') ? 'ok' : 'varovani', is_file(KALETA_ROOT . '/install.php') ? t('install.php is still on the server - delete it') : t('install.php has been removed'));
+        $add(t('Bezpečnost'), 'HTTPS', $app->request->isHttps() ? 'ok' : 'varovani', $app->request->isHttps() ? t('the site runs over an encrypted connection') : t('the site does not run over HTTPS - sign-in details travel unencrypted'));
+        $add(t('Bezpečnost'), t('Debug mode'), !$app->debug(), $app->debug() ? t('debug = true is set in config.php; turn it off on a live site') : t('vypnutý'));
+        $add(t('Bezpečnost'), t('Security headers'), 'ok', t('the system sends X-Content-Type-Options, Referrer-Policy and X-Frame-Options; the administration also sends a Content-Security-Policy and forbids caching'));
         $without2fa = (int) $db->value("SELECT COUNT(*) FROM {uzivatele} WHERE admin = 2 AND blokovat = 0 AND totp_tajemstvi = ''");
-        $add(t('Bezpečnost'), t('Dvoufázové přihlášení administrátorů'), $without2fa === 0 ? 'ok' : 'varovani', $without2fa === 0 ? t('mají ho všichni administrátoři') : t('%d administrátor(ů) ho nemá - zapíná se v nabídce Můj účet (avatar vpravo nahoře)', $without2fa));
+        $add(t('Bezpečnost'), t('Two-factor sign-in for administrators'), $without2fa === 0 ? 'ok' : 'varovani', $without2fa === 0 ? t('all administrators have it') : t('%d administrator(s) do not have it - it is turned on under My account (avatar at the top right)', $without2fa));
         $blockedCount = (int) $db->value('SELECT COUNT(*) FROM {uzivatele} WHERE blokovat = 1');
-        $add(t('Bezpečnost'), t('Zablokované účty'), $blockedCount === 0 ? 'ok' : 'varovani', $blockedCount === 0 ? t('žádné') : t('%d - zablokoval je správce; odblokujete je v Uživatelích', $blockedCount));
+        $add(t('Bezpečnost'), t('Blocked accounts'), $blockedCount === 0 ? 'ok' : 'varovani', $blockedCount === 0 ? t('žádné') : t('%d - blocked by an administrator; you can unblock them in Users', $blockedCount));
 
         $core = Integrity::check();
-        $add(t('Bezpečnost'), t('Soubory jádra'), $core['stav'], $core['info']);
+        $add(t('Bezpečnost'), t('Core files'), $core['stav'], $core['info']);
 
         // --- operation
         $log = KALETA_ROOT . '/storage/log/chyby.log';
@@ -69,40 +69,40 @@ final class Health
                 $errorCount += (int) (substr($row, 1, 25) >= $from);
             }
         }
-        $add(t('Provoz'), t('Chyby za posledních 24 hodin'), $errorCount === 0 ? 'ok' : 'varovani', $errorCount === 0 ? t('žádné') : t('%d - podrobnosti v storage/log/chyby.log', $errorCount));
+        $add(t('Operation'), t('Errors in the last 24 hours'), $errorCount === 0 ? 'ok' : 'varovani', $errorCount === 0 ? t('žádné') : t('%d - details in storage/log/chyby.log', $errorCount));
         $last = Backup::listAll()[0]['cas'] ?? 0;
         $age = $last > 0 ? (int) floor((time() - $last) / 86400) : null;
-        $add(t('Provoz'), t('Záloha databáze'), $age !== null && $age <= 8 ? 'ok' : 'varovani', $age === null ? t('zatím žádná - vytvořte ji v záložce Zálohy a aktualizace') : ($age === 0 ? t('dnes') : t('před %d dny', $age)) . ', ' . ($siteSettings->bool('auto_backups') ? t('automatické zálohy zapnuté') : t('automatické zálohy vypnuté')));
-        $add(t('Provoz'), t('Indexování vyhledávači'), $siteSettings->bool('indexing') ? 'ok' : 'varovani', $siteSettings->bool('indexing') ? t('povoleno') : t('zakázáno v záložce SEO a GEO - web se neobjeví ve vyhledávání'));
+        $add(t('Operation'), t('Database backup'), $age !== null && $age <= 8 ? 'ok' : 'varovani', $age === null ? t('none yet - create one on the Backups and updates tab') : ($age === 0 ? t('today') : t('%d days ago', $age)) . ', ' . ($siteSettings->bool('auto_backups') ? t('automatic backups on') : t('automatic backups off')));
+        $add(t('Operation'), t('Search engine indexing'), $siteSettings->bool('indexing') ? 'ok' : 'varovani', $siteSettings->bool('indexing') ? t('allowed') : t('disabled on the SEO and GEO tab - the site will not appear in search results'));
         $media = 0;
         if (is_dir(KALETA_ROOT . '/media')) {
             foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(KALETA_ROOT . '/media', \FilesystemIterator::SKIP_DOTS)) as $file) {
                 $media += $file->getSize();
             }
         }
-        $add(t('Provoz'), t('Velikost médií'), 'ok', self::size($media));
+        $add(t('Operation'), t('Media size'), 'ok', self::size($media));
         $remote = explode('|', $app->settings()->get('remote_backup_status'), 2);
         if ($app->settings()->get('remote_backup') !== 'vypnuto') {
-            $add(t('Provoz'), t('Zálohy mimo server'), ($remote[1] ?? '') === 'ok' ? 'ok' : 'varovani', ($remote[1] ?? '') === 'ok' ? t('poslední kopie nahrána %s', $remote[0]) : (($remote[1] ?? '') !== '' ? t('poslední pokus %s selhal: %s', $remote[0], $remote[1]) : t('zatím žádná kopie nevznikla')));
+            $add(t('Operation'), t('Off-site backups'), ($remote[1] ?? '') === 'ok' ? 'ok' : 'varovani', ($remote[1] ?? '') === 'ok' ? t('last copy uploaded %s', $remote[0]) : (($remote[1] ?? '') !== '' ? t('last attempt %s failed: %s', $remote[0], $remote[1]) : t('no copy has been made yet')));
         } else {
-            $add(t('Provoz'), t('Zálohy mimo server'), 'varovani', t('vypnuté – zálohy leží jen na stejném serveru jako web (Nastavení → Zálohy a aktualizace)'));
+            $add(t('Operation'), t('Off-site backups'), 'varovani', t('off – backups are stored only on the same server as the site (Settings → Backups and updates)'));
         }
         $smtp = $app->settings()->get('mail_mode') === 'smtp' && $app->settings()->get('smtp_host') !== '';
         // background tasks (scheduled news items, mail queue, push, newsletter) are run by site visits or cron
         $lastRun = $siteSettings->int('notification_check');
         $before = $lastRun > 0 ? (int) floor((time() - $lastRun) / 60) : null;
-        $add(t('Provoz'), t('Úlohy na pozadí'), $before !== null && $before <= 30 ? 'ok' : 'varovani', $before === null
-            ? t('zatím neproběhly – spustí je první návštěva webu')
-            : ($before <= 30 ? t('naposledy před %d min', $before) : ($before < 120 ? t('naposledy před %d min', $before) : t('naposledy před %d h', (int) round($before / 60)))
-                . ' – ' . t('na webu s malou návštěvností nastavte cron, adresu najdete níže na této stránce')));
+        $add(t('Operation'), t('Background tasks'), $before !== null && $before <= 30 ? 'ok' : 'varovani', $before === null
+            ? t('have not run yet – the first visit to the site will start them')
+            : ($before <= 30 ? t('last run %d min ago', $before) : ($before < 120 ? t('last run %d min ago', $before) : t('last run %d h ago', (int) round($before / 60)))
+                . ' – ' . t('on a low-traffic site set up cron; you will find the address further down this page')));
         $update = (new Updater($siteSettings))->state();
-        $add(t('Provoz'), t('Aktualizace'), !$update['nastaveno'] || $update['chyba'] !== null || $update['nova'] !== null ? 'varovani' : 'ok', match (true) {
-            !$update['nastaveno'] => t('zdroj aktualizací není nastaven'),
-            $update['chyba'] !== null => t('zdroj aktualizací neodpovídá: %s', (string) $update['chyba']),
-            $update['nova'] !== null => t('je k dispozici verze %s (Nastavení → Zálohy a aktualizace)', (string) $update['nova']['verze']),
-            default => t('systém je aktuální (%s)', KALETA_VERSION) . ($update['overeno'] > 0 ? ', ' . t('ověřeno %s', format_date((new \DateTimeImmutable())->setTimestamp((int) $update['overeno']), true)) : ''),
+        $add(t('Operation'), t('Updates'), !$update['nastaveno'] || $update['chyba'] !== null || $update['nova'] !== null ? 'varovani' : 'ok', match (true) {
+            !$update['nastaveno'] => t('no update source is set'),
+            $update['chyba'] !== null => t('the update source is not responding: %s', (string) $update['chyba']),
+            $update['nova'] !== null => t('version %s is available (Settings → Backups and updates)', (string) $update['nova']['verze']),
+            default => t('the system is up to date (%s)', KALETA_VERSION) . ($update['overeno'] > 0 ? ', ' . t('checked %s', format_date((new \DateTimeImmutable())->setTimestamp((int) $update['overeno']), true)) : ''),
         });
-        $add(t('Provoz'), t('Odesílání pošty'), $smtp || function_exists('mail') ? 'ok' : 'varovani', $smtp ? t('přes SMTP server %s', $app->settings()->get('smtp_host')) : (function_exists('mail') ? t('funkcí mail() serveru – spolehlivější je SMTP (Nastavení → Pošta)') : t('funkce mail() je vypnutá – nastavte SMTP (Nastavení → Pošta)')));
+        $add(t('Operation'), t('Mail delivery'), $smtp || function_exists('mail') ? 'ok' : 'varovani', $smtp ? t('via SMTP server %s', $app->settings()->get('smtp_host')) : (function_exists('mail') ? t('using the server\'s mail() function – SMTP is more reliable (Settings → Mail)') : t('the mail() function is disabled – set up SMTP (Settings → Mail)')));
 
         return $k;
     }

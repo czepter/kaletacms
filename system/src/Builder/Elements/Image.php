@@ -12,19 +12,19 @@ use Kaleta\Builder\Element;
 final class Image extends Element
 {
     public const string TYPE = 'obrazek';
-    public const string NAME = 'Obrázek';
-    public const string DESCRIPTION = 'Fotka nebo ilustrace z Médií, volitelně s popiskem a odkazem.';
+    public const string NAME = 'Image';
+    public const string DESCRIPTION = 'A photo or illustration from Media, optionally with a caption and link.';
     public const string ICON = 'obrazek';
     public const array HTML_TAGS = ['img'];
 
     public static function properties(): array
     {
         return [
-            'src' => ['typ' => 'obrazek', 'popisek' => 'Obrázek', 'vychozi' => ''],
+            'src' => ['typ' => 'obrazek', 'popisek' => 'Image', 'vychozi' => ''],
             'alt' => ['typ' => 'text', 'popisek' => 'Popis pro nevidomé (alt)', 'vychozi' => '', 'max' => 300],
-            'popisek' => ['typ' => 'text', 'popisek' => 'Popisek pod obrázkem', 'vychozi' => '', 'max' => 300],
-            'odkaz' => ['typ' => 'odkaz', 'popisek' => 'Odkaz', 'vychozi' => ''],
-            'priorita' => ['typ' => 'prepinac', 'popisek' => 'Hlavní obrázek stránky (načíst hned)', 'vychozi' => false],
+            'popisek' => ['typ' => 'text', 'popisek' => 'Caption below the image', 'vychozi' => '', 'max' => 300],
+            'odkaz' => ['typ' => 'odkaz', 'popisek' => 'Link', 'vychozi' => ''],
+            'priorita' => ['typ' => 'prepinac', 'popisek' => 'Main image of the page (load immediately)', 'vychozi' => false],
         ];
     }
 
@@ -37,7 +37,7 @@ final class Image extends Element
     {
         $o = $p['obsah'];
         if ($o['src'] === '') {
-            return $k->editor ? '<div' . $a . ' style="display:grid;place-items:center;min-height:10rem;background:var(--ka-barva-plocha);color:var(--ka-barva-tlumeny)">' . e(t('Vyberte obrázek')) . '</div>' : '';
+            return $k->editor ? '<div' . $a . ' style="display:grid;place-items:center;min-height:10rem;background:var(--ka-barva-plocha);color:var(--ka-barva-tlumeny)">' . e(t('Choose an image')) . '</div>' : '';
         }
         $src = $k->image($o['src']);
         $srcset = Images::srcset(ltrim(preg_replace('#^' . preg_quote($k->app->request->basePath(), '#') . '/#', '', $src) ?? $src, '/'), $k->app->request->basePath());

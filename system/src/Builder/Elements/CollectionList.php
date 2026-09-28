@@ -16,27 +16,27 @@ use Kaleta\Builder\Element;
 final class CollectionList extends Element
 {
     public const string TYPE = 'kolekce';
-    public const string NAME = 'Výpis kolekce';
-    public const string DESCRIPTION = 'Karty z kolekce (reference, tým, produkty…) – vnitřek je vzor jedné položky, {{pole}} se doplní samo.';
+    public const string NAME = 'Collection list';
+    public const string DESCRIPTION = 'Cards from a collection (testimonials, team, products…) – the inside is the template for one item, {{fields}} fill in automatically.';
     public const string ICON = 'kolekce';
-    public const string GROUP = 'Dynamické';
+    public const string GROUP = 'Dynamic';
     public const bool CONTAINER = true;
     public const array HTML_TAGS = ['div', 'ul'];
 
     public static function properties(): array
     {
         return [
-            'kolekce' => ['typ' => 'text', 'popisek' => 'Kolekce', 'vychozi' => '', 'max' => 110],
-            'pocet' => ['typ' => 'cislo', 'popisek' => 'Nejvýš položek', 'vychozi' => 12, 'min' => 1, 'max' => 100],
-            'razeni' => ['typ' => 'vyber', 'popisek' => 'Řazení', 'vychozi' => 'poradi', 'moznosti' => ['poradi' => 'podle pořadí v administraci', 'nazev' => 'podle názvu', 'nejnovejsi' => 'nejnovější první',
-                'pole' => 'podle pole – vzestupně', 'pole_sestupne' => 'podle pole – sestupně']],
-            'razeni_pole' => ['typ' => 'text', 'popisek' => 'Pole pro řazení (klíč, např. cena)', 'vychozi' => '', 'max' => 31],
-            'filtr_pole' => ['typ' => 'text', 'popisek' => 'Filtrovat podle pole (klíč, nepovinné)', 'vychozi' => '', 'max' => 31],
-            'filtr_hodnota' => ['typ' => 'text', 'popisek' => 'Jen položky s hodnotou (na stránce položky i {{pole}} – související obsah)', 'vychozi' => '', 'max' => 200],
-            'bez_aktualni' => ['typ' => 'prepinac', 'popisek' => 'Vynechat zobrazenou položku (související obsah na stránce položky)', 'vychozi' => false],
-            'filtry' => ['typ' => 'prepinac', 'popisek' => 'Tlačítka filtru pro návštěvníky (podle pole výše)', 'vychozi' => false],
-            'strankovani' => ['typ' => 'prepinac', 'popisek' => 'Stránkovat (po „Nejvýš položek“)', 'vychozi' => false],
-            'prazdne' => ['typ' => 'text', 'popisek' => 'Text, když kolekce nemá položky', 'vychozi' => '', 'max' => 300],
+            'kolekce' => ['typ' => 'text', 'popisek' => 'Collections', 'vychozi' => '', 'max' => 110],
+            'pocet' => ['typ' => 'cislo', 'popisek' => 'Maximum items', 'vychozi' => 12, 'min' => 1, 'max' => 100],
+            'razeni' => ['typ' => 'vyber', 'popisek' => 'Řazení', 'vychozi' => 'poradi', 'moznosti' => ['poradi' => 'by order in the administration', 'nazev' => 'by name', 'nejnovejsi' => 'newest first',
+                'pole' => 'by field – ascending', 'pole_sestupne' => 'by field – descending']],
+            'razeni_pole' => ['typ' => 'text', 'popisek' => 'Sort field (key, e.g. price)', 'vychozi' => '', 'max' => 31],
+            'filtr_pole' => ['typ' => 'text', 'popisek' => 'Filter by field (key, optional)', 'vychozi' => '', 'max' => 31],
+            'filtr_hodnota' => ['typ' => 'text', 'popisek' => 'Only items with the value (on an item page also {{field}} – related content)', 'vychozi' => '', 'max' => 200],
+            'bez_aktualni' => ['typ' => 'prepinac', 'popisek' => 'Leave out the item being shown (related content on an item page)', 'vychozi' => false],
+            'filtry' => ['typ' => 'prepinac', 'popisek' => 'Filter buttons for visitors (by the field above)', 'vychozi' => false],
+            'strankovani' => ['typ' => 'prepinac', 'popisek' => 'Paginate (by “Maximum items”)', 'vychozi' => false],
+            'prazdne' => ['typ' => 'text', 'popisek' => 'Text when the collection has no items', 'vychozi' => '', 'max' => 300],
         ];
     }
 
@@ -59,7 +59,7 @@ final class CollectionList extends Element
         // the class karta from the section library (the editor creates it on insert if the site does not have it yet)
         return [['tridy' => ['karta']] + \Kaleta\Builder\Build::fresh('kontejner', [], [
             ['znacka' => 'h3'] + \Kaleta\Builder\Build::fresh('nadpis', ['text' => '{{nazev}}']),
-            \Kaleta\Builder\Build::fresh('tlacitko', ['text' => t('Více informací'), 'odkaz' => '{{url}}', 'varianta' => 'odkaz']),
+            \Kaleta\Builder\Build::fresh('tlacitko', ['text' => t('More information'), 'odkaz' => '{{url}}', 'varianta' => 'odkaz']),
         ])];
     }
 
@@ -69,7 +69,7 @@ final class CollectionList extends Element
         $o = $p['obsah'];
         $collection = $o['kolekce'] === '' ? null : Collections::bySlug($k->app->db(), (string) $o['kolekce']);
         if ($collection === null) {
-            return $k->editor ? '<p>' . e(t('Vyberte kolekci v panelu Obsah.')) . '</p>' : '';
+            return $k->editor ? '<p>' . e(t('Choose a collection in the Content panel.')) . '</p>' : '';
         }
         $r = $k->app->request;
         $db = $k->app->db();
@@ -137,7 +137,7 @@ final class CollectionList extends Element
             $html .= '<li><a href="' . e($k->path . ($query !== '' ? '?' . $query : '')) . '"' . ($i === $pageNumber ? ' aria-current="page"' : '') . '>' . $i . '</a></li>';
         }
 
-        return '<ul class="ka-kolekce-strany" aria-label="' . e(t('Stránky výpisu')) . '">' . $html . '</ul>';
+        return '<ul class="ka-kolekce-strany" aria-label="' . e(t('List pages')) . '">' . $html . '</ul>';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string

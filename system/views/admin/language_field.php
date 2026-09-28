@@ -16,9 +16,9 @@ if ($additional === []) {
 }
 ?>
 <div class="radek">
-	<label for="jazyk"><?= e(t('Jazyková verze')) ?></label>
+	<label for="jazyk"><?= e(t('Language version')) ?></label>
 	<div><select id="jazyk" name="jazyk">
-		<option value=""><?= e(Language::AVAILABLE[Language::defaults($app->settings())][0]) ?> (<?= e(t('výchozí')) ?>)</option>
+		<option value=""><?= e(Language::AVAILABLE[Language::defaults($app->settings())][0]) ?> (<?= e(t('default')) ?>)</option>
 <?php foreach ($additional as $code): ?>
 		<option value="<?= e($code) ?>"<?= $value === $code ? ' selected' : '' ?>><?= e(Language::AVAILABLE[$code][0]) ?> – /<?= e($code) ?>/</option>
 <?php endforeach ?>
@@ -30,13 +30,13 @@ if ($additional === []) {
 </div>
 <?php if (($originals ?? []) !== []): ?>
 <div class="radek">
-	<label for="preklad_z"><?= e(t('Je překladem')) ?></label>
+	<label for="preklad_z"><?= e(t('Is a translation of')) ?></label>
 	<div><select id="preklad_z" name="preklad_z">
-		<option value="0"><?= e(t('– není překlad –')) ?></option>
+		<option value="0"><?= e(t('– not a translation –')) ?></option>
 <?php foreach ($originals as $originalId => $originalName): ?>
 		<option value="<?= (int) $originalId ?>"<?= (int) ($translationOf ?? 0) === (int) $originalId ? ' selected' : '' ?>><?= e($originalName) ?></option>
 <?php endforeach ?>
 	</select>
-	<span class="napoveda"><?= e(t('Vyplňte u položky v jiné jazykové verzi: přepínač jazyků pak vede přímo na protějšek a vyhledávače dostanou značky hreflang.')) ?></span></div>
+	<span class="napoveda"><?= e(t('Fill in for an item in another language version: the language switcher then leads straight to its counterpart and search engines get hreflang tags.')) ?></span></div>
 </div>
 <?php endif ?>

@@ -20,7 +20,7 @@ final class News extends Module
     public const string IDENT = 'news';
     public const string EXTENSION = 'novinky';
     public const string NAME = 'Novinky';
-    public const string GROUP = 'Obsah';
+    public const string GROUP = 'Content';
     public const string ICON = 'novinky';
 
     private const int PER_PAGE = 20;
@@ -107,7 +107,7 @@ final class News extends Module
     {
         // without a category the news item could not be saved: the default one is created and the editor opens right away (no dead end)
         if (Categories::createDefault($this->db, $this->app->settings()) !== null) {
-            $this->app->session->flash('ok', t('Novinky potřebují kategorii, proto vznikla kategorie „%s“. Přejmenovat ji nebo přidat další můžete v Novinky → Kategorie.', (string) (Categories::listAll($this->db)[0]['nazev'] ?? '')));
+            $this->app->session->flash('ok', t('News items need a category, so the category “%s” has been created. You can rename it or add more under News → Categories.', (string) (Categories::listAll($this->db)[0]['nazev'] ?? '')));
         }
 
         return $this->form($this->defaults());
@@ -132,19 +132,19 @@ final class News extends Module
         }
         $copy = array_intersect_key($newsItem, array_flip(['uvod', 'text', 'obrazek', 'obrazek_popis', 'obrazek_autor', 'tema', 't_slova', 'seo_popis', 'noindex', 'faq', 'jazyk']));
         $seo = \Kaleta\Core\Slug::makeUnique($newsItem['seo_link'] . '-kopie', fn (string $a): bool => $this->db->value('SELECT 1 FROM {novinky} WHERE seo_link = ?', [$a]) !== null);
-        $id = $this->db->insert('novinky', $copy + ['titulek' => mb_substr(t('%s (kopie)', $newsItem['titulek']), 0, 255), 'seo_link' => $seo, 'visible' => 0,
+        $id = $this->db->insert('novinky', $copy + ['titulek' => mb_substr(t('%s (copy)', $newsItem['titulek']), 0, 255), 'seo_link' => $seo, 'visible' => 0,
             'datum' => date('Y-m-d H:i:s'), 'autor' => $this->app->auth()->id(), 'zmeneno' => date('Y-m-d H:i:s')]);
         $this->db->run('INSERT INTO {novinky_stitky} (idc, ids) SELECT ?, ids FROM {novinky_stitky} WHERE idc = ?', [$id, $newsItem['idc']]);
         \Kaleta\Core\Search::index($this->db, $id);
 
-        return $this->back('Kopie novinky je uložená jako koncept.', 'edit', ['id' => $id]);
+        return $this->back('The copy of the news item is saved as a draft.', 'edit', ['id' => $id]);
     }
 
     protected function actionEdit(): Response
     {
         $newsItem = $this->load($this->request->getInt('id'));
 
-        return $newsItem === null ? $this->error('Novinka neexistuje nebo k ní nemáte přístup.', 404) : $this->form($newsItem);
+        return $newsItem === null ? $this->error('The news item does not exist or you do not have access to it.', 404) : $this->form($newsItem);
     }
 
     protected function actionSave(): Response
@@ -160,10 +160,10 @@ final class News extends Module
         if ($id > 0) {
             $previous = $this->load($id);
             if ($previous === null) {
-                return $this->error('Novinka neexistuje nebo k ní nemáte přístup.', 404);
+                return $this->error('The news item does not exist or you do not have access to it.', 404);
             }
             if ($previous['visible'] && !$auth->canPublish()) {
-                return $this->error('Vydanou novinku může upravit jen editor nebo správce.', 403);
+                return $this->error('Only an editor or administrator can edit a published news item.', 403);
             }
         }
 
@@ -199,7 +199,7 @@ final class News extends Module
             $data['autor'] = $auth->id();
         }
         if ($this->db->value('SELECT idu FROM {uzivatele} WHERE idu = ?', [$data['autor']]) === null) {
-            $errors['autor'] = 'Vyberte autora.';
+            $errors['autor'] = 'Select an author.';
         }
         if ($errors !== []) {
             return $this->form(['idc' => $id] + $data + ($previous ?? $this->defaults()), $errors);
@@ -238,7 +238,7 @@ final class News extends Module
             (new \Kaleta\Front\Seo($this->app))->indexNow($this->app->newsItemUrl($data['seo_link'], $data['jazyk']));
         }
 
-        $message = $auth->canPublish() ? 'Novinka byla uložena.' : 'Novinka byla uložena. Na webu se objeví, až ji vydá editor.';
+        $message = $auth->canPublish() ? 'News item saved.' : 'News item saved. It will appear on the site once an editor publishes it.';
 
         return $r->post('po_ulozeni') === 'zustat' ? $this->back($message, 'edit', ['id' => $id]) : $this->back($message);
     }
@@ -267,7 +267,7 @@ final class News extends Module
         $this->db->update('novinky', $data + ['zmeneno' => date('Y-m-d H:i:s')], ['idc' => $newsItem['idc']]);
         Media::recordUsage($this->db, (int) $newsItem['idc'], (string) $newsItem['obrazek'], $data['uvod'], $data['text']);
         \Kaleta\Core\Search::index($this->db, (int) $newsItem['idc']);
-        \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'úprava přímo na webu', mb_substr($data['titulek'], 0, 80));
+        \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'edited directly on the site', mb_substr($data['titulek'], 0, 80));
         if ($newsItem['visible'] && !$newsItem['noindex'] && strtotime((string) $newsItem['datum']) <= time()) {
             (new \Kaleta\Front\Seo($this->app))->indexNow($this->app->newsItemUrl($newsItem['seo_link'], $newsItem['jazyk']));
         }
@@ -331,11 +331,11 @@ final class News extends Module
     {
         $assistant = new \Kaleta\Core\Assistant($this->app->settings());
         if (!$this->request->isPost() || !$assistant->isReady()) {
-            return Response::json(['chyba' => t('AI asistent není zapnutý nebo chybí klíč (nabídka Rozšíření).')], 400);
+            return Response::json(['chyba' => t('The AI assistant is not enabled or the key is missing (Extensions menu).')], 400);
         }
         // safeguard against unwanted spending: at most 60 requests per hour per user
         if ($this->hasTooManyRequests()) {
-            return Response::json(['chyba' => t('Za poslední hodinu jste asistenta použili 60×. Zkuste to prosím později.')], 429);
+            return Response::json(['chyba' => t('You have used the assistant 60 times in the last hour. Please try again later.')], 429);
         }
         $task = $this->request->post('ukol');
         $image = null;
@@ -369,19 +369,19 @@ final class News extends Module
     {
         $newsItem = $this->request->isPost() ? $this->load($this->request->postInt('idc')) : null;
         if ($newsItem === null) {
-            return $this->back('Novinku nejdřív uložte, pak ji půjde přeložit.', type: 'chyba');
+            return $this->back('Save the news item first, then it can be translated.', type: 'chyba');
         }
         $backToNewsItem = fn (string $message): Response => $this->back($message, 'edit', ['id' => $newsItem['idc']], type: 'chyba');
         $language = $this->request->post('prelozit_do');
         $assistant = new \Kaleta\Core\Assistant($this->app->settings());
         if (!$assistant->isReady()) {
-            return $backToNewsItem('AI asistent není zapnutý nebo chybí klíč (nabídka Rozšíření).');
+            return $backToNewsItem('The AI assistant is not enabled or the key is missing (Extensions menu).');
         }
         if ($newsItem['jazyk'] !== '' || !in_array($language, \Kaleta\Core\Language::additional($this->app->settings()), true)) {
             return $backToNewsItem('Přeložit jde jen novinka ve výchozím jazyce, a to do některé z dalších jazykových verzí webu.');
         }
         if (($existing = $this->db->value('SELECT idc FROM {novinky} WHERE preklad_z = ? AND jazyk = ?', [$newsItem['idc'], $language])) !== null) {
-            return $this->back('Překlad do tohoto jazyka už existuje – tady je.', 'edit', ['id' => (int) $existing]);
+            return $this->back('A translation into this language already exists – here it is.', 'edit', ['id' => (int) $existing]);
         }
         // target category: the counterpart of the original's category, otherwise the first category of the given language
         $category = $this->db->value('SELECT idt FROM {kategorie} WHERE jazyk = ? ORDER BY (preklad_z <=> ?) DESC, hodnost DESC, idt LIMIT 1', [$language, $newsItem['tema']]);
@@ -389,7 +389,7 @@ final class News extends Module
             return $backToNewsItem('V cílovém jazyce zatím není žádná kategorie. Založte ji v Novinky → Kategorie (pole Jazyková verze).');
         }
         if ($this->hasTooManyRequests()) {
-            return $backToNewsItem('Za poslední hodinu jste asistenta použili 60×. Zkuste to prosím později.');
+            return $backToNewsItem('You have used the assistant 60 times in the last hour. Please try again later.');
         }
 
         set_time_limit(600); // a long text is translated in batches
@@ -414,7 +414,7 @@ final class News extends Module
         $this->db->run('INSERT INTO {novinky_stitky} (idc, ids) SELECT ?, ids FROM {novinky_stitky} WHERE idc = ?', [$id, $newsItem['idc']]);
         \Kaleta\Core\Search::index($this->db, $id);
 
-        return $this->back('Překlad je založený jako koncept. Než ho vydáte, přečtěte ho – asistent může chybovat ve jménech, číslech a odborných výrazech.', 'edit', ['id' => $id]);
+        return $this->back('The translation has been created as a draft. Read it before publishing – the assistant can make mistakes in names, numbers and technical terms.', 'edit', ['id' => $id]);
     }
 
     private function hasTooManyRequests(): bool
@@ -428,9 +428,9 @@ final class News extends Module
         $newsItem = $this->load($this->request->getInt('id'));
         $version = $newsItem === null ? null : $this->db->one('SELECT * FROM {novinky_revize} WHERE idr = ? AND idc = ?', [$this->request->getInt('idr'), $newsItem['idc']]);
         if ($version === null) {
-            return $this->error('Verze novinky neexistuje.', 404);
+            return $this->error('This version of the news item does not exist.', 404);
         }
-        $this->app->session->flash('info', t('V editoru je verze z %s. Platit začne, až novinku uložíte.', format_date($version['datum'], true)));
+        $this->app->session->flash('info', t('The editor now contains the version from %s. It takes effect once you save the news item.', format_date($version['datum'], true)));
 
         return $this->form(['titulek' => $version['titulek'], 'uvod' => $version['uvod'], 'text' => $version['text']] + $newsItem);
     }
@@ -444,10 +444,10 @@ final class News extends Module
             [$this->request->getInt('idr'), $newsItem['idc'] ?? 0],
         );
         if ($version === null) {
-            return $this->error('Verze novinky neexistuje.', 404);
+            return $this->error('This version of the news item does not exist.', 404);
         }
 
-        return $this->view('compare', 'Porovnání verzí', [
+        return $this->view('compare', 'Compare versions', [
             'newsItem' => $newsItem,
             'versions' => $version,
             'title' => \Kaleta\Core\Diff::html((string) $version['titulek'], (string) $newsItem['titulek']),
@@ -464,10 +464,10 @@ final class News extends Module
             $this->db->update('novinky', ['odkazy_cas' => null], ['idc' => $this->request->postInt('idc')]);
             $this->db->delete('odkazy_vadne', ['idc' => $this->request->postInt('idc')]);
 
-            return $this->back('Novinka se zkontroluje znovu během několika minut.', 'links');
+            return $this->back('The news item will be checked again within a few minutes.', 'links');
         }
 
-        return $this->view('links', 'Nefunkční odkazy', [
+        return $this->view('links', 'Broken links', [
             'links' => $this->db->all('SELECT o.*, c.titulek FROM {odkazy_vadne} o JOIN {novinky} c ON c.idc = o.idc WHERE 1 = 1' . $this->app->auth()->articleScope('c.') . ' ORDER BY o.cas DESC LIMIT 300'),
             'checked' => (int) $this->db->value('SELECT COUNT(*) FROM {novinky} WHERE odkazy_cas IS NOT NULL'),
             'total' => (int) $this->db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW()'),
@@ -488,10 +488,10 @@ final class News extends Module
             }
             // trash: the news item disappears from the site and from lists, but can be restored for 30 days; it returns as a draft, never published by itself
             $moved += $this->db->update('novinky', ['smazano' => date('Y-m-d H:i:s'), 'visible' => 0], ['idc' => $newsItem['idc']]);
-            \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'do koše', mb_substr($newsItem['titulek'], 0, 80));
+            \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'moved to trash', mb_substr($newsItem['titulek'], 0, 80));
         }
 
-        return $this->back(t('Do koše přesunuto novinek: %d. Obnovit je jde 30 dní (Novinky → Koš).', $moved), type: $moved > 0 ? 'ok' : 'chyba');
+        return $this->back(t('News items moved to the trash: %d. They can be restored for 30 days (News → Trash).', $moved), type: $moved > 0 ? 'ok' : 'chyba');
     }
 
     /** Restore from the trash: the news item returns as a draft (not published). */
@@ -507,10 +507,10 @@ final class News extends Module
                 continue;
             }
             $restored += $this->db->update('novinky', ['smazano' => null], ['idc' => $newsItem['idc']]);
-            \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'obnovení z koše', mb_substr($newsItem['titulek'], 0, 80));
+            \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'restored from trash', mb_substr($newsItem['titulek'], 0, 80));
         }
 
-        return $this->back(t('Obnoveno novinek: %d. Vrátily se jako koncepty.', $restored), '', ['stav' => 'kos'], $restored > 0 ? 'ok' : 'chyba');
+        return $this->back(t('News items restored: %d. They are back as drafts.', $restored), '', ['stav' => 'kos'], $restored > 0 ? 'ok' : 'chyba');
     }
 
     /** Permanent deletion from the trash (only someone who can publish). */
@@ -524,11 +524,11 @@ final class News extends Module
             $newsItem = $this->load((int) $id, true);
             if ($newsItem !== null) {
                 $deleted += $this->db->delete('novinky', ['idc' => $newsItem['idc']]);
-                \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'smazání natrvalo', mb_substr($newsItem['titulek'], 0, 80));
+                \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'deleted permanently', mb_substr($newsItem['titulek'], 0, 80));
             }
         }
 
-        return $this->back(t('Natrvalo smazáno novinek: %d.', $deleted), '', ['stav' => 'kos'], $deleted > 0 ? 'ok' : 'chyba');
+        return $this->back(t('News items permanently deleted: %d.', $deleted), '', ['stav' => 'kos'], $deleted > 0 ? 'ok' : 'chyba');
     }
 
     /** The trash empties itself: news items older than 30 days are deleted permanently (called by Admin\Kernel on entering the admin). */
@@ -549,7 +549,7 @@ final class News extends Module
             ? $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY 2")
             : $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE idu IN (" . implode(',', $allowedIds) . ') ORDER BY 2');
 
-        return $this->view('form', $newsItem['idc'] ? 'Úprava novinky' : 'Nová novinka', [
+        return $this->view('form', $newsItem['idc'] ? 'Edit news item' : 'New news item', [
             'newsItem' => $newsItem,
             'errors' => $errors,
             'category' => Categories::listAll($this->db),

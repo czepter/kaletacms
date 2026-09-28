@@ -16,8 +16,8 @@ use Kaleta\Builder\Element;
 final class Component extends Element
 {
     public const string TYPE = 'komponenta';
-    public const string NAME = 'Komponenta';
-    public const string DESCRIPTION = 'Znovupoužitelný blok – úprava komponenty se projeví všude, kde je použitá.';
+    public const string NAME = 'Component';
+    public const string DESCRIPTION = 'A reusable block – editing the component updates it everywhere it is used.';
     public const string ICON = 'komponenta';
     public const string GROUP = 'Pokročilé';
     public const array HTML_TAGS = ['div'];
@@ -25,8 +25,8 @@ final class Component extends Element
     public static function properties(): array
     {
         return [
-            'komponenta' => ['typ' => 'text', 'popisek' => 'Komponenta', 'vychozi' => '', 'max' => 12],
-            'hodnoty' => ['typ' => 'hodnoty', 'popisek' => 'Vlastnosti', 'vychozi' => []],
+            'komponenta' => ['typ' => 'text', 'popisek' => 'Component', 'vychozi' => '', 'max' => 12],
+            'hodnoty' => ['typ' => 'hodnoty', 'popisek' => 'Properties', 'vychozi' => []],
         ];
     }
 
@@ -40,7 +40,7 @@ final class Component extends Element
         $component = $k->components[$id];
         $build = $component === null ? null : \Kaleta\Builder\Build::fromJson($component['stavba'] ?? $component['stavba_koncept']);
         if ($build === null) {
-            return $k->editor ? '<p>' . e(t('Vyberte komponentu v panelu Obsah.')) . '</p>' : '';
+            return $k->editor ? '<p>' . e(t('Choose a component in the Content panel.')) . '</p>' : '';
         }
         if (in_array($id, $k->nesting, true) || count($k->nesting) >= Components::MAX_NESTING) {
             return ''; // a component inside itself would render forever

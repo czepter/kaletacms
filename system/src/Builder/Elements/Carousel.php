@@ -15,8 +15,8 @@ use Kaleta\Builder\Build;
 final class Carousel extends Element
 {
     public const string TYPE = 'karusel';
-    public const string NAME = 'Karusel';
-    public const string DESCRIPTION = 'Snímky vedle sebe s posunem šipkami nebo prstem – reference, fotky, karty.';
+    public const string NAME = 'Carousel';
+    public const string DESCRIPTION = 'Slides side by side, moved with arrows or a finger – testimonials, photos, cards.';
     public const string ICON = 'karusel';
     public const string GROUP = 'Rozložení';
     public const bool CONTAINER = true;
@@ -25,8 +25,8 @@ final class Carousel extends Element
     public static function properties(): array
     {
         return [
-            'naraz' => ['typ' => 'vyber', 'popisek' => 'Snímků vedle sebe na počítači', 'vychozi' => '1', 'moznosti' => ['1' => '1', '2' => '2', '3' => '3', '4' => '4']],
-            'popis' => ['typ' => 'text', 'popisek' => 'Název pro čtečky (např. Reference)', 'vychozi' => '', 'max' => 120],
+            'naraz' => ['typ' => 'vyber', 'popisek' => 'Slides side by side on desktop', 'vychozi' => '1', 'moznosti' => ['1' => '1', '2' => '2', '3' => '3', '4' => '4']],
+            'popis' => ['typ' => 'text', 'popisek' => 'Name for screen readers (e.g. Testimonials)', 'vychozi' => '', 'max' => 120],
         ];
     }
 
@@ -34,10 +34,10 @@ final class Carousel extends Element
     {
         $slide = fn (string $n): array => ['styl' => ['zaklad' => ['odsazeni_y' => 'l', 'odsazeni_x' => 'l', 'pozadi' => 'plocha', 'zaobleni' => 'm']]] + Build::fresh('kontejner', [], [
             ['znacka' => 'h3'] + Build::fresh('nadpis', ['text' => $n]),
-            Build::fresh('text', ['html' => '<p>' . t('Text snímku.') . '</p>']),
+            Build::fresh('text', ['html' => '<p>' . t('Slide text.') . '</p>']),
         ]);
 
-        return [$slide(t('První snímek')), $slide(t('Druhý snímek')), $slide(t('Třetí snímek'))];
+        return [$slide(t('First slide')), $slide(t('Second slide')), $slide(t('Third slide'))];
     }
 
     public static function baseCss(): string
@@ -58,9 +58,9 @@ final class Carousel extends Element
         $o = $p['obsah'];
         $description = $o['popis'] !== '' ? ' aria-label="' . e($o['popis']) . '"' : '';
 
-        return '<' . $p['znacka'] . Text::withClass($a, 'ka-karusel') . ' data-karusel aria-roledescription="' . e(t('karusel')) . '"' . $description . ' style="--ka-naraz:' . (int) $o['naraz'] . '">'
+        return '<' . $p['znacka'] . Text::withClass($a, 'ka-karusel') . ' data-karusel aria-roledescription="' . e(t('carousel')) . '"' . $description . ' style="--ka-naraz:' . (int) $o['naraz'] . '">'
             . '<div class="ka-karusel-pas" tabindex="0">' . $children . '</div>'
-            . '<div class="ka-karusel-sipky"><button type="button" data-krok="-1" aria-label="' . e(t('Předchozí')) . '">‹</button><button type="button" data-krok="1" aria-label="' . e(t('Další')) . '">›</button></div>'
+            . '<div class="ka-karusel-sipky"><button type="button" data-krok="-1" aria-label="' . e(t('Previous')) . '">‹</button><button type="button" data-krok="1" aria-label="' . e(t('Next')) . '">›</button></div>'
             . '</' . $p['znacka'] . '>';
     }
 }

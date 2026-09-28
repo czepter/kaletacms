@@ -15,8 +15,8 @@ final class Tags extends Module
 {
     public const string IDENT = 'tags';
     public const string EXTENSION = 'novinky';
-    public const string NAME = 'Štítky a témata';
-    public const string GROUP = 'Obsah';
+    public const string NAME = 'Tags and topics';
+    public const string GROUP = 'Content';
     public const string ICON = 'stitky';
     public const string PARENT = 'news';
 
@@ -24,7 +24,7 @@ final class Tags extends Module
     {
         $edit = $this->db->one('SELECT * FROM {stitky} WHERE ids = ?', [$this->request->getInt('uprav')]);
 
-        return $this->view('list', 'Štítky a témata', [
+        return $this->view('list', 'Tags and topics', [
             'tags' => $this->db->all('SELECT s.*, (SELECT COUNT(*) FROM {novinky_stitky} cs WHERE cs.ids = s.ids) AS pocet FROM {stitky} s ORDER BY (s.popis IS NOT NULL AND s.popis <> \'\') DESC, pocet DESC, s.nazev LIMIT 500'),
             'edit' => $edit,
         ]);
@@ -35,7 +35,7 @@ final class Tags extends Module
         $tag = $this->db->one('SELECT * FROM {stitky} WHERE ids = ?', [$this->request->postInt('ids')]);
         $name = mb_substr(trim($this->request->post('nazev')), 0, 80);
         if (!$this->request->isPost() || $tag === null || $name === '') {
-            return $this->back('Vyplňte název štítku.', type: 'chyba');
+            return $this->back('Enter the tag name.', type: 'chyba');
         }
         $this->db->update('stitky', ['nazev' => $name, 'popis' => \Kaleta\Core\Html::forUser(trim($this->request->post('popis')), $this->app->auth()), 'obrazek' => mb_substr($this->request->post('obrazek'), 0, 255)], ['ids' => $tag['ids']]);
 
@@ -47,10 +47,10 @@ final class Tags extends Module
             $this->db->delete('stitky', ['ids' => $tag['ids']]);
             Redirects::add($this->db, 'novinky/stitek/' . $tag['seo_link'], 'novinky/stitek/' . $target['seo_link']);
 
-            return $this->back(t('Štítek „%s“ byl sloučen do „%s“.', $tag['nazev'], $target['nazev']));
+            return $this->back(t('Tag “%s” has been merged into “%s”.', $tag['nazev'], $target['nazev']));
         }
 
-        return $this->back('Štítek byl uložen.');
+        return $this->back('Tag saved.');
     }
 
     protected function actionDelete(): Response
@@ -60,6 +60,6 @@ final class Tags extends Module
             $this->db->delete('stitky', ['ids' => $this->request->postInt('ids')]);
         }
 
-        return $this->back('Štítek byl smazán. Novinky zůstaly, jen ho už nemají.');
+        return $this->back('Tag deleted. The news items remain, they just no longer carry it.');
     }
 }

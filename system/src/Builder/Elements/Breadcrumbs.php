@@ -14,8 +14,8 @@ use Kaleta\Builder\Element;
 final class Breadcrumbs extends Element
 {
     public const string TYPE = 'drobecky';
-    public const string NAME = 'Drobečková navigace';
-    public const string DESCRIPTION = 'Cesta ke stránce (Úvod › Novinky › …) – sestaví se sama podle zobrazené stránky.';
+    public const string NAME = 'Breadcrumbs';
+    public const string DESCRIPTION = 'The path to the page (Home › News › …) – built automatically for the page shown.';
     public const string ICON = 'drobecky';
     public const array HTML_TAGS = ['nav'];
 
@@ -29,7 +29,7 @@ final class Breadcrumbs extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $path = $k->breadcrumbs !== [] ? $k->breadcrumbs : ($k->editor ? [[t('Úvod'), '#'], [t('Tato stránka'), '']] : []);
+        $path = $k->breadcrumbs !== [] ? $k->breadcrumbs : ($k->editor ? [[t('Úvod'), '#'], [t('This page'), '']] : []);
         if (count($path) < 2) {
             return ''; // breadcrumbs make no sense on the home page
         }
@@ -43,6 +43,6 @@ final class Breadcrumbs extends Element
             };
         }
 
-        return '<nav' . Text::withClass($a, 'ka-drobecky') . ' aria-label="' . e(t('Drobečková navigace')) . '"><ol>' . $html . '</ol></nav>';
+        return '<nav' . Text::withClass($a, 'ka-drobecky') . ' aria-label="' . e(t('Breadcrumbs')) . '"><ol>' . $html . '</ol></nav>';
     }
 }

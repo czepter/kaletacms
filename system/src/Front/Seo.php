@@ -145,7 +145,7 @@ final class Seo
         if ($s->get('site_description') !== '') {
             array_push($rows, '> ' . str_replace("\n", ' ', $s->get('site_description')), '');
         }
-        $rows[] = '## ' . t('Stránky');
+        $rows[] = '## ' . t('Pages');
         $home = $s->int('home_page');
         foreach ($db->all('SELECT ids, titulek, seo_link, popis FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY poradi, titulek', [\Kaleta\Core\Language::siteColumn()]) as $r) {
             $rows[] = '- [' . $r['titulek'] . '](' . $this->siteSettings . ((int) $r['ids'] === $home ? '' : $r['seo_link']) . ')' . ($r['popis'] !== '' ? ': ' . $r['popis'] : '');
@@ -186,10 +186,10 @@ final class Seo
     public function newsItemMarkdown(array $newsItem): string
     {
         $head = ['# ' . $newsItem['titulek'], ''];
-        $head[] = '- ' . t('Autor') . ': ' . ($newsItem['autor_jm'] ?? $this->app->settings()->get('site_name'));
-        $head[] = '- ' . t('Vydáno') . ': ' . date('Y-m-d', strtotime($newsItem['datum'])) . ($newsItem['zmeneno'] ? ', ' . t('aktualizováno') . ': ' . date('Y-m-d', strtotime($newsItem['zmeneno'])) : '');
-        $head[] = '- ' . t('Kategorie') . ': ' . $newsItem['tema_jm'];
-        $head[] = '- ' . t('Zdroj') . ': ' . $this->siteSettings . $this->path('novinky/') . $newsItem['seo_link'];
+        $head[] = '- ' . t('Author') . ': ' . ($newsItem['autor_jm'] ?? $this->app->settings()->get('site_name'));
+        $head[] = '- ' . t('Vydáno') . ': ' . date('Y-m-d', strtotime($newsItem['datum'])) . ($newsItem['zmeneno'] ? ', ' . t('updated') . ': ' . date('Y-m-d', strtotime($newsItem['zmeneno'])) : '');
+        $head[] = '- ' . t('Categories') . ': ' . $newsItem['tema_jm'];
+        $head[] = '- ' . t('Source') . ': ' . $this->siteSettings . $this->path('novinky/') . $newsItem['seo_link'];
 
         return implode("\n", $head) . "\n\n" . self::htmlToMarkdown($newsItem['uvod']) . "\n\n" . self::htmlToMarkdown($newsItem['text']) . "\n";
     }
@@ -261,21 +261,21 @@ final class Seo
     }
 
     /**
-     * Czech texts that image/web.js shows to the visitor (wrapped in T() or A() there); the site dictionary translates
+     * Texts that image/web.js shows to the visitor (wrapped in T() or A() there); the site dictionary translates
      * them like any other text.
      */
-    public const array SCRIPT_TEXTS = ['Předchozí fotka', 'Další fotka', 'Zavřít'];
+    public const array SCRIPT_TEXTS = ['Previous photo', 'Next photo', 'Close'];
 
     /**
-     * The data-texty attribute for the <script> tag with image/web.js: translations of the script texts (Czech => translation)
-     * as JSON. No extra request and no inline script; the Czech version needs nothing – the script has Czech built in.
+     * The data-texty attribute for the <script> tag with image/web.js: translations of the script texts (source => translation)
+     * as JSON. No extra request and no inline script; the English version needs nothing – the script has English built in.
      */
     private static function scriptTextsAttribute(): string
     {
         $translations = [];
-        foreach (self::SCRIPT_TEXTS as $czech) {
-            if (t($czech) !== $czech) {
-                $translations[$czech] = t($czech);
+        foreach (self::SCRIPT_TEXTS as $source) {
+            if (t($source) !== $source) {
+                $translations[$source] = t($source);
             }
         }
 

@@ -42,7 +42,7 @@ final class Files
     /** Message for a file over the server limit – translated, with the limit in MB and advice on what to do. */
     public static function limitMessage(): string
     {
-        return t('Soubor je větší, než server dovoluje nahrát (nejvýš %s). Zmenšete ho, nebo požádejte správce hostingu o vyšší limit.', self::limitText());
+        return t('The file is larger than the server allows (%s at most). Make it smaller or ask your hosting provider to raise the limit.', self::limitText());
     }
 
     public static function isAttachment(string $displayName): bool
@@ -60,7 +60,7 @@ final class Files
         if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) {
             throw new \RuntimeException(match ($file['error'] ?? 0) {
                 UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => self::limitMessage(),
-                default => 'Soubor se nepodařilo nahrát.',
+                default => 'The file could not be uploaded.',
             });
         }
 
@@ -75,7 +75,7 @@ final class Files
     public static function saveFile(string $path, string $displayName): array
     {
         if (!is_file($path)) {
-            throw new \RuntimeException('Soubor se nepodařilo nahrát.');
+            throw new \RuntimeException('The file could not be uploaded.');
         }
 
         return self::process($path, $displayName, false);
@@ -90,7 +90,7 @@ final class Files
         }
         $type = (string) (new \finfo(FILEINFO_MIME_TYPE))->file($tmp);
         if (preg_match(self::FORBIDDEN_TYPES, $type) || filesize($tmp) > self::MAX_BYTES) {
-            throw new \RuntimeException(filesize($tmp) > self::MAX_BYTES ? 'Soubor je příliš velký (nejvýše 200 MB).' : 'Obsah souboru neodpovídá jeho příponě.');
+            throw new \RuntimeException(filesize($tmp) > self::MAX_BYTES ? 'The file is too large (200 MB at most).' : 'The file content does not match its extension.');
         }
         $folder = 'media/' . date('Y/m');
         if (!is_dir(KALETA_ROOT . '/' . $folder) && !mkdir(KALETA_ROOT . '/' . $folder, 0775, true)) {
@@ -99,7 +99,7 @@ final class Files
         $name = pathinfo($displayName, PATHINFO_FILENAME);
         $target = $folder . '/' . slugify($name, 60) . '-' . bin2hex(random_bytes(3)) . '.' . $extension;
         if (!($uploaded ? move_uploaded_file($tmp, KALETA_ROOT . '/' . $target) : copy($tmp, KALETA_ROOT . '/' . $target))) {
-            throw new \RuntimeException('Soubor se nepodařilo uložit.');
+            throw new \RuntimeException('The file could not be saved.');
         }
 
         // an attachment is recognized in the media table by an empty thumbnail and zero dimensions

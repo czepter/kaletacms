@@ -16,7 +16,7 @@ use Kaleta\Core\WpContent;
 final class Collections
 {
     /** Field types (key => label). */
-    public const array FIELD_TYPES = ['text' => 'krátký text', 'radky' => 'delší text', 'html' => 'formátovaný text', 'obrazek' => 'obrázek', 'odkaz' => 'odkaz', 'cislo' => 'číslo', 'datum' => 'datum'];
+    public const array FIELD_TYPES = ['text' => 'short text', 'radky' => 'longer text', 'html' => 'formatted text', 'obrazek' => 'obrázek', 'odkaz' => 'odkaz', 'cislo' => 'číslo', 'datum' => 'datum'];
 
     /** Built-in values of every item – custom fields must not use them. */
     public const array BUILT_IN = ['nazev', 'url', 'datum', 'seo'];

@@ -24,7 +24,7 @@ final class Newsletter
         'mailchimp' => ['Mailchimp', true],
         'ecomail' => ['Ecomail', true],
         'smartemailing' => ['SmartEmailing', true],
-        'webhook' => ['Jiná služba přes webhook (Make, Zapier, n8n)', false],
+        'webhook' => ['Another service via a webhook (Make, Zapier, n8n)', false],
     ];
 
     /** After how many minutes the next attempt comes (by the number of failed ones). */
@@ -139,7 +139,7 @@ final class Newsletter
             return; // removing an address the service does not know is fine
         }
         // the error text is stored with the subscriber; the admin translates 'Služba neodpověděla.' when displaying it
-        throw new \RuntimeException($code === 0 ? 'Služba neodpověděla.' : 'HTTP ' . $code . ($response !== '' ? ': ' . mb_substr(trim(strip_tags($response)), 0, 180) : ''));
+        throw new \RuntimeException($code === 0 ? 'The service did not respond.' : 'HTTP ' . $code . ($response !== '' ? ': ' . mb_substr(trim(strip_tags($response)), 0, 180) : ''));
     }
 
     /** Mailchimp: the data center is after the dash in the key (…-us21). */

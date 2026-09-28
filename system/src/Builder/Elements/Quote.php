@@ -11,17 +11,17 @@ use Kaleta\Builder\Element;
 final class Quote extends Element
 {
     public const string TYPE = 'citat';
-    public const string NAME = 'Reference';
-    public const string DESCRIPTION = 'Citát nebo reference zákazníka se jménem.';
+    public const string NAME = 'Testimonials';
+    public const string DESCRIPTION = 'A quote or customer testimonial with a name.';
     public const string ICON = 'citat';
     public const array HTML_TAGS = ['blockquote'];
 
     public static function properties(): array
     {
         return [
-            'text' => ['typ' => 'inline', 'popisek' => 'Text', 'vychozi' => t('Spolupráce byla rychlá a bez starostí. Doporučujeme.'), 'max' => 1500],
-            'autor' => ['typ' => 'text', 'popisek' => 'Jméno', 'vychozi' => t('Jana Nováková'), 'max' => 120],
-            'pozice' => ['typ' => 'text', 'popisek' => 'Pozice nebo firma', 'vychozi' => '', 'max' => 160],
+            'text' => ['typ' => 'inline', 'popisek' => 'Text', 'vychozi' => t('Working with them was quick and hassle-free. Recommended.'), 'max' => 1500],
+            'autor' => ['typ' => 'text', 'popisek' => 'Jméno', 'vychozi' => t('Jane Doe'), 'max' => 120],
+            'pozice' => ['typ' => 'text', 'popisek' => 'Position or company', 'vychozi' => '', 'max' => 160],
         ];
     }
 

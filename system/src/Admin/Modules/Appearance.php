@@ -17,8 +17,8 @@ use Kaleta\Builder\DesignSystem;
 final class Appearance extends Module
 {
     public const string IDENT = 'appearance';
-    public const string NAME = 'Vzhled webu';
-    public const string GROUP = 'Vzhled';
+    public const string NAME = 'Site appearance';
+    public const string GROUP = 'Appearance';
     public const string ICON = 'identita';
     public const bool ADMIN_ONLY = true;
 
@@ -27,7 +27,7 @@ final class Appearance extends Module
         $siteSettings = $this->app->settings();
         $ds = DesignSystem::load($siteSettings);
 
-        return $this->view('list', 'Vzhled webu', [
+        return $this->view('list', 'Site appearance', [
             'layouts' => Layouts::listAll(),
             'ds' => $ds,
             'contrasts' => DesignSystem::contrasts($ds),
@@ -66,7 +66,7 @@ final class Appearance extends Module
         $siteSettings->set('brand_text_font', 'vychozi');
         \Kaleta\Front\Cache::clear();
 
-        return $this->back('Vzhled webu byl uložen.');
+        return $this->back('The site appearance has been saved.');
     }
 
     /** Design tokens for download in the DTCG format (Figma, Tokens Studio, Style Dictionary). */
@@ -86,13 +86,13 @@ final class Appearance extends Module
         $siteSettings = $this->app->settings();
         $ds = is_array($tokens) ? DesignSystem::fromDtcg($tokens, DesignSystem::load($siteSettings)) : null;
         if ($ds === null) {
-            return $this->back('Soubor neobsahuje design tokeny, které by šly použít (čekáme JSON ve formátu DTCG).', '', [], 'chyba');
+            return $this->back('The file contains no usable design tokens (a JSON file in the DTCG format is expected).', '', [], 'chyba');
         }
         $siteSettings->set('design_system', (string) json_encode($ds, JSON_UNESCAPED_SLASHES));
         $siteSettings->set('appearance_saved', '1');
         \Kaleta\Front\Cache::clear();
 
-        return $this->back('Design tokeny byly načteny.');
+        return $this->back('Design tokens have been loaded.');
     }
 
     /** Live preview: token CSS and a readability check for the unsaved form (JSON). Saves nothing. */

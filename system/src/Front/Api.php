@@ -32,14 +32,14 @@ final class Api
         ];
 
         if ((str_starts_with($path, '/api/novinky') || $path === '/api/kategorie') && !\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky')) {
-            return $this->json(['chyba' => t('Novinky jsou na tomto webu vypnuté.')], 404);
+            return $this->json(['chyba' => t('News is switched off on this website.')], 404);
         }
         if ($path === '/api/novinky') {
             $pageNumber = max(1, $this->app->request->getInt('strana', 1));
             $category = $this->app->request->get('kategorie');
             $idt = $category === '' ? null : $this->app->db()->value('SELECT idt FROM {kategorie} WHERE seo_link = ?', [$category]);
             if ($category !== '' && $idt === null) {
-                return $this->json(['chyba' => t('Kategorie neexistuje.')], 404);
+                return $this->json(['chyba' => t('The category does not exist.')], 404);
             }
             [$news, $total] = $idt === null ? $this->news->listPublished($pageNumber) : $this->news->inCategory((int) $idt, $pageNumber);
 
@@ -48,7 +48,7 @@ final class Api
         if (preg_match('#^/api/novinky/([a-z0-9-]+)$#', $path, $m)) {
             $c = $this->news->bySlug($m[1]);
 
-            return $c === null ? $this->json(['chyba' => t('Novinka neexistuje.')], 404) : $this->json($summary($c) + [
+            return $c === null ? $this->json(['chyba' => t('News item does not exist.')], 404) : $this->json($summary($c) + [
                 'uvod_html' => $c['uvod'], 'text_html' => $c['text'], 'aktualizovano' => $c['aktualizovano'] ? date('c', strtotime($c['aktualizovano'])) : null,
                 'stitky' => array_column($this->app->db()->all('SELECT s.nazev FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ?', [$c['idc']]), 'nazev'),
             ]);
@@ -66,7 +66,7 @@ final class Api
             ));
         }
 
-        return $this->json(['chyba' => t('Neznámá adresa API.')], 404);
+        return $this->json(['chyba' => t('Unknown API address.')], 404);
     }
 
     private function json(mixed $data, int $status = 200): Response

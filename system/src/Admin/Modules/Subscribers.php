@@ -16,8 +16,8 @@ final class Subscribers extends Module
 {
     public const string IDENT = 'subscribers';
     public const string EXTENSION = 'newsletter';
-    public const string NAME = 'Odběratelé';
-    public const string GROUP = 'Obsah';
+    public const string NAME = 'Subscribers';
+    public const string GROUP = 'Content';
     public const string ICON = 'newsletter';
 
     protected function actionList(): Response
@@ -27,7 +27,7 @@ final class Subscribers extends Module
         $whereParts = $search !== '' ? ' WHERE email LIKE ?' : '';
         $params = $search !== '' ? ['%' . addcslashes($search, '%_\\') . '%'] : [];
 
-        return $this->view('list', 'Odběratelé', [
+        return $this->view('list', 'Subscribers', [
             'subscribers' => $this->db->all('SELECT * FROM {odberatele}' . $whereParts . ' ORDER BY ido DESC LIMIT 100 OFFSET ' . (($pageNumber - 1) * 100), $params),
             'total' => (int) $this->db->value('SELECT COUNT(*) FROM {odberatele}' . $whereParts, $params),
             'confirmed' => (int) $this->db->value('SELECT COUNT(*) FROM {odberatele} WHERE stav = 1'),
@@ -47,7 +47,7 @@ final class Subscribers extends Module
             }
         }
 
-        return $this->back('Odběratel byl smazán.');
+        return $this->back('The subscriber has been deleted.');
     }
 
     /** After connecting the service: all confirmed subscribers who are not in it yet go to the queue – and the first batch right away. */
@@ -59,7 +59,7 @@ final class Subscribers extends Module
         $count = \Kaleta\Core\Newsletter::enqueueAll($this->app);
         \Kaleta\Core\Newsletter::processQueue($this->app, 20);
 
-        return $this->back(t('Do mailingové služby jde %d odběratelů; zbytek odešle web postupně na pozadí.', $count));
+        return $this->back(t('%d subscribers are going to the mailing service; the site sends the rest gradually in the background.', $count));
     }
 
     /** Retry failed transfers right away. */
@@ -71,7 +71,7 @@ final class Subscribers extends Module
         \Kaleta\Core\Newsletter::retry($this->app);
         \Kaleta\Core\Newsletter::processQueue($this->app, 20);
 
-        return $this->back('Nepovedené přenosy se zkusily znovu – výsledek vidíte ve sloupci Služba.');
+        return $this->back('The failed transfers were tried again – see the result in the Service column.');
     }
 
     /** Confirmed subscribers to CSV (UTF-8 with BOM, semicolon) with an unsubscribe link. */
@@ -79,7 +79,7 @@ final class Subscribers extends Module
     {
         $f = fopen('php://temp', 'w+');
         fwrite($f, "\xEF\xBB\xBF");
-        fputcsv($f, [t('E-mail'), t('Přihlášen'), t('Potvrzeno'), t('Odkaz na odhlášení')], ';', '"', '');
+        fputcsv($f, [t('Email'), t('Subscribed'), t('Confirmed'), t('Unsubscribe link')], ';', '"', '');
         foreach ($this->db->all('SELECT * FROM {odberatele} WHERE stav = 1 ORDER BY ido') as $o) {
             $row = array_map(fn (string $v): string => preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v,
                 [(string) $o['email'], (string) $o['datum'], (string) $o['potvrzeno'], \Kaleta\Front\Subscription::unsubscribeLink($this->app, (string) $o['token'])]);

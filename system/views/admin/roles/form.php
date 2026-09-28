@@ -10,16 +10,16 @@
  */
 $error = fn (string $field): string => isset($errors[$field]) ? '<span class="chyba-pole" role="alert">' . e(t($errors[$field])) . '</span>' : '';
 ?>
-<p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Zpět na role')) ?></a></p>
+<p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to roles')) ?></a></p>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>">
 <?= $csrf ?>
 <input type="hidden" name="idr" value="<?= (int) $role['idr'] ?>">
 <div class="radek">
-	<label for="nazev"><?= e(t('Název role')) ?></label>
-	<div><input class="textpole" type="text" id="nazev" name="nazev" value="<?= e($role['nazev']) ?>" maxlength="60" required placeholder="<?= e(t('např. Obchodník')) ?>"><?= $error('nazev') ?></div>
+	<label for="nazev"><?= e(t('Role name')) ?></label>
+	<div><input class="textpole" type="text" id="nazev" name="nazev" value="<?= e($role['nazev']) ?>" maxlength="60" required placeholder="<?= e(t('e.g. Salesperson')) ?>"><?= $error('nazev') ?></div>
 </div>
 <div class="radek">
-	<label for="popis"><?= e(t('Popis')) ?></label>
+	<label for="popis"><?= e(t('Description')) ?></label>
 	<input class="textpole siroke" type="text" id="popis" name="popis" value="<?= e($role['popis']) ?>" maxlength="200">
 </div>
 <fieldset>
@@ -31,17 +31,17 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 </div>
 </fieldset>
 <fieldset>
-<legend><?= e(t('Přístup do sekcí')) ?></legend>
+<legend><?= e(t('Access to areas')) ?></legend>
 <div class="volby">
 <?php foreach ($section as $ident => $name): ?>
 	<label><input type="checkbox" name="moduly[]" value="<?= e($ident) ?>"<?= in_array($ident, $selected, true) ? ' checked' : '' ?>> <?= e(t($name)) ?></label><br>
 <?php endforeach ?>
 	<?= $error('moduly') ?>
-	<span class="napoveda"><?= e(t('Nastavení webu, uživatele a vzhled zůstávají správci.')) ?></span>
+	<span class="napoveda"><?= e(t('Website settings, users and appearance stay with the administrator.')) ?></span>
 </div>
 </fieldset>
 <?php if ($members !== []): ?>
-<p class="smltxt"><?= e(t('Uložení změní práva i těmto uživatelům:')) ?> <?= e(implode(', ', array_map(fn (array $u): string => $u['jmeno'] !== '' ? $u['jmeno'] : $u['user'], $members))) ?></p>
+<p class="smltxt"><?= e(t('Saving also changes the permissions of these users:')) ?> <?= e(implode(', ', array_map(fn (array $u): string => $u['jmeno'] !== '' ? $u['jmeno'] : $u['user'], $members))) ?></p>
 <?php endif ?>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit')) ?>"></p>
 </form>

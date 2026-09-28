@@ -24,7 +24,7 @@ abstract class Module
     public const string NAME = '';
 
     /** Group in the menu: Obsah | Vzhled | Správa (Content | Appearance | Administration). */
-    public const string GROUP = 'Obsah';
+    public const string GROUP = 'Content';
 
     /** Icon in the menu (key into the set in views/admin/icons.php). */
     public const string ICON = 'clanek';
@@ -56,7 +56,7 @@ abstract class Module
     {
         $method = 'action' . str_replace('_', '', ucwords($action, '_'));
         if (!preg_match('/^[a-z][a-z_]*$/', $action) || !method_exists($this, $method)) {
-            return $this->error('Neznámá akce.', 404);
+            return $this->error('Unknown action.', 404);
         }
 
         return $this->$method();
@@ -72,7 +72,7 @@ abstract class Module
 
     protected function error(string $text, int $status = 400): Response
     {
-        return $this->kernel->page('Chyba', $this->app->view->render('admin/error', ['text' => $text]), $status);
+        return $this->kernel->page('Error', $this->app->view->render('admin/error', ['text' => $text]), $status);
     }
 
     public function app(): App

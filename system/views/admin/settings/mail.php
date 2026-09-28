@@ -1,62 +1,62 @@
 <?php /** The "Pošta" (Mail) tab: from where and how the site sends e-mails. For the variables and the $field function see vypis.php. */ ?>
-<p class="hlaska"><?= e(t('Web posílá odkazy pro obnovu hesla a upozornění systému; s formuláři přibudou i poptávky. Přes vlastní SMTP server zprávy odcházejí z ověřené schránky a nekončí ve spamu.')) ?></p>
+<p class="hlaska"><?= e(t('The site sends password reset links and system notifications, and enquiries from forms. With your own SMTP server, messages go out from a verified mailbox and do not end up in spam.')) ?></p>
 <fieldset>
-<legend><?= e(t('Způsob odesílání')) ?></legend>
+<legend><?= e(t('Sending method')) ?></legend>
 <div class="karty-volby">
-	<label class="karta-volba"><input type="radio" name="mail_mode" value="mail"<?= $values['mail_mode'] !== 'smtp' ? ' checked' : '' ?> data-prepni="smtp:0"><strong><?= e(t('Server hostingu')) ?></strong><span><?= e(t('Funkce mail(). Nic se nenastavuje; u některých hostingů ale zprávy padají do spamu.')) ?></span></label>
-	<label class="karta-volba"><input type="radio" name="mail_mode" value="smtp"<?= $values['mail_mode'] === 'smtp' ? ' checked' : '' ?> data-prepni="smtp:1"><strong><?= e(t('Vlastní SMTP server')) ?></strong><span><?= e(t('Schránka u hostingu, Google Workspace, Seznam, nebo služba Brevo, Mailgun, Amazon SES… Doporučeno pro newslettery.')) ?></span></label>
+	<label class="karta-volba"><input type="radio" name="mail_mode" value="mail"<?= $values['mail_mode'] !== 'smtp' ? ' checked' : '' ?> data-prepni="smtp:0"><strong><?= e(t('Hosting server')) ?></strong><span><?= e(t('The mail() function. Nothing to set up, but with some hosts messages end up in spam.')) ?></span></label>
+	<label class="karta-volba"><input type="radio" name="mail_mode" value="smtp"<?= $values['mail_mode'] === 'smtp' ? ' checked' : '' ?> data-prepni="smtp:1"><strong><?= e(t('Custom SMTP server')) ?></strong><span><?= e(t('A mailbox at your host, Google Workspace, Seznam, or a service such as Brevo, Mailgun, Amazon SES… Recommended for newsletters.')) ?></span></label>
 </div>
 </fieldset>
 <fieldset data-sekce="smtp"<?= $values['mail_mode'] === 'smtp' ? '' : ' hidden' ?>>
 <legend><?= e(t('SMTP server')) ?></legend>
 <?php
-$field('smtp_host', 'Adresa serveru', 'text', 'Například smtp.gmail.com, smtp.seznam.cz, smtp-relay.brevo.com nebo smtp.vasedomena.cz.', 'maxlength="120" placeholder="smtp.example.com" autocomplete="off"');
+$field('smtp_host', 'Server address', 'text', 'For example smtp.gmail.com, smtp.seznam.cz, smtp-relay.brevo.com or smtp.vasedomena.cz.', 'maxlength="120" placeholder="smtp.example.com" autocomplete="off"');
 ?>
 <div class="radek">
 	<label for="smtp_encryption"><?= e(t('Zabezpečení')) ?></label>
 	<div><select id="smtp_encryption" name="smtp_encryption">
-		<option value="tls"<?= $values['smtp_encryption'] === 'tls' ? ' selected' : '' ?>><?= e(t('STARTTLS – port 587 (nejběžnější)')) ?></option>
+		<option value="tls"<?= $values['smtp_encryption'] === 'tls' ? ' selected' : '' ?>><?= e(t('STARTTLS – port 587 (most common)')) ?></option>
 		<option value="ssl"<?= $values['smtp_encryption'] === 'ssl' ? ' selected' : '' ?>><?= e(t('SSL/TLS – port 465')) ?></option>
-		<option value="zadne"<?= $values['smtp_encryption'] === 'zadne' ? ' selected' : '' ?>><?= e(t('žádné – jen pro server ve vlastní síti')) ?></option>
+		<option value="zadne"<?= $values['smtp_encryption'] === 'zadne' ? ' selected' : '' ?>><?= e(t('none – only for a server on your own network')) ?></option>
 	</select></div>
 </div>
 <?php
 $field('smtp_port', 'Port', 'cislo', '', 'min="1" max="65535"');
-$field('smtp_user', 'Přihlašovací jméno', 'text', 'Obvykle celá e-mailová adresa schránky.', 'maxlength="190" autocomplete="off"');
+$field('smtp_user', 'Přihlašovací jméno', 'text', 'Usually the full e-mail address of the mailbox.', 'maxlength="190" autocomplete="off"');
 ?>
 <div class="radek">
-	<label for="smtp_password"><?= e(t('Heslo')) ?></label>
-	<div><input class="textpole siroke" type="password" id="smtp_password" name="smtp_password" value="" autocomplete="new-password" placeholder="<?= $values['smtp_password'] !== '' ? e(t('heslo je uložené – nové vložte jen při změně')) : '' ?>">
-	<span class="napoveda"><?= e(t('U Gmailu a Seznamu použijte „heslo pro aplikace“, ne heslo k účtu. Heslo se ukládá jen na vašem webu a nikdy se nevypisuje zpět.')) ?></span>
+	<label for="smtp_password"><?= e(t('Password')) ?></label>
+	<div><input class="textpole siroke" type="password" id="smtp_password" name="smtp_password" value="" autocomplete="new-password" placeholder="<?= $values['smtp_password'] !== '' ? e(t('password is saved – enter a new one only to change it')) : '' ?>">
+	<span class="napoveda"><?= e(t('For Gmail and Seznam use an “app password”, not your account password. The password is stored only on your site and is never displayed back.')) ?></span>
 <?php if ($values['smtp_password'] !== ''): ?>
-	<label><input type="checkbox" name="smtp_heslo_smazat" value="1"> <?= e(t('Odebrat uložené heslo')) ?></label>
+	<label><input type="checkbox" name="smtp_heslo_smazat" value="1"> <?= e(t('Remove saved password')) ?></label>
 <?php endif ?>
 	</div>
 </div>
 </fieldset>
 <details class="pokrocile"<?= $values['mail_from'] !== '' || $values['mail_reply_to'] !== '' ? ' open' : '' ?>>
-<summary><?= e(t('Odesílatel a odpovědi')) ?></summary>
+<summary><?= e(t('Sender and replies')) ?></summary>
 <?php
-$field('mail_from', 'Adresa odesílatele', 'email', 'Prázdné = E-mail webu. U SMTP musí jít o adresu, ze které smí vaše schránka odesílat.');
-$field('mail_reply_to', 'Odpovědi posílat na', 'email', 'Nepovinné – když mají odpovědi čtenářů chodit jinam než odesílateli.');
+$field('mail_from', 'Sender address', 'email', 'Empty = the site e-mail. With SMTP it must be an address your mailbox is allowed to send from.');
+$field('mail_reply_to', 'Send replies to', 'email', 'Optional – when readers\' replies should go somewhere other than the sender.');
 ?>
 </details>
-<p><button class="navigace" type="submit" formaction="<?= e($module->url('test_mail')) ?>"><?= e(t('Odeslat zkušební e-mail na adresu webu')) ?></button> <span class="smltxt"><?= e(t('Nejdřív nastavení uložte – zkouška použije uložené hodnoty.')) ?></span></p>
+<p><button class="navigace" type="submit" formaction="<?= e($module->url('test_mail')) ?>"><?= e(t('Send a test e-mail to the site address')) ?></button> <span class="smltxt"><?= e(t('Save the settings first – the test uses the saved values.')) ?></span></p>
 <?php if (!empty($mail)): ?>
-<h2><?= e(t('Poslední zprávy')) ?></h2>
+<h2><?= e(t('Recent messages')) ?></h2>
 <div class="tab-obal"><table class="vypis">
-<thead><tr><th scope="col"><?= e(t('Čas')) ?></th><th scope="col"><?= e(t('Komu')) ?></th><th scope="col"><?= e(t('Předmět')) ?></th><th scope="col"><?= e(t('Stav')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Time')) ?></th><th scope="col"><?= e(t('Komu')) ?></th><th scope="col"><?= e(t('Subject')) ?></th><th scope="col"><?= e(t('Status')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($mail as $z): ?>
 <tr>
 	<td class="cislo"><?= e(format_date($z['vytvoreno'], true)) ?></td>
 	<td><?= e($z['komu']) ?></td>
 	<td><?= e($z['predmet']) ?></td>
-	<td><?php if ($z['odeslano'] !== null): ?><span class="stitek stitek-vydano"><?= e(t('odesláno')) ?></span><?= (int) $z['pokusu'] > 1 ? ' ' . e(t('na %s. pokus', (int) $z['pokusu'])) : '' ?>
-<?php elseif ($z['dalsi_pokus'] !== null): ?><span class="stitek stitek-koncept"><?= e(t('čeká na další pokus')) ?></span> <?= e(format_date($z['dalsi_pokus'], true)) ?><br><small><?= e($z['chyba']) ?></small>
-<?php else: ?><span class="stitek stitek-koncept"><?= e(t('neodesláno')) ?></span><br><small><?= e($z['chyba']) ?></small><?php endif ?></td>
+	<td><?php if ($z['odeslano'] !== null): ?><span class="stitek stitek-vydano"><?= e(t('sent')) ?></span><?= (int) $z['pokusu'] > 1 ? ' ' . e(t('on attempt %s', (int) $z['pokusu'])) : '' ?>
+<?php elseif ($z['dalsi_pokus'] !== null): ?><span class="stitek stitek-koncept"><?= e(t('waiting for the next attempt')) ?></span> <?= e(format_date($z['dalsi_pokus'], true)) ?><br><small><?= e($z['chyba']) ?></small>
+<?php else: ?><span class="stitek stitek-koncept"><?= e(t('not sent')) ?></span><br><small><?= e($z['chyba']) ?></small><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody></table></div>
-<p class="smltxt"><?= e(t('Zpráva, kterou se nepodaří odeslat, se zkouší znovu za 5 minut, 30 minut, 2 a 12 hodin. Záznamy se mažou po 30 dnech; obsah zpráv se neuchovává.')) ?></p>
+<p class="smltxt"><?= e(t('A message that fails to send is retried after 5 minutes, 30 minutes, 2 and 12 hours. Records are deleted after 30 days; message content is not kept.')) ?></p>
 <?php endif ?>

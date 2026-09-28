@@ -16,8 +16,8 @@ use Kaleta\Builder\Build;
 final class Modal extends Element
 {
     public const string TYPE = 'okno';
-    public const string NAME = 'Vyskakovací okno';
-    public const string DESCRIPTION = 'Okno přes stránku – otevře ho tlačítko s odkazem na kotvu okna, nebo samo po chvíli.';
+    public const string NAME = 'Pop-up window';
+    public const string DESCRIPTION = 'A window over the page – opened by a button linking to the window\'s anchor, or automatically after a while.';
     public const string ICON = 'okno';
     public const string GROUP = 'Rozložení';
     public const bool CONTAINER = true;
@@ -26,17 +26,17 @@ final class Modal extends Element
     public static function properties(): array
     {
         return [
-            'samo' => ['typ' => 'vyber', 'popisek' => 'Otevřít samo', 'vychozi' => '0', 'moznosti' => ['0' => 'ne, jen odkazem', '5' => 'po 5 s', '15' => 'po 15 s', '30' => 'po 30 s', 'posun' => 'po odrolování poloviny stránky', 'odchod' => 'když se návštěvník chystá odejít']],
-            'znovu' => ['typ' => 'vyber', 'popisek' => 'Samo znovu', 'vychozi' => 'relace', 'moznosti' => ['relace' => 'jednou za návštěvu', 'tyden' => 'jednou za týden', 'nikdy' => 'už nikdy (po zavření)']],
+            'samo' => ['typ' => 'vyber', 'popisek' => 'Open automatically', 'vychozi' => '0', 'moznosti' => ['0' => 'no, only via a link', '5' => 'after 5 s', '15' => 'after 15 s', '30' => 'after 30 s', 'posun' => 'after scrolling half the page', 'odchod' => 'when the visitor is about to leave']],
+            'znovu' => ['typ' => 'vyber', 'popisek' => 'Open again automatically', 'vychozi' => 'relace', 'moznosti' => ['relace' => 'once per visit', 'tyden' => 'once a week', 'nikdy' => 'never again (after closing)']],
         ];
     }
 
     public static function defaultChildren(): array
     {
         return [
-            ['znacka' => 'h2'] + Build::fresh('nadpis', ['text' => t('Nezávazná konzultace zdarma')]),
-            Build::fresh('text', ['html' => '<p>' . t('Nechte nám kontakt, ozveme se do druhého dne.') . '</p>']),
-            Build::fresh('tlacitko', ['text' => t('Kontaktujte nás'), 'odkaz' => '/kontakt']),
+            ['znacka' => 'h2'] + Build::fresh('nadpis', ['text' => t('Free, no-obligation consultation')]),
+            Build::fresh('text', ['html' => '<p>' . t('Leave us your contact details and we will get back to you by the next day.') . '</p>']),
+            Build::fresh('tlacitko', ['text' => t('Contact us'), 'odkaz' => '/kontakt']),
         ];
     }
 
@@ -61,14 +61,14 @@ final class Modal extends Element
         } else {
             $a = ' id="' . e($anchor) . '"' . $a;
         }
-        $closeButton = '<button type="button" class="ka-okno-zavrit" popovertarget="' . e($anchor) . '" popovertargetaction="hide" aria-label="' . e(t('Zavřít')) . '">×</button>';
+        $closeButton = '<button type="button" class="ka-okno-zavrit" popovertarget="' . e($anchor) . '" popovertargetaction="hide" aria-label="' . e(t('Close')) . '">×</button>';
         if ($k->editor) {
             // in the editor the modal shows in place so that it can be edited, together with the url a button opens it with
             return '<div' . Text::withClass($a, 'ka-okno ka-okno--editor') . '><small style="position:absolute;top:.6rem;left:1rem;color:var(--ka-barva-tlumeny)">'
-                . e(t('Otevře ho odkaz #%s', $anchor)) . '</small>' . $children . '</div>';
+                . e(t('Opened by the link #%s', $anchor)) . '</small>' . $children . '</div>';
         }
 
-        return '<div' . Text::withClass($a, 'ka-okno') . ' popover role="dialog" aria-label="' . e((string) ($p['popis'] ?? '') !== '' ? (string) $p['popis'] : t('Vyskakovací okno')) . '"'
+        return '<div' . Text::withClass($a, 'ka-okno') . ' popover role="dialog" aria-label="' . e((string) ($p['popis'] ?? '') !== '' ? (string) $p['popis'] : t('Pop-up window')) . '"'
             . ($o['samo'] !== '0' ? ' data-samo="' . e($o['samo']) . '" data-znovu="' . e($o['znovu'] ?? 'relace') . '"' : '') . '>' . $closeButton . $children . '</div>';
     }
 }

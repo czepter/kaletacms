@@ -3,7 +3,7 @@
 (function () {
 	'use strict';
 
-	// translation of admin script texts: the window.KALETA_PREKLAD dictionary comes from image/jazyky/admin-<code>.js, Czech has none
+	// translation of admin script texts: the window.KALETA_PREKLAD dictionary comes from image/jazyky/admin-<code>.js (Czech too); English is the source and has none
 	window.T = function (s) { return (window.KALETA_PREKLAD || {})[s] || s; };
 	var T = window.T;
 
@@ -32,7 +32,7 @@
 		if (!confirmDialog) {
 			confirmDialog = document.createElement('dialog');
 			confirmDialog.className = 'potvrzeni';
-			confirmDialog.innerHTML = '<p></p><div><button type="button" class="tl" data-ano>' + T('Ano, provést') + '</button> <button type="button" class="navigace" data-ne>' + T('Zrušit') + '</button></div>';
+			confirmDialog.innerHTML = '<p></p><div><button type="button" class="tl" data-ano>' + T('Yes, do it') + '</button> <button type="button" class="navigace" data-ne>' + T('Cancel') + '</button></div>';
 			document.body.appendChild(confirmDialog);
 			confirmDialog.querySelector('[data-ne]').addEventListener('click', function () { confirmDialog.close(); });
 		}
@@ -126,7 +126,7 @@
 						li.className = k.ok ? 'ok' : 'spatne';
 						li.innerHTML = '<span></span><strong></strong>';
 						li.firstChild.textContent = k.popis;
-						li.lastChild.textContent = T('%s : 1').replace('%s', k.pomer.toLocaleString(document.documentElement.lang || 'cs', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
+						li.lastChild.textContent = T('%s:1').replace('%s', k.pomer.toLocaleString(document.documentElement.lang || 'cs', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 						return li.outerHTML;
 					}).join('');
 				})
@@ -315,7 +315,7 @@
 			if (items.length === 0) {
 				var nothing = document.createElement('li');
 				nothing.className = 'paleta-nic';
-				nothing.textContent = T('Nic takového tu není.');
+				nothing.textContent = T('Nothing like that here.');
 				popupList.appendChild(nothing);
 			}
 			var selected = popupList.querySelector('[aria-selected="true"]');
@@ -351,7 +351,7 @@
 			popupTimer = setTimeout(function () {
 				fetch(address + '&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
 					if (popupFields.value.trim() !== q) { return; } // typing continued in the meantime
-					popupNews = (d.clanky || []).map(function (c) { return { n: c.titulek, u: c.url, s: c.vydany ? T('novinka') : T('novinka – nevydaná') }; });
+					popupNews = (d.clanky || []).map(function (c) { return { n: c.titulek, u: c.url, s: c.vydany ? T('news item') : T('news item – unpublished') }; });
 					popupRender();
 				}).catch(function () {});
 			}, 200);

@@ -16,31 +16,31 @@
 $trash = $filter['stav'] === 'kos';
 $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['strana' => $s]);
 ?>
-<p class="navigace-radek"><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('Nová novinka')) ?></a>
+<p class="navigace-radek"><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New news item')) ?></a>
 <?php if ($app->auth()->hasModule('categories')): ?>
-	<a class="navigace" href="<?= e($app->url('admin.php?module=categories')) ?>"><?= e(t('Kategorie')) ?></a>
+	<a class="navigace" href="<?= e($app->url('admin.php?module=categories')) ?>"><?= e(t('Categories')) ?></a>
 <?php endif ?>
 <?php if ($app->auth()->hasModule('tags')): ?>
-	<a class="navigace" href="<?= e($app->url('admin.php?module=tags')) ?>"><?= e(t('Štítky')) ?></a>
+	<a class="navigace" href="<?= e($app->url('admin.php?module=tags')) ?>"><?= e(t('Tags')) ?></a>
 <?php endif ?>
-	<a class="navigace" href="<?= e($module->url('links')) ?>"><?= e(t('Nefunkční odkazy')) ?></a></p>
+	<a class="navigace" href="<?= e($module->url('links')) ?>"><?= e(t('Broken links')) ?></a></p>
 
-<nav class="zalozky" aria-label="<?= e(t('Stav novinek')) ?>">
-<?php foreach (['' => 'Všechny', 'vydane' => 'Vydané', 'plan' => 'Naplánované', 'koncepty' => 'Koncepty'] as $key => $name): ?>
+<nav class="zalozky" aria-label="<?= e(t('News status')) ?>">
+<?php foreach (['' => 'Všechny', 'vydane' => 'Vydané', 'plan' => 'Scheduled', 'koncepty' => 'Drafts'] as $key => $name): ?>
 	<a href="<?= e($module->url('', array_filter(['stav' => $key]))) ?>"<?= $filter['stav'] === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
 <?php endforeach ?>
 <?php if ($toPublish > 0 || $filter['stav'] === 'ke_vydani'): ?>
-	<a href="<?= e($module->url('', ['stav' => 'ke_vydani'])) ?>"<?= $filter['stav'] === 'ke_vydani' ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Čekají na vydání')) ?> (<?= $toPublish ?>)</a>
+	<a href="<?= e($module->url('', ['stav' => 'ke_vydani'])) ?>"<?= $filter['stav'] === 'ke_vydani' ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Awaiting publication')) ?> (<?= $toPublish ?>)</a>
 <?php endif ?>
 <?php if ($inTrash > 0 || $trash): ?>
-	<a href="<?= e($module->url('', ['stav' => 'kos'])) ?>"<?= $trash ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Koš')) ?> (<?= $inTrash ?>)</a>
+	<a href="<?= e($module->url('', ['stav' => 'kos'])) ?>"<?= $trash ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Trash')) ?> (<?= $inTrash ?>)</a>
 <?php endif ?>
 </nav>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
 	<input type="hidden" name="module" value="news">
 	<input type="hidden" name="stav" value="<?= e($filter['stav']) ?>">
 <?php if (count($category) > 1): ?>
-	<label><?= e(t('Kategorie:')) ?>
+	<label><?= e(t('Category:')) ?>
 		<select name="tema">
 			<option value="0"><?= e(t('všechny')) ?></option>
 <?php foreach ($category as $k): ?>
@@ -50,7 +50,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['str
 	</label>
 <?php endif ?>
 <?php if ($siteLanguages !== []): ?>
-	<label><?= e(t('Jazyk:')) ?>
+	<label><?= e(t('Language:')) ?>
 		<select name="jazyk">
 			<option value=""><?= e(t('všechny')) ?></option>
 <?php foreach ($siteLanguages as $code): ?>
@@ -59,29 +59,29 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['str
 		</select>
 	</label>
 <?php endif ?>
-	<label><?= e(t('Titulek obsahuje:')) ?> <input class="textpole" type="search" name="hledat" value="<?= e($filter['hledat']) ?>" size="20"></label>
+	<label><?= e(t('Headline contains:')) ?> <input class="textpole" type="search" name="hledat" value="<?= e($filter['hledat']) ?>" size="20"></label>
 	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>">
-	(<?= e(t('Celkem:')) ?> <?= $total ?>)
+	(<?= e(t('Total:')) ?> <?= $total ?>)
 </form>
 <br>
 
 <?php if ($news === [] && $trash): ?>
-<?= $app->view->render('admin/empty', ['icon' => 'clanek', 'heading' => t('Koš je prázdný.'), 'text' => t('Smazané novinky tu zůstávají 30 dní, potom se smažou natrvalo.'), 'action' => [$module->url(), t('Zpět na novinky')]]) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'clanek', 'heading' => t('The trash is empty.'), 'text' => t('Deleted news items stay here for 30 days, then they are deleted permanently.'), 'action' => [$module->url(), t('Back to news')]]) ?>
 <?php elseif ($news === []): ?>
 <?php if (array_filter($filter) !== []): ?>
-<?= $app->view->render('admin/empty', ['icon' => 'clanek', 'heading' => t('Filtru neodpovídá žádná novinka.'), 'text' => t('Zkuste jiné slovo, kategorii nebo stav.'), 'action' => [$module->url(), t('Zrušit filtr')]]) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'clanek', 'heading' => t('No news item matches the filter.'), 'text' => t('Try another word, category or status.'), 'action' => [$module->url(), t('Clear filter')]]) ?>
 <?php else: ?>
-<?= $app->view->render('admin/empty', ['icon' => 'clanek', 'heading' => t('Zatím tu není žádná novinka.'), 'text' => t('Než novinku vydáte, zůstává konceptem, který na webu nikdo nevidí.'), 'action' => [$module->url('new'), t('Napsat první novinku')]]) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'clanek', 'heading' => t('There are no news items yet.'), 'text' => t('Until you publish a news item, it stays a draft that nobody sees on the site.'), 'action' => [$module->url('new'), t('Write the first news item')]]) ?>
 <?php endif ?>
 <?php elseif ($trash): ?>
-<p class="smltxt"><?= e(t('Novinky v koši nejsou na webu. Obnovená novinka se vrátí jako koncept; po 30 dnech se z koše smaže natrvalo.')) ?></p>
+<p class="smltxt"><?= e(t('News items in the trash are not on the site. A restored news item comes back as a draft; after 30 days it is permanently deleted from the trash.')) ?></p>
 <form method="post" id="obnov-jeden" action="<?= e($module->url('restore')) ?>"><?= $csrf ?></form>
 <form method="post" action="<?= e($module->url('restore')) ?>">
 <?= $csrf ?>
 <div class="tab-obal">
 <table class="vypis">
 <thead>
-<tr><th scope="col"><?= e(t('Titulek')) ?></th><th scope="col"><?= e(t('Kategorie')) ?></th><th scope="col"><?= e(t('V koši od')) ?></th><th scope="col"><?= e(t('Akce')) ?></th><th scope="col" class="stred"><?= e(t('Označit')) ?></th></tr>
+<tr><th scope="col"><?= e(t('Titulek')) ?></th><th scope="col"><?= e(t('Categories')) ?></th><th scope="col"><?= e(t('In trash since')) ?></th><th scope="col"><?= e(t('Actions')) ?></th><th scope="col" class="stred"><?= e(t('Select')) ?></th></tr>
 </thead>
 <tbody>
 <?php foreach ($news as $c): ?>
@@ -89,18 +89,18 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['str
 	<td><?= e($c['titulek']) ?></td>
 	<td><?= e($c['tema_jm']) ?></td>
 	<td class="cislo"><?= e(format_date($c['smazano'], true)) ?></td>
-	<td class="akce"><button class="navigace" type="submit" form="obnov-jeden" name="smaz[]" value="<?= (int) $c['idc'] ?>"><?= e(t('Obnovit')) ?></button></td>
-	<td class="stred"><input type="checkbox" name="smaz[]" value="<?= (int) $c['idc'] ?>" aria-label="<?= e(t('Označit')) ?>: <?= e($c['titulek']) ?>"></td>
+	<td class="akce"><button class="navigace" type="submit" form="obnov-jeden" name="smaz[]" value="<?= (int) $c['idc'] ?>"><?= e(t('Restore')) ?></button></td>
+	<td class="stred"><input type="checkbox" name="smaz[]" value="<?= (int) $c['idc'] ?>" aria-label="<?= e(t('Select')) ?>: <?= e($c['titulek']) ?>"></td>
 </tr>
 <?php endforeach ?>
 </tbody>
 </table>
 </div>
 <p class="media-hromadne">
-	<?= e(t('S označenými:')) ?>
-	<input class="tl" type="submit" value="<?= e(t('Obnovit')) ?>">
+	<?= e(t('With selected:')) ?>
+	<input class="tl" type="submit" value="<?= e(t('Restore')) ?>">
 <?php if ($app->auth()->canPublish()): ?>
-	<button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('delete_permanently')) ?>" data-potvrdit="<?= e(t('Smazat označené novinky natrvalo? Nejde to vrátit.')) ?>"><?= e(t('Smazat natrvalo')) ?></button>
+	<button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('delete_permanently')) ?>" data-potvrdit="<?= e(t('Delete the selected news items permanently? This cannot be undone.')) ?>"><?= e(t('Delete permanently')) ?></button>
 <?php endif ?>
 </p>
 </form>
@@ -110,7 +110,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['str
 <div class="tab-obal">
 <table class="vypis">
 <thead>
-<tr><th scope="col"><?= e(t('Titulek')) ?></th><th scope="col"><?= e(t('Kategorie')) ?></th><th scope="col"><?= e(t('Autor')) ?></th><th scope="col"><?= e(t('Datum vydání')) ?></th><th scope="col"><?= e(t('Stav')) ?></th><th scope="col"><?= e(t('Akce')) ?></th><th scope="col"><?= e(t('Označit')) ?></th></tr>
+<tr><th scope="col"><?= e(t('Titulek')) ?></th><th scope="col"><?= e(t('Categories')) ?></th><th scope="col"><?= e(t('Author')) ?></th><th scope="col"><?= e(t('Publish date')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th><th scope="col"><?= e(t('Select')) ?></th></tr>
 </thead>
 <tbody>
 <?php foreach ($news as $c): ?>
@@ -120,19 +120,19 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['str
 	<td><?= e($c['autor_jm'] ?: $c['autor_login']) ?></td>
 	<td class="cislo"><?= e(format_date($c['datum'], true)) ?></td>
 <?php if (!$c['visible'] && (int) $c['autor_uroven'] === 0 && $app->auth()->canPublish()): // an author's draft: waiting for an editor to publish it ?>
-	<td><span class="stitek stitek-ceka" title="<?= e(t('Autor novinek sám nevydává – novinku zkontrolujte a vydejte.')) ?>"><?= e(t('čeká na vydání')) ?></span></td>
+	<td><span class="stitek stitek-ceka" title="<?= e(t('News authors cannot publish – review this news item and publish it.')) ?>"><?= e(t('awaiting publication')) ?></span></td>
 <?php else: ?>
 	<td><span class="stitek stitek-<?= !$c['visible'] ? 'koncept' : (strtotime($c['datum']) > time() ? 'plan' : 'vydano') ?>"><?= e(t(!$c['visible'] ? 'koncept' : (strtotime($c['datum']) > time() ? 'naplánováno' : 'vydáno'))) ?></span></td>
 <?php endif ?>
-	<td class="akce"><a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>"><?= e(t('Upravit')) ?></a> · <a href="<?= e($app->url('novinky/' . $c['seo_link'] . '?nahled=1')) ?>" target="_blank" rel="noopener"><?= e(t('Náhled')) ?></a> ·
-		<button class="navigace" type="submit" formaction="<?= e($module->url('duplicate')) ?>" name="idc" value="<?= (int) $c['idc'] ?>" formnovalidate><?= e(t('Duplikovat')) ?></button></td>
-	<td class="stred"><input type="checkbox" name="smaz[]" value="<?= (int) $c['idc'] ?>" aria-label="<?= e(t('Označit')) ?>: <?= e($c['titulek']) ?>"></td>
+	<td class="akce"><a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>"><?= e(t('Edit')) ?></a> · <a href="<?= e($app->url('novinky/' . $c['seo_link'] . '?nahled=1')) ?>" target="_blank" rel="noopener"><?= e(t('Preview')) ?></a> ·
+		<button class="navigace" type="submit" formaction="<?= e($module->url('duplicate')) ?>" name="idc" value="<?= (int) $c['idc'] ?>" formnovalidate><?= e(t('Duplicate')) ?></button></td>
+	<td class="stred"><input type="checkbox" name="smaz[]" value="<?= (int) $c['idc'] ?>" aria-label="<?= e(t('Select')) ?>: <?= e($c['titulek']) ?>"></td>
 </tr>
 <?php endforeach ?>
 </tbody>
 </table>
 </div>
-<p class="media-hromadne"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat označené')) ?></button></p>
+<p class="media-hromadne"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete selected')) ?></button></p>
 </form>
 
 <?php if ($pageCount > 1): ?>

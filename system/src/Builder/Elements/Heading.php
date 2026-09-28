@@ -10,14 +10,14 @@ use Kaleta\Builder\Element;
 final class Heading extends Element
 {
     public const string TYPE = 'nadpis';
-    public const string NAME = 'Nadpis';
-    public const string DESCRIPTION = 'Nadpis H1–H6 nebo zvýrazněný řádek.';
+    public const string NAME = 'Heading';
+    public const string DESCRIPTION = 'An H1–H6 heading or a highlighted line.';
     public const string ICON = 'nadpis';
     public const array HTML_TAGS = ['h2', 'h1', 'h3', 'h4', 'h5', 'h6', 'p'];
 
     public static function properties(): array
     {
-        return ['text' => ['typ' => 'inline', 'popisek' => 'Text', 'vychozi' => t('Nadpis'), 'max' => 400]];
+        return ['text' => ['typ' => 'inline', 'popisek' => 'Text', 'vychozi' => t('Heading'), 'max' => 400]];
     }
 
     /** Highlighting part of a heading (<mark>): the accent color without a background – a dot after the title, a keyword. */

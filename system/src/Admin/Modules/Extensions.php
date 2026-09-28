@@ -15,7 +15,7 @@ use Kaleta\Core\Response;
 final class Extensions extends Settings
 {
     public const string IDENT = 'extensions';
-    public const string NAME = 'Rozšíření';
+    public const string NAME = 'Extensions';
     public const string ICON = 'rozsireni';
 
     protected function tab(string $tab): string

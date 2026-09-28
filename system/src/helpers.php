@@ -11,7 +11,7 @@ function e(string|int|float|null $value): string
     return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
-/** Translation of a template text into the site language: t('Číst dál'), t('Strana %s z %s', 2, 5). See Core\Language. */
+/** Translation of a template text into the site language: t('Read more'), t('Page %s of %s', 2, 5). See Core\Language. */
 function t(string $text, string|int ...$values): string
 {
     return Kaleta\Core\Language::t($text, ...$values);

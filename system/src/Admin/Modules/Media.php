@@ -16,8 +16,8 @@ use Kaleta\Core\Response;
 final class Media extends Module
 {
     public const string IDENT = 'media';
-    public const string NAME = 'Média';
-    public const string GROUP = 'Obsah';
+    public const string NAME = 'Media';
+    public const string GROUP = 'Content';
     public const string ICON = 'media';
 
     /** Everyone who writes news must be able to upload; but only the administrator changes and deletes other people's images. */
@@ -31,7 +31,7 @@ final class Media extends Module
         [$where, $params, $filter] = $this->filter();
         $total = (int) $this->db->value("SELECT COUNT(*) FROM {media} o WHERE {$where}", $params);
 
-        return $this->view('list', 'Média', [
+        return $this->view('list', 'Media', [
             'images' => $this->load($where, $params, $pageNumber, self::PER_PAGE),
             'pageNumber' => $pageNumber,
             'pageCount' => max(1, (int) ceil($total / self::PER_PAGE)),
@@ -68,7 +68,7 @@ final class Media extends Module
             $ids = $this->db->insert('media_slozky', ['nazev' => $name]);
         }
 
-        return $this->back('Složka byla uložena.', '', ['sekce' => $ids]);
+        return $this->back('Folder saved.', '', ['sekce' => $ids]);
     }
 
     /** Deleting a folder; the images stay and move to the unsorted ones. */
@@ -78,7 +78,7 @@ final class Media extends Module
             $this->db->delete('media_slozky', ['ids' => $this->request->postInt('ids')]);
         }
 
-        return $this->back('Složka byla smazána, její obrázky jsou mezi nezařazenými.');
+        return $this->back('Folder deleted, its images are now uncategorized.');
     }
 
     /**
@@ -113,17 +113,17 @@ final class Media extends Module
     public static function findUsagesElsewhere(\Kaleta\Core\Db $db): array
     {
         $sources = [
-            [t('stránka'), 'SELECT titulek AS kde, CONCAT_WS(\' \', text, stavba, stavba_koncept, obrazek) AS obsah FROM {stranky}'],
-            [t('štítek'), 'SELECT nazev AS kde, CONCAT_WS(\' \', popis, obrazek) AS obsah FROM {stitky}'],
-            [t('kategorie'), 'SELECT nazev AS kde, popis AS obsah FROM {kategorie}'],
-            [t('moje sekce'), 'SELECT nazev AS kde, prvek AS obsah FROM {sekce}'],
-            [t('uživatel'), 'SELECT user AS kde, foto AS obsah FROM {uzivatele}'],
-            [t('část webu'), 'SELECT CONCAT(typ, IF(nazev = \'\', \'\', CONCAT(\' – \', nazev))) AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {casti}'],
-            [t('kolekce'), 'SELECT nazev AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {kolekce}'],
-            [t('položka kolekce'), 'SELECT nazev AS kde, data AS obsah FROM {kolekce_polozky}'],
-            [t('komponenta'), 'SELECT nazev AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {komponenty}'],
-            [t('třída'), 'SELECT nazev AS kde, CONCAT_WS(\' \', styl, css) AS obsah FROM {tridy}'],
-            [t('nastavení'), 'SELECT promenna AS kde, hodnota AS obsah FROM {nastaveni} WHERE hodnota LIKE \'%media%\''],
+            [t('page'), 'SELECT titulek AS kde, CONCAT_WS(\' \', text, stavba, stavba_koncept, obrazek) AS obsah FROM {stranky}'],
+            [t('tag'), 'SELECT nazev AS kde, CONCAT_WS(\' \', popis, obrazek) AS obsah FROM {stitky}'],
+            [t('category'), 'SELECT nazev AS kde, popis AS obsah FROM {kategorie}'],
+            [t('my section'), 'SELECT nazev AS kde, prvek AS obsah FROM {sekce}'],
+            [t('user'), 'SELECT user AS kde, foto AS obsah FROM {uzivatele}'],
+            [t('site part'), 'SELECT CONCAT(typ, IF(nazev = \'\', \'\', CONCAT(\' – \', nazev))) AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {casti}'],
+            [t('collection'), 'SELECT nazev AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {kolekce}'],
+            [t('collection item'), 'SELECT nazev AS kde, data AS obsah FROM {kolekce_polozky}'],
+            [t('component'), 'SELECT nazev AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {komponenty}'],
+            [t('class'), 'SELECT nazev AS kde, CONCAT_WS(\' \', styl, css) AS obsah FROM {tridy}'],
+            [t('settings'), 'SELECT promenna AS kde, hodnota AS obsah FROM {nastaveni} WHERE hodnota LIKE \'%media%\''],
         ];
         $usages = [];
         foreach ($sources as [$kind, $sql]) {
@@ -176,11 +176,11 @@ final class Media extends Module
                 $data['ido'] = $this->db->insert('media', $data + ['vlastnik' => $this->app->auth()->id(), 'sekce' => $section, 'datum' => date('Y-m-d H:i:s')]);
                 $uploaded[] = $this->toJson($data + ['popis' => '']);
             } catch (\RuntimeException $e) {
-                $errors[] = ($file['name'] ?? t('soubor')) . ': ' . t($e->getMessage());
+                $errors[] = ($file['name'] ?? t('file')) . ': ' . t($e->getMessage());
             }
         }
         if ($uploaded === [] && $errors === []) {
-            $errors[] = t('Nebyl vybrán žádný soubor.');
+            $errors[] = t('No file was selected.');
         }
         if ($json) {
             return Response::json(['obrazky' => $uploaded, 'chyby' => $errors], $uploaded === [] ? 400 : 200);
@@ -189,7 +189,7 @@ final class Media extends Module
             $this->app->session->flash('chyba', $error);
         }
 
-        $message = $uploaded === [] ? '' : t('Nahráno souborů: %d.', count($uploaded)) . ($imageCount > 0 ? ' ' . t('U obrázků doplňte popis pro nevidomé (alt): co na obrázku je.') : '');
+        $message = $uploaded === [] ? '' : t('Files uploaded: %d.', count($uploaded)) . ($imageCount > 0 ? ' ' . t('Add a description for blind visitors (alt text) to the images: what the image shows.') : '');
 
         return $this->back($message, '', $section !== null ? ['sekce' => $section] : []);
     }
@@ -204,7 +204,7 @@ final class Media extends Module
     {
         $tmp = (string) ($file['tmp_name'] ?? '');
         if (!is_uploaded_file($tmp)) {
-            throw new \RuntimeException('Soubor SVG se nepodařilo přečíst (nejvýš 2 MB, platné SVG).');
+            throw new \RuntimeException('The SVG file could not be read (max. 2 MB, valid SVG).');
         }
 
         return self::saveSvgContent((string) file_get_contents($tmp), (string) ($file['name'] ?? 'obrazek'));
@@ -219,7 +219,7 @@ final class Media extends Module
     {
         $svg = strlen($content) < 2_000_000 ? \Kaleta\Core\Svg::sanitize($content) : null;
         if ($svg === null) {
-            throw new \RuntimeException('Soubor SVG se nepodařilo přečíst (nejvýš 2 MB, platné SVG).');
+            throw new \RuntimeException('The SVG file could not be read (max. 2 MB, valid SVG).');
         }
         $folder = 'media/' . date('Y/m');
         if (!is_dir(KALETA_ROOT . '/' . $folder)) {
@@ -251,7 +251,7 @@ final class Media extends Module
         $this->db->update('media', $new + ['barva' => ''], ['ido' => $ido]);
         \Kaleta\Front\Cache::clear();
 
-        return $this->back('Soubor byl nahrazen – všude, kde je použitý, se ukazuje nová verze.', 'list', ['uprav' => $ido]);
+        return $this->back('The file has been replaced – the new version is shown everywhere it is used.', 'list', ['uprav' => $ido]);
     }
 
     protected function actionSave(): Response
@@ -268,7 +268,7 @@ final class Media extends Module
             \Kaleta\Front\Cache::clear();
         }
 
-        return $this->back('Popis obrázku byl uložen.');
+        return $this->back('Image description saved.');
     }
 
     /** Description for the blind (alt = field "nazev", as in the detail and in the editor) directly from the grid – without reloading (image/admin.js). */
@@ -276,7 +276,7 @@ final class Media extends Module
     {
         $ido = $this->request->postInt('ido');
         if (!$this->request->isPost() || !$this->canEdit($ido)) {
-            return Response::json(['ok' => false, 'chyba' => t('Obrázek nemůžete upravit.')], 403);
+            return Response::json(['ok' => false, 'chyba' => t('You cannot edit this image.')], 403);
         }
         $this->db->update('media', ['nazev' => mb_substr(trim($this->request->post('popis')), 0, 150)], ['ido' => $ido]);
         \Kaleta\Front\Cache::clear();
@@ -312,10 +312,10 @@ final class Media extends Module
         }
 
         if ($skipped > 0) {
-            $this->app->session->flash('chyba', t('Nesmazáno %d použitých souborů – nejdřív je odeberte z webu (kde jsou použité, ukáže výpis).', $skipped));
+            $this->app->session->flash('chyba', t('%d files in use were not deleted – remove them from the site first (the list shows where they are used).', $skipped));
         }
 
-        return $this->back($move ? t('Přesunuto obrázků: %d.', $count) : t('Smazáno obrázků: %d.', $count), '', $move && $target ? ['sekce' => $target] : []);
+        return $this->back($move ? t('Images moved: %d.', $count) : t('Images deleted: %d.', $count), '', $move && $target ? ['sekce' => $target] : []);
     }
 
     private function canEdit(int $ido): bool
@@ -375,8 +375,8 @@ final class Media extends Module
     /** @return list<array<string, mixed>> */
     /** List sort orders: key from the URL => [label, ORDER BY]. */
     public const array SORT_ORDERS = [
-        'nove' => ['nejnovější', 'o.ido DESC'], 'stare' => ['nejstarší', 'o.ido ASC'], 'nazev' => ['podle názvu', 'o.nazev ASC, o.ido DESC'],
-        'velikost' => ['největší soubory', 'o.obr_vel DESC'], 'nepouzite' => ['nejméně použité', 'pouzito ASC, o.ido DESC'],
+        'nove' => ['nejnovější', 'o.ido DESC'], 'stare' => ['nejstarší', 'o.ido ASC'], 'nazev' => ['by name', 'o.nazev ASC, o.ido DESC'],
+        'velikost' => ['largest files', 'o.obr_vel DESC'], 'nepouzite' => ['least used', 'pouzito ASC, o.ido DESC'],
     ];
 
     private function load(string $where, array $params, int $pageNumber, int $count): array

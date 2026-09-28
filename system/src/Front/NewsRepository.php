@@ -125,7 +125,7 @@ final class NewsRepository
         $description = $newsItem['obrazek_popis'] !== '' ? $newsItem['obrazek_popis'] : (string) ($library['popis'] ?? '');
         $author = $newsItem['obrazek_autor'] !== '' ? $newsItem['obrazek_autor'] : (string) ($library['autor'] ?? '');
         $newsItem['obrazek_alt'] = (string) ($library['nazev'] ?? '') !== '' ? (string) $library['nazev'] : $description;
-        $parts = array_filter([e($description), $author !== '' ? '<span class="clanek-foto-autor">' . e(t('Foto: %s', $author)) . '</span>' : '']);
+        $parts = array_filter([e($description), $author !== '' ? '<span class="clanek-foto-autor">' . e(t('Photo: %s', $author)) . '</span>' : '']);
         $newsItem['obrazek_popisek_html'] = $parts === [] ? '' : '<figcaption class="clanek-popisek">' . implode(' ', $parts) . '</figcaption>';
 
         return $this->prepare($newsItem);

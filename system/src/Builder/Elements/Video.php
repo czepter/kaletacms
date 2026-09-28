@@ -13,16 +13,16 @@ final class Video extends Element
 {
     public const string TYPE = 'video';
     public const string NAME = 'Video';
-    public const string DESCRIPTION = 'YouTube, Vimeo nebo video z Médií – načte se až po kliknutí.';
+    public const string DESCRIPTION = 'YouTube, Vimeo or a video from Media – loads only after a click.';
     public const string ICON = 'video';
     public const array HTML_TAGS = ['figure'];
 
     public static function properties(): array
     {
         return [
-            'url' => ['typ' => 'odkaz', 'popisek' => 'Adresa videa', 'vychozi' => ''],
-            'titulek' => ['typ' => 'text', 'popisek' => 'Název videa (pro čtečky)', 'vychozi' => '', 'max' => 200],
-            'plakat' => ['typ' => 'obrazek', 'popisek' => 'Plakát (obrázek před spuštěním)', 'vychozi' => ''],
+            'url' => ['typ' => 'odkaz', 'popisek' => 'Video address', 'vychozi' => ''],
+            'titulek' => ['typ' => 'text', 'popisek' => 'Video title (for screen readers)', 'vychozi' => '', 'max' => 200],
+            'plakat' => ['typ' => 'obrazek', 'popisek' => 'Poster (image before playing)', 'vychozi' => ''],
         ];
     }
 

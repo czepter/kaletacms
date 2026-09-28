@@ -14,15 +14,15 @@ final class Extensions
 {
     /** key => [name, description, enabled by default] */
     public const array CATALOG = [
-        'novinky' => ['Novinky', 'Aktuality a blog: výpis /novinky s kategoriemi a štítky, RSS, prvek Novinky v builderu a odkaz v automatickém menu.', true],
-        'poptavky' => ['Formuláře a poptávky', 'Prvek Formulář v builderu a schránka Poptávky: odeslané dotazy se uloží, přijdou e-mailem a jdou předat kolegovi nebo do CRM.', true],
-        'newsletter' => ['Newsletter', 'Prvek Odběr novinek v builderu: návštěvník zadá e-mail a potvrdí ho odkazem (double opt-in). Potvrzené odběratele web pošle do vaší mailingové služby (Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing, webhook), nebo je vyexportujete do CSV.', false],
-        'statistika' => ['Statistika', 'Vlastní měření návštěvnosti bez cookies.', true],
-        'presmerovani' => ['Přesměrování', 'Správa přesměrování 301 ze starých adres – po přechodu z jiného webu nezbytné.', true],
-        'jazyky' => ['Jazykové verze webu', 'Web ve více jazycích: každá další verze (/en/…) má své stránky, kategorie a novinky, přepínač jazyků a značky hreflang. Jazyky vyberete v Nastavení → Základní.', false],
-        'api' => ['Veřejné API', 'Čtecí JSON API pro jiný web nebo aplikaci: /api/novinky, /api/novinky/<adresa>, /api/kategorie, /api/stranky.', false],
-        'asistent' => ['AI asistent', 'V builderu nové sekce podle popisu a přepisy textů, v novinkách titulky, perex, SEO popis, štítky, korektura, popisy obrázků a překlad. Potřebuje vlastní klíč Claude, OpenAI, Google nebo Mistral (níže); text se posílá jen po kliknutí na tlačítko asistenta.', false],
-        'claude' => ['Napojení na Claude', 'MCP server na adrese /mcp: Claude s právy vašeho účtu staví stránky v builderu, upravuje záhlaví, patičku, kolekce a vzhled a píše novinky. Stránky a novinky ukládá jako koncepty, které zveřejníte vy; menu, vzhled a nastavení platí hned. Přístupový token si každý vytvoří v nabídce Můj účet.', false],
+        'novinky' => ['Novinky', 'News and blog: the /novinky listing with categories and tags, RSS, the News element in the builder and a link in the automatic menu.', true],
+        'poptavky' => ['Forms and enquiries', 'The Form element in the builder and the Enquiries inbox: submitted enquiries are stored, arrive by e-mail and can be passed to a colleague or a CRM.', true],
+        'newsletter' => ['Newsletter', 'The Newsletter sign-up element in the builder: visitors enter an e-mail and confirm it by a link (double opt-in). The site sends confirmed subscribers to your mailing service (Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing, webhook), or you export them to CSV.', false],
+        'statistika' => ['Statistics', 'Your own cookie-free traffic analytics.', true],
+        'presmerovani' => ['Redirects', '301 redirects from old addresses – essential after moving from another site.', true],
+        'jazyky' => ['Language versions of the site', 'A site in several languages: each further version (e.g. /cs/…) has its own pages, categories and news, a language switcher and hreflang tags. Pick the languages in Settings → General.', false],
+        'api' => ['Public API', 'Read-only JSON API for another site or app: /api/novinky, /api/novinky/<address>, /api/kategorie, /api/stranky.', false],
+        'asistent' => ['AI assistant', 'In the builder, new sections from a description and text rewrites; in news, headlines, intro, SEO description, tags, proofreading, image descriptions and translation. Needs your own Claude, OpenAI, Google or Mistral key (below); text is sent only when you click an assistant button.', false],
+        'claude' => ['Claude connection', 'MCP server at /mcp: Claude builds pages in the builder with your account\'s permissions, edits the header, footer, collections and look, and writes news. Pages and news are saved as drafts that you publish; the menu, look and settings apply straight away. Everyone creates their access token under My account.', false],
     ];
 
     /** @return list<string> */

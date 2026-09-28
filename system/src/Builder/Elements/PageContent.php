@@ -14,10 +14,10 @@ use Kaleta\Builder\Element;
 final class PageContent extends Element
 {
     public const string TYPE = 'obsah';
-    public const string NAME = 'Obsah stránky';
-    public const string DESCRIPTION = 'Sem systém vloží novinku, výpis novinek nebo hlášení 404. V obálce patří právě jednou.';
+    public const string NAME = 'Page content';
+    public const string DESCRIPTION = 'The system inserts the news item, news list or 404 message here. Use it exactly once in a wrapper.';
     public const string ICON = 'clanek';
-    public const string GROUP = 'Části webu';
+    public const string GROUP = 'Site parts';
     public const array HTML_TAGS = ['div', 'article'];
     public const bool PARTS_ONLY = true;
 
@@ -29,7 +29,7 @@ final class PageContent extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $content = $k->content !== '' ? $k->content : ($k->editor ? '<p>' . e(t('Sem se vloží obsah stránky (novinka, výpis novinek, hlášení 404).')) . '</p>' : '');
+        $content = $k->content !== '' ? $k->content : ($k->editor ? '<p>' . e(t('The page content goes here (news item, news list, 404 message).')) . '</p>' : '');
 
         // the layout classes „obal obsah“: the content looks the same as without the wrapper
         return '<' . $p['znacka'] . Text::withClass($a, 'obal obsah') . '>' . $content . '</' . $p['znacka'] . '>';

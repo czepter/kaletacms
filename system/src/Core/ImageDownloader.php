@@ -170,11 +170,11 @@ final class ImageDownloader
     {
         for ($step = 0; $step <= self::MAX_REDIRECTS; $step++) {
             if (!$this->isAllowedUrl($url)) {
-                throw new \RuntimeException('Adresa nepatří starému webu.');
+                throw new \RuntimeException('The address does not belong to the old site.');
             }
             $ip = $this->verifiedIp((string) parse_url($url, PHP_URL_HOST));
             if ($ip === null) {
-                throw new \RuntimeException('Doména starého webu neexistuje nebo vede do vnitřní sítě.');
+                throw new \RuntimeException('The domain of the old site does not exist or points to an internal network.');
             }
             $response = function_exists('curl_init') ? $this->curlRequest($url, $ip) : $this->streamRequest($url, $ip);
             if (in_array($response['kod'], [301, 302, 303, 307, 308], true) && $response['location'] !== '') {
@@ -182,15 +182,15 @@ final class ImageDownloader
                 continue;
             }
             if ($response['kod'] !== 200) {
-                throw new \RuntimeException('Starý web obrázek nevydal, odpověděl chybou', $response['kod']); // getCode() carries the response code
+                throw new \RuntimeException('The old site did not return the image, it responded with error', $response['kod']); // getCode() carries the response code
             }
             if ($imagesOnly && self::imageType($response['typ'], $response['data']) === null) {
-                throw new \RuntimeException('Soubor není obrázek JPG, PNG, GIF ani WebP.');
+                throw new \RuntimeException('The file is not a JPG, PNG, GIF or WebP image.');
             }
 
             return $response['data'];
         }
-        throw new \RuntimeException('Příliš mnoho přesměrování.');
+        throw new \RuntimeException('Too many redirects.');
     }
 
     /**
@@ -231,10 +231,10 @@ final class ImageDownloader
         $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         $error = curl_errno($ch);
         if (strlen($data) > self::MAX_BYTES || $error === CURLE_FILESIZE_EXCEEDED) {
-            throw new \RuntimeException('Obrázek je větší než 15 MB.');
+            throw new \RuntimeException('The image is larger than 15 MB.');
         }
         if ($error !== 0) {
-            throw new \RuntimeException('Starý web neodpovídá.');
+            throw new \RuntimeException('The old site is not responding.');
         }
 
         return ['kod' => $code, 'typ' => $headers['content-type'], 'location' => $headers['location'], 'data' => $data];
@@ -257,7 +257,7 @@ final class ImageDownloader
         ]);
         $stream = @fopen($target, 'rb', false, $context);
         if ($stream === false) {
-            throw new \RuntimeException('Starý web neodpovídá.');
+            throw new \RuntimeException('The old site is not responding.');
         }
         $end = microtime(true) + self::TOTAL_TIMEOUT;
         $data = '';
@@ -265,11 +265,11 @@ final class ImageDownloader
             $data .= (string) fread($stream, 65536);
             if (strlen($data) > self::MAX_BYTES) {
                 fclose($stream);
-                throw new \RuntimeException('Obrázek je větší než 15 MB.');
+                throw new \RuntimeException('The image is larger than 15 MB.');
             }
             if (microtime(true) > $end) {
                 fclose($stream);
-                throw new \RuntimeException('Starý web odpovídá příliš pomalu.');
+                throw new \RuntimeException('The old site responds too slowly.');
             }
         }
         $headers = stream_get_meta_data($stream)['wrapper_data'] ?? [];

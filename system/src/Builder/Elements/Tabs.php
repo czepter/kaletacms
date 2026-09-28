@@ -15,16 +15,16 @@ final class Tabs extends Element
 {
     public const string TYPE = 'zalozky';
     public const string NAME = 'Záložky';
-    public const string DESCRIPTION = 'Obsah rozdělený do přepínacích karet – ceník po balíčcích, služby po oborech.';
+    public const string DESCRIPTION = 'Content split into switchable tabs – pricing by package, services by field.';
     public const string ICON = 'zalozky';
     public const array HTML_TAGS = ['div'];
 
     public static function properties(): array
     {
         return ['karty' => ['typ' => 'polozky', 'popisek' => 'Karty', 'max' => 12, 'pole' => [
-            'nazev' => ['typ' => 'text', 'popisek' => 'Název karty', 'vychozi' => '', 'max' => 80],
-            'obsah' => ['typ' => 'html', 'popisek' => 'Obsah', 'vychozi' => ''],
-        ], 'vychozi' => [['nazev' => t('První karta'), 'obsah' => '<p>' . t('Obsah první karty.') . '</p>'], ['nazev' => t('Druhá karta'), 'obsah' => '<p>' . t('Obsah druhé karty.') . '</p>']]]];
+            'nazev' => ['typ' => 'text', 'popisek' => 'Tab name', 'vychozi' => '', 'max' => 80],
+            'obsah' => ['typ' => 'html', 'popisek' => 'Content', 'vychozi' => ''],
+        ], 'vychozi' => [['nazev' => t('First tab'), 'obsah' => '<p>' . t('Content of the first tab.') . '</p>'], ['nazev' => t('Second tab'), 'obsah' => '<p>' . t('Content of the second tab.') . '</p>']]]];
     }
 
     public static function baseCss(): string

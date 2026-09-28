@@ -16,7 +16,7 @@ final class Backup
     public static function create(Db $db, string $reason = 'rucni'): string
     {
         if (!is_dir(self::FOLDER) && !mkdir(self::FOLDER, 0775, true)) {
-            throw new \RuntimeException('Nelze vytvořit složku storage/zalohy - zkontrolujte práva k zápisu.');
+            throw new \RuntimeException('The folder storage/zalohy cannot be created - check the write permissions.');
         }
         $gz = function_exists('gzopen');
         $file = 'kaleta-' . date('Ymd-His') . '-' . preg_replace('/[^a-z0-9]/', '', $reason) . '-' . bin2hex(random_bytes(4)) . '.sql' . ($gz ? '.gz' : '');
@@ -71,11 +71,11 @@ final class Backup
     {
         $path = self::path($file);
         if ($path === null) {
-            throw new \RuntimeException('Záloha neexistuje.');
+            throw new \RuntimeException('Backup does not exist.');
         }
         $gz = str_ends_with($path, '.gz');
         if ($gz && !function_exists('gzopen')) {
-            throw new \RuntimeException('Server neumí číst komprimované zálohy (chybí zlib).');
+            throw new \RuntimeException('The server cannot read compressed backups (zlib is missing).');
         }
         // the first pass only checks (header, only tables of this installation, a complete last statement) – the database is
         // touched only when the whole file is OK; a damaged or foreign backup thus does not leave the database half restored
@@ -94,7 +94,7 @@ final class Backup
         $f = $gz ? gzopen($path, 'rb') : fopen($path, 'rb');
         $first = (string) ($gz ? gzgets($f) : fgets($f));
         if (!str_starts_with($first, '-- Kaleta ')) {
-            throw new \RuntimeException('Soubor není záloha vytvořená systémem Kaleta.');
+            throw new \RuntimeException('The file is not a backup created by Kaleta.');
         }
         $statement = '';
         $count = 0;
@@ -117,7 +117,7 @@ final class Backup
         }
         $gz ? gzclose($f) : fclose($f);
         if (trim($statement) !== '' || $count === 0) {
-            throw new \RuntimeException('Záloha je neúplná nebo poškozená (chybí konec souboru) – obnova byla zastavena.');
+            throw new \RuntimeException('The backup is incomplete or damaged (the end of the file is missing) – the restore was stopped.');
         }
 
         return $count;

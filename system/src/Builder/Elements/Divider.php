@@ -11,7 +11,7 @@ final class Divider extends Element
 {
     public const string TYPE = 'oddelovac';
     public const string NAME = 'Oddělovač';
-    public const string DESCRIPTION = 'Tenká vodorovná čára mezi částmi obsahu.';
+    public const string DESCRIPTION = 'A thin horizontal line between parts of the content.';
     public const string ICON = 'oddelovac';
     public const array HTML_TAGS = ['hr'];
 

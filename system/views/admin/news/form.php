@@ -22,7 +22,7 @@
 $dt = fn (?string $v): string => $v ? date('Y-m-d\TH:i', strtotime($v)) : '';
 $error = fn (string $field): string => isset($errors[$field]) ? '<span class="chyba-pole" role="alert">' . e(t($errors[$field])) . '</span>' : '';
 ?>
-<p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Zpět na přehled novinek')) ?></a></p>
+<p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to the news list')) ?></a></p>
 
 <?php if (!empty($draftOnServer)): ?>
 <script type="application/json" id="koncept-server"><?= json_encode(['cas' => strtotime($draftOnServer['cas']) * 1000, 'pole' => json_decode($draftOnServer['data'], true)], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
@@ -34,64 +34,64 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <div class="clanek-hlavni">
 	<div class="radek pres-celou">
 		<label for="titulek"><?= e(t('Titulek')) ?></label>
-		<input class="textpole siroke titulek-pole" type="text" id="titulek" name="titulek" value="<?= e($newsItem['titulek']) ?>" maxlength="255" required placeholder="<?= e(t('Titulek novinky')) ?>"><?= $error('titulek') ?>
+		<input class="textpole siroke titulek-pole" type="text" id="titulek" name="titulek" value="<?= e($newsItem['titulek']) ?>" maxlength="255" required placeholder="<?= e(t('News item title')) ?>"><?= $error('titulek') ?>
 	</div>
 	<div class="radek pres-celou">
-		<label for="uvod"><?= e(t('Perex (úvod)')) ?></label>
+		<label for="uvod"><?= e(t('Lead paragraph')) ?></label>
 		<textarea class="textbox" id="uvod" name="uvod" rows="5" data-editor="maly"><?= e($newsItem['uvod']) ?></textarea>
-		<span class="napoveda"><?= e(t('Zobrazuje se ve výpisech i na začátku novinky – v textu ho neopakujte.')) ?></span>
+		<span class="napoveda"><?= e(t('Shown in lists and at the start of the news item – do not repeat it in the text.')) ?></span>
 	</div>
 	<div class="radek pres-celou">
 		<label for="text"><?= e(t('Text')) ?></label>
 		<textarea class="textbox vysoky" id="text" name="text" rows="20" data-editor><?= e($newsItem['text']) ?></textarea>
-		<span class="napoveda"><?= e(t('Video vložíte tak, že jeho adresu (YouTube, Vimeo) dáte na samostatný řádek. Návštěvníkovi se načte až po kliknutí.')) ?></span>
+		<span class="napoveda"><?= e(t('To embed a video, put its address (YouTube, Vimeo) on a line of its own. It loads for the visitor only after a click.')) ?></span>
 	</div>
 </div>
 
 <aside class="clanek-nastaveni">
 <fieldset>
-<legend><?= e(t('Vydání')) ?></legend>
+<legend><?= e(t('Publishing')) ?></legend>
 <div class="radek">
-	<label for="stav"><?= e(t('Stav')) ?></label>
+	<label for="stav"><?= e(t('Status')) ?></label>
 	<div><select id="stav" name="stav">
-		<option value="koncept"<?= !$newsItem['visible'] ? ' selected' : '' ?>><?= e(t('Koncept')) ?></option>
+		<option value="koncept"<?= !$newsItem['visible'] ? ' selected' : '' ?>><?= e(t('Draft')) ?></option>
 <?php if ($canPublish): ?>
 		<option value="vydany"<?= $newsItem['visible'] ? ' selected' : '' ?>><?= e(t('Vydaná')) ?></option>
 <?php endif ?>
 	</select>
 <?php if (!$canPublish): ?>
-	<span class="napoveda"><?= e(t('Novinku vydá editor nebo správce webu.')) ?></span>
+	<span class="napoveda"><?= e(t('An editor or site administrator publishes the news item.')) ?></span>
 <?php endif ?>
 	</div>
 </div>
 <div class="radek">
-	<label for="datum"><?= e(t('Datum vydání')) ?></label>
+	<label for="datum"><?= e(t('Publish date')) ?></label>
 	<div><input class="textpole" type="datetime-local" id="datum" name="datum" value="<?= e($dt($newsItem['datum'])) ?>" required>
-	<span class="napoveda"><?= e(t('Budoucí datum = novinka se vydá sama v daný čas.')) ?></span></div>
+	<span class="napoveda"><?= e(t('A future date = the news item is published automatically at that time.')) ?></span></div>
 </div>
 <?php if ($newsItem['visible']): ?>
-<div class="radek"><span class="popisek"></span><div class="volby"><label><input type="checkbox" name="oznacit_aktualizaci" value="1"> <?= e(t('Označit jako aktualizovanou (s dnešním datem)')) ?></label></div></div>
+<div class="radek"><span class="popisek"></span><div class="volby"><label><input type="checkbox" name="oznacit_aktualizaci" value="1"> <?= e(t('Mark as updated (with today\'s date)')) ?></label></div></div>
 <?php endif ?>
 <?php $readOnly = $newsItem['visible'] && !$canPublish; /* a published news item is edited only by an editor – the author sees it but cannot save it */ ?>
 <?php if ($readOnly): ?>
-<p class="napoveda"><?= e(t('Novinka je vydaná – změny v ní uloží jen editor nebo správce. Požádejte je o úpravu.')) ?></p>
+<p class="napoveda"><?= e(t('This news item is published – only an editor or administrator can save changes to it. Ask them to edit it.')) ?></p>
 <?php endif ?>
 <p class="tlacitka ulozit-lista">
 	<button class="tl" type="submit" name="po_ulozeni" value="vypis"<?= $readOnly ? ' disabled' : '' ?>><?= e(t('Uložit')) ?></button>
-	<button class="tl" type="submit" name="po_ulozeni" value="zustat"<?= $readOnly ? ' disabled' : '' ?>><?= e(t('Uložit a pokračovat')) ?></button>
+	<button class="tl" type="submit" name="po_ulozeni" value="zustat"<?= $readOnly ? ' disabled' : '' ?>><?= e(t('Save and continue')) ?></button>
 <?php if ($newsItem['idc']): ?>
-	<a class="navigace" href="<?= e($module->app()->url('novinky/' . $newsItem['seo_link'] . '?nahled=1')) ?>" target="_blank" rel="noopener"><?= e(t('Náhled')) ?></a>
+	<a class="navigace" href="<?= e($module->app()->url('novinky/' . $newsItem['seo_link'] . '?nahled=1')) ?>" target="_blank" rel="noopener"><?= e(t('Preview')) ?></a>
 <?php endif ?>
 </p>
 </fieldset>
 
 <fieldset>
-<legend><?= e(t('Zařazení')) ?></legend>
+<legend><?= e(t('Classification')) ?></legend>
 <?php if (count($category) < 2): ?>
 <input type="hidden" name="tema" value="<?= (int) ($category[0]['idt'] ?? $newsItem['tema']) ?>">
 <?php else: ?>
 <div class="radek">
-	<label for="tema"><?= e(t('Kategorie')) ?></label>
+	<label for="tema"><?= e(t('Categories')) ?></label>
 	<div><select id="tema" name="tema" required>
 <?php foreach ($category as $k): ?>
 		<option value="<?= (int) $k['idt'] ?>"<?= (int) $newsItem['tema'] === (int) $k['idt'] ? ' selected' : '' ?>><?= e($k['nazev']) ?></option>
@@ -103,7 +103,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <input type="hidden" name="autor" value="<?= (int) (array_key_first($authors) ?? $newsItem['autor']) ?>">
 <?php else: ?>
 <div class="radek">
-	<label for="autor"><?= e(t('Autor')) ?></label>
+	<label for="autor"><?= e(t('Author')) ?></label>
 	<div><select id="autor" name="autor">
 <?php foreach ($authors as $userId => $displayName): ?>
 		<option value="<?= (int) $userId ?>"<?= (int) $newsItem['autor'] === (int) $userId ? ' selected' : '' ?>><?= e($displayName) ?></option>
@@ -112,101 +112,101 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 </div>
 <?php endif ?>
 <div class="radek">
-	<label for="stitky"><?= e(t('Štítky')) ?></label>
+	<label for="stitky"><?= e(t('Tags')) ?></label>
 	<div><input class="textpole siroke" type="text" id="stitky" name="stitky" value="<?= e($tags) ?>" maxlength="600" list="stitky-seznam" autocomplete="off" data-stitky>
 	<datalist id="stitky-seznam"><?php foreach ($allTags as $s): ?><option value="<?= e($s) ?>"><?php endforeach ?></datalist>
-	<span class="napoveda"><?= e(t('Oddělené čárkou. Návštěvník si podle štítku zobrazí související novinky.')) ?></span></div>
+	<span class="napoveda"><?= e(t('Comma-separated. Visitors can use a tag to see related news.')) ?></span></div>
 </div>
 </fieldset>
 
 <fieldset>
-<legend><?= e(t('Hlavní obrázek')) ?></legend>
+<legend><?= e(t('Featured image')) ?></legend>
 <div class="radek pres-celou">
-	<input class="textpole siroke" type="text" id="obrazek" name="obrazek" value="<?= e($newsItem['obrazek']) ?>" maxlength="255" placeholder="<?= e(t('vyberte z médií, nebo vložte adresu')) ?>" aria-label="<?= e(t('Hlavní obrázek')) ?>" data-obrazek>
-	<span class="napoveda"><?= e(t('Použije se ve výpisech a při sdílení na sociálních sítích.')) ?></span>
+	<input class="textpole siroke" type="text" id="obrazek" name="obrazek" value="<?= e($newsItem['obrazek']) ?>" maxlength="255" placeholder="<?= e(t('choose from media or paste a URL')) ?>" aria-label="<?= e(t('Featured image')) ?>" data-obrazek>
+	<span class="napoveda"><?= e(t('Used in listings and when shared on social networks.')) ?></span>
 </div>
 <div class="radek pres-celou">
-	<label for="obrazek_popis"><?= e(t('Popisek obrázku')) ?></label>
+	<label for="obrazek_popis"><?= e(t('Image caption')) ?></label>
 	<input class="textpole siroke" type="text" id="obrazek_popis" name="obrazek_popis" value="<?= e($newsItem['obrazek_popis']) ?>" maxlength="300">
 </div>
 <div class="radek pres-celou">
-	<label for="obrazek_autor"><?= e(t('Autor obrázku')) ?></label>
+	<label for="obrazek_autor"><?= e(t('Image credit')) ?></label>
 	<div><input class="textpole siroke" type="text" id="obrazek_autor" name="obrazek_autor" value="<?= e($newsItem['obrazek_autor']) ?>" maxlength="120">
-	<span class="napoveda"><?= e(t('Prázdné pole = popisek a autor z knihovny Médií.')) ?></span></div>
+	<span class="napoveda"><?= e(t('Empty field = caption and credit from the Media library.')) ?></span></div>
 </div>
 </fieldset>
 
 <?php if ($siteLanguages): ?>
 <details class="pokrocile"<?= $original !== '' || $translations !== [] ? ' open' : '' ?>>
-<summary><?= e(t('Překlad')) ?></summary>
+<summary><?= e(t('Translation')) ?></summary>
 <?php if ($translationLanguages !== []): ?>
 <div class="radek pres-celou">
-	<span class="popisek"><?= e(t('Jazykové verze')) ?></span>
+	<span class="popisek"><?= e(t('Language versions')) ?></span>
 	<div class="volby">
 <?php foreach ($translationLanguages as $languageCode): $languageName = Kaleta\Core\Language::AVAILABLE[$languageCode][0]; ?>
 <?php if (isset($translations[$languageCode])): ?>
-		<a class="navigace" href="<?= e($module->url('edit', ['id' => $translations[$languageCode]])) ?>"><?= e($languageName) ?>: <?= e(t('otevřít překlad')) ?></a>
+		<a class="navigace" href="<?= e($module->url('edit', ['id' => $translations[$languageCode]])) ?>"><?= e($languageName) ?>: <?= e(t('open translation')) ?></a>
 <?php elseif ($assistant): ?>
-		<button class="navigace" type="submit" name="prelozit_do" value="<?= e($languageCode) ?>" formaction="<?= e($module->url('translate')) ?>" formnovalidate data-potvrdit="<?= e(t('Přeložit uloženou verzi asistentem? Vznikne koncept, který před vydáním přečtete. Překlad může trvat i minutu.')) ?>"><?= e(t('Přeložit asistentem')) ?>: <?= e($languageName) ?></button>
+		<button class="navigace" type="submit" name="prelozit_do" value="<?= e($languageCode) ?>" formaction="<?= e($module->url('translate')) ?>" formnovalidate data-potvrdit="<?= e(t('Translate the saved version with the assistant? A draft is created for you to read before publishing. Translation can take up to a minute.')) ?>"><?= e(t('Translate with the assistant')) ?>: <?= e($languageName) ?></button>
 <?php else: ?>
-		<span class="napoveda vradku"><?= e($languageName) ?>: <?= e(t('zatím bez překladu')) ?></span>
+		<span class="napoveda vradku"><?= e($languageName) ?>: <?= e(t('no translation yet')) ?></span>
 <?php endif ?>
 <?php endforeach ?>
 	</div>
 </div>
 <?php endif ?>
 <div class="radek pres-celou">
-	<label for="preklad_z"><?= e(t('Originál ve výchozím jazyce')) ?></label>
-	<input class="textpole siroke" type="text" id="preklad_z" name="preklad_z" value="<?= e($original) ?>" maxlength="255" placeholder="<?= e(t('adresa nebo číslo původní novinky')) ?>">
-	<span class="napoveda"><?= e(t('Vyplňte jen u novinky v jiné jazykové verzi (jazyk určuje kategorie).')) ?></span>
+	<label for="preklad_z"><?= e(t('Original in the default language')) ?></label>
+	<input class="textpole siroke" type="text" id="preklad_z" name="preklad_z" value="<?= e($original) ?>" maxlength="255" placeholder="<?= e(t('address or number of the original news item')) ?>">
+	<span class="napoveda"><?= e(t('Fill in only for a news item in another language version (the category sets the language).')) ?></span>
 </div>
 </details>
 <?php endif ?>
 
 <fieldset class="kontrola" data-kontrola>
-<legend><?= e(t('Kontrola přístupnosti')) ?></legend>
-<div data-kontrola-vysledek aria-live="polite"><p class="napoveda"><?= e(t('Kontrola běží při psaní (potřebuje JavaScript).')) ?></p></div>
+<legend><?= e(t('Accessibility check')) ?></legend>
+<div data-kontrola-vysledek aria-live="polite"><p class="napoveda"><?= e(t('The check runs while you write (needs JavaScript).')) ?></p></div>
 </fieldset>
 
 <details class="pokrocile"<?= $newsItem['seo_titulek'] !== '' || $newsItem['seo_popis'] !== '' || (string) $newsItem['faq'] !== '' ? ' open' : '' ?>>
-<summary><?= e(t('SEO a další nastavení')) ?></summary>
+<summary><?= e(t('SEO and more settings')) ?></summary>
 <div class="radek">
 	<label for="seo_link"><?= e(t('Adresa')) ?></label>
-	<div><input class="textpole siroke" type="text" id="seo_link" name="seo_link" value="<?= e($newsItem['seo_link']) ?>" maxlength="150" placeholder="<?= e(t('vytvoří se z titulku')) ?>">
-	<span class="napoveda"><?= e(t('Část adresy za %s. Když ji po vydání změníte, stará adresa se sama přesměruje.', substr($app->url('novinky/'), strlen($app->request->basePath())))) ?></span></div>
+	<div><input class="textpole siroke" type="text" id="seo_link" name="seo_link" value="<?= e($newsItem['seo_link']) ?>" maxlength="150" placeholder="<?= e(t('created from the headline')) ?>">
+	<span class="napoveda"><?= e(t('The part of the address after %s. If you change it after publishing, the old address redirects automatically.', substr($app->url('novinky/'), strlen($app->request->basePath())))) ?></span></div>
 </div>
 <div class="radek">
-	<label for="seo_titulek"><?= e(t('Titulek pro vyhledávače')) ?></label>
-	<div><input class="textpole siroke" type="text" id="seo_titulek" name="seo_titulek" value="<?= e($newsItem['seo_titulek']) ?>" maxlength="255" placeholder="<?= e(t('prázdné = titulek novinky')) ?>"></div>
+	<label for="seo_titulek"><?= e(t('Search engine title')) ?></label>
+	<div><input class="textpole siroke" type="text" id="seo_titulek" name="seo_titulek" value="<?= e($newsItem['seo_titulek']) ?>" maxlength="255" placeholder="<?= e(t('empty = news item title')) ?>"></div>
 </div>
 <div class="radek">
-	<label for="seo_popis"><?= e(t('Popis pro vyhledávače')) ?></label>
-	<div><input class="textpole siroke" type="text" id="seo_popis" name="seo_popis" value="<?= e($newsItem['seo_popis']) ?>" maxlength="320" placeholder="<?= e(t('prázdné = začátek perexu')) ?>"></div>
+	<label for="seo_popis"><?= e(t('Search engine description')) ?></label>
+	<div><input class="textpole siroke" type="text" id="seo_popis" name="seo_popis" value="<?= e($newsItem['seo_popis']) ?>" maxlength="320" placeholder="<?= e(t('empty = beginning of the lead')) ?>"></div>
 </div>
 <div class="radek">
-	<label for="t_slova"><?= e(t('Klíčová slova')) ?></label>
+	<label for="t_slova"><?= e(t('Keywords')) ?></label>
 	<div><input class="textpole siroke" type="text" id="t_slova" name="t_slova" value="<?= e($newsItem['t_slova']) ?>" maxlength="500">
-	<span class="napoveda"><?= e(t('Oddělená čárkou; pomáhají vyhledávání na webu.')) ?></span></div>
+	<span class="napoveda"><?= e(t('Comma-separated; they help the site search.')) ?></span></div>
 </div>
 <div class="radek">
-	<label for="faq"><?= e(t('Otázky a odpovědi')) ?></label>
+	<label for="faq"><?= e(t('Questions and answers')) ?></label>
 	<div><textarea class="textbox nizky" id="faq" name="faq" rows="5"><?= e((string) $newsItem['faq']) ?></textarea>
-	<span class="napoveda"><?= e(t('Otázka na jednom řádku, odpověď pod ní, mezi dvojicemi prázdný řádek. Zobrazí se pod textem a ve strukturovaných datech (FAQ).')) ?></span></div>
+	<span class="napoveda"><?= e(t('Question on one line, the answer below it, an empty line between pairs. Shown below the text and in structured data (FAQ).')) ?></span></div>
 </div>
 <div class="radek">
-	<span class="popisek"><?= e(t('Možnosti')) ?></span>
-	<div class="volby"><label><input type="checkbox" name="noindex" value="1"<?= $newsItem['noindex'] ? ' checked' : '' ?>> <?= e(t('Skrýt před vyhledávači (noindex)')) ?></label></div>
+	<span class="popisek"><?= e(t('Options')) ?></span>
+	<div class="volby"><label><input type="checkbox" name="noindex" value="1"<?= $newsItem['noindex'] ? ' checked' : '' ?>> <?= e(t('Hide from search engines (noindex)')) ?></label></div>
 </div>
 </details>
 <?php if ($versions !== []): ?>
 <details class="pokrocile">
-<summary><?= e(t('Historie verzí (%s)', count($versions))) ?></summary>
+<summary><?= e(t('Version history (%s)', count($versions))) ?></summary>
 <ul class="revize">
 <?php foreach ($versions as $version): ?>
-	<li><a href="<?= e($module->url('versions', ['id' => $newsItem['idc'], 'idr' => $version['idr']])) ?>" title="<?= e($version['titulek']) ?>"><?= e(format_date($version['datum'], true)) ?></a> <span class="napoveda vradku"><?= e($version['kdo_jm'] ?? '') ?></span> · <a href="<?= e($module->url('compare', ['id' => $newsItem['idc'], 'idr' => $version['idr']])) ?>"><?= e(t('co se změnilo')) ?></a></li>
+	<li><a href="<?= e($module->url('versions', ['id' => $newsItem['idc'], 'idr' => $version['idr']])) ?>" title="<?= e($version['titulek']) ?>"><?= e(format_date($version['datum'], true)) ?></a> <span class="napoveda vradku"><?= e($version['kdo_jm'] ?? '') ?></span> · <a href="<?= e($module->url('compare', ['id' => $newsItem['idc'], 'idr' => $version['idr']])) ?>"><?= e(t('what changed')) ?></a></li>
 <?php endforeach ?>
 </ul>
-<p class="napoveda"><?= e(t('Kliknutím načtete starší verzi do editoru. Uchovává se posledních 20 verzí.')) ?></p>
+<p class="napoveda"><?= e(t('Click to load an older version into the editor. The last 20 versions are kept.')) ?></p>
 </details>
 <?php endif ?>
 </aside>

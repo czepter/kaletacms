@@ -14,18 +14,18 @@ use Kaleta\Builder\Element;
 final class Counter extends Element
 {
     public const string TYPE = 'pocitadlo';
-    public const string NAME = 'Počítadlo';
-    public const string DESCRIPTION = 'Velké číslo s popiskem, které se při zobrazení napočítá (roky praxe, zákazníci, projekty).';
+    public const string NAME = 'Counter';
+    public const string DESCRIPTION = 'A big number with a label that counts up when shown (years of experience, customers, projects).';
     public const string ICON = 'pocitadlo';
     public const array HTML_TAGS = ['div'];
 
     public static function properties(): array
     {
         return [
-            'cislo' => ['typ' => 'cislo', 'popisek' => 'Číslo', 'vychozi' => 1200, 'min' => 0, 'max' => 999999999],
-            'pred' => ['typ' => 'text', 'popisek' => 'Před číslem (např. „+“)', 'vychozi' => '', 'max' => 10],
-            'za' => ['typ' => 'text', 'popisek' => 'Za číslem (např. „ %“, „+“, „ let“)', 'vychozi' => '+', 'max' => 20],
-            'popisek' => ['typ' => 'text', 'popisek' => 'Popisek', 'vychozi' => t('spokojených zákazníků'), 'max' => 120],
+            'cislo' => ['typ' => 'cislo', 'popisek' => 'Number', 'vychozi' => 1200, 'min' => 0, 'max' => 999999999],
+            'pred' => ['typ' => 'text', 'popisek' => 'Before the number (e.g. “+”)', 'vychozi' => '', 'max' => 10],
+            'za' => ['typ' => 'text', 'popisek' => 'After the number (e.g. “ %”, “+”, “ years”)', 'vychozi' => '+', 'max' => 20],
+            'popisek' => ['typ' => 'text', 'popisek' => 'Label', 'vychozi' => t('spokojených zákazníků'), 'max' => 120],
         ];
     }
 

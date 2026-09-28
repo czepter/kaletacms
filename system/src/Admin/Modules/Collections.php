@@ -23,13 +23,13 @@ final class Collections extends Module
     }
 
     public const string IDENT = 'collections';
-    public const string NAME = 'Kolekce';
-    public const string GROUP = 'Obsah';
+    public const string NAME = 'Collections';
+    public const string GROUP = 'Content';
     public const string ICON = 'kolekce';
 
     protected function actionList(): Response
     {
-        return $this->view('list', 'Kolekce', [
+        return $this->view('list', 'Collections', [
             'collection' => $this->db->all('SELECT k.idk, k.nazev, k.seo_link, k.detail, (SELECT COUNT(*) FROM {kolekce_polozky} p WHERE p.idk = k.idk) AS pocet FROM {kolekce} k ORDER BY k.nazev'),
         ]);
     }
@@ -38,8 +38,8 @@ final class Collections extends Module
 
     protected function actionNew(): Response
     {
-        return $this->admin() ?? $this->view('form', 'Nová kolekce', ['k' => ['idk' => 0, 'nazev' => '', 'seo_link' => '', 'detail' => 0, 'pole' => [
-            ['klic' => '', 'popisek' => t('Popis'), 'typ' => 'radky'], ['klic' => '', 'popisek' => t('Obrázek'), 'typ' => 'obrazek'],
+        return $this->admin() ?? $this->view('form', 'New collection', ['k' => ['idk' => 0, 'nazev' => '', 'seo_link' => '', 'detail' => 0, 'pole' => [
+            ['klic' => '', 'popisek' => t('Description'), 'typ' => 'radky'], ['klic' => '', 'popisek' => t('Image'), 'typ' => 'obrazek'],
         ]]]);
     }
 
@@ -47,7 +47,7 @@ final class Collections extends Module
     {
         $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
 
-        return $this->admin() ?? ($k === null ? $this->error('Kolekce neexistuje.', 404) : $this->view('form', $k['nazev'], ['k' => $k]));
+        return $this->admin() ?? ($k === null ? $this->error('The collection does not exist.', 404) : $this->view('form', $k['nazev'], ['k' => $k]));
     }
 
     protected function actionSave(): Response
@@ -60,11 +60,11 @@ final class Collections extends Module
         $previous = $id > 0 ? KolekceObsahu::byId($this->db, $id) : null;
         $name = mb_substr(trim($r->post('nazev')), 0, 100);
         if ($name === '') {
-            return $this->back('Kolekce musí mít název.', $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $id] : [], 'chyba');
+            return $this->back('The collection needs a name.', $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $id] : [], 'chyba');
         }
         $seo = slugify($r->post('seo_link') !== '' ? $r->post('seo_link') : $name, 110);
         if (in_array($seo, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$seo]) || $this->db->value('SELECT idk FROM {kolekce} WHERE seo_link = ? AND idk <> ?', [$seo, $id]) !== null) {
-            return $this->back(t('Adresu „%s“ už používá systém nebo jiná kolekce.', $seo), $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $id] : [], 'chyba');
+            return $this->back(t('The address “%s” is already used by the system or another collection.', $seo), $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $id] : [], 'chyba');
         }
         // the key of an existing field does not change (item values are stored under it); new fields get it from the label
         $field = KolekceObsahu::sanitizeFields(is_array($_POST['pole'] ?? null) ? array_values($_POST['pole']) : []);
@@ -76,7 +76,7 @@ final class Collections extends Module
         }
         \Kaleta\Front\Cache::clear();
 
-        return $this->back('Kolekce byla uložena.', 'items', ['id' => $id]);
+        return $this->back('The collection was saved.', 'items', ['id' => $id]);
     }
 
     protected function actionDelete(): Response
@@ -88,7 +88,7 @@ final class Collections extends Module
             $this->db->delete('kolekce', ['idk' => $this->request->postInt('idk')]);
         }
 
-        return $this->back('Kolekce i s položkami byla smazána.');
+        return $this->back('The collection and its items were deleted.');
     }
 
     /* ---------- items ---------- */
@@ -97,7 +97,7 @@ final class Collections extends Module
     {
         $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
         if ($k === null) {
-            return $this->error('Kolekce neexistuje.', 404);
+            return $this->error('The collection does not exist.', 404);
         }
 
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
@@ -111,17 +111,17 @@ final class Collections extends Module
     {
         $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
         if ($k === null) {
-            return $this->error('Kolekce neexistuje.', 404);
+            return $this->error('The collection does not exist.', 404);
         }
         $idp = $this->request->getInt('polozka');
         $p = $idp > 0 ? $this->db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ?', [$idp, $k['idk']]) : null;
         if ($idp > 0 && $p === null) {
-            return $this->error('Položka neexistuje.', 404);
+            return $this->error('The item does not exist.', 404);
         }
         $p ??= ['idp' => 0, 'nazev' => '', 'seo_link' => '', 'data' => '{}', 'poradi' => 100, 'zobrazit' => 1, 'jazyk' => '', 'datum' => date('Y-m-d H:i:s')];
         $p['data'] = json_decode((string) $p['data'], true) ?: [];
 
-        return $this->view('item', $p['nazev'] !== '' ? $p['nazev'] : t('Nová položka'), ['k' => $k, 'p' => $p]);
+        return $this->view('item', $p['nazev'] !== '' ? $p['nazev'] : t('New item'), ['k' => $k, 'p' => $p]);
     }
 
     protected function actionSaveItem(): Response
@@ -134,7 +134,7 @@ final class Collections extends Module
         $idp = $r->postInt('idp');
         $name = mb_substr(trim($r->post('nazev')), 0, 200);
         if ($name === '') {
-            return $this->back('Položka musí mít název.', 'item', ['id' => $k['idk'], 'polozka' => $idp], 'chyba');
+            return $this->back('The item needs a name.', 'item', ['id' => $k['idk'], 'polozka' => $idp], 'chyba');
         }
         $errors = [];
         $data = KolekceObsahu::sanitizeData($k['pole'], is_array($_POST['data'] ?? null) ? $_POST['data'] : [], $errors);
@@ -152,10 +152,10 @@ final class Collections extends Module
         }
         \Kaleta\Front\Cache::clear();
         if ($errors !== []) {
-            return $this->back(t('Položka je uložená, ale tato pole měla neplatnou hodnotu a zůstala prázdná: %s', implode(', ', $errors)), 'item', ['id' => $k['idk'], 'polozka' => $idp], 'chyba');
+            return $this->back(t('The item is saved, but these fields had an invalid value and were left empty: %s', implode(', ', $errors)), 'item', ['id' => $k['idk'], 'polozka' => $idp], 'chyba');
         }
 
-        return $this->back('Položka byla uložena.', 'items', ['id' => $k['idk']]);
+        return $this->back('The item was saved.', 'items', ['id' => $k['idk']]);
     }
 
     /** Copy of an item (hidden, with a free slug) – a quick start for a similar reference, team member, product. */
@@ -167,10 +167,10 @@ final class Collections extends Module
             return $this->back('', 'items', ['id' => $idk]);
         }
         $seo = \Kaleta\Core\Slug::makeUnique($p['seo_link'] . '-kopie', fn (string $a): bool => $this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ?', [$idk, $p['jazyk'], $a]) !== null);
-        $id = $this->db->insert('kolekce_polozky', ['idk' => $idk, 'nazev' => mb_substr(t('%s (kopie)', $p['nazev']), 0, 200), 'seo_link' => $seo, 'data' => $p['data'],
+        $id = $this->db->insert('kolekce_polozky', ['idk' => $idk, 'nazev' => mb_substr(t('%s (copy)', $p['nazev']), 0, 200), 'seo_link' => $seo, 'data' => $p['data'],
             'poradi' => $p['poradi'], 'zobrazit' => 0, 'jazyk' => $p['jazyk'], 'datum' => date('Y-m-d H:i:s')]);
 
-        return $this->back('Kopie položky je skrytá – upravte ji a zveřejněte.', 'item', ['id' => $idk, 'polozka' => $id]);
+        return $this->back('The copy of the item is hidden – edit it and publish it.', 'item', ['id' => $idk, 'polozka' => $id]);
     }
 
     protected function actionDeleteItem(): Response
@@ -181,7 +181,7 @@ final class Collections extends Module
             \Kaleta\Front\Cache::clear();
         }
 
-        return $this->back('Položka byla smazána.', 'items', ['id' => $idk]);
+        return $this->back('The item was deleted.', 'items', ['id' => $idk]);
     }
 
     /* ---------- item template in the builder (administrator) ---------- */
@@ -246,7 +246,7 @@ final class Collections extends Module
 
         return [
             'adresa' => $url, 'nahled' => $url . '?stavba=koncept&editor=1', 'zobrazena' => (bool) $k['detail'], 'casti' => false,
-            'zpet' => ['adresa' => $this->url('items', ['id' => (int) $k['idk']]), 'text' => $k['nazev']], 'nastaveni' => $this->url('edit', ['id' => (int) $k['idk']]), 'textNastaveni' => t('Pole a nastavení kolekce'),
+            'zpet' => ['adresa' => $this->url('items', ['id' => (int) $k['idk']]), 'text' => $k['nazev']], 'nastaveni' => $this->url('edit', ['id' => (int) $k['idk']]), 'textNastaveni' => t('Collection fields and settings'),
             'kolekce' => ['seo_link' => $k['seo_link'], 'nazev' => $k['nazev'], 'pole' => $k['pole'], 'detail' => (bool) $k['detail']],
             'podpis' => KolekceObsahu::templateKey($k),
         ];
@@ -254,6 +254,6 @@ final class Collections extends Module
 
     private function admin(): ?Response
     {
-        return $this->app->auth()->isAdmin() ? null : $this->error('Definici kolekce a šablonu detailu mění jen správce webu.', 403);
+        return $this->app->auth()->isAdmin() ? null : $this->error('Only the site administrator can change the collection definition and detail template.', 403);
     }
 }

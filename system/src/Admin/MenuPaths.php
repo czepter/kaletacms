@@ -19,20 +19,20 @@ final class MenuPaths
      * @var list<array{0: list<string>, 1: string, 2: string}>
      */
     private const array PATHS = [
-        [['Nastavení', 'Zálohy a aktualizace'], 'settings', 'module=settings&tab=backups'],
-        [['Nastavení', 'Stav systému'], 'settings', 'module=settings&tab=health'],
-        [['Nastavení', 'Soukromí a cookies'], 'settings', 'module=settings&tab=cookies'],
-        [['Nastavení', 'SEO a GEO'], 'settings', 'module=settings&tab=seo'],
-        [['Nastavení', 'Základní'], 'settings', 'module=settings&tab=general'],
-        [['Nastavení', 'Měření'], 'settings', 'module=settings&tab=analytics'],
-        [['Nastavení', 'Pošta'], 'settings', 'module=settings&tab=mail'],
-        [['Vzhled', 'Vzhled webu'], 'appearance', 'module=appearance'],
-        [['Vzhled', 'Menu'], 'menu', 'module=menu'],
-        [['Zálohy a aktualizace'], 'settings', 'module=settings&tab=backups'],
-        [['Novinky', 'Koš'], 'news', 'module=news&stav=kos'],
-        [['Vzhled webu'], 'appearance', 'module=appearance'],
-        [['Stav systému'], 'settings', 'module=settings&tab=health'],
-        [['Můj účet'], '', 'action=account'],
+        [['Nastavení', 'Backups and updates'], 'settings', 'module=settings&tab=backups'],
+        [['Nastavení', 'System status'], 'settings', 'module=settings&tab=health'],
+        [['Nastavení', 'Privacy and cookies'], 'settings', 'module=settings&tab=cookies'],
+        [['Nastavení', 'SEO and GEO'], 'settings', 'module=settings&tab=seo'],
+        [['Nastavení', 'General'], 'settings', 'module=settings&tab=general'],
+        [['Nastavení', 'Analytics'], 'settings', 'module=settings&tab=analytics'],
+        [['Nastavení', 'Mail'], 'settings', 'module=settings&tab=mail'],
+        [['Appearance', 'Site appearance'], 'appearance', 'module=appearance'],
+        [['Appearance', 'Menu'], 'menu', 'module=menu'],
+        [['Backups and updates'], 'settings', 'module=settings&tab=backups'],
+        [['Novinky', 'Trash'], 'news', 'module=news&stav=kos'],
+        [['Site appearance'], 'appearance', 'module=appearance'],
+        [['System status'], 'settings', 'module=settings&tab=health'],
+        [['My account'], '', 'action=account'],
     ];
 
     /**

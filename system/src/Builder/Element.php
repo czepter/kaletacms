@@ -17,7 +17,7 @@ abstract class Element
     public const string NAME = '';
     public const string DESCRIPTION = '';
     public const string ICON = 'blok';
-    public const string GROUP = 'Obsah';
+    public const string GROUP = 'Content';
     /** Can contain other elements. */
     public const bool CONTAINER = false;
     /** Allowed tags, the first is the default. */

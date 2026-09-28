@@ -12,16 +12,16 @@
 		e.viewTransition.finished.catch(function () { /* transition skipped */ });
 	});
 
-	/* ---------- texts: Czech in the code, the translation for the language version is sent by Front\Seo::head() in the data-texty attribute of the <script> tag ---------- */
+	/* ---------- texts: English in the code, the translation for the language version is sent by Front\Seo::head() in the data-texty attribute of the <script> tag ---------- */
 
 	var texts = {};
 	try {
 		var htmlTag = document.currentScript || document.querySelector('script[data-texty]');
 		texts = JSON.parse((htmlTag && htmlTag.getAttribute('data-texty')) || '{}') || {};
 	} catch (e) { texts = {}; }
-	/* without the attribute (a custom template loads the script differently) the texts stay Czech */
-	function T(czech) { return typeof texts[czech] === 'string' && texts[czech] !== '' ? texts[czech] : czech; }
-	function A(czech) { return T(czech).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+	/* without the attribute (a custom template loads the script differently) the texts stay English */
+	function T(text) { return typeof texts[text] === 'string' && texts[text] !== '' ? texts[text] : text; }
+	function A(text) { return T(text).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
 	/* ---------- photo viewer: photo galleries and single images in the text ---------- */
 
@@ -40,8 +40,8 @@
 		if (!modal) {
 			modal = document.createElement('dialog');
 			modal.className = 'ka-prohlizecka';
-			modal.innerHTML = '<img alt=""><p aria-live="polite"></p><button type="button" data-krok="-1" aria-label="' + A('Předchozí fotka') + '">‹</button>'
-				+ '<button type="button" data-krok="1" aria-label="' + A('Další fotka') + '">›</button><button type="button" data-zavrit aria-label="' + A('Zavřít') + '">×</button>';
+			modal.innerHTML = '<img alt=""><p aria-live="polite"></p><button type="button" data-krok="-1" aria-label="' + A('Previous photo') + '">‹</button>'
+				+ '<button type="button" data-krok="1" aria-label="' + A('Next photo') + '">›</button><button type="button" data-zavrit aria-label="' + A('Close') + '">×</button>';
 			document.body.appendChild(modal);
 			modal.addEventListener('click', function (e) {
 				var step = e.target.getAttribute('data-krok');

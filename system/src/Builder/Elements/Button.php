@@ -11,21 +11,21 @@ use Kaleta\Builder\Element;
 final class Button extends Element
 {
     public const string TYPE = 'tlacitko';
-    public const string NAME = 'Tlačítko';
-    public const string DESCRIPTION = 'Výzva k akci: odkaz ve tvaru tlačítka.';
+    public const string NAME = 'Button';
+    public const string DESCRIPTION = 'Call to action: a link shaped as a button.';
     public const string ICON = 'tlacitko';
     public const array HTML_TAGS = ['a'];
-    public const array VARIANTS = ['primarni' => 'hlavní', 'sekundarni' => 'doplňkové', 'obrys' => 'obrys', 'odkaz' => 'textový odkaz'];
+    public const array VARIANTS = ['primarni' => 'hlavní', 'sekundarni' => 'doplňkové', 'obrys' => 'obrys', 'odkaz' => 'text link'];
 
     public static function properties(): array
     {
         return [
-            'text' => ['typ' => 'text', 'popisek' => 'Text', 'vychozi' => t('Kontaktujte nás'), 'max' => 120],
-            'odkaz' => ['typ' => 'odkaz', 'popisek' => 'Odkaz', 'vychozi' => '#'],
-            'varianta' => ['typ' => 'vyber', 'popisek' => 'Vzhled', 'vychozi' => 'primarni', 'moznosti' => self::VARIANTS],
-            'nove_okno' => ['typ' => 'prepinac', 'popisek' => 'Otevřít v novém okně', 'vychozi' => false],
-            'ikona' => ['typ' => 'vyber', 'popisek' => 'Ikona', 'vychozi' => '', 'moznosti' => ['' => 'bez ikony'] + \Kaleta\Builder\Icons::options()],
-            'ikona_vlevo' => ['typ' => 'prepinac', 'popisek' => 'Ikona vlevo od textu', 'vychozi' => false],
+            'text' => ['typ' => 'text', 'popisek' => 'Text', 'vychozi' => t('Contact us'), 'max' => 120],
+            'odkaz' => ['typ' => 'odkaz', 'popisek' => 'Link', 'vychozi' => '#'],
+            'varianta' => ['typ' => 'vyber', 'popisek' => 'Appearance', 'vychozi' => 'primarni', 'moznosti' => self::VARIANTS],
+            'nove_okno' => ['typ' => 'prepinac', 'popisek' => 'Open in a new window', 'vychozi' => false],
+            'ikona' => ['typ' => 'vyber', 'popisek' => 'Icon', 'vychozi' => '', 'moznosti' => ['' => 'no icon'] + \Kaleta\Builder\Icons::options()],
+            'ikona_vlevo' => ['typ' => 'prepinac', 'popisek' => 'Icon left of the text', 'vychozi' => false],
         ];
     }
 

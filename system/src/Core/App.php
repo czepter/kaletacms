@@ -143,7 +143,7 @@ final class App
             // the site language may not be known here yet (an error even at start): Czech only for visitors with Czech or Slovak in the browser
             $czech = (bool) preg_match('/^\s*(cs|sk)\b/i', (string) ($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? ''));
             [$title, $heading, $help] = $czech
-                ? ['Chyba', 'Omlouváme se, na stránce došlo k chybě.', 'Podrobnosti najde správce v souboru storage/log/chyby.log.']
+                ? ['Error', 'Omlouváme se, na stránce došlo k chybě.', 'Podrobnosti najde správce v souboru storage/log/chyby.log.']
                 : ['Error', 'Sorry, something went wrong on this page.', 'The site administrator can find the details in storage/log/chyby.log.'];
             echo '<!doctype html><html lang="' . ($czech ? 'cs' : 'en') . '"><meta charset="utf-8"><title>' . $title . '</title>'
                 . '<body style="font:14px Verdana,sans-serif;margin:3em">'

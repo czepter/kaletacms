@@ -13,8 +13,8 @@ use Kaleta\Core\Response;
 final class Stats extends Module
 {
     public const string IDENT = 'stats';
-    public const string NAME = 'Statistika';
-    public const string GROUP = 'Správa';
+    public const string NAME = 'Statistics';
+    public const string GROUP = 'Administration';
     public const string ICON = 'statistika';
     public const string EXTENSION = 'statistika';
 
@@ -29,7 +29,7 @@ final class Stats extends Module
             $chart[$day] = ['navstevy' => $n, 'zobrazeni' => $z];
         }
 
-        return $this->view('list', 'Statistika', [
+        return $this->view('list', 'Statistics', [
             'days' => $days,
             'chart' => $chart,
             'isEnabled' => $this->app->settings()->bool('stats'),

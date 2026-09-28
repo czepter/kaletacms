@@ -17,15 +17,15 @@ final class Form extends Element
 {
     public const string TYPE = 'formular';
     public const string EXTENSION = 'poptavky';
-    public const string NAME = 'Formulář';
-    public const string DESCRIPTION = 'Poptávka nebo dotaz – odeslané zprávy najdete v Poptávkách a přijdou i e-mailem.';
+    public const string NAME = 'Form';
+    public const string DESCRIPTION = 'An enquiry or question – submitted messages are in Enquiries and arrive by email.';
     public const string ICON = 'formular';
-    public const string GROUP = 'Dynamické';
+    public const string GROUP = 'Dynamic';
     public const array HTML_TAGS = ['form'];
 
     /** Form field types. */
-    public const array FIELD_TYPES = ['text' => 'text', 'email' => 'e-mail', 'tel' => 'telefon', 'textarea' => 'delší text', 'vyber' => 'výběr ze seznamu',
-        'volba' => 'volba jedné možnosti (přepínače)', 'datum' => 'datum', 'cislo' => 'číslo', 'soubor' => 'příloha (soubor)', 'souhlas' => 'zaškrtnutí (souhlas)'];
+    public const array FIELD_TYPES = ['text' => 'text', 'email' => 'e-mail', 'tel' => 'telefon', 'textarea' => 'longer text', 'vyber' => 'choice from a list',
+        'volba' => 'single choice (radio buttons)', 'datum' => 'datum', 'cislo' => 'číslo', 'soubor' => 'attachment (file)', 'souhlas' => 'checkbox (consent)'];
 
     /** Form attachments: allowed types and the maximum size of one file. */
     /** Phone in the pattern attribute (the browser reads it with the v flag – parentheses, slash and hyphen in the class must be escaped). */
@@ -37,25 +37,25 @@ final class Form extends Element
     public static function properties(): array
     {
         return [
-            'nazev' => ['typ' => 'text', 'popisek' => 'Název formuláře (v Poptávkách a v e-mailu)', 'vychozi' => t('Poptávka'), 'max' => 120],
-            'pole' => ['typ' => 'polozky', 'popisek' => 'Pole formuláře', 'max' => 20, 'pole' => [
-                'popisek' => ['typ' => 'text', 'popisek' => 'Popisek', 'vychozi' => '', 'max' => 200],
+            'nazev' => ['typ' => 'text', 'popisek' => 'Form name (in Enquiries and in the email)', 'vychozi' => t('Enquiry'), 'max' => 120],
+            'pole' => ['typ' => 'polozky', 'popisek' => 'Form fields', 'max' => 20, 'pole' => [
+                'popisek' => ['typ' => 'text', 'popisek' => 'Label', 'vychozi' => '', 'max' => 200],
                 'typ' => ['typ' => 'vyber', 'popisek' => 'Typ', 'vychozi' => 'text', 'moznosti' => self::FIELD_TYPES],
-                'povinne' => ['typ' => 'prepinac', 'popisek' => 'Povinné', 'vychozi' => false],
-                'moznosti' => ['typ' => 'radky', 'popisek' => 'Možnosti výběru (každá na řádek)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['typ' => 'vyber']],
-                'moznosti_volby' => ['typ' => 'radky', 'popisek' => 'Možnosti (každá na řádek)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['typ' => 'volba']],
+                'povinne' => ['typ' => 'prepinac', 'popisek' => 'Required', 'vychozi' => false],
+                'moznosti' => ['typ' => 'radky', 'popisek' => 'Choice options (one per line)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['typ' => 'vyber']],
+                'moznosti_volby' => ['typ' => 'radky', 'popisek' => 'Options (one per line)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['typ' => 'volba']],
             ], 'vychozi' => [
                 ['popisek' => t('Jméno'), 'typ' => 'text', 'povinne' => true, 'moznosti' => ''],
-                ['popisek' => t('E-mail'), 'typ' => 'email', 'povinne' => true, 'moznosti' => ''],
-                ['popisek' => t('Telefon'), 'typ' => 'tel', 'povinne' => false, 'moznosti' => ''],
-                ['popisek' => t('Co pro vás můžeme udělat?'), 'typ' => 'textarea', 'povinne' => true, 'moznosti' => ''],
-                ['popisek' => t('Souhlasím se zpracováním osobních údajů za účelem vyřízení poptávky.'), 'typ' => 'souhlas', 'povinne' => true, 'moznosti' => ''],
+                ['popisek' => t('Email'), 'typ' => 'email', 'povinne' => true, 'moznosti' => ''],
+                ['popisek' => t('Phone'), 'typ' => 'tel', 'povinne' => false, 'moznosti' => ''],
+                ['popisek' => t('How can we help you?'), 'typ' => 'textarea', 'povinne' => true, 'moznosti' => ''],
+                ['popisek' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'typ' => 'souhlas', 'povinne' => true, 'moznosti' => ''],
             ]],
-            'tlacitko' => ['typ' => 'text', 'popisek' => 'Text tlačítka', 'vychozi' => t('Odeslat poptávku'), 'max' => 80],
-            'dekujeme' => ['typ' => 'text', 'popisek' => 'Poděkování po odeslání', 'vychozi' => t('Děkujeme, zprávu jsme dostali. Ozveme se vám co nejdřív.'), 'max' => 400],
-            'prijemce' => ['typ' => 'text', 'popisek' => 'E-mail pro upozornění (prázdné = e-mail webu z Nastavení)', 'vychozi' => '', 'max' => 190],
-            'dekovna' => ['typ' => 'odkaz', 'popisek' => 'Po odeslání přejít na stránku (prázdné = poděkování na místě formuláře)', 'vychozi' => ''],
-            'potvrzeni' => ['typ' => 'prepinac', 'popisek' => 'Poslat odesílateli potvrzení e-mailem (jen poděkování, bez obsahu zprávy)', 'vychozi' => false],
+            'tlacitko' => ['typ' => 'text', 'popisek' => 'Button text', 'vychozi' => t('Send enquiry'), 'max' => 80],
+            'dekujeme' => ['typ' => 'text', 'popisek' => 'Thank-you message', 'vychozi' => t('Thank you, we have received your message. We will get back to you as soon as possible.'), 'max' => 400],
+            'prijemce' => ['typ' => 'text', 'popisek' => 'Notification email (empty = site email from Settings)', 'vychozi' => '', 'max' => 190],
+            'dekovna' => ['typ' => 'odkaz', 'popisek' => 'After sending, go to a page (empty = thank-you message in place of the form)', 'vychozi' => ''],
+            'potvrzeni' => ['typ' => 'prepinac', 'popisek' => 'Send the sender a confirmation e-mail (thank-you only, without the message content)', 'vychozi' => false],
         ];
     }
 
@@ -95,11 +95,11 @@ final class Form extends Element
     public static function messages(string $code): string
     {
         return match ($code) {
-            'pole' => t('Zkontrolujte prosím označené pole.'),
-            'limit' => t('Z vaší adresy přišlo v krátké době příliš mnoho zpráv. Zkuste to prosím později.'),
-            'rychle' => t('Formulář odešel dřív, než jsme stihli ověřit, že ho posílá člověk. Počkejte prosím chvilku a odešlete ho znovu.'),
-            'overeni' => t('Formulář se nepodařilo ověřit. Obnovte stránku a zkuste to znovu.'),
-            default => t('Zprávu se nepodařilo odeslat. Zkuste to prosím znovu.'),
+            'pole' => t('Please check the highlighted field.'),
+            'limit' => t('Too many messages have come from your address in a short time. Please try again later.'),
+            'rychle' => t('The form was sent before we could check that a person is sending it. Please wait a moment and send it again.'),
+            'overeni' => t('The form could not be verified. Reload the page and try again.'),
+            default => t('The message could not be sent. Please try again.'),
         };
     }
 
@@ -141,9 +141,9 @@ final class Form extends Element
         $labelText = e($field['popisek']);
         // a field the server rejected: marked and with a message that aria-describedby points to
         $marking = $error ? ' aria-invalid="true" aria-describedby="' . $id . '-chyba" autofocus' : '';
-        $message = $error ? '<span class="ka-pole-chyba" id="' . $id . '-chyba">' . e($field['typ'] === 'email' ? t('Zadejte platnou e-mailovou adresu.') : t('Toto pole je potřeba vyplnit správně.')) . '</span>' : '';
+        $message = $error ? '<span class="ka-pole-chyba" id="' . $id . '-chyba">' . e($field['typ'] === 'email' ? t('Enter a valid e-mail address.') : t('Please fill in this field correctly.')) . '</span>' : '';
         if ($field['typ'] === 'souhlas') {
-            $link = $privacyPolicy !== '' ? ' <a class="ka-pole-zasady" href="' . e($privacyPolicy) . '" target="_blank">' . e(t('Zásady ochrany osobních údajů')) . '</a>' : '';
+            $link = $privacyPolicy !== '' ? ' <a class="ka-pole-zasady" href="' . e($privacyPolicy) . '" target="_blank">' . e(t('Privacy policy')) . '</a>' : '';
 
             return '<p class="ka-pole ka-pole-souhlas"><label><input type="checkbox" name="' . $displayName . '" value="1"' . $required . $marking . '> <span>' . $labelText . $star . '</span></label>' . $link . $message . '</p>';
         }
@@ -158,14 +158,14 @@ final class Form extends Element
         $label = '<label for="' . $id . '">' . $labelText . $star . '</label>';
         $input = match ($field['typ']) {
             'textarea' => '<textarea id="' . $id . '" name="' . $displayName . '" maxlength="5000"' . $required . $marking . '></textarea>',
-            'vyber' => '<select id="' . $id . '" name="' . $displayName . '"' . $required . $marking . '><option value="">' . e(t('— vyberte —')) . '</option>'
+            'vyber' => '<select id="' . $id . '" name="' . $displayName . '"' . $required . $marking . '><option value="">' . e(t('— choose —')) . '</option>'
                 . implode('', array_map(fn (string $m): string => '<option>' . e($m) . '</option>', self::options($field))) . '</select>',
             'datum' => '<input id="' . $id . '" name="' . $displayName . '" type="date"' . $required . $marking . '>',
             'cislo' => '<input id="' . $id . '" name="' . $displayName . '" type="number" step="any" inputmode="decimal"' . $required . $marking . '>',
             'soubor' => '<input id="' . $id . '" name="' . $displayName . '" type="file" accept=".' . implode(',.', self::ATTACHMENT_EXTENSIONS) . '"' . $required . $marking . '>'
-                . '<small class="ka-pole-napoveda">' . e(t('Nejvýš %d MB: PDF, obrázek, dokument nebo ZIP.', (int) (self::MAX_ATTACHMENT / 1048576))) . '</small>',
+                . '<small class="ka-pole-napoveda">' . e(t('Up to %d MB: PDF, image, document or ZIP.', (int) (self::MAX_ATTACHMENT / 1048576))) . '</small>',
             // phone: the same rule as on the server (Front\Forms), the browser checks it right away; the pattern is valid with the v flag too
-            'tel' => '<input id="' . $id . '" name="' . $displayName . '" type="tel" autocomplete="tel" maxlength="30" pattern="' . self::PHONE_PATTERN . '" title="' . e(t('Telefonní číslo, například +420 123 456 789.')) . '"' . $required . $marking . '>',
+            'tel' => '<input id="' . $id . '" name="' . $displayName . '" type="tel" autocomplete="tel" maxlength="30" pattern="' . self::PHONE_PATTERN . '" title="' . e(t('Phone number, for example +44 20 7946 0958.')) . '"' . $required . $marking . '>',
             default => '<input id="' . $id . '" name="' . $displayName . '" type="' . ($field['typ'] === 'email' ? 'email" autocomplete="email' : 'text' . self::autocomplete($field['popisek'])) . '" maxlength="300"' . $required . $marking . '>',
         };
 

@@ -11,8 +11,8 @@ use Kaleta\Builder\Element;
 final class Html extends Element
 {
     public const string TYPE = 'html';
-    public const string NAME = 'Vlastní HTML';
-    public const string DESCRIPTION = 'Vložený kód jiné služby (mapa, rezervace). Jen pro správce.';
+    public const string NAME = 'Custom HTML';
+    public const string DESCRIPTION = 'Embedded code of another service (map, booking). Administrators only.';
     public const string ICON = 'kod';
     public const string GROUP = 'Pokročilé';
     public const array HTML_TAGS = ['div'];

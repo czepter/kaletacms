@@ -14,22 +14,22 @@ use Kaleta\Builder\Element;
 final class Navigation extends Element
 {
     public const string TYPE = 'navigace';
-    public const string NAME = 'Navigace';
-    public const string DESCRIPTION = 'Menu webu (Vzhled → Menu) i s podmenu a přepínač jazyků; na telefonu rozbalovací.';
+    public const string NAME = 'Navigation';
+    public const string DESCRIPTION = 'Site menu (Appearance → Menu) with submenus and the language switcher; collapsible on phones.';
     public const string ICON = 'menu';
-    public const string GROUP = 'Části webu';
+    public const string GROUP = 'Site parts';
     public const array HTML_TAGS = ['nav'];
     public const bool PARTS_ONLY = true;
 
     public static function properties(): array
     {
         return [
-            'menu' => ['typ' => 'vyber', 'popisek' => 'Které menu', 'vychozi' => 'hlavni', 'moznosti' => \Kaleta\Core\Menu::LOCATIONS],
-            'novinky' => ['typ' => 'prepinac', 'popisek' => 'Odkaz na novinky (u automatického menu)', 'vychozi' => true],
-            'mobil' => ['typ' => 'prepinac', 'popisek' => 'Na telefonu schovat za tlačítko', 'vychozi' => true],
-            'mega' => ['typ' => 'prepinac', 'popisek' => 'Podmenu jako široký panel (mega menu)', 'vychozi' => false],
-            'zvyrazneni' => ['typ' => 'vyber', 'popisek' => 'Zvýraznění aktivní položky', 'vychozi' => 'pozadi', 'moznosti' => ['pozadi' => 'podbarvení', 'podtrzeni' => 'podtržení doplňkovou barvou']],
-            'jazyky' => ['typ' => 'prepinac', 'popisek' => 'Přepínač jazyků (vypněte, když je jinde, třeba v patičce)', 'vychozi' => true],
+            'menu' => ['typ' => 'vyber', 'popisek' => 'Which menu', 'vychozi' => 'hlavni', 'moznosti' => \Kaleta\Core\Menu::LOCATIONS],
+            'novinky' => ['typ' => 'prepinac', 'popisek' => 'Link to news (in the automatic menu)', 'vychozi' => true],
+            'mobil' => ['typ' => 'prepinac', 'popisek' => 'Hide behind a button on phones', 'vychozi' => true],
+            'mega' => ['typ' => 'prepinac', 'popisek' => 'Submenu as a wide panel (mega menu)', 'vychozi' => false],
+            'zvyrazneni' => ['typ' => 'vyber', 'popisek' => 'Current item highlight', 'vychozi' => 'pozadi', 'moznosti' => ['pozadi' => 'podbarvení', 'podtrzeni' => 'underline in the secondary colour']],
+            'jazyky' => ['typ' => 'prepinac', 'popisek' => 'Language switcher (turn it off when it is elsewhere, for example in the footer)', 'vychozi' => true],
         ];
     }
 
@@ -96,16 +96,16 @@ final class Navigation extends Element
         }
         $items = \Kaleta\Core\Menu::html($menu, $k->path, $k->url(''));
         if ($items === '' && $k->editor) {
-            $items = '<li><span>' . e(t('Menu sestavíte ve Vzhled → Menu')) . '</span></li>';
+            $items = '<li><span>' . e(t('Build the menu in Appearance → Menu')) . '</span></li>';
         }
         $menu = '<ul>' . $items . '</ul>' . (($p['obsah']['jazyky'] ?? true) ? $k->languages : '') . $k->colorScheme;
         $classes = 'ka-nav' . (!empty($p['obsah']['mega']) ? ' ka-nav--mega' : '') . (($p['obsah']['zvyrazneni'] ?? '') === 'podtrzeni' ? ' ka-nav--podtrzeni' : '');
         if (!$p['obsah']['mobil']) {
-            return '<nav' . Text::withClass($a, $classes) . ' aria-label="' . e(t('Hlavní navigace')) . '"><div class="ka-nav-menu">' . $menu . '</div></nav>';
+            return '<nav' . Text::withClass($a, $classes) . ' aria-label="' . e(t('Main navigation')) . '"><div class="ka-nav-menu">' . $menu . '</div></nav>';
         }
         $id = 'ka-nav-' . $p['id'];
 
-        return '<nav' . Text::withClass($a, $classes) . ' aria-label="' . e(t('Hlavní navigace')) . '">'
+        return '<nav' . Text::withClass($a, $classes) . ' aria-label="' . e(t('Main navigation')) . '">'
             . '<button class="ka-nav-tl" type="button" popovertarget="' . e($id) . '" aria-label="' . e(t('Menu')) . '"><span aria-hidden="true"></span></button>'
             . '<div class="ka-nav-menu" id="' . e($id) . '" popover>' . $menu . '</div></nav>';
     }

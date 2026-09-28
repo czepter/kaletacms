@@ -13,7 +13,7 @@ use Kaleta\Core\Db;
 final class Components
 {
     /** Property types (a subset of collection fields). */
-    public const array TYPES = ['text' => 'krátký text', 'radky' => 'delší text', 'html' => 'formátovaný text', 'obrazek' => 'obrázek', 'odkaz' => 'odkaz'];
+    public const array TYPES = ['text' => 'short text', 'radky' => 'longer text', 'html' => 'formatted text', 'obrazek' => 'obrázek', 'odkaz' => 'odkaz'];
 
     /** Maximum nesting of components (a component in a component…). */
     public const int MAX_NESTING = 4;

@@ -1,34 +1,34 @@
 <?php /** The "SEO a GEO" (SEO and GEO) tab. */ ?>
-<p class="hlaska"><?= e(t('Většinu věcí dělá systém sám: adresy, popisy, sitemapu, strukturovaná data i podklady pro AI vyhledávače. Tady rozhodujete jen o tom hlavním.')) ?></p>
+<p class="hlaska"><?= e(t('The system does most things itself: URLs, descriptions, the sitemap, structured data and resources for AI search engines. Here you decide only on the essentials.')) ?></p>
 <fieldset>
-<legend><?= e(t('Viditelnost webu')) ?></legend>
-<?php $field('indexing', 'Web smí být ve vyhledávačích', 'ano', 'Vypněte jen u webu ve výstavbě.'); ?>
+<legend><?= e(t('Site visibility')) ?></legend>
+<?php $field('indexing', 'Allow the site in search engines', 'ano', 'Turn off only for a site under construction.'); ?>
 <div class="radek">
-	<label for="ai_crawlers"><?= e(t('AI vyhledávače a asistenti')) ?></label>
+	<label for="ai_crawlers"><?= e(t('AI search engines and assistants')) ?></label>
 	<div><select id="ai_crawlers" name="ai_crawlers">
-		<option value="povolit"<?= $values['ai_crawlers'] === 'povolit' ? ' selected' : '' ?>><?= e(t('povolit – obsah se může objevit v odpovědích AI s odkazem na web')) ?></option>
-		<option value="zakazat"<?= $values['ai_crawlers'] === 'zakazat' ? ' selected' : '' ?>><?= e(t('zakázat – ChatGPT, Claude, Perplexity, Gemini a další')) ?></option>
+		<option value="povolit"<?= $values['ai_crawlers'] === 'povolit' ? ' selected' : '' ?>><?= e(t('allow – content may appear in AI answers with a link to the site')) ?></option>
+		<option value="zakazat"<?= $values['ai_crawlers'] === 'zakazat' ? ' selected' : '' ?>><?= e(t('disallow – ChatGPT, Claude, Perplexity, Gemini and others')) ?></option>
 	</select>
-	<span class="napoveda"><?= e(t('Slušní roboti pravidlo respektují; nejde o technickou ochranu.')) ?></span></div>
+	<span class="napoveda"><?= e(t('Well-behaved bots respect the rule; it is not a technical protection.')) ?></span></div>
 </div>
-<?php $field('share_image', 'Obrázek pro sdílení', 'text', 'Ukáže se na sociálních sítích u stránek bez vlastního obrázku. Ideálně 1200×630 px.', 'data-obrazek maxlength="255"'); ?>
+<?php $field('share_image', 'Sharing image', 'text', 'Shown on social networks for pages without their own image. Ideally 1200×630 px.', 'data-obrazek maxlength="255"'); ?>
 </fieldset>
 <details class="pokrocile"<?= $values['verification_google'] . $values['verification_bing'] !== '' ? ' open' : '' ?>>
-<summary><?= e(t('Ověření vlastnictví webu (Google Search Console, Bing)')) ?></summary>
+<summary><?= e(t('Site ownership verification (Google Search Console, Bing)')) ?></summary>
 <?php
-$field('verification_google', 'Google', 'text', 'Hodnota content z meta tagu google-site-verification.', 'maxlength="100"');
-$field('verification_bing', 'Bing', 'text', 'Hodnota content z meta tagu msvalidate.01.', 'maxlength="64"');
+$field('verification_google', 'Google', 'text', 'The content value from the google-site-verification meta tag.', 'maxlength="100"');
+$field('verification_bing', 'Bing', 'text', 'The content value from the msvalidate.01 meta tag.', 'maxlength="64"');
 ?>
-<p class="napoveda"><?= e(t('Do Search Console pak vložte adresu sitemapy:')) ?> <?= e($siteUrl) ?>sitemap.xml</p>
+<p class="napoveda"><?= e(t('Then submit the sitemap address in Search Console:')) ?> <?= e($siteUrl) ?>sitemap.xml</p>
 </details>
 <details class="pokrocile">
 <summary><?= e(t('Pro pokročilé')) ?></summary>
 <?php
-$field('schema_org', 'Strukturovaná data schema.org', 'ano');
-$field('indexnow', 'Oznamovat nové novinky vyhledávačům (IndexNow)', 'ano', 'Bing, Seznam a Yandex je pak zaindexují během minut.');
-$field('llms_txt', 'Soubor llms.txt', 'ano', 'Průvodce webem pro jazykové modely.');
-$field('markdown_news', 'Čistá verze novinek (.md)', 'ano', 'Každá novinka i jako prostý text bez navigace – pro jazykové modely a AI vyhledávače.');
-$field('robots_extra', 'Vlastní pravidla robots.txt', 'radky', '', 'spellcheck="false"');
+$field('schema_org', 'schema.org structured data', 'ano');
+$field('indexnow', 'Notify search engines about new news (IndexNow)', 'ano', 'Bing, Seznam and Yandex will then index them within minutes.');
+$field('llms_txt', 'llms.txt file', 'ano', 'A guide to the site for language models.');
+$field('markdown_news', 'Plain-text news (.md)', 'ano', 'Every news item also as plain text without navigation – for language models and AI search engines.');
+$field('robots_extra', 'Custom robots.txt rules', 'radky', '', 'spellcheck="false"');
 ?>
-<p class="napoveda"><?= e(t('Co systém generuje:')) ?> <a href="<?= e($siteUrl) ?>robots.txt" target="_blank" rel="noopener"><?= e(t('robots.txt')) ?></a> · <a href="<?= e($siteUrl) ?>sitemap.xml" target="_blank" rel="noopener"><?= e(t('sitemap.xml')) ?></a> · <a href="<?= e($siteUrl) ?>llms.txt" target="_blank" rel="noopener"><?= e(t('llms.txt')) ?></a> · <a href="<?= e($siteUrl) ?>rss.xml" target="_blank" rel="noopener"><?= e(t('rss.xml')) ?></a> · <a href="<?= e($siteUrl) ?>feed.json" target="_blank" rel="noopener"><?= e(t('feed.json')) ?></a></p>
+<p class="napoveda"><?= e(t('What the system generates:')) ?> <a href="<?= e($siteUrl) ?>robots.txt" target="_blank" rel="noopener"><?= e(t('robots.txt')) ?></a> · <a href="<?= e($siteUrl) ?>sitemap.xml" target="_blank" rel="noopener"><?= e(t('sitemap.xml')) ?></a> · <a href="<?= e($siteUrl) ?>llms.txt" target="_blank" rel="noopener"><?= e(t('llms.txt')) ?></a> · <a href="<?= e($siteUrl) ?>rss.xml" target="_blank" rel="noopener"><?= e(t('rss.xml')) ?></a> · <a href="<?= e($siteUrl) ?>feed.json" target="_blank" rel="noopener"><?= e(t('feed.json')) ?></a></p>
 </details>

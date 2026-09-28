@@ -22,8 +22,8 @@ final class SiteParts extends Module
     }
 
     public const string IDENT = 'parts';
-    public const string NAME = 'Části webu';
-    public const string GROUP = 'Vzhled';
+    public const string NAME = 'Site parts';
+    public const string GROUP = 'Appearance';
     public const string ICON = 'casti';
     public const bool ADMIN_ONLY = true;
 
@@ -41,7 +41,7 @@ final class SiteParts extends Module
             }
         }
 
-        return $this->view('list', 'Části webu', [
+        return $this->view('list', 'Site parts', [
             'types' => CastiWebu::TYPES, 'languages' => $languages, 'rows' => $rows, 'variants' => $variants,
             'pageNames' => $this->db->pairs('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY poradi, titulek'),
             'languageNames' => array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[Language::ofContent($siteSettings, $j)][0], $languages)),
@@ -70,7 +70,7 @@ final class SiteParts extends Module
             \Kaleta\Front\Cache::clear();
         }
 
-        return $this->back($variant !== '' ? 'Varianta byla smazána – vybrané stránky mají zase výchozí podobu.' : 'Část webu se vrátila na výchozí podobu. Předchozí podobu najdete ve verzích, když ji znovu otevřete v builderu.');
+        return $this->back($variant !== '' ? 'The variant was deleted – the selected pages have the default version again.' : 'The site part is back to its default design. The previous design is in the history when you open it in the builder again.');
     }
 
     /** Form of a header or footer variant: name and the pages it applies to. */
@@ -78,11 +78,11 @@ final class SiteParts extends Module
     {
         [$type, $language, $variant] = $this->readPartParams();
         if ($type === null || !in_array($type, CastiWebu::WITH_VARIANTS, true)) {
-            return $this->error('Varianty mají jen záhlaví a patička.', 404);
+            return $this->error('Only the header and footer can have variants.', 404);
         }
         $row = $variant !== '' ? CastiWebu::row($this->db, $type, $language, $variant) : null;
 
-        return $this->view('variant', t('Varianta: %s', t(CastiWebu::TYPES[$type][0])), [
+        return $this->view('variant', t('Variant: %s', t(CastiWebu::TYPES[$type][0])), [
             'type' => $type, 'language' => $language, 'variant' => $row['varianta'] ?? '', 'name' => $row['nazev'] ?? '',
             'selected' => array_map('intval', json_decode((string) ($row['stranky'] ?? '[]'), true) ?: []),
             'pages' => $this->db->all('SELECT ids, titulek FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$language]),
@@ -98,7 +98,7 @@ final class SiteParts extends Module
         }
         $name = mb_substr(trim($this->request->post('nazev')), 0, 100);
         if ($name === '') {
-            return $this->back('Varianta musí mít název.', 'variant', ['typ' => $type, 'jazyk' => $language], 'chyba');
+            return $this->back('The variant needs a name.', 'variant', ['typ' => $type, 'jazyk' => $language], 'chyba');
         }
         $variant = CastiWebu::saveVariant($this->db, $type, $language, $this->request->post('varianta'), $name, array_map('intval', $this->request->postList('stranky')), $this->contentLanguage($language));
         \Kaleta\Front\Cache::clear();
@@ -146,7 +146,7 @@ final class SiteParts extends Module
         return [
             'adresa' => $url, 'nahled' => $url . '?cast=' . $type . '&stavba=koncept&editor=1' . ($target['radek']['varianta'] !== '' ? '&varianta=' . rawurlencode($target['radek']['varianta']) : ''),
             'zobrazena' => true, 'casti' => true,
-            'zpet' => ['adresa' => $this->url(), 'text' => t('Části webu')], 'nastaveni' => null, 'podpis' => 'cast:' . $type . ':' . $language . ($target['radek']['varianta'] !== '' ? ':' . $target['radek']['varianta'] : ''),
+            'zpet' => ['adresa' => $this->url(), 'text' => t('Site parts')], 'nastaveni' => null, 'podpis' => 'cast:' . $type . ':' . $language . ($target['radek']['varianta'] !== '' ? ':' . $target['radek']['varianta'] : ''),
         ];
     }
 

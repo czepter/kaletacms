@@ -6,10 +6,10 @@
  * @var list<array{titulek:string, seo_link:string}> $stranky
  */
 ?>
-<header class="vypis-hlavicka"><h1><?= e(t('Stránka nenalezena')) ?></h1></header>
-<p><?= e(t('Požadovaná stránka na webu není. Možná má jinou adresu.')) ?></p>
+<header class="vypis-hlavicka"><h1><?= e(t('Page not found')) ?></h1></header>
+<p><?= e(t('The page you are looking for is not here. It may have a different address.')) ?></p>
 <form class="hledani" method="get" action="<?= e($url('hledani')) ?>" role="search">
-	<input type="search" name="q" placeholder="<?= e(t('Hledaný text')) ?>" aria-label="<?= e(t('Hledaný text')) ?>" minlength="3" required>
+	<input type="search" name="q" placeholder="<?= e(t('Search text')) ?>" aria-label="<?= e(t('Search text')) ?>" minlength="3" required>
 	<button type="submit"><?= e(t('Hledat')) ?></button>
 </form>
 <?php if ($stranky !== []): ?>
