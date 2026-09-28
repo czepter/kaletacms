@@ -71,20 +71,27 @@ Two steps: the first in 1.3, the second in 1.5.
 
    A full campaign tool (segments, automations, A/B tests) stays out of scope – that is what the connected services are for.
 
-## 1.4 – English identifiers in the code base
+## 1.4 – English identifiers in the code base (1.4.0 released 28 September 2026)
 
-The code moves from Czech names to English, one area per release, so contributors can read it. Nothing changes for
-sites: stored data, build JSON, CSS hooks, MCP tools and old admin links keep working. Terms and the list of what stays
-are in [docs/glossary.md](glossary.md).
+The code moves from Czech names to English so contributors can read it. Nothing changes for sites: stored data, build
+JSON, CSS hooks of the public site, public templates, MCP tools and old admin links keep working. Terms and the list of
+what stays are in [docs/glossary.md](glossary.md).
+
+Done in 1.4.0:
 
 1. Preparation: the glossary, `tools/rename.php` (renames by PHP tokens, refuses name collisions), old class names as
-   aliases, and `tools/test-update.sh` – every change is tested as an update from the previous release.
+   aliases, `tools/test-update.sh` (every change is tested as an update from the previous release) and a browser test.
 2. Tools and tests.
-3. PHP classes by area: core, public site, admin, MCP, builder.
-4. Admin scripts, styles and templates.
-5. Admin modules and actions in URLs, with the old URLs redirected and permissions migrated.
-6. Settings keys, copied by a migration (old keys read as a fallback for two releases).
-7. UI source texts in English, Czech moved to a dictionary like the other languages.
+3. PHP classes, functions, constants and variables (`Kaleta\Builder`, `Admin\Modules`…); release packages carry the
+   previous release's class files for the update request.
+4. Admin and installer templates, admin and site scripts (`tools/rename-js.mjs`).
+5. Admin URLs `admin.php?module=pages&action=edit`, old URLs redirected, permissions migrated.
+
+Next, in 1.4.x:
+
+6. Admin CSS classes and `data-*` attributes.
+7. Settings keys, copied by a migration (old keys read as a fallback for two releases).
+8. UI source texts in English, Czech moved to a dictionary like the other languages; code comments in English.
 
 ## 1.5 – newsletter mailing
 
