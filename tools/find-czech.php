@@ -15,7 +15,7 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 
 /** Česká slova bez diakritiky, která v anglickém textu nemají co dělat (malými písmeny, porovnává se celé slovo). „Seznam“ chybí schválně – je to i název služby. */
-const SLOVA = ['nebo', 'jsou', 'jako', 'pokud', 'bude', 'byla', 'bylo', 'jsme', 'jste', 'nelze', 'zde', 'tento', 'tato', 'toto', 'tyto',
+const WORDS = ['nebo', 'jsou', 'jako', 'pokud', 'bude', 'byla', 'bylo', 'jsme', 'jste', 'nelze', 'zde', 'tento', 'tato', 'toto', 'tyto',
     'novinky', 'novinka', 'novinek', 'kontakt', 'odkaz', 'odkazu', 'soubor', 'soubory', 'nadpis', 'nadpisy', 'obsah', 'upravit', 'smazat',
     'zobrazit', 'hledat', 'hledani', 'kotva', 'heslo', 'stavba', 'stavby', 'verze', 'firma', 'adresa', 'popis', 'popisek', 'chyba', 'druh',
     'koncept', 'kategorie', 'nastavit', 'nastaveni', 'vlastnosti', 'barva', 'sekce', 'kontejner', 'galerie', 'podklad', 'odstavec',
@@ -23,7 +23,7 @@ const SLOVA = ['nebo', 'jsou', 'jako', 'pokud', 'bude', 'byla', 'bylo', 'jsme', 
     'stranka', 'stranky', 'polozka', 'polozky', 'uzivatel', 'sluzby', 'uvod', 'znacka'];
 
 /** Slova s diakritikou, která do angličtiny patří (názvy jazyků, přejatá slova). */
-const POVOLENA = ['Čeština', 'café', 'Café'];
+const ALLOWED = ['Čeština', 'café', 'Café'];
 
 /** Klíče slovníků, které jsou zároveň anglickým slovem (List = seznam i list stromu…), se jako klíč nehledají. */
 const DVOJZNACNE = ['List', 'Reference', 'Web', 'Region', 'Standard', 'Video', 'Menu', 'Tablet', 'Logo', 'Text', 'E-mail'];
@@ -53,7 +53,7 @@ function hasDiacritics(string $text): bool
     static $languages = null;
     $languages ??= array_column((function (): array { require_once dirname(__DIR__) . '/system/src/Core/Language.php'; return \Kaleta\Core\Language::AVAILABLE; })(), 0);
 
-    return preg_match('/[ěščřžůťďňáéíóúýĚŠČŘŽŮŤĎŇÁÉÍÓÚÝ]/u', str_replace([...POVOLENA, ...$languages], '', $text)) === 1;
+    return preg_match('/[ěščřžůťďňáéíóúýĚŠČŘŽŮŤĎŇÁÉÍÓÚÝ]/u', str_replace([...ALLOWED, ...$languages], '', $text)) === 1;
 }
 
 /** Česká slova v textu; slova s lomítkem, tečkou uvnitř, @, = nebo podtržítkem jsou adresy a kód, ne text. */
@@ -65,7 +65,7 @@ function czechWords(string $text): array
         if ($word === '' || preg_match('#[/@=_\#.&%]#', $word)) {
             continue;
         }
-        if (in_array(mb_strtolower($word), SLOVA, true)) {
+        if (in_array(mb_strtolower($word), WORDS, true)) {
             $finding[] = $word;
         }
     }

@@ -292,10 +292,10 @@ final class Tools
 
             case 'stavba_uprav':
                 $target = $this->loadBuildTarget($a);
-                $chybyOperaci = [];
-                $build = \Kaleta\Builder\Edits::apply($this->targetBuild($target), is_array($a['operace'] ?? null) ? $a['operace'] : [], $chybyOperaci);
+                $operationErrors = [];
+                $build = \Kaleta\Builder\Edits::apply($this->targetBuild($target), is_array($a['operace'] ?? null) ? $a['operace'] : [], $operationErrors);
 
-                return $this->saveBuild($target, $build, !empty($a['publikovat'])) + ['chyby_operaci' => $chybyOperaci];
+                return $this->saveBuild($target, $build, !empty($a['publikovat'])) + ['chyby_operaci' => $operationErrors];
 
             case 'seznam_trid':
                 $rows = isset($a['nazev']) ? $db->all('SELECT nazev, styl, css FROM {tridy} WHERE nazev = ?', [(string) $a['nazev']]) : $db->all('SELECT nazev, styl, css FROM {tridy} ORDER BY nazev');

@@ -255,12 +255,12 @@ final class Users extends Module
                 ? $this->request->postList('moduly')
                 : array_column($this->db->all('SELECT ident_modulu FROM {uzivatele_prava} WHERE fk_id_user = ?', [$id]), 'ident_modulu'),
             'manual' => $this->request->isPost() ? $this->request->postBool('rucne') : ($id > 0 && (int) $author['admin'] !== Auth::ADMIN && (function () use ($id, $author): bool {
-                $ma = array_column($this->db->all('SELECT ident_modulu FROM {uzivatele_prava} WHERE fk_id_user = ?', [$id]), 'ident_modulu');
+                $hasNow = array_column($this->db->all('SELECT ident_modulu FROM {uzivatele_prava} WHERE fk_id_user = ?', [$id]), 'ident_modulu');
                 $defaults = self::defaultModules((int) $author['admin']);
-                sort($ma);
+                sort($hasNow);
                 sort($defaults);
 
-                return $ma !== $defaults;
+                return $hasNow !== $defaults;
             })()),
         ]);
     }

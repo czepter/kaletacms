@@ -17,14 +17,14 @@ final class Integrity
     /** @return array{stav:string, info:string, zmenene:list<string>, chybi:list<string>, navic:list<string>} */
     public static function check(string $keyFile = KALETA_SYSTEM . '/aktualizace.pub'): array
     {
-        $prazdne = ['zmenene' => [], 'chybi' => [], 'navic' => []];
+        $empty = ['zmenene' => [], 'chybi' => [], 'navic' => []];
         if (!is_file(self::CATALOG)) {
-            return ['stav' => 'ok', 'info' => t('vývojová verze bez seznamu souborů – kontrola se týká jen vydaných balíčků')] + $prazdne;
+            return ['stav' => 'ok', 'info' => t('vývojová verze bez seznamu souborů – kontrola se týká jen vydaných balíčků')] + $empty;
         }
         $data = json_decode((string) file_get_contents(self::CATALOG), true);
         $files = is_array($data['soubory'] ?? null) ? $data['soubory'] : null;
         if ($files === null || !Signature::isValid(self::stringToSign((string) ($data['verze'] ?? ''), $files), (string) ($data['podpis'] ?? ''), $keyFile)) {
-            return ['stav' => 'chyba', 'info' => t('seznam souborů jádra (system/soubory.json) je poškozený nebo nemá platný podpis vydavatele')] + $prazdne;
+            return ['stav' => 'chyba', 'info' => t('seznam souborů jádra (system/soubory.json) je poškozený nebo nemá platný podpis vydavatele')] + $empty;
         }
         $changed = $missing = [];
         foreach ($files as $path => $hash) {

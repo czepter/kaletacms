@@ -394,12 +394,12 @@ final class Translator
             $schema = $byName[$cs]['inputSchema'];
             $properties = [];
             $required = [];
-            foreach (self::parameters($en) as $enParam => [$csParam, $popisParam]) {
+            foreach (self::parameters($en) as $enParam => [$csParam, $paramDescription]) {
                 if (!isset($schema['properties'][$csParam])) {
                     continue;
                 }
-                $properties[$enParam] = ['description' => $popisParam] + $schema['properties'][$csParam];
-                $properties[$enParam]['description'] = $popisParam;
+                $properties[$enParam] = ['description' => $paramDescription] + $schema['properties'][$csParam];
+                $properties[$enParam]['description'] = $paramDescription;
                 if (in_array($csParam, $schema['required'] ?? [], true)) {
                     $required[] = $enParam;
                 }

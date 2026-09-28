@@ -30,7 +30,7 @@ check() { # over <popis> <očekávaný kód> <adresa> [hledaný text]
 }
 
 LAST_MIGRATION=$(ls "$ROOT"/system/sql/migrace/*.sql | sed 's/.*\/\([0-9]*\)-.*/\1/' | sort -n | tail -1 | sed 's/^0*//')
-grep -q "const KALETA_VERZE_DB = $LAST_MIGRATION;" "$ROOT/system/bootstrap.php" && echo "  ok     KALETA_VERZE_DB odpovídá poslední migraci ($LAST_MIGRATION)" || { echo "  CHYBA  KALETA_VERZE_DB v system/bootstrap.php neodpovídá poslední migraci ($LAST_MIGRATION)"; ERRORS=$((ERRORS+1)); }
+grep -q "const KALETA_DB_VERSION = $LAST_MIGRATION;" "$ROOT/system/bootstrap.php" && echo "  ok     KALETA_DB_VERSION odpovídá poslední migraci ($LAST_MIGRATION)" || { echo "  CHYBA  KALETA_DB_VERSION v system/bootstrap.php neodpovídá poslední migraci ($LAST_MIGRATION)"; ERRORS=$((ERRORS+1)); }
 
 echo "== jednotkové testy"
 php "$ROOT/tools/unit-tests.php" || ERRORS=$((ERRORS+1))

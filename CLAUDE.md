@@ -20,7 +20,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   Starší názvy sloupců zůstaly: `idc` = novinka, `tema`/`idt` = kategorie, `ido` = médium, `idu` = uživatel.
 - Identifikátory v kódu česky bez diakritiky; komentáře a texty česky s diakritikou.
 - **Změna databáze = dva zápisy:** úplné schéma `system/sql/schema.sql` a migrace `system/sql/migrace/NNNN-popis.sql` + zvýšit
-  `KALETA_VERZE_DB` v `system/bootstrap.php` (hlídá `tools/test.sh`). Výchozí stav je migrace 0001.
+  `KALETA_DB_VERSION` v `system/bootstrap.php` (hlídá `tools/test.sh`). Výchozí stav je migrace 0001.
 - **Rozšíření jsou uzavřený systém** (`Core\Extensions::CATALOG`): žádné cizí plug-iny ani nahrávání kódu z administrace.
 - **Role:** správce (2), editor (1 – veškerý obsah, vydává), autor novinek (0 – jen své novinky, nevydává). `Auth::canPublish()`,
   `Auth::managedAuthors()`, `Auth::articleScope()`; práva k sekcím navíc `ka_uzivatele_prava` (výchozí podle role, `Users::defaultModules()`).

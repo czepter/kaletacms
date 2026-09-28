@@ -63,7 +63,7 @@ final class Kernel
         $app->request->setOrigin($app->settings()->get('adresa_webu'));
         $app->applyTimezone();
         // po aktualizaci systému (i automatické) se databáze upraví hned při první návštěvě, ne až po přihlášení administrátora
-        if ($app->settings()->int('verze_db') < KALETA_VERZE_DB) {
+        if ($app->settings()->int('verze_db') < KALETA_DB_VERSION) {
             // nepovedená migrace nesmí shodit celý web: zapíše se a web běží dál (změny databáze jsou jen přidávající);
             // správce ji uvidí v administraci a může nainstalovat opravu
             \Kaleta\Core\Migration::safe($app->db(), $app->settings());

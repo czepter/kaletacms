@@ -63,7 +63,7 @@ check('Migrace::prikazy: počet', count($statements), 3);
 check('Migrace::prikazy: předpona tabulek', str_contains($statements[1], 'CREATE TABLE web_nova'), true);
 check('Migrace::prikazy: středník v hodnotě příkaz nerozdělí', str_contains($statements[1], "DEFAULT ';'"), true);
 check('Migrace::prikazy: předpona omezení', str_contains($statements[2], 'CONSTRAINT web_fk_a') && str_contains($statements[2], 'REFERENCES web_b'), true);
-check('Migrace: KALETA_VERZE_DB odpovídá souborům', KALETA_VERZE_DB, Migration::latest());
+check('Migrace: KALETA_VERZE_DB odpovídá souborům', KALETA_DB_VERSION, Migration::latest());
 
 /* ---------- přílohy ---------- */
 check('Soubory: PDF je příloha', Files::isAttachment('Zpráva.PDF'), true);

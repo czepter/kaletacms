@@ -12,8 +12,8 @@ cleanup() { "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$OLD\`; DROP DATABASE IF
 trap cleanup EXIT
 
 echo "== database upgrade from $FROM"
-OLD_DB_VERSION=$(git -C "$ROOT" show "${FROM}:system/bootstrap.php" | sed -n 's/^const KALETA_VERZE_DB = \([0-9]*\);/\1/p')
-[ -n "$OLD_DB_VERSION" ] || { echo "  CHYBA  cannot read KALETA_VERZE_DB of $FROM"; exit 1; }
+OLD_DB_VERSION=$(git -C "$ROOT" show "${FROM}:system/bootstrap.php" | sed -nE 's/^const KALETA_(VERZE_DB|DB_VERSION) = ([0-9]+);/\2/p') # renamed in 1.4
+[ -n "$OLD_DB_VERSION" ] || { echo "  CHYBA  cannot read the database version of $FROM"; exit 1; }
 "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$OLD\`; DROP DATABASE IF EXISTS \`$NEW\`; CREATE DATABASE \`$OLD\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci; CREATE DATABASE \`$NEW\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
 git -C "$ROOT" show "${FROM}:system/sql/schema.sql" | "${MYSQL[@]}" "$OLD" || { echo "  CHYBA  old schema"; exit 1; }
 "${MYSQL[@]}" "$NEW" < "$ROOT/system/sql/schema.sql" || { echo "  CHYBA  current schema"; exit 1; }
