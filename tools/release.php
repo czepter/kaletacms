@@ -97,15 +97,16 @@ foreach ($files as $file) {
         $hashes[$file] = hash_file('sha256', $root . '/' . $file);
     }
 }
-// classes of the previous release that this one renamed or removed ride along unchanged: the previous release installs
-// this package and, in the same request, may still load its own classes after its cleanup. The new version deletes them
-// on the first admin load (Updater::cleanUpRemoved, 'legacy' list).
+// classes of older releases that this one renamed or removed ride along unchanged: an older release installs this package
+// and, in the same request, may still load its own classes after its cleanup. Every earlier release counts, not only the
+// previous one – a site may skip releases (1.3 straight to 1.4.1). Each file comes from the newest release that had it.
+// The new version deletes them on the first admin load (Updater::cleanUpRemoved, 'legacy' list).
 $legacy = [];
-$previous = trim((string) shell_exec('cd ' . escapeshellarg($root) . ' && git describe --tags --abbrev=0 HEAD^ 2>/dev/null'));
-if ($previous !== '') {
-    foreach (array_filter(explode("\n", (string) shell_exec('cd ' . escapeshellarg($root) . ' && git ls-tree -r --name-only ' . escapeshellarg($previous) . ' -- system/src/'))) as $old) {
-        if (!in_array($old, $files, true)) {
-            $content = (string) shell_exec('cd ' . escapeshellarg($root) . ' && git show ' . escapeshellarg($previous . ':' . $old));
+$git = fn (string $args): string => (string) shell_exec('cd ' . escapeshellarg($root) . ' && git ' . $args . ' 2>/dev/null');
+foreach (array_filter(explode("\n", $git('tag --sort=-v:refname --merged HEAD^ "v*"'))) as $release) {
+    foreach (array_filter(explode("\n", $git('ls-tree -r --name-only ' . escapeshellarg($release) . ' -- system/src/'))) as $old) {
+        if (!in_array($old, $files, true) && !isset($legacy[$old])) {
+            $content = $git('show ' . escapeshellarg($release . ':' . $old));
             $zip->addFromString($old, $content);
             $legacy[$old] = hash('sha256', $content);
         }
