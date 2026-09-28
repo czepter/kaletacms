@@ -113,7 +113,7 @@ findable, then remove what is left of the old ways. Each step uses the previous 
 - Claude: `draft_newsletter` and `send_test_newsletter`; the real send only on an explicit request and with the publish
   permission, like publishing.
 
-## 1.6 – Claude can do most of what the admin does (in main, not released yet)
+## 1.6 – Claude can do most of what the admin does (released 28 September 2026)
 
 1. **Delete and restore over MCP:** news, collection items, collections, categories, pop-ups, components, saved
    sections and media; restore a page, news item or collection item from the trash; mark an enquiry handled or delete it.
