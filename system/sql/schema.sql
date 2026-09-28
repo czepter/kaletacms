@@ -110,7 +110,7 @@ CREATE TABLE ka_novinky (
     oznameno       DATETIME NULL,                         -- when the system announced the publishing (webhook, IndexNow); NULL = not yet
     jazyk          CHAR(2) NOT NULL DEFAULT '',           -- taken from the category on save
     preklad_z      INT UNSIGNED NULL,                     -- idc of the news item this one is a translation of
-    hledani        MEDIUMTEXT NULL,                       -- text without diacritics for search (Core\Hledani)
+    hledani        MEDIUMTEXT NULL,                       -- text without diacritics for search (Core\Search)
     odkazy_cas     DATETIME NULL,                         -- when the links were last checked
     smazano        DATETIME NULL,                         -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
     PRIMARY KEY (idc),
@@ -277,7 +277,7 @@ CREATE TABLE ka_stavba_revize (
 CREATE TABLE ka_tridy (
     nazev  VARCHAR(60) NOT NULL,                          -- class name in HTML (lowercase letters, digits, hyphens, __)
     styl   TEXT NOT NULL,                                 -- {"zaklad": {...}, "tablet": {...}, "mobil": {...}, "hover": {...}}
-    css    TEXT NULL,                                     -- custom declarations (only safe ones, see Stavitel\Styl::vlastniCss)
+    css    TEXT NULL,                                     -- custom declarations (only safe ones, see Builder\Style::customCss)
     zmeneno DATETIME NULL,
     PRIMARY KEY (nazev)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
@@ -398,7 +398,7 @@ CREATE TABLE ka_uzivatele_klice (
 
 
 -- ---------------------------------------------------------------------------
--- E-mail queue and log (Core\Posta)
+-- E-mail queue and log (Core\Mail)
 -- ---------------------------------------------------------------------------
 CREATE TABLE ka_posta (
     idp         INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -433,7 +433,7 @@ CREATE TABLE ka_novinky_koncepty (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
--- Broken links found in news items (Core\Odkazy)
+-- Broken links found in news items (Core\Links)
 CREATE TABLE ka_odkazy_vadne (
     ido  INT UNSIGNED NOT NULL AUTO_INCREMENT,
     idc  INT UNSIGNED NOT NULL,

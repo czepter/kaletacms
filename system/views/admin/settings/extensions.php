@@ -8,12 +8,11 @@ use Kaleta\Core\Extensions;
 $adminUrl = fn (string $query): string => $app->url('admin.php?' . $query);
 $extensionSettings = [
     'novinky' => [[$adminUrl('module=news'), 'Novinky'], [$adminUrl('module=categories'), 'Categories'], [$adminUrl('module=tags'), 'Tags']],
-    'poptavky' => [[$adminUrl('module=enquiries'), 'Enquiries and retention'], [$adminUrl('module=settings&tab=general#webhook_poptavky'), 'Webhook to CRM']],
+    'poptavky' => [[$adminUrl('module=enquiries'), 'Enquiries and retention'], [$adminUrl('module=settings&tab=webhooks'), 'Webhook to CRM']],
     'newsletter' => [[$adminUrl('module=subscribers'), 'Subscribers and export'], ['#newsletter', 'Connection to a mailing service']],
     'statistika' => [[$adminUrl('module=stats'), 'Statistics'], [$adminUrl('module=settings&tab=analytics'), 'Analytics']],
     'presmerovani' => [[$adminUrl('module=redirects'), 'Redirects']],
-    'jazyky' => [[$adminUrl('module=settings&tab=general#jazyky_dalsi'), 'Choose languages']],
-    'api' => [[$app->url('api/stranky'), 'Sample API response']],
+    'jazyky' => [[$adminUrl('module=settings&tab=general#additional_languages'), 'Choose languages']],
     'asistent' => [['#asistent', 'Provider, key and model']],
     'claude' => [['#claude', 'How to connect Claude']],
 ];

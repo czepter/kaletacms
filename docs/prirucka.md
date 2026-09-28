@@ -44,7 +44,6 @@ webu**, vlevo panel **Přidat / Struktura**, vpravo vlastnosti vybraného prvku.
   Když stránku mezitím upraví někdo jiný, editor nabídne načíst novější verzi, nebo ji přepsat. Před publikováním
   **Kontrola** upozorní na tlačítka bez odkazu, obrázky bez popisu, chybějící hlavní nadpis a slabý kontrast textu.
 - **Prvky navíc:** ikona, galerie s prohlížečkou fotek, záložky, akordeon, karusel, mapa (načte se až po klepnutí),
-  vyskakovací okno (otevře ho tlačítko s odkazem `#kotva-okna`, samo po čase, po odrolování nebo při odchodu),
   drobečková navigace, **počítadlo**, **ukazatele průběhu**, **hodnocení** hvězdičkami, **odpočet**, **sociální sítě**,
   **vyhledávání**, **tlačítko nahoru** a **odběr novinek**. Sekce umí **video na pozadí**, video **plakát**, navigace
   **mega menu** a obrázek pozadí **paralaxu**.
@@ -307,9 +306,11 @@ obrazovka a **Projít adresy** otevře seznam v Přesměrování. U každé zvol
 cíl), nebo **Ignorovat** (nic ji nenahrazuje, nebo je to robot); **Ignorovat vše** upozornění schová, dokud se neobjeví
 nová adresa. Pokusy robotů o adresy jiných systémů se nezapisují a adresa, která zase funguje, zmizí sama.
 
-**Nastavení → Stav systému → Před Kaletou 2.0** vypíše, co verze 2.0 odstraní a tento web ještě používá: veřejné API,
-nastavení uložená pod starými názvy, starý prvek Vyskakovací okno ve stránce a staré názvy tříd nebo pomocných funkcí ve
-vlastním PHP kódu. Kaleta 1.9 vám na změnu dává celé jedno vydání.
+**Kaleta 2.0** je jeden jasný systém: vrstvy kompatibility z verzí 1.x jsou pryč. Prvek Vyskakovací okno ve stránce se
+při aktualizaci změnil na pop-up okno webu – stejný obsah, spouštěč i četnost, ukazuje se jen tam, kde byl, a jeho
+tlačítko ho otevře (Vzhled → Pop-up okna). Staré adresy administrace z 1.3 vedou na úvodní obrazovku, staré názvy tříd
+a pomocných funkcí z 1.3 už neexistují a nastavení odpovídá jen na současné názvy – napojení na Clauda staré názvy dál
+přijímá, takže žádné napojení se nerozbije.
 
 ## 13. Zálohy, aktualizace, export
 
@@ -325,6 +326,5 @@ Zálohy a aktualizace u té zálohy klikněte na **Obnovit** a přihlaste se ú�
 **Import a export → Export celého webu** vytvoří otevřený balík s obsahem a médii – pro přesun (viz výše) nebo abyste
 měli obsah i mimo Kaletu. Poptávky, odběratelé a účty se neexportují.
 
-**Veřejné čtecí API** (`/api/novinky`, rozšíření *Veřejné API*) je od 1.8 zastaralé a v Kaletě 2.0 skončí; jeho odpovědi
-nesou hlavičku `Deprecation`. Pro novinky použijte JSON Feed (`/feed.json`) nebo RSS, pro práci s webem napojení na Clauda
-(MCP), pro události webhooky a pro odnesení obsahu export webu.
+Veřejné čtecí API z verzí 1.x (`/api/novinky`) ve 2.0 skončilo. Pro novinky použijte JSON Feed (`/feed.json`) nebo RSS,
+pro práci s webem napojení na Clauda (MCP), pro události webhooky a pro odnesení obsahu export webu.

@@ -1,4 +1,4 @@
--- Settings keys in English (Core\Settings::LEGACY_KEYS, written by tools/rename/5-settings.php). Repeatable: a row is renamed
+-- Settings keys in English (Core\OldSettingsKeys since 2.0, written by tools/rename/5-settings.php). Repeatable: a row is renamed
 -- only when the current key is not there yet; what is left under an old key is removed.
 UPDATE IGNORE ka_nastaveni SET promenna = 'site_name' WHERE promenna = 'nazev_webu';
 UPDATE IGNORE ka_nastaveni SET promenna = 'site_url' WHERE promenna = 'adresa_webu';

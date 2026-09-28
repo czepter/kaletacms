@@ -832,7 +832,7 @@ final class Tools
                 foreach ($changes as $key => $value) {
                     // keys of 1.4.0 and older still work (nazev_webu, firma_email, nazev_webu_de…)
                     $key = (string) $key;
-                    $key = \Kaleta\Core\Settings::LEGACY_KEYS[$key] ?? (preg_match('/^(nazev_webu|popis_webu)_([a-z]{2})$/', $key, $m) ? \Kaleta\Core\Settings::LEGACY_KEYS[$m[1]] . '_' . $m[2] : $key);
+                    $key = \Kaleta\Core\OldSettingsKeys::current($key); // keys of 1.4.0 and older keep working over MCP
                     if (in_array($key, ['logo', 'favicon', 'share_image'], true)) {
                         // logo and icon: a file from Media (nahraj_soubor) or from the system (image/…); empty = no logo / icon
                         $path = ltrim(trim((string) $value), '/');

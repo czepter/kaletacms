@@ -95,32 +95,3 @@ function format_date_long(string|\DateTimeInterface|null $value = null): string
 
     return t($days[(int) $dt->format('w')]) . ' ' . $dt->format('j') . '. ' . t($months[(int) $dt->format('n')]) . ' ' . $dt->format('Y');
 }
-
-/*
- * Old (Czech) names of the helpers above, for custom layouts written against 1.3 – they stay until 2.0,
- * like the class aliases in system/class-aliases.php.
- */
-function bez_diakritiky(string $text): string
-{
-    return remove_diacritics($text);
-}
-
-function cislo(float|int $cislo, int $desetinna = 1): string
-{
-    return format_number($cislo, $desetinna);
-}
-
-function pocet(float|int $cislo, int $desetinna = 0): string
-{
-    return format_count($cislo, $desetinna);
-}
-
-function datum(string|\DateTimeInterface|null $value, bool $withTime = false): string
-{
-    return format_date($value, $withTime);
-}
-
-function datum_slovy(string|\DateTimeInterface|null $value = null): string
-{
-    return format_date_long($value);
-}

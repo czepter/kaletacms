@@ -1,4 +1,4 @@
-/* Kaleta – the built-in page frame (the former layout "zakladni"; Kaleta is themeless since 1.6). Colours, fonts and scales come from the design system (tokens --ka-*, Stavitel\DesignSystem).
+/* Kaleta – the built-in page frame (the former layout "zakladni"; Kaleta is themeless since 1.6). Colours, fonts and scales come from the design system (tokens --ka-*, Builder\DesignSystem).
  * The whole template is in the layer "sablona": builder elements, classes and their style (later layers) override it regardless of specificity.
  * Navigation on a phone via the Popover API, smooth transitions between pages (View Transitions) – no JavaScript. */
 

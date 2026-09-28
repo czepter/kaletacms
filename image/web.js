@@ -155,14 +155,14 @@
 		state();
 	});
 
-	/* ---------- popup: an #anchor link opens it, or it opens by itself once per visit ---------- */
+	/* ---------- pop-ups: a #popup-<address> link opens one ---------- */
 
 	// an opened popup gets focus (a screen reader announces it, the keyboard continues inside); on close, focus returns where it came from
 	var openModal = function (modal) {
 		if (!modal.showPopover || modal.matches(':popover-open')) { return; }
 		var fromUrl = document.activeElement;
 		modal.showPopover();
-		var target = modal.querySelector('h1, h2, h3, input, select, textarea, a[href], button:not(.ka-okno-zavrit):not(.ka-popup-zavrit)') || modal.querySelector('button');
+		var target = modal.querySelector('h1, h2, h3, input, select, textarea, a[href], button:not(.ka-popup-zavrit)') || modal.querySelector('button');
 		if (target) { if (!target.matches('a, button, input, select, textarea')) { target.setAttribute('tabindex', '-1'); } target.focus(); }
 		modal.addEventListener('toggle', function revert(e) {
 			if (e.newState !== 'closed') { return; }
@@ -183,35 +183,6 @@
 		var inModal = anchor && anchor.closest('[popover]');
 		if (inModal) { openModal(inModal); }
 	}
-	// a popup that opens by itself: after a delay, after scrolling half the page or on exit (mouse towards the browser bar);
-	// once per visit (sessionStorage), once a week or never again (localStorage) – always only in the visitor's browser
-	document.querySelectorAll('[popover][data-samo]').forEach(function (modal) {
-		var key = 'ka-okno-' + modal.id;
-		var retry = modal.getAttribute('data-znovu') || 'relace';
-		var storage = function () { try { return retry === 'relace' ? sessionStorage : localStorage; } catch (error) { return null; } };
-		try {
-			var was = storage() && storage().getItem(key);
-			if (was && (retry !== 'tyden' || Date.now() - parseInt(was, 10) < 7 * 864e5)) { return; }
-		} catch (error) { /* private mode */ }
-		var done = false;
-		var open = function () {
-			if (done || !modal.showPopover || document.querySelector(':popover-open')) { return; }
-			done = true;
-			openModal(modal);
-			try { storage().setItem(key, String(Date.now())); } catch (error) { /* private mode */ }
-		};
-		var when = modal.getAttribute('data-samo');
-		if (when === 'posun') {
-			window.addEventListener('scroll', function () {
-				if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight / 2) { open(); }
-			}, { passive: true });
-		} else if (when === 'odchod') {
-			document.addEventListener('mouseout', function (e) { if (!e.relatedTarget && e.clientY <= 0) { open(); } });
-		} else {
-			setTimeout(open, parseInt(when, 10) * 1000);
-		}
-	});
-
 	/* ---------- popups (Builder\Popups): trigger, browser rules, frequency and counters – no cookies ---------- */
 
 	var popups = document.querySelectorAll('.ka-popup[data-popup]');
@@ -270,7 +241,7 @@
 			});
 			var open = function () {
 				// nothing else opens over an open popup; a bar or a panel does not block the popup
-				if (!modal.showPopover || modal.matches(':popover-open') || document.querySelector('.ka-popup--okno:popover-open, .ka-popup--cela:popover-open, .ka-okno:popover-open, dialog[open]')) { return false; }
+				if (!modal.showPopover || modal.matches(':popover-open') || document.querySelector('.ka-popup--okno:popover-open, .ka-popup--cela:popover-open, dialog[open]')) { return false; }
 				if (dialog) { openModal(modal); } else { modal.showPopover(); }
 				return true;
 			};

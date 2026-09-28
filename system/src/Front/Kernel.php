@@ -203,9 +203,6 @@ final class Kernel
 
             return new Response('', 204);
         }
-        if (str_starts_with($path, '/api/') && Extensions::isEnabled($this->app->settings(), 'api')) {
-            return (new Api($this->app, $this->news))->handle($path);
-        }
         if ($path === '/mcp') {
             return (new \Kaleta\Mcp\Server($this->app))->handle();
         }

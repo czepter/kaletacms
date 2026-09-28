@@ -125,6 +125,9 @@ fi
 (cd "$WORK/kanal" && exec php -S "127.0.0.1:$CHANNEL_PORT" > /dev/null 2>&1) & CHANNEL_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$CHANNEL_PORT/aktualizace.json" && break; sleep 0.2; done
 
+# a page with the per-page Modal element of 1.x: 2.0 turns it into a site pop-up (migration 0034)
+"${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -e "INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit, v_menu, stavba) VALUES ('okno-test', 'Okno test', '', 1, 0, '{\"v\":1,\"deti\":[{\"id\":\"s1\",\"typ\":\"sekce\",\"deti\":[{\"id\":\"b1\",\"typ\":\"tlacitko\",\"obsah\":{\"text\":\"Open\",\"odkaz\":\"#akce\"}},{\"id\":\"o1\",\"typ\":\"okno\",\"kotva\":\"akce\",\"obsah\":{\"samo\":\"0\",\"znovu\":\"relace\"},\"deti\":[{\"id\":\"n1\",\"typ\":\"nadpis\",\"obsah\":{\"text\":\"Modal content\"}}]}]}]}')" 2>/dev/null && MODAL_PLANTED=1 || MODAL_PLANTED=0
+
 echo "== update through the admin"
 # the channel under the key of the old release (1.4.0 and older: aktualizace_url) and of the current one
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('aktualizace_url','http://127.0.0.1:$CHANNEL_PORT/aktualizace.json'), ('update_url','http://127.0.0.1:$CHANNEL_PORT/aktualizace.json') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('aktualizace_cache', 'update_cache')"
@@ -134,7 +137,7 @@ curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?modul=config&ak
 if grep -qF "$NEW_VERSION" "$WORK/response"; then echo "  ok     update installed"; else
   echo "  CHYBA  update failed:"; sed 's/<[^>]*>//g' "$WORK/response" | grep -i -m3 'aktualiz'; exit 1; fi
 cmp -s "$ROOT/system/src/helpers.php" "$WORK/web/system/src/helpers.php" && grep -qF "KALETA_VERSION = '$NEW_VERSION'" "$WORK/web/system/bootstrap.php" && echo "  ok     new core in place" || { echo "  CHYBA  the core is not the new one"; ERRORS=$((ERRORS+1)); }
-LAST_MIGRATION=$(ls "$ROOT"/system/sql/migrace/*.sql | sed 's/.*\/\([0-9]*\)-.*/\1/' | sort -n | tail -1 | sed 's/^0*//')
+LAST_MIGRATION=$(ls "$ROOT"/system/sql/migrace/[0-9]*-*.sql "$ROOT"/system/sql/migrace/[0-9]*-*.php 2>/dev/null | sed 's/.*\/\([0-9]*\)-.*/\1/' | sort -n | tail -1 | sed 's/^0*//')
 LEFTOVERS=$(comm -23 <(sort "$WORK/stare-soubory.txt") <(sort "$WORK/nove-soubory.txt") | grep -vE '^(tools/|docs/|\.github/|\.claude/|CLAUDE\.md$|\.gitignore$|\.gitleaks\.toml$|install\.php$|media/|storage/|image/ukazka/)' \
   | while read -r s; do [ -e "$WORK/web/$s" ] && echo "$s"; done || true)
 [ -z "$LEFTOVERS" ] && echo "  ok     files dropped since $FROM are gone" || { echo "  CHYBA  files of $FROM left behind:"; echo "$LEFTOVERS" | head -10; ERRORS=$((ERRORS+1)); }
@@ -147,11 +150,16 @@ rm -f "$WORK"/web/storage/cache/stranky/*.html
 for s in / /o-nas /sluzby /kontakt /novinky /sitemap.xml; do check "page $s" "$s"; done
 grep -q "Testovací firma" <(curl -s "$B/") && echo "  ok     content kept" || { echo "  CHYBA  home page lost its content"; ERRORS=$((ERRORS+1)); }
 # every admin module of the new version, with all extensions on
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('extensions','novinky,poptavky,newsletter,statistika,presmerovani,asistent,jazyky,api,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('extensions','novinky,poptavky,newsletter,statistika,presmerovani,asistent,jazyky,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
 check "admin dashboard" /admin.php
 # releases before 1.1 migrate on the first admin load after the update, later ones during the update itself
 expect "database migrated to $LAST_MIGRATION" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "$LAST_MIGRATION"
 expect "no settings row left under a key of 1.4.0" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_nastaveni WHERE promenna IN ('verze_db', 'nazev_webu', 'aktualizace_url', 'aktualizace_cache', 'uklizeno_verze')")" "0"
+if [ "$LAST_MIGRATION" -ge 34 ] && [ "$MODAL_PLANTED" = 1 ]; then
+  rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" "$B/okno-test"
+  # the stored build (the planted one is not a validated 1.x build, so the page itself is checked in test.sh)
+  expect "the Modal of the old release became a site pop-up opened by its button" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(spoustec, '|', aktivni) FROM ka_popupy WHERE adresa = 'akce'")|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(stavba LIKE '%#popup-akce%', stavba LIKE '%\"typ\":\"okno\"%') FROM ka_stranky WHERE seo_link = 'okno-test'")" "klik|1|10"
+fi
 for m in $(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; foreach (Kaleta\Admin\Kernel::MODULES as $m) { echo $m::IDENT, "\n"; }'); do check "admin $m" "/admin.php?module=$m"; done
 for z in general seo health backups; do check "admin settings/$z" "/admin.php?module=settings&tab=$z"; done
 grep -q 'name="password"' "$WORK/response" && { echo "  CHYBA  the update logged the admin out"; ERRORS=$((ERRORS+1)); } || echo "  ok     admin session survived"

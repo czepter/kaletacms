@@ -402,7 +402,7 @@ check('Seo::faq: prázdný vstup', Seo::faq(null), []);
 
 /* ---------- backups to S3: AWS Signature V4 signing (the value verified by an independent computation) ---------- */
 check('404: sondy robotů se nezapisují, skutečné adresy ano', array_map(Kaleta\Core\NotFound::isBot(...), ['wp/v2/users', 'sellers.json', 'api/session/properties', '_next', 'api/novinky/x', 'about-us', 'en', 'cenik-2019']),
-    [true, true, true, true, false, false, false, false]);
+    [true, true, true, true, true, false, false, false]);
 // 1.9: structured data of collection item pages – only mapped fields, an offer needs a price and a currency
 $sdFields = [['klic' => 'cena', 'popisek' => 'Cena', 'typ' => 'text'], ['klic' => 'druh', 'popisek' => 'Druh', 'typ' => 'text'], ['klic' => 'zacatek', 'popisek' => 'Začátek', 'typ' => 'datum']];
 check('Strukturovaná data kolekce: neznámé pole a typ se zahodí', [Kaleta\Builder\CollectionSchema::sanitize(['typ' => 'Service', 'pole' => ['price' => 'cena', 'serviceType' => 'neni', 'hack' => 'druh'], 'mena' => 'eur'], $sdFields),
@@ -1139,9 +1139,18 @@ try {
 check('Asistent: u jiného poskytovatele než Claude je potřeba zadat jeho model', str_contains($aiError, 'Enter the model name'), true);
 
 /* ---------- class renames (tools/rename.php) ---------- */
-$classAliases = require KALETA_SYSTEM . '/class-aliases.php';
-check('class aliases: every old name resolves to its new class', array_filter($classAliases, fn (string $newName, string $oldName): bool => trait_exists($oldName) ? !trait_exists($newName) : (!class_exists($oldName) && !interface_exists($oldName) || !is_a($oldName, $newName, true)), ARRAY_FILTER_USE_BOTH), []);
-check('class aliases: no old name is still a class file', array_filter(array_keys($classAliases), fn (string $oldName): bool => is_file(KALETA_SYSTEM . '/src/' . str_replace('\\', '/', substr($oldName, 7)) . '.php')), []);
+// 2.0: the per-page Modal element becomes a site pop-up (Builder\ModalConversion)
+[$withoutModal, $modals] = Kaleta\Builder\ModalConversion::extract(['v' => 1, 'deti' => [['typ' => 'sekce', 'deti' => [['typ' => 'tlacitko', 'obsah' => ['odkaz' => '#nabidka']],
+    ['id' => 'o1', 'typ' => 'okno', 'kotva' => 'nabidka', 'deti' => [['typ' => 'nadpis']]]]]]]);
+check('Modal → pop-up: vyjmutí z hloubky stavby, kotva, přepsání odkazů', [count($withoutModal['deti'][0]['deti']), count($modals), Kaleta\Builder\ModalConversion::anchor($modals[0]),
+    Kaleta\Builder\ModalConversion::anchor(['id' => 'x1']), Kaleta\Builder\ModalConversion::anchor(['id' => 'x1', 'atributy' => ['id' => 'vlastni']]),
+    Kaleta\Builder\ModalConversion::rewriteLinks('{"odkaz":"#nabidka","html":"<a href=\\"#nabidka\\">x</a>","jiny":"#nabidka-2"}', ['nabidka' => 'nabidka'])],
+    [1, 1, 'nabidka', 'okno-x1', 'vlastni', '{"odkaz":"#popup-nabidka","html":"<a href=\\"#popup-nabidka\\">x</a>","jiny":"#nabidka-2"}']);
+check('2.0: staré klíče nastavení jen na hranici (MCP, import, aktualizace)', [Kaleta\Core\OldSettingsKeys::current('nazev_webu'), Kaleta\Core\OldSettingsKeys::current('nazev_webu_de'),
+    Kaleta\Core\OldSettingsKeys::current('site_name'), Kaleta\Core\OldSettingsKeys::current('verze_db')], ['site_name', 'site_name_de', 'site_name', 'db_version']);
+// 2.0: the old (Czech) class names and helpers of 1.3 are gone; the alias file stays empty for one release (updates from 1.4–1.9)
+check('2.0: old class names and helpers no longer exist', [require KALETA_SYSTEM . '/class-aliases.php', class_exists('Kaleta\\Jadro\\Nastaveni'), function_exists('datum_slovy'),
+    class_exists('Kaleta\\Admin\\LegacyUrls'), class_exists('Kaleta\\Front\\Api'), class_exists('Kaleta\\Builder\\Elements\\Modal')], [[], false, false, false, false, false]);
 exec('php ' . escapeshellarg(__DIR__ . '/rename.php') . ' --self-test', $renameOutput, $renameCode);
 check('tools/rename.php self-test', $renameCode, 0);
 

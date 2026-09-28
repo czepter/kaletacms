@@ -29,7 +29,7 @@ check() { # over <popis> <očekávaný kód> <adresa> [hledaný text]
   else echo "  ok     $1"; fi
 }
 
-LAST_MIGRATION=$(ls "$ROOT"/system/sql/migrace/*.sql | sed 's/.*\/\([0-9]*\)-.*/\1/' | sort -n | tail -1 | sed 's/^0*//')
+LAST_MIGRATION=$(ls "$ROOT"/system/sql/migrace/[0-9]*-*.sql "$ROOT"/system/sql/migrace/[0-9]*-*.php 2>/dev/null | sed 's/.*\/\([0-9]*\)-.*/\1/' | sort -n | tail -1 | sed 's/^0*//')
 grep -q "const KALETA_DB_VERSION = $LAST_MIGRATION;" "$ROOT/system/bootstrap.php" && echo "  ok     KALETA_DB_VERSION odpovídá poslední migraci ($LAST_MIGRATION)" || { echo "  CHYBA  KALETA_DB_VERSION v system/bootstrap.php neodpovídá poslední migraci ($LAST_MIGRATION)"; ERRORS=$((ERRORS+1)); }
 
 echo "== jednotkové testy"
@@ -88,7 +88,7 @@ TOKEN=$(csrf)
 code=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$TOKEN" -d user=admin -d password=spatne-heslo-123); expect "špatné heslo odmítnuto" "$code" 401
 code=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d user=admin --data-urlencode "password=$PASSWORD"); expect "POST bez CSRF odmítnut" "$code" 400
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN" -d user=admin --data-urlencode "password=$PASSWORD"
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('extensions','novinky,poptavky,newsletter,statistika,presmerovani,asistent,jazyky,api,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('extensions','novinky,poptavky,newsletter,statistika,presmerovani,asistent,jazyky,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
 check "přehled" 200 /admin.php "Přehled"
 check "přehled: nadpis obrazovky je h1" 200 /admin.php "<h1>Přehled</h1>"
 grep -q '<li class=""><a href="/admin.php?module=appearance">' "$WORK/response" && grep -q '<li class=""><a href="/admin.php?module=pages"><strong>Připravte stránky' "$WORK/response" && echo "  ok     první kroky nepočítají vzhled a stránky ze startovacího webu za hotové" || { echo "  CHYBA  první kroky odškrtnuté startovacím webem"; ERRORS=$((ERRORS+1)); }
@@ -98,9 +98,7 @@ check "uživatelé se shrnutím oprávnění" 200 "/admin.php?module=users" "Sm�
 for z in general seo analytics cookies mail webhooks backups health; do check "nastavení/$z" 200 "/admin.php?module=settings&tab=$z"; done
 check "nastavení: volba úvodní stránky" 200 "/admin.php?module=settings&tab=general" 'name="home_page"'
 check "neznámý modul" 403 "/admin.php?module=neexistuje"
-check "API: novinky" 200 /api/novinky '"novinky"'
-check "API: stránky" 200 /api/stranky '/kontakt"'
-curl -s -D - -o /dev/null "$B/api/stranky" | grep -qi '^Deprecation: @1790553600' && echo "  ok     API: marked deprecated (Deprecation header, 1.8)" || { echo "  CHYBA  API Deprecation header"; ERRORS=$((ERRORS+1)); }
+check "2.0: the public API of 1.x is gone" 404 /api/novinky
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('additional_languages','en') ON DUPLICATE KEY UPDATE hodnota='en'"
 check "anglická verze webu" 200 /en/ 'lang="en"'
 code=$(curl -s -o /dev/null -w '%{http_code}' "$B/en/novinky/vitejte-v-kalete"); expect "novinka jiné jazykové verze přesměruje" "$code" 301
@@ -142,7 +140,7 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&a
   --data-urlencode "company_phone=+420 123 456 789" --data-urlencode "company_hours=Po–Pá 8:00–17:00
 So 9–12" --data-urlencode "company_map=https://mapy.cz/s/abc" --data-urlencode "company_gps=50.0875, 14.4213"
 expect "údaje firmy uloženy" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'company_id'")" 12345678
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d zalozka=firma -d company_type=LocalBusiness -d company_country=CZ --data-urlencode "company_hours=kdykoli"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=company -d company_type=LocalBusiness -d company_country=CZ --data-urlencode "company_hours=kdykoli"
 expect "nesrozumitelná otevírací doba odmítnuta" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota LIKE '%8:00%' AND hodnota NOT LIKE '%kdykoli%' FROM ka_nastaveni WHERE promenna = 'company_hours'")" 1
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=company --data-urlencode "company_name=Testovací firma s.r.o." -d company_type=HomeAndConstructionBusiness \
   -d company_id=12345678 -d company_vat_id=CZ12345678 --data-urlencode "company_street=Dlouhá 12" --data-urlencode "company_city=Praha" --data-urlencode "company_postcode=110 00" -d company_country=CZ \
@@ -175,19 +173,19 @@ check "builder se otevře a převede textovou stránku" 200 "/admin.php?module=p
 TOKEN=$(csrf)
 page_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=$1&id=$IDS" -d "_csrf=$TOKEN" "${@:2}"; }
 BUILD='{"v":1,"deti":[{"id":"sek1","typ":"sekce","deti":[{"id":"nad1","typ":"nadpis","znacka":"h1","obsah":{"text":"Builder test"},"styl":{"zaklad":{"barva":"primarni"},"mobil":{"velikost_pisma":"2"}},"tridy":["karta"]},{"id":"faq1","typ":"faq","obsah":{"polozky":[{"otazka":"Kolik to stojí?","odpoved":"<p>Záleží na rozsahu.</p>"}]}},{"id":"txt1","typ":"text","obsah":{"html":"<h2>Jak to funguje</h2><p>Krok za krokem.</p><h2>Jak to funguje</h2><h3 id=\"vlastni\">Vlastní</h3>"}},{"id":"zly1","typ":"skript"}]}]}'
-code=$(page_action stavba_uloz --data-urlencode "stavba=$BUILD")
+code=$(page_action build_save --data-urlencode "stavba=$BUILD")
 [ "$code" = 200 ] && grep -q '"ok":true' "$WORK/response" && grep -q 'Neznámý typ prvku' "$WORK/response" && echo "  ok     uložení konceptu vrátí vyčištěnou stavbu a chyby" || { echo "  CHYBA  stavba_uloz: kód $code"; ERRORS=$((ERRORS+1)); }
-expect "neplatný JSON stavby odmítnut" "$(page_action stavba_uloz -d 'stavba={nesmysl')" 400
-expect "uložení z cizí verze odmítnuto (souběžná úprava)" "$(page_action stavba_uloz -d verze=0000000000000000 --data-urlencode "stavba=$BUILD")" 409
+expect "neplatný JSON stavby odmítnut" "$(page_action build_save -d 'stavba={nesmysl')" 400
+expect "uložení z cizí verze odmítnuto (souběžná úprava)" "$(page_action build_save -d verze=0000000000000000 --data-urlencode "stavba=$BUILD")" 409
 grep -q '"konflikt":true' "$WORK/response" && grep -q 'Builder test' "$WORK/response" && echo "  ok     konflikt vrátí novější verzi ze serveru" || { echo "  CHYBA  odpověď konfliktu"; ERRORS=$((ERRORS+1)); }
-expect "publikování z cizí verze odmítnuto" "$(page_action stavba_publikuj -d verze=0000000000000000)" 409
-expect "přepsání cizí verze na přání" "$(page_action stavba_uloz -d verze=0000000000000000 -d prepsat=1 --data-urlencode "stavba=$BUILD")" 200
+expect "publikování z cizí verze odmítnuto" "$(page_action build_publish -d verze=0000000000000000)" 409
+expect "přepsání cizí verze na přání" "$(page_action build_save -d verze=0000000000000000 -d prepsat=1 --data-urlencode "stavba=$BUILD")" 200
 expect "builder bez CSRF odmítnut" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=build_save&id=$IDS" --data-urlencode "stavba=$BUILD")" 400
 expect "knihovna sekcí jen přes POST" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=pages&action=build_section&id=$IDS&klic=faq")" 404
-code=$(page_action "stavba_sekce&klic=vyhody"); [ "$code" = 200 ] && grep -q '"karta"' "$WORK/response" && echo "  ok     sekce z knihovny založí své třídy" || { echo "  CHYBA  stavba_sekce: kód $code"; ERRORS=$((ERRORS+1)); }
-code=$(page_action stavba_trida -d nazev=karta --data-urlencode 'styl={"zaklad":{"pozadi":"plocha","odsazeni_y":"l"}}' --data-urlencode 'css=letter-spacing: 0.01em; background: url(x)')
+code=$(page_action "build_section&klic=vyhody"); [ "$code" = 200 ] && grep -q '"karta"' "$WORK/response" && echo "  ok     sekce z knihovny založí své třídy" || { echo "  CHYBA  stavba_sekce: kód $code"; ERRORS=$((ERRORS+1)); }
+code=$(page_action build_class -d nazev=karta --data-urlencode 'styl={"zaklad":{"pozadi":"plocha","odsazeni_y":"l"}}' --data-urlencode 'css=letter-spacing: 0.01em; background: url(x)')
 [ "$code" = 200 ] && grep -q 'Nepovolená deklarace' "$WORK/response" && echo "  ok     třída uložena, nebezpečné CSS zahozeno" || { echo "  CHYBA  stavba_trida: kód $code"; ERRORS=$((ERRORS+1)); }
-expect "neplatný název třídy odmítnut" "$(page_action stavba_trida -d 'nazev=Karta Velka')" 400
+expect "neplatný název třídy odmítnut" "$(page_action build_class -d 'nazev=Karta Velka')" 400
 expect "a change of an existing class in the builder goes to the draft look" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota LIKE '%\"karta\"%' FROM ka_nastaveni WHERE promenna = 'look_draft'")" "1"
 publish_look
 rm -f "$WORK"/web/storage/cache/stranky/*.html
@@ -195,10 +193,10 @@ curl -s -o "$WORK/response" "$B/o-nas"; ! grep -q "Builder test" "$WORK/response
 check "náhled konceptu pro editor" 200 "/o-nas?stavba=koncept&editor=1" 'data-ka-id="nad1"'
 check "náhled konceptu se neindexuje" 200 "/o-nas?stavba=koncept" 'noindex'
 curl -s -o "$WORK/response" "$B/o-nas?stavba=koncept&editor=1"; ! grep -q "Builder test" "$WORK/response" && echo "  ok     náhled konceptu nevidí návštěvník" || { echo "  CHYBA  koncept vidí nepřihlášený"; ERRORS=$((ERRORS+1)); }
-code=$(page_action stavba_sdilet -d dni=3); SHARED_LINK=$(php -r 'echo json_decode((string) file_get_contents($argv[1]))->odkaz ?? "";' "$WORK/response")
+code=$(page_action build_share -d dni=3); SHARED_LINK=$(php -r 'echo json_decode((string) file_get_contents($argv[1]))->odkaz ?? "";' "$WORK/response")
 curl -s -o "$WORK/response" "$SHARED_LINK"
 [ "$code" = 200 ] && [[ "$SHARED_LINK" == "$B/o-nas?stavba=koncept&nahled_klic="* ]] && grep -q "Builder test" "$WORK/response" && ! grep -q 'data-ka-id' "$WORK/response" && echo "  ok     sdílený odkaz ukáže koncept bez přihlášení a bez značek editoru" || { echo "  CHYBA  stavba_sdilet: kód $code, odkaz $SHARED_LINK"; ERRORS=$((ERRORS+1)); }
-code=$(page_action stavba_publikuj); expect "publikování stavby" "$code" 200
+code=$(page_action build_publish); expect "publikování stavby" "$code" 200
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/o-nas"
 grep -q '<h1 id="s-nad1" class="karta">Builder test</h1>' "$WORK/response" && echo "  ok     publikovaná stavba na webu, jedna značka na prvek" || { echo "  CHYBA  stavba na webu"; ERRORS=$((ERRORS+1)); }
@@ -207,11 +205,11 @@ grep -q 'data-ka-id' "$WORK/response" && { echo "  CHYBA  značky editoru na ve�
 grep -q '@layer prvky' "$WORK/response" && grep -q '#s-nad1 { color: var(--ka-barva-primarni); }' "$WORK/response" && grep -q '.karta { background-color: var(--ka-barva-plocha)' "$WORK/response" && echo "  ok     CSS prvků a tříd ve vrstvách" || { echo "  CHYBA  CSS stavby"; ERRORS=$((ERRORS+1)); }
 grep -q '"FAQPage"' "$WORK/response" && echo "  ok     otázky a odpovědi jako strukturovaná data" || { echo "  CHYBA  FAQPage chybí"; ERRORS=$((ERRORS+1)); }
 check "hledání najde obsah stavby" 200 "/hledani?q=Builder+test" 'Nalezeno: 1'
-page_action stavba_uloz --data-urlencode "stavba=${BUILD/Builder test/Druhá verze}" > /dev/null; page_action stavba_publikuj > /dev/null
+page_action build_save --data-urlencode "stavba=${BUILD/Builder test/Druhá verze}" > /dev/null; page_action build_publish > /dev/null
 expect "předchozí publikovaná verze je v historii" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stavba_revize WHERE ids = $IDS AND stavba LIKE '%Builder test%'")" 1
 IDR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idr FROM ka_stavba_revize WHERE ids = $IDS AND stavba LIKE '%Builder test%'")
-page_action stavba_obnov -d "idr=$IDR" > /dev/null; grep -q 'Builder test' "$WORK/response" && echo "  ok     obnovení verze do konceptu" || { echo "  CHYBA  stavba_obnov"; ERRORS=$((ERRORS+1)); }
-page_action stavba_zahod > /dev/null; grep -q 'Druhá verze' "$WORK/response" && echo "  ok     zahození změn vrátí publikovanou stavbu" || { echo "  CHYBA  stavba_zahod"; ERRORS=$((ERRORS+1)); }
+page_action build_restore -d "idr=$IDR" > /dev/null; grep -q 'Builder test' "$WORK/response" && echo "  ok     obnovení verze do konceptu" || { echo "  CHYBA  stavba_obnov"; ERRORS=$((ERRORS+1)); }
+page_action build_discard > /dev/null; grep -q 'Druhá verze' "$WORK/response" && echo "  ok     zahození změn vrátí publikovanou stavbu" || { echo "  CHYBA  stavba_zahod"; ERRORS=$((ERRORS+1)); }
 expect "autor novinek do builderu nesmí" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?module=pages&action=builder&id=$IDS")" 403
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=build_text" -d "_csrf=$TOKEN" -d "ids=$IDS"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
@@ -310,17 +308,17 @@ rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/o-nas"; grep -q 'header class="hlavicka"' "$WORK/response" && ! grep -q 'ka-nav' "$WORK/response" && echo "  ok     nepublikované záhlaví kreslí šablona" || { echo "  CHYBA  nepublikované záhlaví je na webu"; ERRORS=$((ERRORS+1)); }
 check "náhled konceptu záhlaví pro editor" 200 "/o-nas?cast=hlavicka&stavba=koncept&editor=1" 'data-ka-typ="navigace"'
 curl -s -o "$WORK/response" "$B/o-nas?cast=hlavicka&stavba=koncept&editor=1"; ! grep -q 'data-ka-typ' "$WORK/response" && echo "  ok     náhled části nevidí návštěvník" || { echo "  CHYBA  koncept části vidí nepřihlášený"; ERRORS=$((ERRORS+1)); }
-expect "publikování záhlaví" "$(part_action stavba_publikuj hlavicka)" 200
+expect "publikování záhlaví" "$(part_action build_publish hlavicka)" 200
 curl -s -o "$WORK/response" "$B/o-nas"
 grep -q 'class="ka-nav"' "$WORK/response" && ! grep -q 'header class="hlavicka"' "$WORK/response" && grep -q 'href="/o-nas" aria-current="page"' "$WORK/response" && echo "  ok     záhlaví z builderu na webu s aktivní položkou menu" || { echo "  CHYBA  záhlaví z builderu"; ERRORS=$((ERRORS+1)); }
 [ "$(grep -o '<style>' "$WORK/response" | wc -l | tr -d ' ')" = 1 ] && [ "$(grep -o '@layer stavitel {' "$WORK/response" | wc -l | tr -d ' ')" = 1 ] && echo "  ok     stránka a části webu mají jedno CSS" || { echo "  CHYBA  CSS částí webu se opakuje"; ERRORS=$((ERRORS+1)); }
 WRAPPER='{"v":1,"deti":[{"id":"obs1","typ":"obsah"},{"id":"sek9","typ":"sekce","deti":[{"id":"nad9","typ":"nadpis","obsah":{"text":"Pod článkem"}}]}]}'
 check "obálka novinky v builderu" 200 "/admin.php?module=parts&action=builder&typ=novinka&jazyk=" 'id="stavitel-data"'
-part_action stavba_uloz novinka --data-urlencode "stavba=$WRAPPER" > /dev/null; part_action stavba_publikuj novinka > /dev/null
+part_action build_save novinka --data-urlencode "stavba=$WRAPPER" > /dev/null; part_action build_publish novinka > /dev/null
 curl -s -o "$WORK/response" "$B/novinky/vitejte-v-kalete"; grep -q 'Pod článkem' "$WORK/response" && grep -q '<main id="obsah" class="stavba">' "$WORK/response" && grep -q 'class="obal obsah"' "$WORK/response" && grep -q 'Vítejte' "$WORK/response" && echo "  ok     obálka kolem novinky" || { echo "  CHYBA  obálka novinky"; ERRORS=$((ERRORS+1)); }
-part_action stavba_uloz hlavicka --data-urlencode 'stavba={"v":1,"deti":[{"typ":"sekce","znacka":"header","deti":[{"typ":"logo"}]}]}' > /dev/null; part_action stavba_publikuj hlavicka > /dev/null
+part_action build_save hlavicka --data-urlencode 'stavba={"v":1,"deti":[{"typ":"sekce","znacka":"header","deti":[{"typ":"logo"}]}]}' > /dev/null; part_action build_publish hlavicka > /dev/null
 expect "předchozí záhlaví je ve verzích" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stavba_revize WHERE cast = 'hlavicka:'")" 1
-part_action sablona hlavicka > /dev/null
+part_action template hlavicka > /dev/null
 curl -s -o "$WORK/response" "$B/o-nas"; grep -q 'header class="hlavicka"' "$WORK/response" && echo "  ok     vrácení záhlaví na šablonu" || { echo "  CHYBA  vrácení na šablonu"; ERRORS=$((ERRORS+1)); }
 mcp stavba_uloz '{"cast":"paticka","stavba":{"v":1,"deti":[{"typ":"sekce","znacka":"footer","deti":[{"typ":"udaje","obsah":{"udaj":"copyright"}}]}]},"publikovat":true}' > "$WORK/response"
 grep -q 'publikováno' "$WORK/response" && echo "  ok     MCP: patička ze stavby" || { echo "  CHYBA  MCP patička"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -491,8 +489,8 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=components
 IDM=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idm FROM ka_komponenty ORDER BY idm DESC LIMIT 1")
 component_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=components&action=$1&id=$IDM" -d "_csrf=$TOKEN" "${@:2}"; }
 check "komponenta v builderu" 200 "/admin.php?module=components&action=builder&id=$IDM" 'id="stavitel-data"'
-component_action stavba_uloz --data-urlencode 'stavba={"v":1,"deti":[{"id":"kse1","typ":"sekce","deti":[{"id":"kna1","typ":"nadpis","znacka":"h3","obsah":{"text":"{{nadpis}}"},"styl":{"zaklad":{"barva":"primarni"}}},{"typ":"tlacitko","obsah":{"text":"Více","odkaz":"{{odkaz}}"}},{"typ":"komponenta","obsah":{"komponenta":"'"$IDM"'"}}]}]}' > /dev/null
-expect "publikování komponenty" "$(component_action stavba_publikuj)" 200
+component_action build_save --data-urlencode 'stavba={"v":1,"deti":[{"id":"kse1","typ":"sekce","deti":[{"id":"kna1","typ":"nadpis","znacka":"h3","obsah":{"text":"{{nadpis}}"},"styl":{"zaklad":{"barva":"primarni"}}},{"typ":"tlacitko","obsah":{"text":"Více","odkaz":"{{odkaz}}"}},{"typ":"komponenta","obsah":{"komponenta":"'"$IDM"'"}}]}]}' > /dev/null
+expect "publikování komponenty" "$(component_action build_publish)" 200
 check "náhled komponenty pro editor" 200 "/_komponenta/$IDM?stavba=koncept&editor=1" "Výchozí nadpis"
 mcp stavba_uloz "{\"id\":$IDZ,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"komponenta\",\"obsah\":{\"komponenta\":\"$IDM\",\"hodnoty\":{\"nadpis\":\"První <b>karta</b>\",\"odkaz\":\"javascript:alert(1)\"}}},{\"typ\":\"komponenta\",\"obsah\":{\"komponenta\":\"$IDM\"}}]}}" > /dev/null
 rm -f "$WORK"/web/storage/cache/stranky/*.html
@@ -504,7 +502,7 @@ grep -q '<h3 class="s-kna1">První karta</h3>' "$WORK/response" && grep -q '<h3 
 check "komponenty ukazují počet použití" 200 "/admin.php?module=components" "1×"
 grep -q 'data-potvrdit="Komponentu „Karta služby“ používá: stránka „' "$WORK/response" && echo "  ok     potvrzení smazání komponenty vyjmenuje, kde je použitá" || { echo "  CHYBA  potvrzení smazání komponenty"; ERRORS=$((ERRORS+1)); }
 # a form inside a component: the submit must find it (it used to be searched only in the page build)
-component_action stavba_uloz --data-urlencode 'stavba={"v":1,"deti":[{"id":"kse1","typ":"sekce","deti":[{"id":"kfo1","typ":"formular","obsah":{"nazev":"Poptávka z komponenty"}}]}]}' > /dev/null; component_action stavba_publikuj > /dev/null
+component_action build_save --data-urlencode 'stavba={"v":1,"deti":[{"id":"kse1","typ":"sekce","deti":[{"id":"kfo1","typ":"formular","obsah":{"nazev":"Poptávka z komponenty"}}]}]}' > /dev/null; component_action build_publish > /dev/null
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/formular.html" "$B/z-html"
 location=$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$(field_value zdroj)" -d prvek=kfo1 -d zpet=/z-html -d "as_cas=$(field_value as_cas)" -d "as_podpis=$(field_value as_podpis)")
@@ -521,8 +519,8 @@ TOKEN=$(csrf)
 location=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=parts&action=save_variant&typ=hlavicka&jazyk=" -d "_csrf=$TOKEN" --data-urlencode "nazev=Landing page" -d "stranky[]=$IDZ")
 case "$location" in *"varianta=landing-page"*) echo "  ok     varianta založena a otevřena v builderu";; *) echo "  CHYBA  založení varianty: $location"; ERRORS=$((ERRORS+1));; esac
 variant_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=parts&action=$1&typ=hlavicka&jazyk=&varianta=landing-page" -d "_csrf=$TOKEN" "${@:2}"; }
-variant_action stavba_uloz --data-urlencode 'stavba={"v":1,"deti":[]}' > /dev/null
-expect "publikování varianty" "$(variant_action stavba_publikuj)" 200
+variant_action build_save --data-urlencode 'stavba={"v":1,"deti":[]}' > /dev/null
+expect "publikování varianty" "$(variant_action build_publish)" 200
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/z-html"; ! grep -q 'header class="hlavicka"' "$WORK/response" && ! grep -q 'ka-nav' "$WORK/response" && echo "  ok     stránka s prázdnou variantou je bez záhlaví" || { echo "  CHYBA  varianta záhlaví na stránce"; ERRORS=$((ERRORS+1)); }
 curl -s -o "$WORK/response" "$B/kontakt"; grep -q 'header class="hlavicka"' "$WORK/response" && echo "  ok     ostatní stránky mají výchozí záhlaví" || { echo "  CHYBA  varianta se projevila i jinde"; ERRORS=$((ERRORS+1)); }
@@ -889,18 +887,18 @@ expect "the export lists the used classes and both components" "$(php -r '$d = j
 echo "== builder: vlastní CSS, atributy, animace, moje sekce, přejmenování třídy"
 IDV=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'nase-sluzby'")
 version_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=$1&id=$IDV" -d "_csrf=$TOKEN" "${@:2}"; }
-version_action stavba_uloz --data-urlencode 'stavba={"v":1,"deti":[{"id":"sv1","typ":"sekce","tridy":["karta"],"css":"backdrop-filter: blur(4px); background: url(x)","atributy":{"data-sledovat":"cta","onclick":"x"},"styl":{"zaklad":{"animace":"ka-vyjet","prechod":"linear-gradient(135deg, var(--ka-barva-primarni), var(--ka-barva-sekundarni))","okraj_vlevo":"auto"},"aktivni":{"pruhlednost":"0.8"}},"deti":[{"typ":"nadpis","obsah":{"text":"Test"}}]}]}' > /dev/null
+version_action build_save --data-urlencode 'stavba={"v":1,"deti":[{"id":"sv1","typ":"sekce","tridy":["karta"],"css":"backdrop-filter: blur(4px); background: url(x)","atributy":{"data-sledovat":"cta","onclick":"x"},"styl":{"zaklad":{"animace":"ka-vyjet","prechod":"linear-gradient(135deg, var(--ka-barva-primarni), var(--ka-barva-sekundarni))","okraj_vlevo":"auto"},"aktivni":{"pruhlednost":"0.8"}},"deti":[{"typ":"nadpis","obsah":{"text":"Test"}}]}]}' > /dev/null
 grep -q 'Nepovolená deklarace' "$WORK/response" && grep -q 'Atribut může být jen' "$WORK/response" && echo "  ok     vlastní CSS a atributy prvku se čistí" || { echo "  CHYBA  čištění CSS a atributů"; ERRORS=$((ERRORS+1)); }
-version_action stavba_publikuj > /dev/null
+version_action build_publish > /dev/null
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/nase-sluzby"
 grep -q 'data-sledovat="cta"' "$WORK/response" && ! grep -q 'onclick="x"' "$WORK/response" && grep -q 'backdrop-filter: blur(4px)' "$WORK/response" && grep -q 'animation-timeline: view()' "$WORK/response" \
   && grep -q '@keyframes ka-vyjet' "$WORK/response" && grep -q ':active {' "$WORK/response" && grep -q 'margin-inline-start: auto' "$WORK/response" \
   && echo "  ok     vlastní CSS, atributy, animace, stisknutí a okraj na webu" || { echo "  CHYBA  nové vlastnosti stylu na webu"; ERRORS=$((ERRORS+1)); }
-expect "uložení do mých sekcí" "$(version_action stavba_uloz_sekci --data-urlencode 'nazev=Moje karta' --data-urlencode 'prvek={"typ":"sekce","deti":[{"typ":"nadpis","obsah":{"text":"Z knihovny"}}]}')" 200
+expect "uložení do mých sekcí" "$(version_action build_save_section --data-urlencode 'nazev=Moje karta' --data-urlencode 'prvek={"typ":"sekce","deti":[{"typ":"nadpis","obsah":{"text":"Z knihovny"}}]}')" 200
 grep -q '"nazev":"Moje karta"' "$WORK/response" && echo "  ok     moje sekce v seznamu" || { echo "  CHYBA  moje sekce"; ERRORS=$((ERRORS+1)); }
-version_action stavba_trida -d nazev=karta -d pouziti=1 > /dev/null; grep -q 'Služby firmy' "$WORK/response" && echo "  ok     přehled použití třídy" || { echo "  CHYBA  použití třídy"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
-expect "přejmenování třídy" "$(version_action stavba_trida -d nazev=karta -d novy_nazev=karta-sluzby)" 200
+version_action build_class -d nazev=karta -d pouziti=1 > /dev/null; grep -q 'Služby firmy' "$WORK/response" && echo "  ok     přehled použití třídy" || { echo "  CHYBA  použití třídy"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+expect "přejmenování třídy" "$(version_action build_class -d nazev=karta -d novy_nazev=karta-sluzby)" 200
 expect "přejmenovaná třída ve stavbách" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stavba LIKE '%\"karta-sluzby\"%' AND stavba NOT LIKE '%\"karta\"%' FROM ka_stranky WHERE ids = $IDV")" "1"
 
 echo "== média, přesměrování, poptávky, uživatelé, písma"
@@ -988,13 +986,12 @@ mcp stavba_uloz "{\"id\":$IDZ,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[
 {\"typ\":\"zalozky\",\"obsah\":{\"karty\":[{\"nazev\":\"Základ\",\"obsah\":\"<p>A</p>\"},{\"nazev\":\"Plus\",\"obsah\":\"<p>B</p>\"}]}},
 {\"typ\":\"karusel\",\"obsah\":{\"naraz\":\"2\"},\"deti\":[{\"typ\":\"text\",\"obsah\":{\"html\":\"<p>Snímek</p>\"}}]},
 {\"typ\":\"mapa\",\"obsah\":{\"adresa\":\"Brno, Náměstí Svobody\"}},
-{\"typ\":\"okno\",\"kotva\":\"nabidka\",\"obsah\":{\"samo\":\"5\"},\"deti\":[{\"typ\":\"nadpis\",\"obsah\":{\"text\":\"Akce\"}}]},
 {\"typ\":\"faq\",\"obsah\":{\"jedna\":true,\"faq\":false,\"polozky\":[{\"otazka\":\"Co?\",\"odpoved\":\"<p>To.</p>\"}]}}
 ]}]}}" > "$WORK/response"
 grep -q 'chyby\\":\[\]' "$WORK/response" && echo "  ok     nové prvky projdou validátorem" || { echo "  CHYBA  validace nových prvků"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/z-html"
-for pattern in 'class="ka-drobecky"' 'aria-current="page">Z HTML' 'class="ka-ikona ka-ikona--kruh" aria-hidden="true"><svg' 'class="ka-galerie"' 'alt="Dílna"' 'role="tablist"' 'aria-controls="zp-' 'data-karusel' '--ka-naraz:2' 'data-vlozit="https://maps.google.com/maps?q=Brno' 'id="nabidka"' 'popover role="dialog" aria-label="Vyskakovací okno" data-samo="5"' 'name="faq-'; do
+for pattern in 'class="ka-drobecky"' 'aria-current="page">Z HTML' 'class="ka-ikona ka-ikona--kruh" aria-hidden="true"><svg' 'class="ka-galerie"' 'alt="Dílna"' 'role="tablist"' 'aria-controls="zp-' 'data-karusel' '--ka-naraz:2' 'data-vlozit="https://maps.google.com/maps?q=Brno' 'name="faq-'; do
   grep -qF -- "$pattern" "$WORK/response" || { echo "  CHYBA  nový prvek na webu: chybí $pattern"; ERRORS=$((ERRORS+1)); }
 done
 grep -q '"BreadcrumbList"' "$WORK/response" && ! grep -q '"FAQPage"' "$WORK/response" && echo "  ok     nové prvky na webu, drobečky i pro vyhledávače, akordeon bez FAQPage" || { echo "  CHYBA  strukturovaná data stránky"; ERRORS=$((ERRORS+1)); }
@@ -1055,21 +1052,21 @@ for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$SERVICE_PORT/_l
 set_service() { "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('newsletter_service','$1'),('newsletter_key','$2'),('newsletter_list','$3'),('newsletter_webhook','$4'),('newsletter_test_url','http://127.0.0.1:$SERVICE_PORT'); DELETE FROM ka_odber_fronta; DELETE FROM ka_odberatele; INSERT INTO ka_odberatele (email, stav, token, datum, potvrzeno) VALUES ('sluzba@example.cz', 1, '$(php -r 'echo bin2hex(random_bytes(16));')', NOW(), NOW())"; : > "$WORK/sluzba/pozadavky.log"; }
 subscriber_action() { curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=subscribers"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=subscribers&action=$1" -d "_csrf=$(csrf)" "${@:2}"; }
 last_request() { tail -1 "$WORK/sluzba/pozadavky.log"; }
-set_service brevo brevo-klic 7 ''; subscriber_action synchronizuj
+set_service brevo brevo-klic 7 ''; subscriber_action sync
 case "$(last_request)" in 'POST /brevo/v3/contacts brevo-klic {"email":"sluzba@example.cz","listIds":[7],"updateEnabled":true}') echo "  ok     Brevo: přidání do seznamu";; *) echo "  CHYBA  Brevo: $(last_request)"; ERRORS=$((ERRORS+1));; esac
 expect "odběratel ve službě" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(sync, '/', (SELECT COUNT(*) FROM ka_odber_fronta)) FROM ka_odberatele")" "ok/0"
 check "stav služby u odběratelů" 200 "/admin.php?module=subscribers" "odesláno"
-IDOD=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ido FROM ka_odberatele"); subscriber_action smaz -d "ido=$IDOD"; subscriber_action znovu
+IDOD=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ido FROM ka_odberatele"); subscriber_action delete -d "ido=$IDOD"; subscriber_action retry
 case "$(last_request)" in 'POST /brevo/v3/contacts/lists/7/contacts/remove brevo-klic {"emails":["sluzba@example.cz"]}') echo "  ok     Brevo: smazaný odběratel odebrán ze seznamu";; *) echo "  CHYBA  Brevo odebrání: $(last_request)"; ERRORS=$((ERRORS+1));; esac
-set_service mailchimp 'abc123-us21' 'aud1' ''; subscriber_action synchronizuj
+set_service mailchimp 'abc123-us21' 'aud1' ''; subscriber_action sync
 case "$(last_request)" in "PUT /mailchimp/3.0/lists/aud1/members/$(php -r 'echo md5("sluzba@example.cz");') Basic $(printf 'kaleta:abc123-us21' | base64) "*'"status":"subscribed"'*) echo "  ok     Mailchimp: člen audience";; *) echo "  CHYBA  Mailchimp: $(last_request)"; ERRORS=$((ERRORS+1));; esac
-set_service mailerlite ml-klic 99 ''; subscriber_action synchronizuj
+set_service mailerlite ml-klic 99 ''; subscriber_action sync
 case "$(last_request)" in 'POST /mailerlite/api/subscribers Bearer ml-klic {"email":"sluzba@example.cz","groups":["99"],"status":"active"}') echo "  ok     MailerLite: odběratel ve skupině";; *) echo "  CHYBA  MailerLite: $(last_request)"; ERRORS=$((ERRORS+1));; esac
-set_service smartemailing 'jmeno:klic' 5 ''; subscriber_action synchronizuj
+set_service smartemailing 'jmeno:klic' 5 ''; subscriber_action sync
 case "$(last_request)" in "POST /smartemailing/api/v3/import Basic $(printf 'jmeno:klic' | base64) "*'"contactlists":[{"id":5,"status":"confirmed"}]'*) echo "  ok     SmartEmailing: import do seznamu";; *) echo "  CHYBA  SmartEmailing: $(last_request)"; ERRORS=$((ERRORS+1));; esac
-set_service webhook '' '' 'https://hook.example.com/odber'; subscriber_action synchronizuj
+set_service webhook '' '' 'https://hook.example.com/odber'; subscriber_action sync
 case "$(last_request)" in 'POST /webhook/odber - {"udalost":"novy_odberatel",'*'"email":"sluzba@example.cz"'*) echo "  ok     webhook: nový odběratel";; *) echo "  CHYBA  webhook: $(last_request)"; ERRORS=$((ERRORS+1));; esac
-set_service ecomail eco-klic chyba ''; subscriber_action synchronizuj
+set_service ecomail eco-klic chyba ''; subscriber_action sync
 expect "nepovedený přenos čeká na další pokus s chybou" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(pokusy, '|', chyba LIKE 'HTTP 500%', '|', dalsi > NOW()) FROM ka_odber_fronta")" "1|1|1"
 case "$(last_request)" in 'POST /ecomail/lists/chyba/subscribe eco-klic '*'"skip_confirmation":true'*) echo "  ok     Ecomail: přihlášení do seznamu";; *) echo "  CHYBA  Ecomail: $(last_request)"; ERRORS=$((ERRORS+1));; esac
 mcp uprav_nastaveni '{}' | grep -q 'newsletter_klic\|eco-klic' && { echo "  CHYBA  MCP ukazuje klíč mailingové služby"; ERRORS=$((ERRORS+1)); } || echo "  ok     klíč mailingové služby MCP neukazuje"
@@ -1248,12 +1245,6 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=redirects&
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=new"; TOKEN=$(csrf)
 save_page -d ids=0 --data-urlencode "titulek=Zásady test" -d sablona=zasady -d zobrazit=0 -d v_menu=0 -d text= > /dev/null
 expect "privacy template: a disclaimer and only the enabled features" "$(sq "SELECT CONCAT(text LIKE '%nikoli právní rada%', '|', text LIKE '%poptávkovém formuláři%' OR text LIKE '%formuláře%', '|', text LIKE '%[ADDRESS]%' OR text LIKE '%[ADRESA]%' OR text LIKE '%sídlem%') FROM ka_stranky WHERE titulek = 'Zásady test'")" "1|1|1"
-# deprecations in Health
-check "Health: Before Kaleta 2.0 lists the public API" 200 "/admin.php?module=settings&tab=health" "Před Kaletou 2.0"
-grep -q 'Veřejné API' "$WORK/response" && echo "  ok     Health: the deprecated API is in the report" || { echo "  CHYBA  Health deprecation report"; ERRORS=$((ERRORS+1)); }
-mkdir -p "$WORK/web/vlastni" && printf '<?php\necho datum_slovy();\n' > "$WORK/web/vlastni/skript.php"
-check "Health: old helpers in custom code" 200 "/admin.php?module=settings&tab=health" "vlastni/skript.php"
-rm -rf "$WORK/web/vlastni"
 # streamed backup download and the media ZIP only on POST
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; TOKEN=$(csrf)
 LAST_BACKUP=$(ls -t "$WORK"/web/storage/zalohy/ | grep '^kaleta-' | head -1)
@@ -1456,10 +1447,25 @@ mcp stavba_schema '{}' > "$WORK/response"; ! grep -q '\\"formular\\":' "$WORK/re
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='$EXTENSIONS' WHERE promenna='extensions'"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 
-echo "== old admin URLs of 1.3 (bookmarks, links in e-mails)"
-expect "old module and action redirect to the current URL" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/admin.php?modul=stranky&akce=novy")" "301 $B/admin.php?module=pages&action=new"
-expect "old settings tab redirects to the current one" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/admin.php?modul=config&zalozka=zalohy")" "301 $B/admin.php?module=settings&tab=backups"
-check "the redirect target works" 200 "/admin.php?module=settings&tab=backups"
+echo "== 2.0: one pop-up system – the old per-page Modal element becomes a site pop-up (migration 0034)"
+# a page as 1.x saved it: a Modal opened after 5 s once a week, and a button that opened it by its anchor
+mcp create_page '{"title":"Stará akce","slug":"stara-akce","visible":true}' > /dev/null; MODAL_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'stara-akce'")
+mcp save_build "{\"id\":$MODAL_PAGE,\"publish\":true,\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"children\":[{\"type\":\"button\",\"content\":{\"text\":\"Nabídka\",\"link\":\"#nabidka\"}}]}]}}" > /dev/null
+# the Modal as 1.x stored it, next to the button (the 2.0 validator no longer accepts it, so straight into the database)
+php -r '$b = json_decode($argv[1], true); $b["deti"][0]["deti"][] = ["id" => "ok1", "typ" => "okno", "kotva" => "nabidka", "popis" => "Jarní akce", "obsah" => ["samo" => "5", "znovu" => "tyden"], "styl" => [], "tridy" => [],
+  "deti" => [["id" => "na1", "typ" => "nadpis", "znacka" => "h2", "obsah" => ["text" => "Sleva 20 %"], "styl" => [], "tridy" => []]]]; echo json_encode($b, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);' "$(sq "SELECT stavba FROM ka_stranky WHERE ids = $MODAL_PAGE")" > "$WORK/modal.json"
+php -r '$pdo = new PDO("mysql:host=" . $argv[1] . ";port=" . $argv[2] . ";dbname=" . $argv[3] . ";charset=utf8mb4", $argv[4], $argv[5]); $pdo->prepare("UPDATE ka_stranky SET stavba = ? WHERE ids = ?")->execute([file_get_contents($argv[6]), $argv[7]]);' \
+  "$DB_HOST" "$DB_PORT" "$DB_NAME" "$DB_USER" "$DB_PASS" "$WORK/modal.json" "$MODAL_PAGE"
+sq "UPDATE ka_nastaveni SET hodnota = '33' WHERE promenna = 'db_version'" > /dev/null
+rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" "$B/stara-akce"
+expect "the migration made a site pop-up with the same trigger, frequency and content, only on that page" \
+  "$(sq "SELECT CONCAT_WS('|', nazev, adresa, typ, spoustec, hodnota, cetnost, dni, aktivni, stavba LIKE '%Sleva 20 %%', JSON_EXTRACT(pravidla, '$.stranky[0]')) FROM ka_popupy WHERE nazev = 'Jarní akce'")" \
+  "Jarní akce|nabidka|okno|cas|5|dni|7|1|1|$MODAL_PAGE"
+expect "the page lost the element and its button opens the pop-up" "$(sq "SELECT CONCAT(stavba LIKE '%\"typ\":\"okno\"%', '|', stavba LIKE '%#popup-nabidka%') FROM ka_stranky WHERE ids = $MODAL_PAGE")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "0|1|$LAST_MIGRATION"
+grep -q 'href="#popup-nabidka"' "$WORK/response" && grep -q 'id="popup-nabidka"' "$WORK/response" && grep -q 'Sleva 20 %' "$WORK/response" \
+  && echo "  ok     on the site: the button and the pop-up with the old content" || { echo "  CHYBA  converted pop-up on the site"; ERRORS=$((ERRORS+1)); }
+curl -s -o "$WORK/response" "$B/o-nas"; grep -q 'id="popup-nabidka"' "$WORK/response" && { echo "  CHYBA  the converted pop-up shows on other pages"; ERRORS=$((ERRORS+1)); } || echo "  ok     the converted pop-up stays on its page"
+check "2.0: old admin URLs of 1.3 lead to the start screen, not a redirect" 200 "/admin.php?modul=stranky&akce=novy" "Přehled"
 
 echo "== instalace aktualizace (testovací klíč a kanál)"
 cat > "$WORK/vydani-test.php" <<'PHP'

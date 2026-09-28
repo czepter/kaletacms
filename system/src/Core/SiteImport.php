@@ -27,9 +27,12 @@ use Kaleta\Builder\Style;
  */
 final class SiteImport
 {
-    /** Tables in the order of import (a folder before media, a collection before its items). */
-    public const array TABLES = ['kategorie', 'stitky', 'stranky', 'novinky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce', 'menu',
-        'kolekce', 'kolekce_sablony', 'kolekce_polozky', 'popupy', 'media_slozky', 'media'];
+    /**
+     * Tables in the order of import (a folder before media, a collection before its items). Pop-ups come before the builds:
+     * a 1.x export may carry the old Modal element, which becomes a new pop-up (Builder\ModalConversion) next to them.
+     */
+    public const array TABLES = ['kategorie', 'stitky', 'popupy', 'stranky', 'novinky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce', 'menu',
+        'kolekce', 'kolekce_sablony', 'kolekce_polozky', 'media_slozky', 'media'];
 
     /** Content emptied before the import (including what depends on it: versions, drafts, usage and link checks). */
     private const array EMPTIED = ['novinky_stitky', 'novinky_revize', 'novinky_koncepty', 'stranky_revize', 'stavba_revize', 'media_pouziti', 'odkazy_vadne',
@@ -331,6 +334,7 @@ final class SiteImport
     /** One row: cleaned by the table's rules, only columns this site has; false = skipped. */
     private function insert(string $table, array $r): bool
     {
+        $r = $this->liftModals($table, $r);
         $clean = match ($table) {
             'kategorie' => $this->category($r),
             'stitky' => $this->tag($r),
@@ -365,6 +369,24 @@ final class SiteImport
         }
 
         return true;
+    }
+
+    /** A 1.x build with the Modal element: the Modal becomes a site pop-up, the build links to it (as the 2.0 migration does). */
+    private function liftModals(string $table, array $r): array
+    {
+        $text = fn (mixed $v): string => is_array($v) ? (string) json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : (string) $v;
+        if (!in_array($table, ['stranky', 'casti', 'kolekce', 'kolekce_sablony', 'komponenty', 'popupy'], true)
+            || !str_contains($text($r['stavba'] ?? null) . $text($r['stavba_koncept'] ?? null), '"typ":"okno"')) {
+            return $r;
+        }
+        $builds = [];
+        foreach (['stavba', 'stavba_koncept'] as $column) {
+            $v = $r[$column] ?? null;
+            $builds[$column] = is_array($v) ? $v : (is_string($v) && $v !== '' ? (json_decode($v, true) ?: null) : null);
+        }
+        [$builds] = \Kaleta\Builder\ModalConversion::convertRow($this->db, $table, $r, $builds);
+
+        return array_replace($r, $builds);
     }
 
     /** @return list<string> */
@@ -622,7 +644,7 @@ final class SiteImport
     {
         $values = json_decode((string) @file_get_contents(self::workFolder($file) . '/nastaveni.json'), true);
         foreach (is_array($values) ? $values : [] as $key => $value) {
-            $key = (string) $key;
+            $key = OldSettingsKeys::current((string) $key); // an export of 1.4.0 and older has the old keys
             $base = (string) preg_replace('/_[a-z]{2}$/', '', $key);
             if (!is_scalar($value) || $key === 'site_url' || (!in_array($key, SiteExport::SETTINGS, true) && !(in_array($base, Settings::PER_LANGUAGE, true) && $base !== $key))) {
                 continue;

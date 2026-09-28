@@ -9,6 +9,10 @@ namespace Kaleta\Core;
  *
  * The files system/sql/migrace/NNNN-description.sql run in ascending order, the number of the last one applied
  * is in ka_nastaveni (db_version). A new installation gets the complete schema.sql and the highest number right away.
+ *
+ * A data migration (2.0) is NNNN-description.php returning function (Db $db, Settings $settings): void. The code of the
+ * release that runs an update request knows only the .sql files, so a PHP migration must be the highest number of its
+ * release – the new code then runs it on the first request after the update.
  */
 final class Migration
 {
@@ -21,7 +25,7 @@ final class Migration
     public static function files(): array
     {
         $files = [];
-        foreach (glob(self::FOLDER . '/[0-9][0-9][0-9][0-9]-*.sql') ?: [] as $file) {
+        foreach ([...(glob(self::FOLDER . '/[0-9][0-9][0-9][0-9]-*.sql') ?: []), ...(glob(self::FOLDER . '/[0-9][0-9][0-9][0-9]-*.php') ?: [])] as $file) {
             $files[(int) substr(basename($file), 0, 4)] = $file;
         }
         ksort($files);
@@ -69,6 +73,12 @@ final class Migration
                 if ($number <= $version) {
                     continue;
                 }
+                if (str_ends_with($file, '.php')) {
+                    (require $file)($db, $settings); // a data migration – written to run again safely
+                    $settings->set('db_version', (string) $number);
+                    $applied[] = basename($file, '.php');
+                    continue;
+                }
                 foreach (self::statements((string) file_get_contents($file), $db->prefix) as $sql) {
                     try {
                         $db->pdo()->exec($sql);
@@ -86,7 +96,7 @@ final class Migration
             // settings keys of 1.4.0 and older (verze_db…) written again by the release that ran the update, after migration
             // 0026 had renamed them – only once 0026 is in (older data migrations still read the old keys)
             if ((int) $db->value("SELECT MAX(CAST(hodnota AS UNSIGNED)) FROM {nastaveni} WHERE promenna IN ('db_version', 'verze_db')") >= 26) {
-                Settings::adoptLegacyRows($db);
+                OldSettingsKeys::adopt($db);
             }
         } finally {
             $db->run('SELECT RELEASE_LOCK(?)', [$lock]);

@@ -45,7 +45,6 @@ page**, on the left the **Add / Structure** panel, on the right the properties o
   If someone else edits the page meanwhile, the editor offers to load the newer version or overwrite it. Before publishing,
   a **check** flags buttons without links, images without descriptions, a missing main heading and low text contrast.
 - **More elements:** icon, photo gallery with a viewer, tabs, accordion, carousel, map (loads only after a click),
-  pop-up window (opened by a button linking to `#window-anchor`, on its own after a delay, after scrolling or on exit),
   breadcrumbs, **counter**, **progress bars**, star **rating**, **countdown**, **social networks**, **search**,
   **back-to-top button** and **newsletter sign-up**. Sections support a **background video**, videos a **poster**,
   navigation a **mega menu** and background images **parallax**.
@@ -312,9 +311,11 @@ with `site_audit` and can fix what it finds.
 target) or **Ignore** (nothing replaces it, or it is a bot); **Ignore all** dismisses the warning until a new address
 appears. Probes of bots looking for other systems are not recorded, and an address that works again drops out by itself.
 
-**Settings → System status → Before Kaleta 2.0** lists what version 2.0 removes and this site still uses: the public
-API, settings stored under old names, the old per-page pop-up element and old class names or helpers in custom PHP
-code. Kaleta 1.9 gives you a whole release to change them.
+**Kaleta 2.0** is one clear system: the compatibility layers of the 1.x releases are gone. The per-page pop-up element
+became a site pop-up during the update – same content, trigger and frequency, shown only where it was, and its button
+opens it (Appearance → Pop-ups). Old admin addresses of 1.3 lead to the start screen, old class names and helpers of
+1.3 no longer exist, and the settings answer only to their current names – the Claude connection still accepts the old
+ones, so no connection breaks.
 
 ## 13. Backups, updates, export
 
@@ -330,6 +331,5 @@ latest database backup over FTP into `storage/zalohy/`, copy the `media/` folder
 **Import and export → Export of the whole site** creates an open package with the content and media – for moving (see
 above) or keeping your content outside Kaleta. Enquiries, subscribers and accounts are not exported.
 
-The **public read-only API** (`/api/novinky`, the *Public API* extension) is deprecated since 1.8 and will be removed in
-Kaleta 2.0: its responses carry a `Deprecation` header. Use the JSON Feed (`/feed.json`) or RSS for news, the Claude
-connection (MCP) for working with the site, webhooks for events and the site export to take your content out.
+The public read-only API of 1.x (`/api/novinky`) ended in 2.0. Use the JSON Feed (`/feed.json`) or RSS for news, the
+Claude connection (MCP) for working with the site, webhooks for events and the site export to take your content out.

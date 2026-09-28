@@ -9,7 +9,7 @@ declare(strict_types=1);
 const KALETA_VERSION = '1.9.0';
 
 /** Number of the last migration in system/sql/migrace - the site uses it to tell that it must update the database after an update (checked by tools/test.sh). */
-const KALETA_DB_VERSION = 33;
+const KALETA_DB_VERSION = 34;
 
 define('KALETA_ROOT', dirname(__DIR__));
 define('KALETA_SYSTEM', __DIR__);
@@ -32,13 +32,6 @@ spl_autoload_register(static function (string $class): void {
     $file = KALETA_SYSTEM . '/src/' . str_replace('\\', '/', substr($class, 7)) . '.php';
     if (is_file($file)) {
         require $file;
-        return;
-    }
-    // a class renamed to English still answers to its old name (code outside the core, e.g. a custom layout)
-    static $aliases = null;
-    $aliases ??= require KALETA_SYSTEM . '/class-aliases.php';
-    if (isset($aliases[$class])) {
-        class_alias($aliases[$class], $class);
     }
 });
 

@@ -32,7 +32,7 @@ final class Build
         Elements\Section::class, Elements\Container::class, Elements\Grid::class,
         Elements\Heading::class, Elements\Text::class, Elements\Image::class, Elements\Button::class, Elements\BulletList::class,
         Elements\Quote::class, Elements\Faq::class, Elements\Video::class, Elements\Divider::class,
-        Elements\Icon::class, Elements\Gallery::class, Elements\Tabs::class, Elements\Carousel::class, Elements\Map::class, Elements\Modal::class, Elements\Breadcrumbs::class,
+        Elements\Icon::class, Elements\Gallery::class, Elements\Tabs::class, Elements\Carousel::class, Elements\Map::class, Elements\Breadcrumbs::class,
         Elements\Counter::class, Elements\Progress::class, Elements\Rating::class, Elements\Countdown::class, Elements\SocialLinks::class, Elements\Search::class,
         Elements\News::class, Elements\CollectionList::class, Elements\Form::class, Elements\Newsletter::class, Elements\Component::class, Elements\Html::class, Elements\BackToTop::class,
         Elements\Logo::class, Elements\Navigation::class, Elements\LanguageSwitcher::class, Elements\CompanyDetails::class, Elements\PageContent::class,
@@ -380,9 +380,6 @@ final class Build
         $hasStyle = $style !== [] || $customCss !== '';
         // inside a Collection list the element repeats: style through the class s-<id>, not through the id (an id must be on the page only once)
         $isRepeated = $k->inLoop > 0;
-        if ($className === Elements\Modal::class && empty($p['kotva']) && !$isRepeated) {
-            $p['kotva'] = 'okno-' . $p['id']; // a modal has a fixed url #okno-…, even when it later gets a style (buttons link to it)
-        }
         $id = $isRepeated ? null : ($p['kotva'] ?? ($hasStyle ? 's-' . $p['id'] : null));
         $classes = array_merge($isRepeated && $hasStyle ? ['s-' . $p['id']] : [], $p['tridy'] ?? []);
         if ($hasStyle && !isset($k->styles[$p['id']])) {

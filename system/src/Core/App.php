@@ -88,7 +88,7 @@ final class App
     /**
      * Absolute path within the installation: url('admin.php') -> "/magazin/admin.php".
      * In a language version the URLs of site pages get the language prefix (url('novinky/x') -> "/en/novinky/x");
-     * files and services (anything with an extension, api/, mcp) stay shared.
+     * files and services (anything with an extension, mcp) stay shared.
      */
     public function url(string $path = ''): string
     {
@@ -100,7 +100,7 @@ final class App
         }
         if ($this->languagePrefix !== '') {
             $pathOnly = explode('?', $path, 2)[0];
-            if ((!str_contains($pathOnly, '.') || $pathOnly === 'rss.xml' || $pathOnly === 'feed.json') && !preg_match('#^(api/|mcp$)#', $pathOnly)) {
+            if ((!str_contains($pathOnly, '.') || $pathOnly === 'rss.xml' || $pathOnly === 'feed.json') && $pathOnly !== 'mcp') {
                 $path = $this->languagePrefix . ($path === '' ? '/' : '/' . $path);
             }
         }

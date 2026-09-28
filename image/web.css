@@ -196,7 +196,7 @@ figure.galerie figcaption { grid-column: 1 / -1; }
 	.ka-popup-zavrit:hover { background: color-mix(in oklch, currentColor 10%, transparent); }
 	.ka-popup-zavrit:focus-visible { outline: 3px solid var(--ka-barva-sekundarni, currentColor); outline-offset: 2px; }
 	/* the heading the script moves focus to after opening, for screen readers (tabindex="-1"), has no outline – it cannot be operated */
-	:is(.ka-popup, .ka-okno) [tabindex="-1"]:focus { outline: none; }
+	.ka-popup [tabindex="-1"]:focus { outline: none; }
 	.ka-popup--lista-nahore .ka-popup-zavrit, .ka-popup--lista-dole .ka-popup-zavrit { top: 50%; translate: 0 -50%; }
 	@media (prefers-reduced-motion: no-preference) {
 		.ka-popup:popover-open { animation: ka-popup-objevit 0.2s ease-out; }

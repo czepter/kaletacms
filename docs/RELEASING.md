@@ -12,7 +12,7 @@ kde klíče leží, jak se vydává a co dělat, když se klíč ztratí nebo un
 | **záložní** | `tools/klice/zalozni.key` | **jen offline** – správce hesel a druhá kopie na papíře nebo USB mimo počítač | nepoužívá se; slouží k výměně provozního klíče |
 
 Veřejné protějšky jsou v `system/aktualizace.pub` (na řádek jeden, za klíčem volitelný popis, řádky s `#` jsou poznámky).
-Podpis platí, když sedí na **kterýkoli** z nich (`Core\Podpis`). Soubor je součást balíčku, takže ho každá aktualizace přepíše –
+Podpis platí, když sedí na **kterýkoli** z nich (`Core\Signature`). Soubor je součást balíčku, takže ho každá aktualizace přepíše –
 tím se nové klíče dostanou do instalací a odvolané z nich zmizí.
 
 Podepisuje se řetězec `verze|sha256 balíčku|bezne nebo bezpecnostni` a zvlášť seznam souborů jádra (`system/soubory.json`).

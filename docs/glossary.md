@@ -27,11 +27,10 @@ Renamed later, each with a migration or an alias so old links and data keep work
   stay Czech for now (one Czech text with two English translations, or two Czech texts sharing one), and the other
   dictionaries keep their Czech keys, so a Czech text passed from data still translates.
 
-Old class names keep working through `system/class-aliases.php` until 2.0. Old admin URLs of 1.3 (bookmarks, links in
-sent e-mails; parameters modul, akce, zalozka with Czech values) are translated by `Admin\LegacyUrls` and redirected to the
-current ones (`?module=pages&action=save&tab=backups`); the idents stored with user and role permissions were migrated (0025).
-Settings keys are English since 1.4.1 (`site_name`, `company_id`…, the list is `Core\Settings::LEGACY_KEYS`): migration 0026
-renamed the stored rows, and `Settings` still accepts an old key (custom layouts, MCP clients that send `nazev_webu`) until 2.0.
+Since 2.0 the old names are gone: old class names and template helpers (1.3), old admin URLs (`?modul=…&akce=…`) and
+settings under old keys. Settings keys are English since 1.4.1 (`site_name`, `company_id`…); the map of old keys lives on
+in `Core\OldSettingsKeys` only at the edges – updates from 1.4.0 and older, MCP clients that still send `nazev_webu`, and
+imports of old exports. `system/class-aliases.php` is an empty file kept for one release (updates from 1.4–1.9).
 
 ## Conventions
 
@@ -73,7 +72,7 @@ renamed the stored rows, and `Settings` still accepts an old key (custom layouts
 | poptávka | enquiry | |
 | formulář | form | |
 | odběratel, odběr | subscriber, subscription | |
-| okno, pop-up | popup | the builder element `Okno` → `Modal` |
+| okno, pop-up | popup | the per-page element `Okno` / `Modal` became site pop-ups in 2.0 (`Builder\ModalConversion`) |
 | spouštěč | trigger | |
 | četnost | frequency | |
 | pravidla | rules | |

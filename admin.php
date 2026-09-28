@@ -1,20 +1,12 @@
 <?php
 /**
  * Kaleta - admin.
- * URLs look like admin.php?module=news&action=edit&id=5 (1.3 and older: ?module=news&action=edit, see Admin\LegacyUrls).
+ * URLs look like admin.php?module=news&action=edit&id=5.
  */
 
 declare(strict_types=1);
 
 require __DIR__ . '/system/bootstrap.php';
-
-// old URLs (bookmarks, links in e-mails, forms open during an update): current names before anything reads them
-[$_GET, $legacyUrl] = Kaleta\Admin\LegacyUrls::normalize($_GET);
-[$_POST] = Kaleta\Admin\LegacyUrls::normalize($_POST); // e.g. the settings tab of a form opened before the update
-if ($legacyUrl && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
-    header('Location: ' . strtok((string) ($_SERVER['REQUEST_URI'] ?? 'admin.php'), '?') . ($_GET !== [] ? '?' . http_build_query($_GET) : ''), true, 301);
-    exit;
-}
 
 $app = Kaleta\Core\App::boot();
 $response = (new Kaleta\Admin\Kernel($app))->handle();
