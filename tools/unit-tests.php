@@ -229,6 +229,64 @@ foreach (Kaleta\Admin\Kernel::MODULES as $moduleClass) {
     }
 }
 check('Parity: every admin action is a read, an MCP tool or admin only on purpose', $missingParity, []);
+// The builder vocabulary in English at the MCP boundary: every map one to one, nothing missing, every library section there and back
+$vocabulary = Kaleta\Mcp\Vocabulary::class;
+$notOneToOne = [];
+foreach (['NODE', 'CONDITIONS', 'TYPES', 'CONTENT', 'ITEMS', 'STATES', 'STYLE', 'COLORS', 'TEXT_STYLES', 'FIELD_TYPES', 'STYLE_TYPES'] as $map) {
+    if (count(array_unique(constant($vocabulary . '::' . $map))) !== count(constant($vocabulary . '::' . $map))) {
+        $notOneToOne[] = $map;
+    }
+}
+foreach ($vocabulary::VALUES + ['ITEM typ' => $vocabulary::ITEM_VALUES['typ']] as $key => $values) {
+    if (count(array_unique($values)) !== count($values)) {
+        $notOneToOne[] = 'VALUES ' . $key;
+    }
+}
+$contentBack = $vocabulary::reverse('CONTENT');
+foreach ($vocabulary::CONTENT_BY_TYPE as $keys) {
+    foreach ($keys as $en) {
+        if (isset($vocabulary::CONTENT[$contentBack[$en]]) && $vocabulary::CONTENT[$contentBack[$en]] === $en && !in_array($en, $keys, true)) {
+            $notOneToOne[] = 'CONTENT_BY_TYPE ' . $en;
+        }
+        if (in_array($en, $vocabulary::CONTENT, true)) {
+            $notOneToOne[] = 'CONTENT_BY_TYPE ' . $en . ' is also a general key';
+        }
+    }
+}
+check('Vocabulary: every map is one to one', $notOneToOne, []);
+$vocabularyMissing = $vocabulary::missingTypes();
+foreach (Kaleta\Builder\Build::ELEMENTS as $className) {
+    foreach ($className::properties() as $key => $definition) {
+        if (!isset($vocabulary::CONTENT[$key]) && !isset($vocabulary::CONTENT_BY_TYPE[$className::TYPE][$key])) {
+            $vocabularyMissing[] = $className::TYPE . '.' . $key;
+        }
+        foreach (array_keys((array) ($definition['pole'] ?? [])) as $itemKey) {
+            if (!isset($vocabulary::ITEMS[$itemKey])) {
+                $vocabularyMissing[] = $className::TYPE . '.' . $key . '[' . $itemKey . ']';
+            }
+        }
+        if (!isset($vocabulary::FIELD_TYPES[$definition['typ']])) {
+            $vocabularyMissing[] = 'field type ' . $definition['typ'];
+        }
+    }
+}
+$vocabularyMissing = [...$vocabularyMissing, ...array_diff(array_keys(Kaleta\Builder\Style::PROPERTIES), array_keys($vocabulary::STYLE)),
+    ...array_diff(array_keys(Kaleta\Builder\Style::STATUSES), array_keys($vocabulary::STATES)), ...array_diff(array_keys(Kaleta\Builder\DesignSystem::COLOR_TOKENS), array_keys($vocabulary::COLORS)),
+    ...array_diff(array_keys(Kaleta\Builder\DesignSystem::TYPOGRAPHY), array_keys($vocabulary::TEXT_STYLES))];
+check('Vocabulary: every element type, field, style property, state and token has an English name', array_values(array_unique($vocabularyMissing)), []);
+$roundTrip = [];
+foreach (Kaleta\Builder\Library::listAll() as $librarySection) {
+    $element = Kaleta\Builder\Library::section($librarySection['klic'])['prvek'];
+    $english = $vocabulary::elementToEnglish($element);
+    if ($vocabulary::elementToCzech($english) !== $element || preg_match('/"(deti|obsah|styl|typ|zaklad|mobil)":/', (string) json_encode($english))) {
+        $roundTrip[] = $librarySection['klic'];
+    }
+}
+check('Vocabulary: every library section goes to English (no Czech keys left) and back unchanged', $roundTrip, []);
+check('Vocabulary: the Czech form is still accepted on input', $vocabulary::elementToCzech(['typ' => 'nadpis', 'obsah' => ['text' => 'A'], 'styl' => ['mobil' => ['barva' => 'primarni']]]),
+    ['typ' => 'nadpis', 'obsah' => ['text' => 'A'], 'styl' => ['mobil' => ['barva' => 'primarni']]]);
+check('Vocabulary: English in, Czech stored', $vocabulary::elementToCzech(['type' => 'button', 'content' => ['text' => 'Go', 'variant' => 'outline', 'icon' => 'arrow'], 'style' => ['hover' => ['background' => 'primary-soft', 'radius' => 'full']]]),
+    ['typ' => 'tlacitko', 'obsah' => ['text' => 'Go', 'varianta' => 'obrys', 'ikona' => 'sipka'], 'styl' => ['hover' => ['pozadi' => 'primarni-jemna', 'zaobleni' => 'plne']]]);
 // MCP in English: every tool has an English name, every fixed message a translation, parameters and results are converted
 $mcpSource = (string) file_get_contents(KALETA_ROOT . '/system/src/Mcp/Tools.php');
 preg_match_all("/^\s+\['([a-z_]+)', '/m", substr($mcpSource, 0, (int) strpos($mcpSource, 'public function zavolej')), $mcpTools);
@@ -239,8 +297,8 @@ check('MCP anglicky: parametry, hodnoty a položky menu', Kaleta\Mcp\Translator:
     ['umisteni' => 'paticka', 'polozky' => [['typ' => 'stranka', 'ids' => 2, 'deti' => [['typ' => 'odkaz', 'url' => '/x', 'nove_okno' => true]]]]]);
 check('MCP anglicky: typy polí kolekce a nastavení', [Kaleta\Mcp\Translator::arguments('create_collection', ['fields' => [['label' => 'Foto', 'type' => 'image']]]), Kaleta\Mcp\Translator::arguments('update_settings', ['settings' => ['site_name_de' => 'X', 'company_email' => 'a@b.c', 'nazev_webu' => 'Y']])],
     [['pole' => [['popisek' => 'Foto', 'typ' => 'obrazek']]], ['nastaveni' => ['site_name_de' => 'X', 'company_email' => 'a@b.c', 'nazev_webu' => 'Y']]]);
-check('MCP anglicky: výsledek s anglickými klíči, stavba beze změny', Kaleta\Mcp\Translator::result('save_build', ['id' => 3, 'stav' => 'publikováno', 'stavba' => ['v' => 1, 'deti' => [['typ' => 'nadpis', 'stav' => 'x']]], 'kontrola' => [['id' => 'a', 'zprava' => 'z']]]),
-    ['id' => 3, 'status' => 'published', 'build' => ['v' => 1, 'deti' => [['typ' => 'nadpis', 'stav' => 'x']]], 'check' => [['id' => 'a', 'message' => 'z']]]);
+check('MCP anglicky: výsledek s anglickými klíči, stavba v anglickém slovníku', Kaleta\Mcp\Translator::result('save_build', ['id' => 3, 'stav' => 'publikováno', 'stavba' => ['v' => 1, 'deti' => [['typ' => 'nadpis', 'stav' => 'x']]], 'kontrola' => [['id' => 'a', 'zprava' => 'z']]]),
+    ['id' => 3, 'status' => 'published', 'build' => ['v' => 1, 'children' => [['type' => 'heading', 'stav' => 'x']]], 'check' => [['id' => 'a', 'message' => 'z']]]);
 $mcpList = [['name' => 'save_collection_item', 'inputSchema' => ['properties' => ['data' => ['type' => 'object'], 'name' => ['type' => 'string'], 'fields' => ['type' => 'array']]]]];
 check('MCP: objekt a pole poslané jako text JSON se rozbalí podle schématu, text zůstane textem', Kaleta\Mcp\Server::extractJson($mcpList, 'save_collection_item', ['data' => '{"a":"b"}', 'name' => '{"x":1}', 'fields' => '[1,2]']),
     ['data' => ['a' => 'b'], 'name' => '{"x":1}', 'fields' => [1, 2]]);

@@ -13,7 +13,7 @@ clients. They keep their Czech names; the rename tool never touches string liter
 | Contract | Examples | Why |
 |---|---|---|
 | Database tables and columns, stored values | `ka_stranky.seo_link`, `ka_casti.typ = 'hlavicka'`, extension keys (`novinky`) | data on every installed site |
-| Build JSON: keys, element types, style keys | `{"typ":"nadpis","obsah":{…},"styl":{"mobil":{"mezera":"s"}},"deti":[…]}` | stored builds, MCP clients |
+| Build JSON: keys, element types, style keys | `{"typ":"nadpis","obsah":{…},"styl":{"mobil":{"mezera":"s"}},"deti":[…]}` | stored builds; over MCP they are English since 1.6 (`Mcp\Vocabulary`), the Czech form is still accepted |
 | Design system keys and CSS custom properties | `barvy.primarni`, `--ka-barva-text`, `--ka-mezera-l` | stored design, shared classes |
 | Public HTML hooks | classes `ka-*`, `data-ka-*`, `#popup-<slug>`, localStorage `ka-jazyk` | custom CSS and scripts of sites |
 | Release channel | manifest keys `verze`, `sha256`, `podpis`…, `system/soubory.json` | older installs parse them |

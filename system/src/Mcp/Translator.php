@@ -74,13 +74,13 @@ final class Translator
         'save_menu' => ['uloz_menu', 'Saves the whole menu (administrators). Items: {"type":"page","page_id":5,"text":""} (empty text = page name) | {"type":"link","text":"…","url":"https://… or /path","new_window":false} | {"type":"news"} | {"type":"group","text":"Services"} – each may have "children" (one submenu level). null = the main menu is automatic again. The menu has no draft – it changes the site straight away; a hidden page appears in it only once it is visible.',
             ['location' => ['umisteni', 'main | footer'], 'language' => ['jazyk', 'language version (empty = default)'], 'items' => ['polozky', 'menu items']]],
         'builder_schema' => ['stavba_schema', 'How a page is put together in the builder: element types and their fields, style properties, design system tokens (colours, spacing, type), the section library and the shared classes of the site. Load it before you first use the *_build tools. Returns a short overview (one element per line); full definitions of chosen elements through the elements parameter. The build JSON uses the builder’s own (Czech) keys: typ, znacka, obsah, styl, tridy, deti, kotva.',
-            ['elements' => ['prvky', 'element types to get the full definition for (field labels, default children), e.g. ["formular","karusel"]'], 'full' => ['uplne', 'true = the whole schema with all labels (large)']]],
+            ['elements' => ['prvky', 'element types to get the full definition for (field labels, default children), e.g. ["form","carousel"]'], 'full' => ['uplne', 'true = the whole schema with all labels (large)']]],
         'get_build' => ['stavba_nacti', 'The build of a page or site part (a tree of elements with ids) – the draft in progress, otherwise the published version. Default values are left out. A page without a build returns a build made from its text. '
             . 'With texts_only just the texts and links of elements by id (for translating: send them back as “update” operations in edit_build).',
             ['*cil', 'texts_only' => ['jen_texty', 'true = instead of the build a list texts: [{id, type, content: only text properties and links, attributes}]']]],
         'edit_build' => ['stavba_uprav', 'Partial edits of the draft by element id (ids from get_build) – fix a text, a link or a style without sending the whole build. Operations: '
-            . '{"op":"update","id":"…","content":{…},"style":{"mobil":{"mezera":"s"}},"classes":[…]} (content and style merge, a null value removes) | {"op":"replace","id":"…","element":{…}} | {"op":"delete","id":"…"} | '
-            . '{"op":"insert","elements":[…],"into":"parent id or null = root","position":0 | "after":"id" | "before":"id"} | {"op":"move","id":"…","into":…,"after":…}. Elements themselves use the build JSON keys (typ, obsah, styl…).',
+            . '{"op":"update","id":"…","content":{…},"style":{"mobile":{"gap":"s"}},"classes":[…]} (content and style merge, a null value removes) | {"op":"replace","id":"…","element":{…}} | {"op":"delete","id":"…"} | '
+            . '{"op":"insert","elements":[…],"into":"parent id or null = root","position":0 | "after":"id" | "before":"id"} | {"op":"move","id":"…","into":…,"after":…}. Elements use the build JSON keys of builder_schema (type, content, style, children…).',
             ['*cil', 'operations' => ['operace', 'list of operations, applied in order'], 'publish' => ['publikovat', 'true = publish (only when the user explicitly asks)']]],
         'list_classes' => ['seznam_trid', 'Shared classes of the site (card, dark band…) with their style per state and custom CSS. An element gets a class in its "tridy" list.', ['name' => ['nazev', 'only this class (optional)']]],
         'save_classes' => ['uloz_tridy', 'Creates or changes shared classes (administrators) – the change applies to the whole site at once. Write CSS as in a <style> block: rules of one class (.card { … }), '
@@ -97,7 +97,7 @@ final class Translator
                 'overwrite_classes' => ['prepsat_tridy', 'true = classes that already exist on the site are overwritten by the <style>; otherwise they stay'],
                 'publish' => ['publikovat', 'true = publish straight away (only when the user explicitly asks); otherwise a draft to preview']]],
         'save_build' => ['stavba_uloz', 'Saves the whole build of a page (the tree from get_build with your changes) as a draft. For small edits of content and style of single elements. Returns the cleaned build, errors and the check before publishing.',
-            ['*cil', 'build' => ['stavba', '{"v":1,"deti":[…]} according to builder_schema'], 'publish' => ['publikovat', 'true = publish (only when the user explicitly asks)']]],
+            ['*cil', 'build' => ['stavba', '{"v":1,"children":[…]} according to builder_schema'], 'publish' => ['publikovat', 'true = publish (only when the user explicitly asks)']]],
         'insert_section' => ['vloz_sekci', 'Adds a ready-made section from the library (hero, benefits, services, numbers, testimonials, faq, call to action, news, contact) to the end of the draft of a page or site part.',
             ['*cil', 'section' => ['sekce', 'section key from builder_schema → knihovna'], 'saved_section' => ['saved_section', 'instead of a library section, a section saved in the builder (id from builder_schema → saved_sections)']]],
         'publish_build' => ['publikuj_stavbu', 'Publishes the draft build of a page or site part (only when the user explicitly asks). The previous version stays in the history.', ['*cil']],
@@ -242,7 +242,7 @@ final class Translator
     ];
 
     /** Keys whose values are not translated: build JSON, item field values, design system, conversion and check messages. */
-    private const array UNTRANSLATED = ['stavba', 'data', 'design_system', 'chyby', 'hlaseni', 'citelnost', 'chyby_operaci', 'styl', 'css', 'vlastnosti'];
+    private const array UNTRANSLATED = ['data', 'design_system', 'chyby', 'hlaseni', 'citelnost', 'chyby_operaci', 'styl', 'css', 'vlastnosti'];
 
     /** Exceptions from KEYS per tool (English name => [Czech key => English]). */
     private const array TOOL_KEYS = [
@@ -481,8 +481,12 @@ final class Translator
                 $cs === 'operace' && is_array($value) => array_map(self::operationToCzech(...), $value),
                 $cs === 'nastaveni' && is_array($value) => self::settingsKeys($value, true),
                 $cs === 'pravidla' && is_array($value) => self::rules($value, true),
+                $cs === 'stavba' && is_array($value) => Vocabulary::buildToCzech($value),
                 default => $value,
             };
+        }
+        if ($name === 'builder_schema') {
+            $result['_english'] = true; // the tool answers in the English builder vocabulary
         }
 
         return $result;
@@ -525,7 +529,14 @@ final class Translator
         $result = [];
         foreach ($o as $k => $h) {
             $cs = self::OPERATION_KEYS[$k] ?? $k;
-            $result[$cs] = $cs === 'op' && is_string($h) ? (self::OPERATION_TYPES[$h] ?? $h) : $h;
+            $result[$cs] = match (true) {
+                $cs === 'op' && is_string($h) => self::OPERATION_TYPES[$h] ?? $h,
+                $cs === 'obsah' && is_array($h) => Vocabulary::contentToCzech($h),
+                $cs === 'styl' && is_array($h) => Vocabulary::styleToCzech($h),
+                $cs === 'prvek' => Vocabulary::elementToCzech($h),
+                $cs === 'prvky' && is_array($h) => array_map(Vocabulary::elementToCzech(...), $h),
+                default => $h,
+            };
         }
 
         return $result;
@@ -594,6 +605,10 @@ final class Translator
         if ($name === 'save_popup') {
             return self::popupToEnglish($v);
         }
+        if ($name === 'list_classes') {
+            return array_map(fn (mixed $c): mixed => is_array($c) ? ['name' => $c['nazev'] ?? '', 'style' => is_array($c['styl'] ?? null) ? (Vocabulary::styleToEnglish($c['styl']) ?: new \stdClass()) : $c['styl'] ?? null,
+                'css' => $c['css'] ?? ''] : $c, $v);
+        }
         if (in_array($name, ['get_menu', 'save_menu'], true)) {
             $menu = fn (mixed $items): array => array_map(fn (mixed $p): mixed => is_array($p) ? self::menuItemToEnglish($p) : $p, is_array($items) ? $items : []);
             $rest = array_diff_key($v, ['polozky' => 1, 'na_webu' => 1, 'umisteni' => 1]);
@@ -619,8 +634,10 @@ final class Translator
                 in_array($k, ['hlaseni', 'chyby', 'chyby_operaci'], true) && is_array($h) => array_map(fn (mixed $z): mixed => is_string($z) ? self::messages($z) : $z, $h),
                 in_array($k, self::UNTRANSLATED, true) => $h,
                 // build texts for translation: the inside of the content are element properties as in the build (text, odkaz, html…)
-                $k === 'texty' && is_array($h) => array_map(fn (mixed $t): mixed => is_array($t) ? ['id' => $t['id'] ?? '', 'type' => $t['typ'] ?? '']
-                    + (isset($t['obsah']) ? ['content' => $t['obsah']] : []) + (isset($t['atributy']) ? ['attributes' => $t['atributy']] : []) : $t, $h),
+                $k === 'texty' && is_array($h) => array_map(fn (mixed $t): mixed => is_array($t) ? ['id' => $t['id'] ?? '', 'type' => Vocabulary::TYPES[$t['typ'] ?? ''] ?? ($t['typ'] ?? '')]
+                    + (isset($t['obsah']) ? ['content' => Vocabulary::contentToEnglish((string) ($t['typ'] ?? ''), (array) $t['obsah'])] : []) + (isset($t['atributy']) ? ['attributes' => $t['atributy']] : []) : $t, $h),
+                // the build in the English vocabulary (stored builds keep their Czech keys)
+                $k === 'stavba' && is_array($h) => Vocabulary::buildToEnglish($h),
                 $k === 'titulek' && is_string($h) && isset(self::PART_NAMES[$h]) => self::PART_NAMES[$h],
                 is_array($h) => self::translateArray($h, $overrides),
                 ($k === 'stav' || $k === 'role') && is_string($h) => self::state($h),

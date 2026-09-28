@@ -113,10 +113,10 @@ findable, then remove what is left of the old ways. Each step uses the previous 
 - Claude: `draft_newsletter` and `send_test_newsletter`; the real send only on an explicit request and with the publish
   permission, like publishing.
 
-## 1.6 – Claude can do most of what the admin does
+## 1.6 – Claude can do most of what the admin does (in main, not released yet)
 
-1. **Delete and restore over MCP:** news, collection items, collections, categories and tags, redirects, pop-ups, media
-   and header or footer variants; restore a page or news item from the trash; mark an enquiry handled or delete it.
+1. **Delete and restore over MCP:** news, collection items, collections, categories, pop-ups, components, saved
+   sections and media; restore a page, news item or collection item from the trash; mark an enquiry handled or delete it.
    Collection items get a trash like pages. Destructive tools run only on an explicit request.
 2. **Components and saved sections:** `list_components`, `save_component`; sections saved by people in the admin show
    up in `builder_schema` and `insert_section`. `update_category`.
@@ -130,7 +130,7 @@ findable, then remove what is left of the old ways. Each step uses the previous 
 6. **Parity guard:** `tools/test.sh` drives MCP by the English names, and a unit test fails when an admin write action
    has neither an MCP tool nor an explicit “admin only” entry (users, roles, keys, updates and backups stay admin only).
 7. **Themeless:** custom PHP layouts are removed – no site uses one. Front templates are no longer overridable, the
-   layout choice and `site_info.sablona` go away. An update stops with a clear message if a site still has a layout set.
+   layout choice and `site_info.sablona` go away. Health warns about a custom layout folder that is still there.
 
 ## 1.7 – safe redesigns
 

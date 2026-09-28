@@ -352,6 +352,9 @@ final class Tools
 
             case 'stavba_schema':
                 $schema = Build::schema($auth->isAdmin(), Language::defaults($siteSettings), $auth->isAdmin(), \Kaleta\Core\Extensions::enabled($siteSettings));
+                if (!empty($a['_english'])) {
+                    return $this->englishSchema($schema, $a);
+                }
                 $selected = is_array($a['prvky'] ?? null) ? array_values(array_filter($schema['prvky'], fn (array $p): bool => in_array($p['typ'], $a['prvky'], true))) : [];
                 if ($selected !== [] && empty($a['uplne'])) {
                     return ['prvky' => $selected];
@@ -1364,6 +1367,41 @@ final class Tools
         }
 
         return null;
+    }
+
+    /**
+     * builder_schema for the English interface: the builder vocabulary in English (Mcp\Vocabulary), the section library,
+     * saved sections, components, classes and design system tokens.
+     *
+     * @param array<string, mixed> $schema Build::schema()
+     * @param array<string, mixed> $a
+     */
+    private function englishSchema(array $schema, array $a): array
+    {
+        $db = $this->app->db();
+        $siteSettings = $this->app->settings();
+        $only = is_array($a['prvky'] ?? null) ? array_values(array_filter($a['prvky'], 'is_string')) : [];
+        $out = \Kaleta\Mcp\Vocabulary::schema($schema, $only, !empty($a['uplne']));
+        if ($only !== [] && empty($a['uplne'])) {
+            return $out;
+        }
+        $admin = fn (string $text): string => Language::runWith('en', fn (): string => t($text), 'admin-');
+        $library = Library::listAll(\Kaleta\Core\Extensions::enabled($siteSettings));
+
+        return $out + [
+            'components' => array_map(fn (array $k): array => ['id' => (string) $k['idm'], 'name' => $k['nazev'], 'properties' => $k['vlastnosti']], \Kaleta\Builder\Components::all($db))
+                + ['note' => 'Use: {"type":"component","content":{"component":"<id>","values":{"<key>":"value"}}}; an empty value = the default. Edit a component with the *_build tools and component: <id>.'],
+            'site_parts' => ['header' => 'the header of every page', 'footer' => 'the footer of every page', 'news_item' => 'the wrapper of a news item', 'news_list' => 'the wrapper of the news list',
+                'not_found' => 'the wrapper of the 404 page', 'note' => 'The elements logo, navigation, company_details and page_content belong only in site parts; a wrapper (news_item, news_list, not_found) must contain exactly one page_content element.'],
+            'library' => array_column(array_map(fn (array $k): array => ['key' => $k['klic'], 'description' => $admin($k['nazev']) . ' – ' . $admin($k['popis'])], $library), 'description', 'key'),
+            'saved_sections' => array_map(fn (array $r): array => ['id' => (int) $r['idx'], 'name' => $r['nazev']], $db->all('SELECT idx, nazev FROM {sekce} ORDER BY nazev LIMIT 200'))
+                + ['note' => 'Sections saved in the builder: insert_section with saved_section: <id>.'],
+            'site_classes' => array_column($db->all('SELECT nazev FROM {tridy} ORDER BY nazev'), 'nazev'),
+            'design_system' => DesignSystem::load($siteSettings) + ['presets' => array_map(fn (array $p): string => $admin($p[0]) . ' – ' . $admin($p[1]), DesignSystem::PRESETS),
+                'heading_fonts' => array_keys(SiteIdentity::TITLE_FONTS), 'text_fonts' => array_keys(SiteIdentity::TEXT_FONTS),
+                'note' => 'Keys as update_design_system takes them (barvy = colours, pismo_titulky = heading font, zaobleni = corner radius…).'],
+            'css_tokens' => 'In <style> and custom CSS use var(--ka-barva-primarni|sekundarni|text|tlumeny|pozadi|plocha|linka|primarni-jemna|na-primarni) (primary, secondary, text, muted, background, surface, line, primary-soft, on-primary), var(--ka-mezera-2xs…3xl) for spacing, var(--ka-krok--1…5) for font size, var(--ka-zaobleni), var(--ka-stin-s|m|l), var(--ka-sirka).',
+        ];
     }
 
     /** @param array<string, mixed> $n */

@@ -139,6 +139,10 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   `build_from_html`, `save_build`…); `Tools` dál implementuje nástroje česky a `Translator` překládá vstup i výstup. České názvy jsou skryté aliasy
   a chovají se jako dřív – existující napojení se nerozbijí. Datový model builderu (JSON stavby, `stavba_schema`, klíče design systému) se nepřekládá.
   Nový nástroj nebo parametr = záznam v `Translator::TOOLS`, nové hlášení = `MESSAGES`/`MESSAGE_PATTERNS`; hlídá to `tools/unit-tests.php`.
+  **Slovník builderu anglicky (od 1.6, `Mcp\Vocabulary`):** stavby, obsah prvků, styly a `builder_schema` jdou přes MCP anglicky (`type`, `content`,
+  `style`, `children`, `button`, `mobile`, `primary`…), uložené stavby zůstávají české; na vstupu projde i česká podoba. Nový prvek, pole, vlastnost
+  stylu nebo token = záznam ve `Vocabulary` (jinak selže unit test, který převádí všechny sekce knihovny tam a zpět).
+  **Parita:** každá akce administrace je v mapě `$parity` v `tools/unit-tests.php` – čtení, nástroj MCP, nebo „admin: důvod“.
   Zápis stavby vrací podepsaný náhled (`Core\Preview`, `?stavba=koncept&nahled_klic=`, HMAC `secret_key`, jen jeden cíl, omezená platnost). Nová novinka
   je koncept, nová stránka skrytá; vydat/zveřejnit jen na výslovný pokyn a s právem. **Hranice (bezpečí na prvním místě):** žádný nástroj nesmí zapisovat mimo obsah
   spouštět kód ani dotaz (statickou kontrolu PHP nejde udělat neprůstřelnou, proto MCP žádné PHP šablony nemění).

@@ -534,6 +534,19 @@ php -r '$t = array_column(json_decode(file_get_contents($argv[1]), true)["result
   && echo "  ok     MCP: tools carry annotations (read-only, destructive)" || { echo "  CHYBA  MCP annotations"; ERRORS=$((ERRORS+1)); }
 mcp site_info '{}' > "$WORK/response"
 expect "MCP: site_info lists extensions and languages" "$(mcp_value extensions | grep -c novinky)|$(mcp_value languages default)" "1|cs"
+mcp builder_schema '{}' > "$WORK/response"
+expect "MCP: builder_schema in the English vocabulary" "$(mcp_value elements heading | grep -c 'content: text')|$(mcp_value style gap | grep -c gap)|$(mcp_value states 2)" "1|1|mobile"
+mcp builder_schema '{"elements":["form"]}' > "$WORK/response"
+expect "MCP: full definition of an element by its English type" "$(mcp_value elements 0 type)|$(mcp_value elements 0 fields fields item_fields type options 5)" "form|radio"
+VPAGE=$(sq "SELECT ids FROM ka_stranky WHERE smazano IS NULL ORDER BY ids LIMIT 1")
+mcp save_build "{\"id\":$VPAGE,\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"children\":[{\"type\":\"button\",\"content\":{\"text\":\"Go\",\"variant\":\"outline\",\"icon\":\"arrow\"},\"style\":{\"mobile\":{\"gap\":\"s\",\"background\":\"primary-soft\"}}}]}]}}" > /dev/null
+expect "MCP: an English build is stored in the Czech keys" "$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(stavba_koncept, '$.deti[0].deti[0].typ')), JSON_UNQUOTE(JSON_EXTRACT(stavba_koncept, '$.deti[0].deti[0].obsah.varianta')), JSON_UNQUOTE(JSON_EXTRACT(stavba_koncept, '$.deti[0].deti[0].styl.mobil.pozadi')) FROM ka_stranky WHERE ids = $VPAGE" | tr '\t' '|')" "tlacitko|obrys|primarni-jemna"
+mcp get_build "{\"id\":$VPAGE}" > "$WORK/response"
+expect "MCP: get_build answers in English" "$(mcp_value build children 0 children 0 type)|$(mcp_value build children 0 children 0 content variant)|$(mcp_value build children 0 children 0 style mobile background)" "button|outline|primary-soft"
+BUTTON=$(mcp_value build children 0 children 0 id)
+mcp edit_build "{\"id\":$VPAGE,\"operations\":[{\"op\":\"update\",\"id\":\"$BUTTON\",\"content\":{\"new_window\":true},\"style\":{\"base\":{\"radius\":\"full\"}}}]}" > /dev/null
+expect "MCP: edit_build takes English content and style" "$(sq "SELECT CONCAT(JSON_EXTRACT(stavba_koncept, '$.deti[0].deti[0].obsah.nove_okno'), '|', JSON_UNQUOTE(JSON_EXTRACT(stavba_koncept, '$.deti[0].deti[0].styl.zaklad.zaobleni'))) FROM ka_stranky WHERE ids = $VPAGE")" "true|plne"
+mcp discard_draft "{\"id\":$VPAGE}" > /dev/null
 mcp create_collection '{"name":"Kos test","fields":[{"label":"Popis","type":"text"}]}' > /dev/null
 mcp save_collection_item '{"collection":"kos-test","name":"Polozka","visible":true}' > "$WORK/response"; ITEM=$(mcp_value id)
 mcp delete_collection_item "{\"collection\":\"kos-test\",\"id\":$ITEM}" > /dev/null
