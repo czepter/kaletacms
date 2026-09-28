@@ -25,7 +25,7 @@ final class Menu extends Module
     protected function actionList(): Response
     {
         [$location, $language] = $this->selection();
-        $saved = MenuWebu::load($this->db, $location, $language);
+        [$inDraft, $saved] = \Kaleta\Core\Look::menuForEditing($this->db, $this->app->settings(), $location, $language); // the draft look, when there is one
         $pages = $this->db->all('SELECT ids, titulek, zobrazit, v_menu FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$language]);
         // the automatic main menu is shown in the editor as the visitor sees it – saving turns it into a custom one
         $items = $saved ?? ($location === 'hlavni'
@@ -35,7 +35,7 @@ final class Menu extends Module
         $languages = array_merge([''], Language::additional($siteSettings));
 
         return $this->view('list', 'Menu', [
-            'location' => $location, 'language' => $language, 'automatic' => $saved === null, 'items' => $items,
+            'location' => $location, 'language' => $language, 'automatic' => $saved === null, 'items' => $items, 'inDraft' => $inDraft,
             'pages' => array_map(fn (array $s): array => ['ids' => (int) $s['ids'], 'titulek' => $s['titulek'], 'skryta' => !$s['zobrazit']], $pages),
             'languages' => array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[Language::ofContent($siteSettings, $j)][0], $languages)),
         ]);
@@ -49,10 +49,10 @@ final class Menu extends Module
             if (!is_array($items)) {
                 return $this->back('The menu could not be saved – please try again.', '', ['umisteni' => $location, 'jazyk' => $language], 'chyba');
             }
-            MenuWebu::save($this->db, $location, $language, $items);
+            \Kaleta\Core\Look::setMenu($this->app->settings(), $location, $language, $items);
         }
 
-        return $this->back('The menu has been saved.', '', ['umisteni' => $location, 'jazyk' => $language]);
+        return $this->back('The menu is saved to the draft look – preview the whole site, then publish it.', '', ['umisteni' => $location, 'jazyk' => $language]);
     }
 
     /** The main menu returns to being assembled automatically from pages "in menu"; the footer menu is emptied. */
@@ -60,10 +60,10 @@ final class Menu extends Module
     {
         [$location, $language] = $this->selection();
         if ($this->request->isPost()) {
-            MenuWebu::save($this->db, $location, $language, null);
+            \Kaleta\Core\Look::setMenu($this->app->settings(), $location, $language, null);
         }
 
-        return $this->back($location === 'hlavni' ? 'The menu is again built automatically from pages in the navigation.' : 'The footer menu is empty.', '', ['umisteni' => $location, 'jazyk' => $language]);
+        return $this->back($location === 'hlavni' ? 'In the draft look the menu is again built automatically from pages in the navigation.' : 'In the draft look the footer menu is empty.', '', ['umisteni' => $location, 'jazyk' => $language]);
     }
 
     /** @return array{0: string, 1: string} location and language (column) from the URL */

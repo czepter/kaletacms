@@ -80,7 +80,7 @@ final class HtmlConverter
      *
      * @return array{stavba: array<string, mixed>, hlaseni: list<string>}
      */
-    public static function saveToSite(\Kaleta\Core\Db $db, string $html, bool $admin, bool $overwrite = false): array
+    public static function saveToSite(\Kaleta\Core\Db $db, string $html, bool $admin, bool $overwrite = false, ?\Kaleta\Core\Settings $settings = null): array
     {
         $conversion = self::convert($html, $admin);
         $messages = $conversion['hlaseni'];
@@ -88,6 +88,12 @@ final class HtmlConverter
         foreach (array_unique(array_merge(array_keys($conversion['tridy']), array_keys($conversion['tridy_styl']))) as $className) {
             if (in_array($className, $existing, true) && !$overwrite) {
                 $messages[] = 'Třída .' . $className . ' už na webu je – ponechána beze změny.';
+                continue;
+            }
+            if (in_array($className, $existing, true) && $settings !== null) {
+                // a change of a class the site has goes to the draft look (Core\Look)
+                \Kaleta\Core\Look::setClass($settings, $className, ['styl' => $conversion['tridy_styl'][$className] ?? [], 'css' => $conversion['tridy'][$className] ?? '']);
+                $messages[] = 'Class .' . $className . ' changed in the draft look – the site shows it after publish_look.';
                 continue;
             }
             $style = (string) json_encode($conversion['tridy_styl'][$className] ?? new \stdClass(), JSON_UNESCAPED_UNICODE);

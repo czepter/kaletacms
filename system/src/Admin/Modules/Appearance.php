@@ -6,12 +6,15 @@ namespace Kaleta\Admin\Modules;
 
 use Kaleta\Admin\Module;
 use Kaleta\Core\Images;
+use Kaleta\Core\Look;
 use Kaleta\Core\Response;
 use Kaleta\Builder\DesignSystem;
 
 /**
  * Site appearance: logo and design system (colors, fonts, sizes, width, rounding) with a live preview of the home page.
- * Both the layout and the builder take tokens from the design system, so a change here recolors the whole site.
+ * Both the layout and the builder take tokens from the design system, so a change here recolors the whole site – that is
+ * why the design system goes to the draft look (Core\Look) with the classes and menus: previewed on the whole site,
+ * published in one step, and the previous look kept as a version.
  */
 final class Appearance extends Module
 {
@@ -24,10 +27,10 @@ final class Appearance extends Module
     protected function actionList(): Response
     {
         $siteSettings = $this->app->settings();
-        $ds = DesignSystem::load($siteSettings);
+        $ds = Look::designSystem($siteSettings); // the draft, when there is one – editing continues from it
 
         return $this->view('list', 'Site appearance', [
-            'ds' => $ds,
+            'ds' => $ds, 'versions' => Look::versions($this->db),
             'contrasts' => DesignSystem::contrasts($ds),
             'presets' => array_map(fn (string $k): array => ['nazev' => DesignSystem::PRESETS[$k][0], 'popis' => DesignSystem::PRESETS[$k][1], 'ds' => DesignSystem::preset($k)], array_combine(array_keys(DesignSystem::PRESETS), array_keys(DesignSystem::PRESETS))),
             'values' => ['logo' => $siteSettings->get('logo'), 'favicon' => $siteSettings->get('favicon'), 'dark_mode' => $siteSettings->get('dark_mode'), 'theme_switcher' => $siteSettings->get('theme_switcher'), 'site_name' => $siteSettings->get('site_name')],
@@ -53,7 +56,7 @@ final class Appearance extends Module
         $siteSettings->set('favicon', $icon);
         $siteSettings->set('dark_mode', in_array($r->post('dark_mode'), ['auto', 'tmavy'], true) ? $r->post('dark_mode') : 'vypnuto');
         $siteSettings->set('theme_switcher', $r->postBool('theme_switcher') ? '1' : '0');
-        $siteSettings->set('design_system', (string) json_encode($this->parseForm(), JSON_UNESCAPED_SLASHES));
+        $inDraft = $this->toDraft($this->parseForm());
         $siteSettings->set('appearance_saved', '1'); // first steps: the appearance was chosen by the administrator, not by the starter site
         // older Identity keys: they are not read once the design system is saved, so they do not confuse the export or other tools
         $siteSettings->set('brand_accent', '');
@@ -61,7 +64,73 @@ final class Appearance extends Module
         $siteSettings->set('brand_text_font', 'vychozi');
         \Kaleta\Front\Cache::clear();
 
-        return $this->back('The site appearance has been saved.');
+        return $this->back($inDraft ? 'Saved to the draft look – preview the whole site, then publish it.' : 'The site appearance has been saved.');
+    }
+
+    /**
+     * The design system from the form goes to the draft look – unless it is the same as the published one (a save of the
+     * logo alone does not create a draft, and going back to the published values removes the design system from the draft).
+     */
+    private function toDraft(array $ds): bool
+    {
+        $s = $this->app->settings();
+        if ($ds == DesignSystem::load($s)) {
+            $draft = Look::draft($s);
+            unset($draft['design_system']);
+            $s->set('look_draft', $draft === [] ? '' : (string) json_encode($draft, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+            return false;
+        }
+        Look::setDesignSystem($s, $ds);
+
+        return true;
+    }
+
+    protected function actionPublishLook(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $summary = Look::publish($this->app);
+
+        return $this->back($summary === [] ? 'There was nothing to publish.' : t('The look is published: %s', implode(' · ', $summary)));
+    }
+
+    protected function actionDiscardLook(): Response
+    {
+        if ($this->request->isPost()) {
+            Look::discard($this->app->settings());
+            \Kaleta\Admin\ChangeLog::write($this->app, 'appearance', 'discard look draft');
+        }
+
+        return $this->back('The unpublished look changes were discarded.');
+    }
+
+    /** A published look from the history goes back into the draft – check it in the preview, then publish. */
+    protected function actionRestoreLook(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        try {
+            Look::restoreVersion($this->app, $this->request->postInt('id'));
+        } catch (\InvalidArgumentException $e) {
+            return $this->back(t($e->getMessage()), '', [], 'chyba');
+        }
+
+        return $this->back('The earlier look is in the draft – preview the whole site, then publish it.');
+    }
+
+    /** The whole site with all drafts and the draft look, through a signed link (also for a colleague, for a day). */
+    protected function actionPreviewSite(): Response
+    {
+        return Response::redirect(self::sitePreviewUrl($this->app, 24 * 60));
+    }
+
+    /** Signed link to the whole-site preview (Core\Preview target "web"). */
+    public static function sitePreviewUrl(\Kaleta\Core\App $app, int $minutes): string
+    {
+        return $app->request->origin() . $app->url('') . '?nahled_klic=' . \Kaleta\Core\Preview::key($app->db(), $app->settings(), 'web', $minutes);
     }
 
     /** Design tokens for download in the DTCG format (Figma, Tokens Studio, Style Dictionary). */
@@ -79,15 +148,14 @@ final class Appearance extends Module
         $content = $this->request->isPost() && is_array($file) && ($file['error'] ?? 1) === UPLOAD_ERR_OK && (int) $file['size'] < 1_000_000 ? (string) file_get_contents((string) $file['tmp_name']) : '';
         $tokens = json_decode($content, true);
         $siteSettings = $this->app->settings();
-        $ds = is_array($tokens) ? DesignSystem::fromDtcg($tokens, DesignSystem::load($siteSettings)) : null;
+        $ds = is_array($tokens) ? DesignSystem::fromDtcg($tokens, Look::designSystem($siteSettings)) : null;
         if ($ds === null) {
             return $this->back('The file contains no usable design tokens (a JSON file in the DTCG format is expected).', '', [], 'chyba');
         }
-        $siteSettings->set('design_system', (string) json_encode($ds, JSON_UNESCAPED_SLASHES));
+        $this->toDraft($ds);
         $siteSettings->set('appearance_saved', '1');
-        \Kaleta\Front\Cache::clear();
 
-        return $this->back('Design tokens have been loaded.');
+        return $this->back('Design tokens have been loaded into the draft look – preview the whole site, then publish it.');
     }
 
     /** Live preview: token CSS and a readability check for the unsaved form (JSON). Saves nothing. */

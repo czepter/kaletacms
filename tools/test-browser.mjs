@@ -59,6 +59,17 @@ await step('appearance: change a colour and preview', async () => {
   if (await colour.count()) { await colour.fill('#335577'); await page.waitForTimeout(800); }
 });
 
+await step('appearance: save to the draft look, preview bar, publish', async () => {
+  await visit('/admin.php?module=appearance');
+  // the colour field may sit on a tab that is not open – set the value directly
+  await page.evaluate(() => { document.querySelectorAll('[name="ds[barvy][primarni]"]').forEach((i) => { i.value = '#335577'; }); });
+  await Promise.all([page.waitForNavigation(), page.locator('.vzhled-ulozit input[type="submit"]').click()]);
+  await page.locator('#vzhled-koncept').waitFor();
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/look-draft-bar.png`, fullPage: false }); }
+  await Promise.all([page.waitForNavigation(), page.locator('#vzhled-koncept button.tl').click()]);
+  if (await page.locator('#vzhled-koncept').count()) { throw new Error('the draft look is still there after publishing'); }
+});
+
 await step('builder: select, style, mobile, edit text', async () => {
   await visit('/admin.php?module=pages&action=builder&id=1');
   await page.waitForTimeout(1500);

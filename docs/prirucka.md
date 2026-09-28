@@ -77,6 +77,18 @@ Stránka má záložky:
 
 Vpravo je živý náhled úvodní stránky (počítač / telefon). Nic se neukládá, dokud nestisknete Uložit vzhled.
 
+**Koncept vzhledu.** Změna design systému, sdílené třídy nebo menu se k návštěvníkům nedostane hned: jde do jednoho
+**konceptu vzhledu** – ze Vzhledu webu, z builderu, z editoru menu i od Clauda. Dokud koncept existuje, každá obrazovka
+administrace ukazuje lištu s tím, co mění, a třemi tlačítky:
+
+- **Náhled celého webu** – podepsaný odkaz, který ukáže web s konceptem vzhledu a s koncepty všech stránek a částí webu,
+  pro vás i pro kolegu (platí den). Náhled ukončíte lištou nahoře.
+- **Publikovat vzhled** – všechno najednou. Předchozí vzhled zůstane ve **Vzhledu webu → Import a export → Dřívější
+  vzhledy** (posledních 20); **Vrátit tento vzhled** ho znovu načte do konceptu.
+- **Zahodit** – platí dál publikovaný vzhled.
+
+Úplně nová sdílená třída platí hned – nic publikovaného nemění a nové stránky ji potřebují.
+
 ## 4. Části webu: záhlaví, patička, obálky, pop-up okna
 
 **Vzhled → Části webu.** Dokud část nepublikujete z builderu, kreslí ji vestavěná výchozí podoba.

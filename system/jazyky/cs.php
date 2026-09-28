@@ -2760,4 +2760,6 @@ return [
     'Read more' => 'Číst dál',
     'Unsubscribe' => 'Odhlásit odběr',
     'You receive this e-mail because you subscribed to news from %s.' => 'Tento e-mail dostáváte, protože jste se přihlásili k odběru novinek z webu %s.',
+    'Preview of drafts – visitors still see the published site.' => 'Náhled konceptů – návštěvníci dál vidí publikovaný web.',
+    'End the preview' => 'Ukončit náhled',
 ];

@@ -36,6 +36,8 @@ echo "== jednotkové testy"
 php "$ROOT/tools/unit-tests.php" || ERRORS=$((ERRORS+1))
 
 csrf() { grep -o 'name="_csrf" value="[a-f0-9]*"' "$WORK/response" | head -1 | sed 's/.*value="//;s/"//'; }
+# publish_look: the administrator publishes the draft look (design system, classes, menus – Core\Look) from Site appearance
+publish_look() { curl -s -b "$JAR" -o "$WORK/look.html" "$B/admin.php?module=appearance"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=appearance&action=publish_look" -d "_csrf=$(grep -o 'name="_csrf" value="[a-f0-9]*"' "$WORK/look.html" | head -1 | sed 's/.*value="//;s/"//')"; rm -f "$WORK"/web/storage/cache/stranky/*.html; }
 expect() { [ "$2" = "$3" ] && echo "  ok     $1" || { echo "  CHYBA  $1: dostal jsem „$2“, čekal jsem „$3“"; ERRORS=$((ERRORS+1)); }; }
 
 echo "== instalace"
@@ -159,7 +161,11 @@ curl -s -b "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=appearance&ac
 grep -q 'ka-barva-primarni: #ff00aa' "$WORK/response" && grep -q '"kontrasty"' "$WORK/response" && echo "  ok     živý náhled vrátí tokeny a kontrasty" || { echo "  CHYBA  náhled vzhledu"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=appearance&action=save" -d "_csrf=$TOKEN" -d layout=zakladni -d tmavy_rezim=vypnuto --data-urlencode 'ds[barvy][primarni]=#9a3412' --data-urlencode 'ds[barvy][text]=red;}body{' -d 'ds[pismo_titulky]=klasicke' -d 'ds[sirka]=1280'
 curl -s -o "$WORK/response" "$B/"
-grep -q 'ka-barva-primarni: #9a3412' "$WORK/response" && grep -q 'ka-sirka: 80rem' "$WORK/response" && grep -q 'ka-pismo-titulky: Georgia' "$WORK/response" && echo "  ok     uložený vzhled je hned na webu" || { echo "  CHYBA  uložení vzhledu"; ERRORS=$((ERRORS+1)); }
+grep -q 'ka-barva-primarni: #9a3412' "$WORK/response" && { echo "  CHYBA  the saved appearance is on the site before publishing"; ERRORS=$((ERRORS+1)); } || echo "  ok     the saved appearance waits in the draft look"
+check "the admin shows the draft look with its changes" 200 "/admin.php?module=appearance" "Nepublikované změny vzhledu"
+publish_look
+curl -s -o "$WORK/response" "$B/"
+grep -q 'ka-barva-primarni: #9a3412' "$WORK/response" && grep -q 'ka-sirka: 80rem' "$WORK/response" && grep -q 'ka-pismo-titulky: Georgia' "$WORK/response" && echo "  ok     uložený vzhled je po publikování na webu" || { echo "  CHYBA  uložení vzhledu"; ERRORS=$((ERRORS+1)); }
 grep -q 'body{' "$WORK/response" && { echo "  CHYBA  do CSS proniklo neplatné zadání barvy"; ERRORS=$((ERRORS+1)); } || echo "  ok     neplatná barva se nahradí výchozí"
 
 echo "== builder stránek"
@@ -181,6 +187,8 @@ code=$(page_action "stavba_sekce&klic=vyhody"); [ "$code" = 200 ] && grep -q '"k
 code=$(page_action stavba_trida -d nazev=karta --data-urlencode 'styl={"zaklad":{"pozadi":"plocha","odsazeni_y":"l"}}' --data-urlencode 'css=letter-spacing: 0.01em; background: url(x)')
 [ "$code" = 200 ] && grep -q 'Nepovolená deklarace' "$WORK/response" && echo "  ok     třída uložena, nebezpečné CSS zahozeno" || { echo "  CHYBA  stavba_trida: kód $code"; ERRORS=$((ERRORS+1)); }
 expect "neplatný název třídy odmítnut" "$(page_action stavba_trida -d 'nazev=Karta Velka')" 400
+expect "a change of an existing class in the builder goes to the draft look" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota LIKE '%\"karta\"%' FROM ka_nastaveni WHERE promenna = 'look_draft'")" "1"
+publish_look
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/o-nas"; ! grep -q "Builder test" "$WORK/response" && echo "  ok     koncept není před publikováním na webu" || { echo "  CHYBA  koncept je na webu dřív, než se publikuje"; ERRORS=$((ERRORS+1)); }
 check "náhled konceptu pro editor" 200 "/o-nas?stavba=koncept&editor=1" 'data-ka-id="nad1"'
@@ -232,7 +240,7 @@ mcp publikuj_stavbu "{\"id\":$IDZ}" > /dev/null
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/z-html"
 grep -q '<h1>Stránka od Clauda</h1>' "$WORK/response" && grep -q 'class="uvod-x"' "$WORK/response" && ! grep -q 'container' "$WORK/response" && grep -q '"FAQPage"' "$WORK/response" && echo "  ok     MCP: publikovaná stránka od Clauda na webu" || { echo "  CHYBA  MCP publikování"; ERRORS=$((ERRORS+1)); }
-mcp uprav_design_system '{"ds":{"barvy":{"primarni":"#0f766e"},"zaobleni":"l"}}' > "$WORK/response"; grep -q 'citelnost' "$WORK/response" && echo "  ok     MCP: úprava design systému" || { echo "  CHYBA  MCP uprav_design_system"; ERRORS=$((ERRORS+1)); }
+mcp uprav_design_system '{"ds":{"barvy":{"primarni":"#0f766e"},"zaobleni":"l"}}' > "$WORK/response"; mcp publish_look '{}' > /dev/null; grep -q 'citelnost' "$WORK/response" && echo "  ok     MCP: úprava design systému" || { echo "  CHYBA  MCP uprav_design_system"; ERRORS=$((ERRORS+1)); }
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 check "design systém z MCP je na webu" 200 / 'ka-barva-primarni: #0f766e'
 check "design systém z MCP zachoval ostatní barvy" 200 / 'ka-barva-plocha: #f5f6f8'
@@ -607,6 +615,48 @@ expect "MCP: update_enquiry" "$(sq "SELECT CONCAT(stav, '|', poznamka) FROM ka_p
 mcp delete_enquiry "{\"id\":$ENQUIRY}" > /dev/null
 expect "MCP: delete_enquiry" "$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE idp = $ENQUIRY")" "0"
 
+echo "== draft look and whole-site preview (1.7)"
+mcp discard_look '{}' > /dev/null
+OLDPRIMARY=$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'design_system'")
+mcp update_design_system '{"ds":{"barvy":{"primarni":"#123456"}}}' > "$WORK/response"
+SITEPREVIEW=$(mcp_value preview)
+expect "MCP: the design system goes to the draft look, the site keeps the published one" "$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'design_system'")|$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.design_system.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'look_draft'")" "$OLDPRIMARY|#123456"
+rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/response" "$B/"; grep -q 'ka-barva-primarni: #123456' "$WORK/response" && { echo "  CHYBA  the draft look is on the public site"; ERRORS=$((ERRORS+1)); } || echo "  ok     visitors do not see the draft look"
+mcp save_classes '{"css":".look-test { padding: 1rem }"}' > /dev/null
+mcp save_classes '{"css":".look-test { padding: 2rem }"}' > "$WORK/response"
+expect "MCP: a new class is live at once, a change of it waits in the draft" "$(sq "SELECT styl LIKE '%\"odsazeni_y\"%' OR css LIKE '%1rem%' FROM ka_tridy WHERE nazev = 'look-test'")|$(mcp_value look_draft 0)" "1|look-test"
+mcp list_classes '{"name":"look-test"}' > "$WORK/response"
+expect "MCP: list_classes shows the draft" "$(mcp_value 0 draft)" "1"
+sq "DROP TABLE IF EXISTS menu_before; CREATE TABLE menu_before AS SELECT * FROM ka_menu"
+mcp save_menu '{"location":"main","items":[{"type":"link","text":"Draft link","url":"/draft-link"}]}' > /dev/null
+expect "MCP: save_menu goes to the draft look" "$(sq "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'hlavni' AND polozky LIKE '%draft-link%'")" "0"
+mcp site_info '{}' > "$WORK/response"
+expect "MCP: site_info lists the draft look" "$(mcp_value look_draft | grep -c 'look-test')" "1"
+curl -s -c "$WORK/preview.jar" -o "$WORK/response" "$SITEPREVIEW"
+expect "the whole-site preview shows the draft look, the draft menu and the bar, and is not indexed" "$(grep -c 'ka-barva-primarni: #123456' "$WORK/response")|$(grep -c 'draft-link' "$WORK/response")|$(grep -c 'ka-nahled-lista' "$WORK/response")|$(grep -c 'noindex' "$WORK/response")" "1|1|1|1"
+DRAFTPAGE=$(sq "SELECT ids FROM ka_stranky WHERE smazano IS NULL AND zobrazit = 1 AND stavba IS NOT NULL ORDER BY ids LIMIT 1")
+DRAFTSLUG=$(sq "SELECT seo_link FROM ka_stranky WHERE ids = $DRAFTPAGE")
+mcp edit_build "{\"id\":$DRAFTPAGE,\"operations\":[{\"op\":\"insert\",\"elements\":[{\"type\":\"heading\",\"content\":{\"text\":\"Only in the draft\"}}],\"into\":null,\"position\":0}]}" > /dev/null
+curl -s -b "$WORK/preview.jar" -o "$WORK/response" "$B/$DRAFTSLUG"
+expect "browsing on in the preview (cookie) shows page drafts too" "$(grep -c 'Only in the draft' "$WORK/response")|$(grep -c 'ka-barva-primarni: #123456' "$WORK/response")" "1|1"
+curl -s -o "$WORK/response" "$B/$DRAFTSLUG"; ! grep -q 'Only in the draft' "$WORK/response" && echo "  ok     without the preview the page draft stays hidden" || { echo "  CHYBA  page draft visible without the preview"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$WORK/preview.jar" -c "$WORK/preview.jar" -o "$WORK/response" "$B/$DRAFTSLUG?nahled_konec=1"
+curl -s -b "$WORK/preview.jar" -o "$WORK/response" "$B/$DRAFTSLUG"; ! grep -q 'Only in the draft' "$WORK/response" && echo "  ok     ending the preview shows the published site again" || { echo "  CHYBA  the preview did not end"; ERRORS=$((ERRORS+1)); }
+mcp discard_draft "{\"id\":$DRAFTPAGE}" > /dev/null
+check "the admin shows the look bar on every screen" 200 "/admin.php?module=pages" "Publikovat vzhled"
+mcp publish_look '{}' > "$WORK/response"
+expect "MCP: publish_look publishes everything and keeps the previous look" "$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'design_system'")|$(sq "SELECT css LIKE '%2rem%' OR styl LIKE '%2rem%' OR styl LIKE '%\"xl\"%' FROM ka_tridy WHERE nazev = 'look-test'")|$(sq "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'hlavni' AND polozky LIKE '%draft-link%'")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'look_draft'")|$(sq "SELECT COUNT(*) > 0 FROM ka_look_versions")" "#123456|1|1||1"
+expect "publishing the look is in the change log with what changed" "$(sq "SELECT popis LIKE '%#123456%' FROM ka_protokol WHERE akce = 'publish look' ORDER BY idp DESC LIMIT 1")" "1"
+mcp list_look_versions '{}' > "$WORK/response"; VERSION=$(mcp_value versions 0 id)
+mcp restore_look_version "{\"id\":$VERSION}" > /dev/null
+expect "MCP: an earlier look comes back into the draft" "$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.design_system.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'look_draft'")" "$OLDPRIMARY"
+check "earlier looks in Site appearance" 200 "/admin.php?module=appearance" "Vrátit tento vzhled"
+mcp discard_look '{}' > /dev/null
+expect "MCP: discard_look" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'look_draft'")|$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'design_system'")" "|#123456"
+mcp update_design_system "{\"ds\":{\"barvy\":{\"primarni\":\"$OLDPRIMARY\"}}}" > /dev/null; mcp publish_look '{}' > /dev/null
+sq "DELETE FROM ka_menu; INSERT INTO ka_menu SELECT * FROM menu_before; DROP TABLE menu_before"; rm -f "$WORK"/web/storage/cache/stranky/*.html
+
 echo "== pop-up okna"
 check "pop-up okna v administraci" 200 "/admin.php?module=popups" "Zatím žádná pop-up okna"
 check "nové okno ze vzoru" 200 "/admin.php?module=popups&action=new" 'name="vzor" value="newsletter"'
@@ -853,6 +903,8 @@ IDO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link 
 MENU='[{"typ":"stranka","ids":'$IDO',"text":"O firmě","deti":[{"typ":"odkaz","text":"Kariéra","url":"https://example.cz/kariera","nove_okno":true}]},{"typ":"novinky"},{"typ":"odkaz","text":"Zlý","url":"javascript:alert(1)"}]'
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&umisteni=hlavni" -d "_csrf=$TOKEN" --data-urlencode "polozky=$MENU"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&umisteni=paticka" -d "_csrf=$TOKEN" --data-urlencode 'polozky=[{"typ":"odkaz","text":"Zásady ochrany soukromí","url":"/zasady"}]'
+expect "the menu waits in the draft look" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'paticka' AND polozky LIKE '%/zasady%'")" "0"
+publish_look
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/novinky"
 grep -q '<li class="podmenu"><a href="[^"]*/o-nas">O firmě</a><ul><li><a href="https://example.cz/kariera" target="_blank" rel="noopener">Kariéra</a>' "$WORK/response" && grep -q 'aria-current="page">Novinky' "$WORK/response" && ! grep -q 'javascript:' "$WORK/response" \
@@ -862,6 +914,7 @@ mcp nacti_menu '{"umisteni":"paticka"}' > "$WORK/response"; grep -q 'Zásady och
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=save" -d "_csrf=$TOKEN" -d "ids=$IDS" -d titulek=Kontakt -d seo_link=kontakty -d zobrazit=1 -d v_menu=1 -d "text=<p>Adresa.</p>"
 expect "zaškrtnutá stránka se přidá na konec sestaveného menu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT polozky LIKE '%\"ids\":$IDS%' FROM ka_menu WHERE umisteni = 'hlavni'")" "1"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=automatic&umisteni=hlavni" -d "_csrf=$TOKEN"
+publish_look
 expect "návrat k automatickému menu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'hlavni'")" "0"
 
 echo "== ikony, manifest, cache"
@@ -1048,8 +1101,10 @@ curl -s -b "$JAR" -o "$WORK/tokeny.json" "$B/admin.php?module=appearance&action=
 grep -q '"\$type": "color"' "$WORK/tokeny.json" && grep -q '"cz.kaleta"' "$WORK/tokeny.json" && echo "  ok     export tokenů DTCG" || { echo "  CHYBA  export tokenů"; ERRORS=$((ERRORS+1)); }
 printf '{"color":{"primary":{"$type":"color","$value":"#aa3300"}}}' > "$WORK/cizi.tokens.json"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=appearance&action=tokens_import" -F "_csrf=$TOKEN" -F "tokeny=@$WORK/cizi.tokens.json"
+publish_look
 expect "import barev z cizích tokenů" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'design_system'")" "#aa3300"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=appearance&action=tokens_import" -F "_csrf=$TOKEN" -F "tokeny=@$WORK/tokeny.json"
+publish_look
 expect "import vlastního exportu vrátí vzhled" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) <> '#aa3300' FROM ka_nastaveni WHERE promenna = 'design_system'")" "1"
 mcp seznam_polozek_kolekce '{"kolekce":"tym","pole":"funkce","hodnota":"Mistr truhlář"}' > "$WORK/response"
 grep -q 'Petr Svoboda' "$WORK/response" && grep -q 'celkem\\":1' "$WORK/response" && echo "  ok     kolekce přes MCP: filtr podle pole" || { echo "  CHYBA  kolekce přes MCP s filtrem"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }

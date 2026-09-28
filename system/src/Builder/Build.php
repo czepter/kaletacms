@@ -436,7 +436,7 @@ final class Build
         $classes = '';
         if ($k->classes !== []) {
             $names = array_keys($k->classes);
-            foreach ($db->all('SELECT nazev, styl, css FROM {tridy} WHERE nazev IN (' . implode(',', array_fill(0, count($names), '?')) . ') ORDER BY nazev', $names) as $r) {
+            foreach (\Kaleta\Core\Look::classesForCss($db, $names) as $r) { // the draft classes in a preview of the draft look
                 $classes .= Style::css('.' . $r['nazev'], json_decode((string) $r['styl'], true) ?: [], Style::customCss((string) $r['css']), $k->app->request->basePath());
             }
         }

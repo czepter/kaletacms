@@ -34,6 +34,7 @@ final class Settings
         'company_map' => '',
         'company_gps' => '',
         'enquiries_months' => '24',    // form enquiries older than this many months are deleted (personal data should not be kept forever); 0 = do not delete
+        'look_draft' => '',           // draft of the look not published yet (JSON, Core\Look): design system, classes, menus
         'design_system' => '',        // colors, fonts, scale and dimensions of the site (JSON, Builder\DesignSystem); empty = default
         'brand_accent' => '',         // legacy: the site's main color, read only until design_system is saved
         'dark_mode' => 'vypnuto',   // dark appearance of the site: vypnuto (off) | auto (by the visitor's device) | tmavy (always dark)

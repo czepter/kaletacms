@@ -237,7 +237,7 @@ trait BuilderActions
             return Response::json(['ok' => true, 'pouziti' => $this->findClassUsages($name)]);
         }
         if (!$this->app->auth()->isAdmin()) {
-            // a shared class changes the look on all pages immediately (without a draft) – so only the administrator edits,
+            // a shared class changes the look of all pages (through the draft look) – so only the administrator edits,
             // renames and deletes it
             return Response::json(['ok' => false, 'chyba' => t('Only an administrator edits a shared class – a change applies to the whole website at once. Set the look of a single element in its style.')], 403);
         }
@@ -247,6 +247,7 @@ trait BuilderActions
                 return Response::json(['ok' => false, 'chyba' => t('The new name must be unused and written in lowercase without accents (e.g. card-large).')], 400);
             }
             $this->db->update('tridy', ['nazev' => $new, 'zmeneno' => date('Y-m-d H:i:s')], ['nazev' => $name]);
+            \Kaleta\Core\Look::renameClass($this->app->settings(), $name, $new);
             foreach (self::BUILD_SOURCES as $table => [$key, $columns]) {
                 foreach ($this->db->all('SELECT ' . $key . ', ' . implode(', ', $columns) . ' FROM {' . $table . '} WHERE ' . implode(' OR ', array_map(fn (string $s): string => $s . ' LIKE ?', $columns)), array_fill(0, count($columns), '%"' . $name . '"%')) as $r) {
                     $change = [];
@@ -262,23 +263,21 @@ trait BuilderActions
 
             return Response::json(['ok' => true, 'tridy' => $this->loadBuilderClasses(), 'nazev' => $new]);
         }
+        // the class goes to the draft look (Core\Look): the builder shows it, visitors see it once the look is published
         if ($this->request->post('smazat') === '1') {
-            $this->db->delete('tridy', ['nazev' => $name]);
+            \Kaleta\Core\Look::setClass($this->app->settings(), $name, null);
         } else {
             $errors = [];
             $discarded = [];
             $style = Style::sanitize(json_decode((string) ($_POST['styl'] ?? ''), true), $name, $errors);
             $css = Style::customCss($this->request->post('css'), $discarded);
-            $this->db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE styl = VALUES(styl), css = VALUES(css), zmeneno = NOW()',
-                [$name, (string) json_encode($style ?: new \stdClass(), JSON_UNESCAPED_UNICODE), $css]);
+            \Kaleta\Core\Look::setClass($this->app->settings(), $name, ['styl' => $style, 'css' => $css]);
             if ($errors !== [] || $discarded !== []) {
-                \Kaleta\Front\Cache::clear(); // the valid part of the class was saved – the site must see it
-                return Response::json(['ok' => true, 'tridy' => $this->loadBuilderClasses(), 'chyby' => $errors + array_map(fn (string $d): string => t('Declaration not allowed: %s', $d), $discarded)]);
+                return Response::json(['ok' => true, 'koncept' => true, 'tridy' => $this->loadBuilderClasses(), 'chyby' => $errors + array_map(fn (string $d): string => t('Declaration not allowed: %s', $d), $discarded)]);
             }
         }
-        \Kaleta\Front\Cache::clear();
 
-        return Response::json(['ok' => true, 'tridy' => $this->loadBuilderClasses()]);
+        return Response::json(['ok' => true, 'koncept' => true, 'tridy' => $this->loadBuilderClasses()]);
     }
 
     /** Tables with builds: table => [key, columns with the build JSON]. */
@@ -444,12 +443,8 @@ trait BuilderActions
     /** @return array<string, array{styl: array<string, mixed>|\stdClass, css: string}> */
     protected function loadBuilderClasses(): array
     {
-        $classes = [];
-        foreach ($this->db->all('SELECT nazev, styl, css FROM {tridy} ORDER BY nazev') as $r) {
-            $classes[$r['nazev']] = ['styl' => json_decode((string) $r['styl'], true) ?: new \stdClass(), 'css' => (string) $r['css']];
-        }
-
-        return $classes;
+        // with the draft look: the builder works on what will be published
+        return array_map(fn (array $c): array => ['styl' => $c['styl'] ?: new \stdClass(), 'css' => $c['css']], \Kaleta\Core\Look::classes($this->db, $this->app->settings(), true));
     }
 
     protected function contentLanguage(string $column): string

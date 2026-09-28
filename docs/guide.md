@@ -79,6 +79,18 @@ The page has tabs:
 
 On the right is a live preview of the home page (desktop / phone). Nothing is saved until you press Save.
 
+**The draft look.** A change of the design system, of a shared class or of a menu does not reach visitors at once: it goes
+to one **draft look** – from Site appearance, the builder, the menu editor and Claude alike. While there is one, every
+admin screen shows a bar with what it changes and three buttons:
+
+- **Preview the whole site** – a signed link that shows the site with the draft look and with the drafts of all pages and
+  site parts, for you or a colleague (valid for a day). A bar at the top of the preview ends it.
+- **Publish the look** – everything at once. The look before is kept under **Site appearance → Import and export →
+  Earlier looks** (the last 20); **Back to this look** loads it into the draft again.
+- **Discard** – the published look stays.
+
+A brand-new shared class applies at once – it changes nothing that is already published, and new pages need it.
+
 ## 4. Site parts: header, footer, wrappers, pop-ups
 
 **Appearance → Site parts.** Until you publish a part from the builder, the theme draws it.

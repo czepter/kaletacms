@@ -71,7 +71,7 @@ final class Translator
         'update_page' => ['uprav_stranku', 'Changes the given fields of a page; the others stay.', ['id' => ['id', 'Page ID'], '*stranka']],
         'get_menu' => ['nacti_menu', 'The site menu (main or footer) for a language version: items with submenus, and whether the main menu is still built automatically from pages “in menu”.',
             ['location' => ['umisteni', 'main (default) | footer'], 'language' => ['jazyk', 'language version (empty = default)']]],
-        'save_menu' => ['uloz_menu', 'Saves the whole menu (administrators). Items: {"type":"page","page_id":5,"text":""} (empty text = page name) | {"type":"link","text":"…","url":"https://… or /path","new_window":false} | {"type":"news"} | {"type":"group","text":"Services"} – each may have "children" (one submenu level). null = the main menu is automatic again. The menu has no draft – it changes the site straight away; a hidden page appears in it only once it is visible.',
+        'save_menu' => ['uloz_menu', 'Saves the whole menu (administrators) into the draft look – visitors see it after publish_look. Items: {"type":"page","page_id":5,"text":""} (empty text = page name) | {"type":"link","text":"…","url":"https://… or /path","new_window":false} | {"type":"news"} | {"type":"group","text":"Services"} – each may have "children" (one submenu level). null = the main menu is automatic again. The menu has no draft – it changes the site straight away; a hidden page appears in it only once it is visible.',
             ['location' => ['umisteni', 'main | footer'], 'language' => ['jazyk', 'language version (empty = default)'], 'items' => ['polozky', 'menu items']]],
         'builder_schema' => ['stavba_schema', 'How a page is put together in the builder: element types and their fields, style properties, design system tokens (colours, spacing, type), the section library and the shared classes of the site. Load it before you first use the *_build tools. Returns a short overview (one element per line); full definitions of chosen elements through the elements parameter. The build JSON uses the builder’s own (Czech) keys: typ, znacka, obsah, styl, tridy, deti, kotva.',
             ['elements' => ['prvky', 'element types to get the full definition for (field labels, default children), e.g. ["form","carousel"]'], 'full' => ['uplne', 'true = the whole schema with all labels (large)']]],
@@ -83,7 +83,7 @@ final class Translator
             . '{"op":"insert","elements":[…],"into":"parent id or null = root","position":0 | "after":"id" | "before":"id"} | {"op":"move","id":"…","into":…,"after":…}. Elements use the build JSON keys of builder_schema (type, content, style, children…).',
             ['*cil', 'operations' => ['operace', 'list of operations, applied in order'], 'publish' => ['publikovat', 'true = publish (only when the user explicitly asks)']]],
         'list_classes' => ['seznam_trid', 'Shared classes of the site (card, dark band…) with their style per state and custom CSS. An element gets a class in its "tridy" list.', ['name' => ['nazev', 'only this class (optional)']]],
-        'save_classes' => ['uloz_tridy', 'Creates or changes shared classes (administrators) – the change applies to the whole site at once. Write CSS as in a <style> block: rules of one class (.card { … }), '
+        'save_classes' => ['uloz_tridy', 'Creates or changes shared classes (administrators). A new class applies at once; a change or deletion of an existing one goes to the draft look (publish_look). Write CSS as in a <style> block: rules of one class (.card { … }), '
             . '.card:hover { … } and @media (max-width: 1023px) = tablet, (max-width: 767px) = mobile. Use tokens var(--ka-…), and override tokens inside a class (--ka-barva-text: #fff) for dark bands.',
             ['css' => ['css', 'class rules; they merge with the existing ones – a .card:hover or @media rule alone leaves the base of the class unchanged'],
                 'replace' => ['nahradit', 'true = replace the classes in css entirely (base and all states)'], 'delete' => ['smazat', 'names of classes to delete']]],
@@ -121,7 +121,7 @@ final class Translator
             ['part' => ['cast', 'header | footer'], 'language' => ['jazyk', 'Language version (empty = default)'], 'variant' => ['varianta', 'key of an existing variant – only to change or delete it'],
                 'name' => ['nazev', 'variant name, e.g. Campaign without menu'], 'pages' => ['stranky', 'IDs of the pages the variant applies to'],
                 'delete' => ['smazat', 'true = delete the variant (only when the user explicitly asks)']]],
-        'update_design_system' => ['uprav_design_system', 'Changes the look of the whole site (administrators): colours, fonts, sizes, width, corner radius – or applies a preset. Values you leave out stay. Returns a colour readability check.',
+        'update_design_system' => ['uprav_design_system', 'Changes the look of the whole site (administrators) in the draft look: colours, fonts, sizes, width, corner radius – or applies a preset. Values you leave out stay. Returns a colour readability check and a whole-site preview link; publish_look publishes it.',
             ['preset' => ['predvolba', 'firemni | remeslo | pratelsky | elegantni | technologie (optional)'], 'design' => ['ds', 'Changes, e.g. {"barvy":{"primarni":"#0f766e"},"pismo_titulky":"klasicke","zaobleni":"l"} – keys in builder_schema → design_system']]],
         'list_collections' => ['seznam_kolekci', 'Collections of the site (testimonials, team, products…) with their fields and numbers of items. The “kolekce” element (Collection list) puts them on a page; inside it {{key}} is replaced by the item value ({{nazev}}, {{url}} = item page, {{datum}} and your own fields).', []],
         'create_collection' => ['vytvor_kolekci', 'Creates a collection (administrators). Fields: a list of {label, type}; type = text | lines | html | image | link | number | date. The field key is made from the label.',
@@ -152,7 +152,7 @@ final class Translator
             ['filename' => ['nazev', 'file name with extension, e.g. team-london.jpg'], 'data' => ['data', 'file content in base64'], 'url' => ['url', 'https address of the file to download (instead of data)'],
                 'alt' => ['popis', 'image description for blind visitors (alt); otherwise from the name']]],
         'preview_link' => ['nahled_odkaz', 'A signed link to the draft preview of a page or site part – anyone can open it without signing in (the user, a colleague, a browser); it is valid only for this target and for a limited time. Search engines do not index it.',
-            ['*cil', 'minutes' => ['minut', 'validity in minutes, default 60, at most 10080']]],
+            ['*cil', 'minutes' => ['minut', 'validity in minutes, default 60, at most 10080'], 'site' => ['web', 'true = the whole site with every draft and the draft look (links on it keep the preview while browsing)']]],
         'update_settings' => ['uprav_nastaveni', 'Changes site settings (administrators) – they apply to the site straight away. Keys: site_name, site_description, footer_text, logo, favicon and share_image – the sharing image 1200×630 (path media/… from upload_file or image/…), home_page (ID of the home page), social_facebook|instagram|x|youtube|linkedin (URL), '
             . 'news_per_page, share_buttons, article_outline, related_news_auto (1/0), dark_mode (vypnuto = light only | auto = by device | tmavy = always dark), theme_switcher (1/0 = light/dark switcher for visitors), company details company_name, company_type, company_id, company_vat_id, company_register (commercial register entry), company_representative (who represents the company), company_street, company_city, company_postcode, company_country (CZ), company_phone, company_email (public contact), company_hours (one day per line), company_map, company_gps; site_name_de… for language versions. Without the parameter it returns the current values.',
             ['settings' => ['nastaveni', '{"key":"value"}']]],
@@ -181,6 +181,10 @@ final class Translator
         'delete_enquiry' => ['delete_enquiry', '', []],
         // save_section takes the shared build target (page, part, collection template, pop-up, component)
         'save_section' => ['save_section', '', ['*cil', 'element' => ['element', 'element id from get_build'], 'name' => ['name', 'name of the saved section']]],
+        'publish_look' => ['publish_look', '', []],
+        'discard_look' => ['discard_look', '', []],
+        'list_look_versions' => ['list_look_versions', '', []],
+        'restore_look_version' => ['restore_look_version', '', []],
         'list_newsletters' => ['list_newsletters', '', []],
         'draft_newsletter' => ['draft_newsletter', '', []],
         'send_test_newsletter' => ['send_test_newsletter', '', []],
@@ -607,7 +611,7 @@ final class Translator
         }
         if ($name === 'list_classes') {
             return array_map(fn (mixed $c): mixed => is_array($c) ? ['name' => $c['nazev'] ?? '', 'style' => is_array($c['styl'] ?? null) ? (Vocabulary::styleToEnglish($c['styl']) ?: new \stdClass()) : $c['styl'] ?? null,
-                'css' => $c['css'] ?? ''] : $c, $v);
+                'css' => $c['css'] ?? ''] + (isset($c['draft']) ? ['draft' => true] : []) : $c, $v);
         }
         if (in_array($name, ['get_menu', 'save_menu'], true)) {
             $menu = fn (mixed $items): array => array_map(fn (mixed $p): mixed => is_array($p) ? self::menuItemToEnglish($p) : $p, is_array($items) ? $items : []);
@@ -708,7 +712,7 @@ final class Translator
             . '(2) The look of the whole site: update_design_system (colours, fonts, sizes); upload a custom font with upload_file (.woff2) and add it to vlastni_pisma. A repeated look (cards, labels, a dark band) belongs in shared classes – save_classes or <style> in build_from_html; a dark band = a class that overrides the tokens (--ka-barva-text, --ka-barva-pozadi, --ka-barva-primarni…) so links and buttons stay readable. '
             . '(3) Pages: create_page (it stays hidden) and build_from_html – semantic HTML by sections + <style> with rules of one class and tokens var(--ka-…), breakpoints @media (max-width: 1023px) and (max-width: 767px), no inline styles; or save_build with JSON according to the schema. Upload images with upload_file. Build the header and footer with save_build and the part parameter. '
             . '(4) Checking: every build write returns preview – a signed link to the draft valid for 60 minutes; open it and check the result, give the user a longer link from preview_link. The check field (when present) lists what the builder would flag before publishing – buttons without links, images without descriptions, the heading outline; fix them before you offer to publish. '
-            . '(5) Fixes: edit_build by element id (ids from get_build) – do not send the whole build for one text. (6) Site settings with update_settings, old addresses with save_redirect. The menu (save_menu), design system, classes and settings apply to the site straight away; hidden pages appear in the menu only once they are visible. '
+            . '(5) Fixes: edit_build by element id (ids from get_build) – do not send the whole build for one text. (6) Site settings with update_settings, old addresses with save_redirect. The menu (save_menu), the design system and changes of existing classes go to the draft look: check the whole site with preview_link site: true and publish them with publish_look only when the user asks (a new class and the settings apply straight away); hidden pages appear in the menu only once they are visible. '
             . '(7) A header or footer only for some pages (a campaign without the menu): save_part_variant, then the *_build tools with the variant parameter; overview with list_site_parts. list_build_versions and restore_build_version bring back an older published version (into the draft). '
             . '(8) Pop-ups (a newsletter sign-up, a download, an announcement bar): save_popup with a template creates one (inactive), build its content with the *_build tools and the popup parameter, set type, trigger, frequency and rules with save_popup; activate it (active: true) only after publishing and only when the user asks. list_popups shows views, closes and conversions. '
             . '(9) Translating into another language version (the admin switches languages on): create_page with language, translation_of and copy_build, then get_build with texts_only and edit_build “update” operations for the texts and links (internal links point to the translated pages); the header and footer with the part and language parameters (they start as a copy of the default language); save_menu with language; a collection item translation with the same slug and language; a collection item template with collection and language. '

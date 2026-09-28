@@ -1600,4 +1600,6 @@ return [
     'Read more' => 'Czytaj dalej',
     'Unsubscribe' => 'Wypisz się',
     'You receive this e-mail because you subscribed to news from %s.' => 'Otrzymujesz tę wiadomość, ponieważ subskrybujesz nowości z %s.',
+    'Preview of drafts – visitors still see the published site.' => 'Podgląd wersji roboczych – odwiedzający nadal widzą opublikowaną stronę.',
+    'End the preview' => 'Zakończ podgląd',
 ];

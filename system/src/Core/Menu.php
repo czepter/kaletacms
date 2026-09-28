@@ -21,6 +21,10 @@ final class Menu
     /** @return list<array<string, mixed>>|null saved items, null = the menu is built automatically */
     public static function load(Db $db, string $location, string $language): ?array
     {
+        [$inDraft, $items] = Look::activeMenu($location, $language); // a preview of the draft look shows the draft menu
+        if ($inDraft) {
+            return $items === null ? null : self::sanitize($items);
+        }
         $json = $db->value('SELECT polozky FROM {menu} WHERE umisteni = ? AND jazyk = ?', [$location, $language]);
 
         return $json === null ? null : self::sanitize(json_decode((string) $json, true));

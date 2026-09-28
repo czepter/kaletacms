@@ -6,6 +6,7 @@
  * @var string $location  hlavni | paticka
  * @var string $language     the language column ('' = default)
  * @var bool $automatic the main menu is still built automatically
+ * @var bool $inDraft the items come from the draft look (Core\Look)
  * @var list<array<string, mixed>> $items
  * @var list<array{ids:int, titulek:string, skryta:bool}> $pages
  * @var array<string, string> $languages

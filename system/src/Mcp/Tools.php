@@ -160,7 +160,7 @@ final class Tools
                 $s(['nazev' => $text('název souboru s příponou, např. tym-praha.jpg'), 'data' => $text('obsah souboru v base64'), 'url' => $text('https adresa souboru ke stažení (místo data)'),
                     'popis' => $text('popis obrázku pro nevidomé (alt); jinak z názvu')], ['nazev'])],
             ['nahled_odkaz', 'Podepsaný odkaz na náhled konceptu stránky nebo části webu – otevře ho kdokoli i bez přihlášení (uživatel, kolega, prohlížeč), platí jen pro tenhle cíl a jen omezenou dobu. Vyhledávače ho neindexují.',
-                $s($target + ['minut' => $number('platnost v minutách, výchozí 60, nejvýš ' . \Kaleta\Core\Preview::MAX_MINUTES)])],
+                $s($target + ['minut' => $number('platnost v minutách, výchozí 60, nejvýš ' . \Kaleta\Core\Preview::MAX_MINUTES), 'web' => ['type' => 'boolean', 'description' => 'true = celý web se všemi koncepty a konceptem vzhledu']])],
             ['uprav_nastaveni', 'Změní nastavení webu (správce) – hned se projeví na webu. Klíče: nazev_webu, popis_webu, text_paticky, logo_webu, favicon a og_obrazek – obrázek pro sdílení 1200×630 (cesta media/… z nahraj_soubor nebo image/…), titulni_stranka (ID úvodní stránky), soc_facebook|instagram|x|youtube|linkedin (URL), '
                 . 'pocet_clanku, sdileni, osnova_clanku, souvisejici_auto (1/0), tmavy_rezim (vypnuto | auto = podle zařízení | tmavy = vždy tmavý), tmavy_prepinac (1/0 = přepínač vzhledu pro návštěvníky), údaje firmy firma_nazev, firma_typ, firma_ico, firma_dic, firma_rejstrik (zápis v rejstříku), firma_zastupce (kdo firmu zastupuje), firma_ulice, firma_mesto, firma_psc, firma_zeme (CZ), firma_telefon, firma_hodiny (den na řádek), firma_mapa, firma_gps; nazev_webu_en… pro jazykové verze. Bez parametru vrátí současné hodnoty.',
                 $s(['nastaveni' => ['type' => 'object', 'description' => '{"klic":"hodnota"}']])],
@@ -195,6 +195,10 @@ final class Tools
             ['update_enquiry', 'Marks an enquiry new, read or resolved and writes an internal note (users with the Enquiries section).',
                 $s(['id' => $number('enquiry ID from list_enquiries'), 'status' => $text('new | read | resolved'), 'note' => $text('internal note (replaces the previous one)')], ['id'])],
             ['delete_enquiry', 'Deletes an enquiry with its attachments for good (only when the user explicitly asks – for example a request to erase personal data).', $s(['id' => $number('enquiry ID')], ['id'])],
+            ['publish_look', 'Publishes the draft look – design system, shared classes and menus changed by update_design_system, save_classes and save_menu (administrators; only when the user explicitly asks, after they saw the preview). The published look is kept as a version first.', $s([])],
+            ['discard_look', 'Throws the draft look away – the published look stays (administrators; only when the user explicitly asks).', $s([])],
+            ['list_look_versions', 'Earlier published looks (the last 20), with what the next publishing changed. restore_look_version brings one back into the draft.', $s([])],
+            ['restore_look_version', 'Loads an earlier published look into the draft look (administrators) – check it with preview_link site: true, then publish_look.', $s(['id' => $number('version ID from list_look_versions')], ['id'])],
             ['list_newsletters', 'Newsletters (Newsletter extension; users with the Newsletters section): drafts, scheduled, being sent and sent, with counts of recipients, sent and failed e-mails, the number of confirmed subscribers and sending_problem – why the site cannot send now (no SMTP server, cron not running).', $s([])],
             ['draft_newsletter', 'Creates a newsletter draft (without id) or changes a draft or a scheduled one (with id). There is no e-mail builder: one template styled by the design system (colours, fonts, logo) with the subject, an introduction, news items, an optional button and the company footer with an unsubscribe link. Returns the plain-text version to check; the admin shows the HTML preview.',
                 $s(['id' => $number('newsletter ID – only when changing it'), 'subject' => $text('subject of the e-mail, also its heading'), 'preheader' => $text('preview text next to the subject in the inbox (optional)'),
@@ -234,14 +238,15 @@ final class Tools
     /** Tools of 1.6 for everything the admin can do (English names only), with the extension they need ('' = none). */
     private const array CONTENT_TOOLS = ['list_trash' => '', 'restore_from_trash' => '', 'trash_news' => 'novinky', 'delete_collection_item' => '', 'delete_collection' => '',
         'update_category' => 'novinky', 'delete_category' => 'novinky', 'delete_popup' => '', 'list_components' => '', 'save_component' => '', 'delete_component' => '',
-        'save_section' => '', 'delete_section' => '', 'update_media' => '', 'delete_media' => '', 'update_enquiry' => 'poptavky', 'delete_enquiry' => 'poptavky'];
+        'save_section' => '', 'delete_section' => '', 'update_media' => '', 'delete_media' => '', 'update_enquiry' => 'poptavky', 'delete_enquiry' => 'poptavky',
+        'publish_look' => '', 'discard_look' => '', 'list_look_versions' => '', 'restore_look_version' => ''];
 
     /** Newsletter tools (1.5; English names only – they never had Czech ones). */
     private const array NEWSLETTER_TOOLS = ['list_newsletters', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter'];
 
     /** Tools that remove or overwrite something the user may want back, or that cannot be taken back (sending). */
     private const array DESTRUCTIVE_TOOLS = ['smaz_stranku', 'zahod_koncept', 'obnov_verzi', 'send_newsletter', 'delete_newsletter', 'trash_news', 'delete_collection_item',
-        'delete_collection', 'delete_category', 'delete_popup', 'delete_component', 'delete_section', 'delete_media', 'delete_enquiry'];
+        'delete_collection', 'delete_category', 'delete_popup', 'delete_component', 'delete_section', 'delete_media', 'delete_enquiry', 'discard_look', 'publish_look'];
 
     /**
      * MCP annotations of a tool, so a client knows what to confirm with the user: reads, writes, and writes that remove
@@ -259,7 +264,7 @@ final class Tools
     {
         return in_array($name, ['obnov_verzi', 'zahod_koncept', 'uloz_variantu', 'vytvor_kolekci', 'uprav_kolekci', 'uloz_polozku_kolekce', 'uloz_popup', 'stavba_z_html', 'stavba_uloz', 'stavba_uprav', 'uloz_tridy', 'nahraj_soubor', 'uprav_nastaveni', 'uloz_presmerovani', 'smaz_stranku', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'uloz_menu', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter',
             'restore_from_trash', 'trash_news', 'delete_collection_item', 'delete_collection', 'update_category', 'delete_category', 'delete_popup', 'save_component', 'delete_component',
-            'save_section', 'delete_section', 'update_media', 'delete_media', 'update_enquiry', 'delete_enquiry'], true);
+            'save_section', 'delete_section', 'update_media', 'delete_media', 'update_enquiry', 'delete_enquiry', 'publish_look', 'discard_look', 'restore_look_version'], true);
     }
 
     /** @param array<string, mixed> $a */
@@ -301,6 +306,7 @@ final class Tools
                     'languages' => ['default' => Language::defaults($siteSettings),
                         'additional' => array_map(fn (string $code): array => ['code' => $code, 'published' => in_array($code, Language::published($siteSettings, $db), true)], Language::additional($siteSettings))],
                     'cron_last_run_minutes' => $siteSettings->int('tasks_last_run') > 0 ? (int) floor((time() - $siteSettings->int('tasks_last_run')) / 60) : null,
+                    'look_draft' => \Kaleta\Core\Look::summary($db, $siteSettings), // unpublished look changes (publish_look, discard_look)
                 ];
 
             case 'seznam_stranek':
@@ -341,12 +347,12 @@ final class Tools
                     if (!array_key_exists('polozky', $a) || ($a['polozky'] !== null && !is_array($a['polozky']))) {
                         throw new \InvalidArgumentException('Parametr polozky musí být seznam položek menu, nebo null pro automatické menu.');
                     }
-                    \Kaleta\Core\Menu::save($db, $location, $menuLanguage, $a['polozky']);
-                    \Kaleta\Front\Cache::clear();
+                    \Kaleta\Core\Look::setMenu($siteSettings, $location, $menuLanguage, $a['polozky']); // to the draft look
                 }
-                $saved = \Kaleta\Core\Menu::load($db, $location, $menuLanguage);
+                [$inDraft, $saved] = \Kaleta\Core\Look::menuForEditing($db, $siteSettings, $location, $menuLanguage);
 
                 return ['umisteni' => $location, 'jazyk' => $menuLanguage, 'automaticke' => $saved === null, 'polozky' => $saved ?? [],
+                    'look_draft' => $inDraft ? 'the items are in the draft look – visitors see them after publish_look' : null,
                     'na_webu' => \Kaleta\Core\Menu::items($this->app, $location, $menuLanguage, $siteSettings->int('home_page')),
                     'stranky' => $db->all('SELECT ids, titulek, zobrazit FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$menuLanguage])];
 
@@ -389,36 +395,42 @@ final class Tools
                 return $this->saveBuild($target, $build, !empty($a['publikovat'])) + ['chyby_operaci' => $operationErrors];
 
             case 'seznam_trid':
-                $rows = isset($a['nazev']) ? $db->all('SELECT nazev, styl, css FROM {tridy} WHERE nazev = ?', [(string) $a['nazev']]) : $db->all('SELECT nazev, styl, css FROM {tridy} ORDER BY nazev');
+                // with the draft look: Claude works on what will be published (draft = changed in the draft look)
+                $classes = \Kaleta\Core\Look::classes($db, $siteSettings, true);
+                if (isset($a['nazev'])) {
+                    $classes = array_intersect_key($classes, [(string) $a['nazev'] => true]);
+                }
 
-                return array_map(fn (array $r): array => ['nazev' => $r['nazev'], 'styl' => json_decode((string) $r['styl'], true) ?: new \stdClass(), 'css' => (string) $r['css']], $rows);
+                return array_values(array_map(fn (string $name, array $c): array => ['nazev' => $name, 'styl' => $c['styl'] ?: new \stdClass(), 'css' => $c['css']]
+                    + ($c['draft'] ? ['draft' => true] : []), array_keys($classes), $classes));
 
             case 'uloz_tridy':
                 $adminOnly();
                 $conversion = HtmlConverter::convert('<style>' . str_ireplace('</style', '', (string) ($a['css'] ?? '')) . '</style>', true);
                 $stored = [];
+                $inDraft = [];
                 foreach (array_unique(array_merge(array_keys($conversion['tridy']), array_keys($conversion['tridy_styl']))) as $className) {
                     // merged: a rule only for :hover or @media keeps the class base and the other states (nahradit: true = the whole class anew)
-                    $previous = empty($a['nahradit']) ? $db->one('SELECT styl, css FROM {tridy} WHERE nazev = ?', [$className]) : null;
-                    $style = ($conversion['tridy_styl'][$className] ?? []) + (json_decode((string) ($previous['styl'] ?? ''), true) ?: []);
+                    $previous = empty($a['nahradit']) ? (\Kaleta\Core\Look::classes($db, $siteSettings, true)[$className] ?? null) : null; // the draft, when there is one
+                    $style = ($conversion['tridy_styl'][$className] ?? []) + (array) ($previous['styl'] ?? []);
                     $css = $conversion['tridy'][$className] ?? (string) ($previous['css'] ?? '');
-                    $db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE styl = VALUES(styl), css = VALUES(css), zmeneno = NOW()',
-                        [$className, (string) json_encode($style ?: new \stdClass(), JSON_UNESCAPED_UNICODE), $css]);
-                    $stored[] = $className;
+                    // a change of an existing class goes to the draft look, a new class is live at once (it changes nothing published)
+                    \Kaleta\Core\Look::setClass($siteSettings, $className, ['styl' => $style, 'css' => $css]) ? $inDraft[] = $className : $stored[] = $className;
                 }
                 $deleted = [];
                 foreach (is_array($a['smazat'] ?? null) ? $a['smazat'] : [] as $className) {
-                    if (is_string($className) && $db->delete('tridy', ['nazev' => $className]) > 0) {
+                    if (is_string($className) && isset(\Kaleta\Core\Look::classes($db, $siteSettings, true)[$className])) {
+                        \Kaleta\Core\Look::setClass($siteSettings, $className, null);
                         $deleted[] = $className;
                     }
                 }
-                \Kaleta\Front\Cache::clear();
 
-                return ['ulozeno' => $stored, 'smazano' => $deleted, 'hlaseni' => $conversion['hlaseni']];
+                return ['ulozeno' => $stored, 'look_draft' => $inDraft, 'smazano' => $deleted, 'hlaseni' => $conversion['hlaseni']]
+                    + ($inDraft !== [] || $deleted !== [] ? ['pozn' => 'Changes of existing classes and deletions are in the draft look – check them with preview_link site: true, publish with publish_look.'] : []);
 
             case 'stavba_z_html':
                 $target = $this->loadBuildTarget($a, true);
-                ['stavba' => $build, 'hlaseni' => $messages] = HtmlConverter::saveToSite($db, (string) ($a['html'] ?? ''), $auth->isAdmin(), $auth->isAdmin() && !empty($a['prepsat_tridy'])); // only the administrator changes shared classes
+                ['stavba' => $build, 'hlaseni' => $messages] = HtmlConverter::saveToSite($db, (string) ($a['html'] ?? ''), $auth->isAdmin(), $auth->isAdmin() && !empty($a['prepsat_tridy']), $siteSettings); // only the administrator changes shared classes
                 if (empty($a['prepsat_tridy'])) {
                     $messages = array_map(fn (string $h): string => str_ends_with($h, 'ponechána beze změny.') ? substr($h, 0, -1) . ' (prepsat_tridy: true ji přepíše).' : $h, $messages);
                 }
@@ -557,7 +569,7 @@ final class Tools
 
             case 'uprav_design_system':
                 $adminOnly();
-                $ds = isset($a['predvolba']) ? (DesignSystem::preset((string) $a['predvolba']) ?? throw new \InvalidArgumentException('Předvolba neexistuje: ' . implode(', ', array_keys(DesignSystem::PRESETS)) . '.')) : DesignSystem::load($siteSettings);
+                $ds = isset($a['predvolba']) ? (DesignSystem::preset((string) $a['predvolba']) ?? throw new \InvalidArgumentException('Předvolba neexistuje: ' . implode(', ', array_keys(DesignSystem::PRESETS)) . '.')) : \Kaleta\Core\Look::designSystem($siteSettings);
                 $changes = is_array($a['ds'] ?? null) ? $a['ds'] : [];
                 foreach (['barvy', 'barvy_tmave'] as $group) {
                     if (is_array($changes[$group] ?? null)) {
@@ -565,10 +577,10 @@ final class Tools
                     }
                 }
                 $ds = DesignSystem::sanitize($changes + $ds);
-                $siteSettings->set('design_system', (string) json_encode($ds, JSON_UNESCAPED_SLASHES));
-                \Kaleta\Front\Cache::clear();
+                \Kaleta\Core\Look::setDesignSystem($siteSettings, $ds); // to the draft look – publish_look publishes it
 
-                return ['design_system' => $ds, 'citelnost' => DesignSystem::contrasts($ds), 'nahled' => $this->app->request->origin() . $this->app->url('')];
+                return ['design_system' => $ds, 'citelnost' => DesignSystem::contrasts($ds), 'stav' => 'draft look – visitors see it after publish_look',
+                    'nahled' => \Kaleta\Admin\Modules\Appearance::sitePreviewUrl($this->app, 60)];
 
             case 'seznam_popupu':
                 $adminOnly();
@@ -757,8 +769,17 @@ final class Tools
                 return $this->uploadFile($a);
 
             case 'nahled_odkaz':
-                $target = $this->loadBuildTarget($a);
                 $minutes = max(1, min(10080, (int) ($a['minut'] ?? 60)));
+                if (!empty($a['web'])) {
+                    // the whole site with all drafts and the draft look
+                    if (!$auth->hasModule('pages')) {
+                        throw new \DomainException('The preview of the whole site is for editors and administrators.');
+                    }
+
+                    return ['nahled' => \Kaleta\Admin\Modules\Appearance::sitePreviewUrl($this->app, $minutes), 'plati_do' => date('Y-m-d H:i', time() + $minutes * 60),
+                        'look_draft' => \Kaleta\Core\Look::summary($db, $siteSettings)];
+                }
+                $target = $this->loadBuildTarget($a);
 
                 return $this->describeTarget($target) + ['nahled' => $this->targetPreviewUrl($target, $minutes), 'plati_do' => date('Y-m-d H:i', time() + $minutes * 60)];
 
@@ -1325,6 +1346,30 @@ final class Tools
                 $db->delete('media', ['ido' => $id]);
 
                 return ['deleted' => $id, 'path' => $file['obr_poloha']];
+
+            case 'publish_look':
+            case 'discard_look':
+            case 'restore_look_version':
+                $need($auth->isAdmin(), 'The look of the site can be published only by an administrator.');
+                if ($name === 'discard_look') {
+                    \Kaleta\Core\Look::discard($this->app->settings());
+
+                    return ['discarded' => true];
+                }
+                if ($name === 'restore_look_version') {
+                    \Kaleta\Core\Look::restoreVersion($this->app, $id);
+
+                    return ['draft' => \Kaleta\Core\Look::summary($db, $this->app->settings()), 'preview' => \Kaleta\Admin\Modules\Appearance::sitePreviewUrl($this->app, 60)];
+                }
+                $summary = \Kaleta\Core\Look::publish($this->app);
+                if ($summary === []) {
+                    throw new \DomainException('There is no draft look to publish.');
+                }
+
+                return ['published' => $summary];
+
+            case 'list_look_versions':
+                return ['versions' => \Kaleta\Core\Look::versions($db), 'draft' => \Kaleta\Core\Look::summary($db, $this->app->settings())];
 
             case 'update_enquiry':
             case 'delete_enquiry':

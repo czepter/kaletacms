@@ -1574,4 +1574,6 @@ return [
     'Read more' => 'Čítať ďalej',
     'Unsubscribe' => 'Odhlásiť odber',
     'You receive this e-mail because you subscribed to news from %s.' => 'Tento e-mail dostávate, pretože ste sa prihlásili na odber noviniek z webu %s.',
+    'Preview of drafts – visitors still see the published site.' => 'Náhľad konceptov – návštevníci stále vidia zverejnený web.',
+    'End the preview' => 'Ukončiť náhľad',
 ];

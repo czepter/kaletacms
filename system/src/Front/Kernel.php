@@ -55,6 +55,9 @@ final class Kernel
     /** Popup whose draft the signed preview /_popup/<id> shows (it opens immediately). */
     private int $previewPopup = 0;
 
+    /** A preview of the whole site with all drafts and the draft look (signed link, target "web"). */
+    private bool $sitePreview = false;
+
     public function __construct(private readonly App $app)
     {
         $app->request->setOrigin($app->settings()->get('site_url'));
@@ -85,6 +88,7 @@ final class Kernel
         $app->request->setPath($internal);
         // themeless: the front templates are the system's own, the look comes from the design system and the builder
         $this->view = new View([KALETA_SYSTEM . '/views/front']);
+        $this->startSitePreview();
         $this->news = new NewsRepository($app->db(), $app->settings(), $app->request->basePath());
     }
 
@@ -261,7 +265,7 @@ final class Kernel
 
         // a hidden page is visible only in the builder preview (whoever can edit pages) and via a signed preview link
         // (?nahled_klic=…, Core\Preview)
-        $showHidden = $request->get('stavba') === 'koncept' && ($this->app->auth()->hasModule('pages') || $request->get('nahled_klic') !== '');
+        $showHidden = $this->sitePreview || ($request->get('stavba') === 'koncept' && ($this->app->auth()->hasModule('pages') || $request->get('nahled_klic') !== ''));
         $page = $this->app->db()->one('SELECT * FROM {stranky} WHERE seo_link = ? AND jazyk = ? AND smazano IS NULL' . ($showHidden ? '' : ' AND zobrazit = 1'), [ltrim($path, '/'), Language::siteColumn()]);
         if ($page !== null && !$page['zobrazit'] && !$this->canSeeDraft('stranka:' . (int) $page['ids'])) {
             $page = null;
@@ -345,7 +349,7 @@ final class Kernel
         $template = $collection !== null ? \Kaleta\Builder\Collections::inLanguage($db, $collection, Language::siteColumn()) : null;
         // template draft: the administrator, or a signed preview of exactly this template (Core\Preview, target
         // kolekce:<idk>[:<language>])
-        $draft = $template !== null && $r->get('stavba') === 'koncept' && ($this->app->auth()->isAdmin() || $this->canSeeDraft(\Kaleta\Builder\Collections::templateKey($template)));
+        $draft = $template !== null && $this->wantsDraft() && ($this->app->auth()->isAdmin() || $this->canSeeDraft(\Kaleta\Builder\Collections::templateKey($template)));
         if ($collection === null || (!$collection['detail'] && !$draft)) {
             return $this->notFound();
         }
@@ -447,7 +451,7 @@ final class Kernel
         ];
         // preview of the draft build for the editor: ?stavba=koncept (only whoever can edit pages), &editor=1 adds markers
         // for selecting elements
-        $draft = $this->app->request->get('stavba') === 'koncept' && $this->canSeeDraft('stranka:' . (int) $page['ids']);
+        $draft = $this->wantsDraft() && $this->canSeeDraft('stranka:' . (int) $page['ids']);
         $build = \Kaleta\Builder\Build::fromJson($draft ? ($page['stavba_koncept'] ?? $page['stavba']) : $page['stavba']);
         if ($build !== null) {
             $k = $this->context();
@@ -802,11 +806,46 @@ final class Kernel
      * @return array{0: string, 1: array{hlavicka: ?string, paticka: ?string}, 2: array<string, mixed>}
      */
     /**
+     * The whole-site preview (Core\Preview target "web", from preview_link or Site appearance): every page, site part and
+     * collection template shows its draft and the site uses the draft look. The signed link sets a cookie, so the preview
+     * stays while the visitor clicks through the site, until the link expires or ?nahled_konec=1 ends it. An administrator
+     * in the builder (?stavba=koncept) sees the draft look too.
+     */
+    private function startSitePreview(): void
+    {
+        $r = $this->app->request;
+        $cookiePath = $r->basePath() . '/';
+        if ($r->get('nahled_konec') === '1') {
+            setcookie('ka_nahled', '', ['expires' => 1, 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax']);
+            unset($_COOKIE['ka_nahled']);
+        }
+        $key = $r->get('nahled_klic') !== '' ? $r->get('nahled_klic') : (string) ($_COOKIE['ka_nahled'] ?? '');
+        if ($key !== '' && \Kaleta\Core\Preview::verify($this->app->db(), $this->app->settings(), 'web', $key)) {
+            $this->sitePreview = true;
+            if ($r->get('nahled_klic') === $key && !headers_sent()) {
+                setcookie('ka_nahled', $key, ['expires' => (int) strtok($key, '.'), 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax', 'secure' => $r->isHttps()]);
+            }
+        }
+        if ($this->sitePreview || ($r->get('stavba') === 'koncept' && $this->app->auth()->isAdmin())) {
+            \Kaleta\Core\Look::activate($this->app->settings());
+        }
+    }
+
+    /** Draft instead of the published build: the builder and single previews (?stavba=koncept), or the whole-site preview. */
+    private function wantsDraft(): bool
+    {
+        return $this->sitePreview || $this->app->request->get('stavba') === 'koncept';
+    }
+
+    /**
      * Can the visitor see the draft: whoever edits pages (for site parts the administrator), or a valid signed preview
-     * link of the target.
+     * link of the target (or of the whole site).
      */
     private function canSeeDraft(string $target): bool
     {
+        if ($this->sitePreview) {
+            return true;
+        }
         $auth = $this->app->auth();
         if (str_starts_with($target, 'cast:') || str_starts_with($target, 'kolekce:') || str_starts_with($target, 'popup:') ? $auth->isAdmin() : $auth->hasModule('pages')) {
             return true;
@@ -831,10 +870,11 @@ final class Kernel
         // a site page can have its own header and footer variant; in the variant editor the ?varianta= parameter decides
         $ids = ($this->counterpart[0] ?? '') === 'stranky' ? (int) $this->counterpart[2]['ids'] : null;
         $previewVariant = preg_match(\Kaleta\Builder\SiteParts::VARIANT_PATTERN, $r->get('varianta')) ? $r->get('varianta') : '';
-        $render = function (string $type) use ($db, $k, $preview, $editor, $language, $ids, $previewVariant): ?string {
+        $allDrafts = $this->sitePreview;
+        $render = function (string $type) use ($db, $k, $preview, $editor, $language, $ids, $previewVariant, $allDrafts): ?string {
             try {
                 $variant = $preview === $type ? $previewVariant : \Kaleta\Builder\SiteParts::pageVariant($db, $type, $language, $ids);
-                $build = \Kaleta\Builder\SiteParts::build($db, $type, $language, $preview === $type, $variant);
+                $build = \Kaleta\Builder\SiteParts::build($db, $type, $language, $preview === $type || $allDrafts, $variant);
             } catch (\Throwable $e) {
                 error_log('Části webu: ' . $e->getMessage()); // a site without the table (before migration) renders the parts from the layout
 
@@ -988,6 +1028,9 @@ final class Kernel
         // canonical URL: the path without parameters, with the page number for pagination (page 2 is not a copy of page 1)
         $listPageNumber = $this->app->request->getInt('strana', 1);
         $canonicalUrl = $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')) . ($listPageNumber > 1 ? '?strana=' . $listPageNumber : '');
+        if ($this->sitePreview) {
+            $meta['noindex'] = true; // the preview of drafts is never indexed nor cached
+        }
         [$content, $parts, $meta] = $this->siteParts($content, $meta, $languageSwitcher, (string) parse_url($canonicalUrl, PHP_URL_PATH));
         $popups = (string) ($meta['popupy'] ?? '');
         unset($meta['popupy']);
@@ -1010,6 +1053,9 @@ final class Kernel
             'kanonicka' => $canonicalUrl,
         ]);
         $html = ImageHtml::complete($this->app->db(), $html); // image dimensions and background color – less page jumping
+        if ($this->sitePreview) {
+            $html = (string) preg_replace('/<body[^>]*>/', '$0' . $this->previewBar(), $html, 1);
+        }
         $html = $this->localizeSystemLinks($html);
         // image/web.js only on pages that need it (gallery and photos in text, video, sharing, tabs, carousel, modal, form,
         // counter, countdown, submenu – Esc closes it, popups, language versions – browser language on the first visit)
@@ -1023,6 +1069,15 @@ final class Kernel
         }
 
         return Response::html($html, $status);
+    }
+
+    /** The bar of the whole-site preview: visitors see the published site; a link ends the preview. */
+    private function previewBar(): string
+    {
+        return '<div class="ka-nahled-lista" role="status" style="position:sticky;top:0;z-index:2147483000;display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;align-items:center;'
+            . 'padding:0.5rem 1rem;background:#16181d;color:#fff;font:600 0.875rem/1.4 system-ui,sans-serif">'
+            . '<span>' . e(t('Preview of drafts – visitors still see the published site.')) . '</span>'
+            . '<a href="?nahled_konec=1" style="color:#fff;text-decoration:underline">' . e(t('End the preview')) . '</a></div>';
     }
 
     /**

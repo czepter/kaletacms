@@ -12,6 +12,7 @@
  * @var list<array{popis:string, pomer:float, ok:bool}> $contrasts
  * @var array<string, array{nazev:string, popis:string, ds:array<string, mixed>}> $presets
  * @var array<string, string> $values
+ * @var list<array{id: int, summary: string, created: string, author: ?string}> $versions earlier published looks (Core\Look)
  */
 use Kaleta\Front\SiteIdentity;
 use Kaleta\Builder\DesignSystem;
@@ -210,6 +211,7 @@ $tabs = ['styl' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo'
 </div>
 
 <p class="tlacitka vzhled-ulozit"><input class="tl" type="submit" value="<?= e(t('Save appearance')) ?>"> <span class="napoveda" data-neulozeno hidden><?= e(t('The preview shows unsaved changes.')) ?></span></p>
+<p class="napoveda"><?= e(t('Colours, fonts, sizes and shapes go to the draft look first – with changes of shared classes and menus. Visitors see them once you publish the look.')) ?></p>
 </form>
 
 <div role="tabpanel" id="panel-export" aria-labelledby="zalozka-export" class="vzhled-export">
@@ -222,6 +224,19 @@ $tabs = ['styl' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo'
 	<input type="file" name="tokeny" accept=".json,application/json" required aria-label="<?= e(t('Tokens file')) ?>">
 	<button class="navigace" type="submit"><?= e(t('Load tokens')) ?></button>
 </form>
+</fieldset>
+<fieldset>
+<legend><?= e(t('Earlier looks')) ?></legend>
+<?php if ($versions === []): ?>
+<p class="napoveda"><?= e(t('Each time you publish the look, the one before is kept here (the last 20).')) ?></p>
+<?php else: ?>
+<ul class="vzhled-verze">
+<?php foreach ($versions as $v): ?>
+	<li><strong><?= e(format_date($v['created'], true)) ?></strong><?= $v['author'] !== null ? ' · ' . e((string) $v['author']) : '' ?><br><span class="napoveda"><?= e(t('before: %s', $v['summary'])) ?></span>
+		<form class="vradku" method="post" action="<?= e($module->url('restore_look')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $v['id'] ?>"><button class="navigace" type="submit"><?= e(t('Back to this look')) ?></button></form></li>
+<?php endforeach ?>
+</ul>
+<?php endif ?>
 </fieldset>
 </div>
 

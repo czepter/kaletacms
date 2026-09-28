@@ -127,7 +127,8 @@ final class DesignSystem
     /** @return array<string, mixed> the stored value completed with the defaults (and with the color and fonts from the older site Identity) */
     public static function load(Settings $siteSettings): array
     {
-        $stored = json_decode($siteSettings->get('design_system'), true);
+        // a preview of the draft look (Core\Look) renders with the draft design system
+        $stored = \Kaleta\Core\Look::activeDesignSystem() ?? json_decode($siteSettings->get('design_system'), true);
         $ds = is_array($stored) ? $stored + self::DEFAULTS : self::DEFAULTS;
         $ds['barvy'] = (is_array($stored['barvy'] ?? null) ? $stored['barvy'] : []) + self::DEFAULTS['barvy'];
         $ds['barvy_tmave'] = (is_array($stored['barvy_tmave'] ?? null) ? $stored['barvy_tmave'] : []) + self::DEFAULTS['barvy_tmave'];

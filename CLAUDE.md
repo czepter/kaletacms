@@ -143,6 +143,11 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   `style`, `children`, `button`, `mobile`, `primary`…), uložené stavby zůstávají české; na vstupu projde i česká podoba. Nový prvek, pole, vlastnost
   stylu nebo token = záznam ve `Vocabulary` (jinak selže unit test, který převádí všechny sekce knihovny tam a zpět).
   **Parita:** každá akce administrace je v mapě `$parity` v `tools/unit-tests.php` – čtení, nástroj MCP, nebo „admin: důvod“.
+- **Koncept vzhledu (od 1.7, `Core\Look`):** design system, změny a mazání existujících tříd a menu jdou do jednoho konceptu (`look_draft`
+  v nastavení) – z Vzhledu webu, builderu, editoru menu i MCP (`update_design_system`, `save_classes`, `save_menu`); nová třída platí hned.
+  Publikuje `Look::publish` (admin lišta `admin/look_bar`, MCP `publish_look`), předchozí vzhled jde do `ka_look_versions` (20), zpět
+  `restore_look_version`. Koncept se vykresluje jen při `Look::activate()`: náhled celého webu (`Preview` cíl `web`, cookie `ka_nahled`,
+  `?nahled_konec=1`) nebo správce v builderu (`?stavba=koncept`); háčky jsou v `DesignSystem::load`, `Build::css` a `Menu::load`.
   Zápis stavby vrací podepsaný náhled (`Core\Preview`, `?stavba=koncept&nahled_klic=`, HMAC `secret_key`, jen jeden cíl, omezená platnost). Nová novinka
   je koncept, nová stránka skrytá; vydat/zveřejnit jen na výslovný pokyn a s právem. **Hranice (bezpečí na prvním místě):** žádný nástroj nesmí zapisovat mimo obsah
   spouštět kód ani dotaz (statickou kontrolu PHP nejde udělat neprůstřelnou, proto MCP žádné PHP šablony nemění).
