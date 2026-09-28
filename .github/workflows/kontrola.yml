@@ -31,6 +31,9 @@ jobs:
       - name: Anglická administrace bez češtiny
         run: tools/test-english.sh
         env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
+      - name: Browser test (admin, builder, editors, public site in Chrome)
+        run: tools/test-browser.sh
+        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root, CHROME: /usr/bin/google-chrome }
   migrace:
     # aktualizace databáze starší verze na současnou (tools/test-migrations.sh) na MySQL i MariaDB, jaké mívají hostingy
     runs-on: ubuntu-latest
