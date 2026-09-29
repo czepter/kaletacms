@@ -8,13 +8,13 @@ whose output reads like hand-written HTML, an AI assistant, Claude over MCP, and
 
 ![The Kaleta builder: the canvas is the real page, elements on the left, properties on the right](docs/screenshots/admin-builder.png)
 
-> Project website: [kaletacms.com](https://kaletacms.com) · latest version: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest) · what comes next: [roadmap](docs/ROADMAP.md)
+> Project website: [kaletacms.com](https://kaletacms.com) · guide: [kaletacms.com/guide](https://kaletacms.com/guide) · latest version: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest) · what comes next: [roadmap](docs/ROADMAP.md)
 
 ## Features
 
 - **Page builder** – the canvas is the real page. Drag elements and ready-made sections into place, style them separately
   for desktop, tablet, mobile and hover. Drafts save continuously and go live only when you publish; older versions can be restored.
-- **Library of 39 ready-made sections** (heroes, services, pricing, testimonials, team, gallery, contact with a form…) and
+- **Library of 40 ready-made sections** (heroes, services, pricing, testimonials, team, gallery, contact with a form…) and
   **three starter sites** at installation. Texts follow the page language.
 - **Design system** – one-click styles, colours with a readability (WCAG) check, dark mode, fonts, fluid sizes and spacing –
   all tokens, so changing a colour restyles the whole site.

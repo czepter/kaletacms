@@ -8,14 +8,14 @@ stránek s výstupem na úrovni ručně psaného HTML, AI asistent a napojení C
 
 ![Builder Kalety: plátno je skutečná stránka, prvky vlevo, vlastnosti vpravo](docs/screenshots/admin-builder.png)
 
-> Web projektu: [kaletacms.com](https://kaletacms.com) · poslední verze: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest) · co bude dál: [roadmap](docs/ROADMAP.md)
+> Web projektu: [kaletacms.com](https://kaletacms.com) · návod: [kaletacms.com/cs/navod](https://kaletacms.com/cs/navod) · poslední verze: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest) · co bude dál: [roadmap](docs/ROADMAP.md)
 
 ## Co umí
 
 - **Builder stránek** – plátno je skutečná stránka webu. Prvky a hotové sekce přetáhnete na místo, styl nastavíte zvlášť
   pro počítač, tablet, mobil i najetí myší. Koncept se ukládá průběžně, na web jde až tlačítkem Publikovat; starší verze
   se dají obnovit.
-- **Knihovna 39 hotových sekcí** (úvody, služby, ceník, reference, tým, galerie, kontakt s formulářem…) a **tři startovací
+- **Knihovna 40 hotových sekcí** (úvody, služby, ceník, reference, tým, galerie, kontakt s formulářem…) a **tři startovací
   weby** k instalaci. Texty podle jazyka stránky.
 - **Design systém** – styly jedním klikem, barvy s kontrolou čitelnosti (WCAG), tmavý režim, písma, plynulé velikosti
   a mezery. Všechno jsou tokeny, takže změna barvy přebarví celý web.
