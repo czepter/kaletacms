@@ -1556,7 +1556,7 @@ final class Tools
             'design_system' => DesignSystem::load($siteSettings) + ['presets' => array_map(fn (array $p): string => $admin($p[0]) . ' – ' . $admin($p[1]), DesignSystem::PRESETS),
                 'heading_fonts' => array_keys(SiteIdentity::TITLE_FONTS), 'text_fonts' => array_keys(SiteIdentity::TEXT_FONTS),
                 'note' => 'Keys as update_design_system takes them (barvy = colours, pismo_titulky = heading font, zaobleni = corner radius…).'],
-            'css_tokens' => 'In <style> and custom CSS use var(--ka-barva-primarni|sekundarni|text|tlumeny|pozadi|plocha|linka|primarni-jemna|na-primarni) (primary, secondary, text, muted, background, surface, line, primary-soft, on-primary), var(--ka-mezera-2xs…3xl) for spacing, var(--ka-krok--1…5) for font size, var(--ka-zaobleni), var(--ka-stin-s|m|l), var(--ka-sirka).',
+            'css_tokens' => 'In <style> and custom CSS use var(--ka-barva-primarni|sekundarni|text|tlumeny|pozadi|plocha|linka|primarni-jemna|na-primarni) (primary, secondary, text, muted, background, surface, line, primary-soft, on-primary), var(--ka-mezera-2xs…3xl) for spacing, var(--ka-krok--1…5) for font size, var(--ka-zaobleni), var(--ka-stin-s|m|l), var(--ka-sirka). The same tokens also answer to English names (--ka-color-primary, --ka-space-m, --ka-step-2, --ka-radius, --ka-shadow-m…) for reading; to restyle a section, override the stored names above.',
         ];
     }
 

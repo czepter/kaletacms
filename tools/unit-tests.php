@@ -905,6 +905,16 @@ $buildDiscarded = [];
 check('Styl::vlastniCss: jen bezpečné deklarace', Kaleta\Builder\Style::customCss('color:red; background:url(javascript:x); --ka-x: 1; @import url(x); width: expression(1); a{b:c}', $buildDiscarded), 'color: red; --ka-x: 1;');
 check('Styl::vlastniCss: zahozené se hlásí', count($buildDiscarded), 4);
 check('DesignSystem::kontrast: černá na bílé', round(Kaleta\Builder\DesignSystem::contrast('#ffffff', '#000000'), 1), 21.0);
+// 2.1: every stored token has an English name that reads it again on styled elements (follows a token overridden in a class)
+$dsCss = Kaleta\Builder\DesignSystem::css(Kaleta\Builder\DesignSystem::DEFAULTS);
+preg_match_all('/^\t(--ka-[a-z0-9-]+):/m', substr($dsCss, 0, (int) strpos($dsCss, '@media')), $dsStored);
+check('2.1: English token names cover every stored token', [array_values(array_diff($dsStored[1], Kaleta\Builder\DesignSystem::englishTokens(), ['--ka-akcent'])),
+    str_contains($dsCss, ":where(:root, [class], [id], [style]) {\n\t--ka-color-primary: var(--ka-barva-primarni);"), str_contains($dsCss, '--ka-type-lead: var(--ka-typ-perex);'),
+    count(array_unique(array_keys(Kaleta\Builder\DesignSystem::englishTokens()))) === count(array_unique(Kaleta\Builder\DesignSystem::englishTokens()))], [[], true, true, true]);
+// 2.1: a page without its own description gets the start of its first longer paragraph
+check('2.1: description from the first longer paragraph', [Kaleta\Front\Kernel::descriptionFrom('<h1>Hi</h1><p>Short.</p><p class="x">We build <strong>kitchens</strong> &amp; bathrooms in Zlín   and around it since 1998.</p><p>Later text that is long enough to be picked but comes second.</p>'),
+    Kaleta\Front\Kernel::descriptionFrom('<p>tiny</p>'), mb_strlen(Kaleta\Front\Kernel::descriptionFrom('<p>' . str_repeat('word ', 80) . '</p>'))],
+    ['We build kitchens & bathrooms in Zlín and around it since 1998.', '', 160]);
 check('DesignSystem::css: pořadí vrstev na začátku', str_starts_with(Kaleta\Builder\DesignSystem::css(Kaleta\Builder\DesignSystem::DEFAULTS), Kaleta\Builder\DesignSystem::LAYERS), true);
 check('DesignSystem::vycisti: nesmysl nahradí výchozí', Kaleta\Builder\DesignSystem::sanitize(['barvy' => ['primarni' => 'red;}']])['barvy']['primarni'], Kaleta\Builder\DesignSystem::DEFAULTS['barvy']['primarni']);
 $buildLibraryErrors = [];

@@ -472,6 +472,10 @@ final class Kernel
                 $this->editHereUrl = $this->app->url('admin.php?module=pages&action=builder&id=' . (int) $page['ids']);
             }
 
+            if ($meta['popis'] === '') {
+                $meta['popis'] = self::descriptionFrom($html);
+            }
+
             return $this->page($title, $this->view->render('stranka', ['stranka' => $page, 'uvod' => $home, 'stavba' => $html]), [
                 'stavba' => true, 'noindex' => $draft || $meta['noindex'],
             ] + $meta);
@@ -480,7 +484,28 @@ final class Kernel
             return $this->page($page['titulek'], $form, ['noindex' => true]);
         }
 
+        if ($meta['popis'] === '') {
+            $meta['popis'] = self::descriptionFrom((string) $page['text']);
+        }
+
         return $this->page($title, $this->view->render('stranka', ['stranka' => $page, 'uvod' => $home, 'stavba' => null]), $meta);
+    }
+
+    /**
+     * A page without its own description (2.1): search engines get the start of its first longer paragraph, as collection
+     * items do – better than no description, and the site audit still asks for a real one.
+     */
+    public static function descriptionFrom(string $html): string
+    {
+        preg_match_all('#<p\b[^>]*>(.*?)</p>#si', $html, $m);
+        foreach ($m[1] as $paragraph) {
+            $text = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($paragraph), ENT_QUOTES | ENT_HTML5)));
+            if (mb_strlen($text) >= 50) {
+                return mb_strimwidth($text, 0, 160, '…');
+            }
+        }
+
+        return '';
     }
 
     private function showNewsList(bool $home = false): Response
@@ -493,7 +518,9 @@ final class Kernel
 
         return $this->page($home ? '' : t('Novinky'), $this->view->render('vypis', ['nadpis' => t('Novinky'), 'popis' => ''] + $this->listVariables($news, $total, $pageNumber, $home ? '' : 'novinky')), [
             'hlavni' => $home,
-            'popis' => $this->app->settings()->get('site_description'),
+            // without a site description: the list's own summary (the site name and the latest headlines)
+            'popis' => $this->app->settings()->get('site_description') !== '' ? $this->app->settings()->get('site_description')
+                : mb_strimwidth(t('Novinky') . ' – ' . $this->app->settings()->get('site_name') . ($news !== [] ? ': ' . implode(' · ', array_column(array_slice($news, 0, 3), 'titulek')) : ''), 0, 160, '…'),
             'cast' => 'vypis',
         ]);
     }

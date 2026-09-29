@@ -51,7 +51,7 @@ final class Gallery extends Element
             }
             $src = $k->image($f['src']);
             $srcset = Images::srcset(ltrim(preg_replace('#^' . preg_quote($base, '#') . '/#', '', $src) ?? $src, '/'), $base);
-            $html .= '<img src="' . e($src) . '"' . ($srcset !== '' ? ' srcset="' . e($srcset) . '" sizes="(max-width: 700px) 50vw, 400px"' : '')
+            $html .= '<img src="' . e($src) . '"' . ($srcset !== '' ? ' srcset="' . e($srcset) . '" sizes="auto, (max-width: 700px) 50vw, 400px"' : '')
                 . ' alt="' . e($f['alt']) . '" loading="lazy" style="aspect-ratio:' . e($o['pomer']) . '">';
         }
         if ($html === '') {

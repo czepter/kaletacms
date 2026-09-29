@@ -46,7 +46,7 @@
 <?php foreach ($novinky as $n): $adresa = $url('novinky/' . $n['seo_link']); ?>
 	<article class="novinka-karta">
 <?php if ($n['obrazek'] !== ''): ?>
-		<a class="novinka-karta-obrazek" href="<?= e($adresa) ?>" tabindex="-1" aria-hidden="true"><img src="<?= e($n['obrazek']) ?>"<?= ($n['obrazek_srcset'] ?? '') !== '' ? ' srcset="' . e($n['obrazek_srcset']) . '" sizes="(max-width: 700px) 100vw, 400px"' : '' ?> alt="" loading="lazy"></a>
+		<a class="novinka-karta-obrazek" href="<?= e($adresa) ?>" tabindex="-1" aria-hidden="true"><img src="<?= e($n['obrazek']) ?>"<?= ($n['obrazek_srcset'] ?? '') !== '' ? ' srcset="' . e($n['obrazek_srcset']) . '" sizes="auto, (max-width: 700px) 100vw, 400px"' : '' ?> alt="" loading="lazy"></a>
 <?php endif ?>
 		<p class="novinka-info"><time datetime="<?= e(date('c', strtotime($n['datum']))) ?>"><?= e(format_date($n['datum'])) ?></time> · <a href="<?= e($url('novinky/kategorie/' . $n['tema_seo'])) ?>"><?= e($n['tema_jm']) ?></a></p>
 		<h2><a href="<?= e($adresa) ?>"><?= e($n['titulek']) ?></a></h2>

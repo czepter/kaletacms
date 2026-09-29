@@ -275,11 +275,51 @@ final class DesignSystem
         }
         $rows = array_map(fn (string $k, string $h): string => "\t{$k}: {$h};", array_keys($p), $p);
         $dark = array_map(fn (string $k, string $h): string => "\t\t--ka-barva-{$k}: {$h};", array_keys($ds['barvy_tmave']), $ds['barvy_tmave']);
+        // English names (2.1) read the stored tokens again on every styled element, so they follow a token overridden in a
+        // class or an element style (a dark section sets --ka-barva-text; var(--ka-color-text) inside it follows)
+        $aliases = array_map(fn (string $en, string $cs): string => "\t{$en}: var({$cs});", array_keys(self::englishTokens()), self::englishTokens());
 
         // dark colors: by the device (unless the visitor chose „svetly“) and always when the site or the visitor chooses dark mode
         return self::LAYERS . "\n" . $fonts . "@layer tokeny {\n:root {\n" . implode("\n", $rows) . "\n}\n"
             . "@media (prefers-color-scheme: dark) {\n\t:root[data-tmavy]:not([data-tema=\"svetly\"]) {\n" . implode("\n", $dark) . "\n\t}\n}\n"
-            . ":root[data-tmavy][data-tema=\"tmavy\"] {\n" . implode("\n", $dark) . "\n}\n}\n";
+            . ":root[data-tmavy][data-tema=\"tmavy\"] {\n" . implode("\n", $dark) . "\n}\n"
+            . ":where(:root, [class], [id], [style]) {\n" . implode("\n", $aliases) . "\n}\n}\n";
+    }
+
+    /**
+     * English names of the design tokens (2.1): --ka-color-primary for --ka-barva-primarni and so on. They are read-only
+     * aliases – to restyle a section, override the stored (Czech) token, and the English name follows.
+     *
+     * @return array<string, string> English custom property => stored custom property
+     */
+    public static function englishTokens(): array
+    {
+        $map = [];
+        foreach (['primarni' => 'primary', 'sekundarni' => 'secondary', 'text' => 'text', 'pozadi' => 'background', 'plocha' => 'surface',
+            'na-primarni' => 'on-primary', 'bila' => 'white', 'cerna' => 'black', 'text-svetle' => 'text-light', 'text-tmave' => 'text-dark',
+            'tlumeny' => 'muted', 'linka' => 'line', 'primarni-jemna' => 'primary-soft'] as $cs => $en) {
+            $map['--ka-color-' . $en] = '--ka-barva-' . $cs;
+        }
+        $map += ['--ka-font-body' => '--ka-pismo-text', '--ka-font-heading' => '--ka-pismo-titulky',
+            '--ka-width' => '--ka-sirka', '--ka-text-width' => '--ka-sirka-textu', '--ka-radius' => '--ka-zaobleni'];
+        foreach (self::RADII as $key => $_) {
+            $map['--ka-radius-' . ($key === 'plne' ? 'full' : $key)] = '--ka-zaobleni-' . $key;
+        }
+        foreach (self::STEPS as $n) {
+            $map['--ka-step-' . $n] = '--ka-krok-' . $n;
+        }
+        foreach (self::SPACES as $key => $_) {
+            $map['--ka-space-' . $key] = '--ka-mezera-' . $key;
+        }
+        foreach (self::SHADOWS as $key => $_) {
+            $map['--ka-shadow-' . $key] = '--ka-stin-' . $key;
+        }
+        foreach (['titulek' => 'title', 'nadpis-sekce' => 'section-heading', 'podnadpis' => 'subheading', 'perex' => 'lead', 'text' => 'body',
+            'drobny' => 'small', 'nadtitulek' => 'eyebrow'] as $cs => $en) {
+            $map['--ka-type-' . $en] = '--ka-typ-' . $cs;
+        }
+
+        return $map;
     }
 
     /**
