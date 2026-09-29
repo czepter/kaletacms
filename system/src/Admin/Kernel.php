@@ -91,7 +91,7 @@ final class Kernel
         }
 
         // update of the database structure after a new system version is uploaded
-        if ($app->auth()->isAdmin() && $app->settings()->int('db_version') < Migration::latest()) {
+        if ($app->auth()->isAdmin() && Migration::pending($app->settings())) {
             try {
                 foreach (Migration::apply($app->db(), $app->settings()) as $migration) {
                     $app->session->flash('info', t('The database has been updated: %s', $migration));

@@ -64,7 +64,7 @@ final class Kernel
         $app->applyTimezone();
         // after a system update (automatic too) the database is updated right on the first visit, not only after the
         // administrator signs in
-        if ($app->settings()->int('db_version') < KALETA_DB_VERSION) {
+        if (\Kaleta\Core\Migration::pending($app->settings())) {
             // a failed migration must not bring down the whole site: it is logged and the site keeps running (database
             // changes are additive only); the administrator sees it in the administration and can install a fix
             \Kaleta\Core\Migration::safe($app->db(), $app->settings());

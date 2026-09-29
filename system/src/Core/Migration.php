@@ -10,9 +10,10 @@ namespace Kaleta\Core;
  * The files system/sql/migrace/NNNN-description.sql run in ascending order, the number of the last one applied
  * is in ka_nastaveni (db_version). A new installation gets the complete schema.sql and the highest number right away.
  *
- * A data migration (2.0) is NNNN-description.php returning function (Db $db, Settings $settings): void. The code of the
- * release that runs an update request knows only the .sql files, so a PHP migration must be the highest number of its
- * release – the new code then runs it on the first request after the update.
+ * A data migration (2.0) is NNNN-description.php returning function (Db $db, Settings $settings): void, written to run
+ * again safely. The code of a release before 2.0 that runs an update request knows only the .sql files and moves db_version
+ * past a PHP migration without running it; so every PHP migration runs once by its name (data_migrations, 2.2) –
+ * whatever db_version says – on the first request of the new code.
  */
 final class Migration
 {
@@ -20,6 +21,15 @@ final class Migration
 
     /** MySQL errors that mean "this change is already in the database": a table, column, index or foreign key exists, a dropped column or index is missing. */
     private const array ALREADY_APPLIED = [1050, 1060, 1061, 1022, 1826, 1091];
+
+    /** The PHP data migrations (NNNN-description.php without the extension); tools/unit-tests.php checks it against the files. */
+    public const array DATA = ['0034-modal-popups'];
+
+    /** Is there anything to apply: a newer structure, or a data migration that has not run on this site yet? */
+    public static function pending(Settings $settings): bool
+    {
+        return $settings->int('db_version') < KALETA_DB_VERSION || array_diff(self::DATA, explode(',', $settings->get('data_migrations'))) !== [];
+    }
 
     /** @return array<int, string> number => file, ascending */
     public static function files(): array
@@ -74,9 +84,7 @@ final class Migration
                     continue;
                 }
                 if (str_ends_with($file, '.php')) {
-                    (require $file)($db, $settings); // a data migration – written to run again safely
-                    $settings->set('db_version', (string) $number);
-                    $applied[] = basename($file, '.php');
+                    $settings->set('db_version', (string) $number); // runs below with the others that have not run yet
                     continue;
                 }
                 foreach (self::statements((string) file_get_contents($file), $db->prefix) as $sql) {
@@ -92,6 +100,16 @@ final class Migration
                 }
                 $settings->set('db_version', (string) $number);
                 $applied[] = basename($file, '.sql');
+            }
+            // data migrations by name: one that an older release skipped runs now (a site from 1.9 straight to 2.2)
+            $done = array_filter(explode(',', $settings->get('data_migrations')));
+            foreach (self::files() as $number => $file) {
+                if (str_ends_with($file, '.php') && !in_array(basename($file, '.php'), $done, true)) {
+                    (require $file)($db, $settings);
+                    $done[] = basename($file, '.php');
+                    $settings->set('data_migrations', implode(',', $done));
+                    $applied[] = basename($file, '.php');
+                }
             }
             // settings keys of 1.4.0 and older (verze_db…) written again by the release that ran the update, after migration
             // 0026 had renamed them – only once 0026 is in (older data migrations still read the old keys)
