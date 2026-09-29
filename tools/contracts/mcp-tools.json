@@ -1,0 +1,1112 @@
+{
+    "apply_part_template": {
+        "parameters": {
+            "language": "string",
+            "part": "string",
+            "template": "string",
+            "variant": "string"
+        },
+        "required": [
+            "part",
+            "template"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "build_from_html": {
+        "parameters": {
+            "collection": "string",
+            "html": "string",
+            "id": "integer",
+            "language": "string",
+            "mode": "string",
+            "overwrite_classes": "boolean",
+            "part": "string",
+            "popup": "integer",
+            "publish": "boolean",
+            "title": "string",
+            "variant": "string"
+        },
+        "required": [
+            "html"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "builder_schema": {
+        "parameters": {
+            "elements": "array",
+            "full": "boolean"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "create_category": {
+        "parameters": {
+            "description": "string",
+            "name": "string"
+        },
+        "required": [
+            "name"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "create_collection": {
+        "parameters": {
+            "fields": "array",
+            "item_pages": "boolean",
+            "name": "string",
+            "slug": "string",
+            "structured_data": "object"
+        },
+        "required": [
+            "name"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "create_news": {
+        "parameters": {
+            "category": "string",
+            "content": "string",
+            "date": "string",
+            "faq": "string",
+            "image": "string",
+            "image_caption": "string",
+            "intro": "string",
+            "publish": "boolean",
+            "seo_description": "string",
+            "seo_title": "string",
+            "tags": "string",
+            "title": "string"
+        },
+        "required": [
+            "title",
+            "category"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "create_page": {
+        "parameters": {
+            "content": "string",
+            "copy_build": "boolean",
+            "description": "string",
+            "in_menu": "boolean",
+            "language": "string",
+            "noindex": "boolean",
+            "order": "integer",
+            "parent": "integer",
+            "publish_at": "string",
+            "seo_title": "string",
+            "share_image": "string",
+            "slug": "string",
+            "title": "string",
+            "translation_of": "integer",
+            "visible": "boolean"
+        },
+        "required": [
+            "title"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "delete_category": {
+        "parameters": {
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "delete_collection": {
+        "parameters": {
+            "collection": "string"
+        },
+        "required": [
+            "collection"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "delete_collection_item": {
+        "parameters": {
+            "collection": "string",
+            "id": "integer"
+        },
+        "required": [
+            "collection",
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "delete_component": {
+        "parameters": {
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "delete_enquiry": {
+        "parameters": {
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "delete_media": {
+        "parameters": {
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "delete_newsletter": {
+        "parameters": {
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "delete_popup": {
+        "parameters": {
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "delete_section": {
+        "parameters": {
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "discard_draft": {
+        "parameters": {
+            "collection": "string",
+            "component": "integer",
+            "id": "integer",
+            "language": "string",
+            "part": "string",
+            "popup": "integer",
+            "variant": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "discard_look": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "draft_newsletter": {
+        "parameters": {
+            "button_label": "string",
+            "button_url": "string",
+            "id": "integer",
+            "intro": "string",
+            "language": "string",
+            "news_count": "integer",
+            "news_ids": "array",
+            "news_mode": "string",
+            "preheader": "string",
+            "subject": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "edit_build": {
+        "parameters": {
+            "collection": "string",
+            "component": "integer",
+            "id": "integer",
+            "language": "string",
+            "operations": "array",
+            "part": "string",
+            "popup": "integer",
+            "publish": "boolean",
+            "variant": "string"
+        },
+        "required": [
+            "operations"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "get_build": {
+        "parameters": {
+            "collection": "string",
+            "component": "integer",
+            "id": "integer",
+            "language": "string",
+            "part": "string",
+            "popup": "integer",
+            "texts_only": "boolean",
+            "variant": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "get_menu": {
+        "parameters": {
+            "language": "string",
+            "location": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "get_news": {
+        "parameters": {
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "get_page": {
+        "parameters": {
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "ignore_not_found": {
+        "parameters": {
+            "all": "boolean",
+            "paths": "array"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "insert_section": {
+        "parameters": {
+            "collection": "string",
+            "component": "integer",
+            "id": "integer",
+            "language": "string",
+            "part": "string",
+            "popup": "integer",
+            "saved_section": "integer",
+            "section": "string",
+            "variant": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_build_versions": {
+        "parameters": {
+            "collection": "string",
+            "component": "integer",
+            "id": "integer",
+            "language": "string",
+            "part": "string",
+            "popup": "integer",
+            "variant": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_categories": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_classes": {
+        "parameters": {
+            "name": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_collection_items": {
+        "parameters": {
+            "collection": "string",
+            "field": "string",
+            "language": "string",
+            "page": "integer",
+            "search": "string",
+            "value": "string",
+            "visible_only": "boolean"
+        },
+        "required": [
+            "collection"
+        ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_collections": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_components": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_enquiries": {
+        "parameters": {
+            "limit": "integer",
+            "search": "string",
+            "status": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_item_versions": {
+        "parameters": {
+            "collection": "string",
+            "id": "integer"
+        },
+        "required": [
+            "collection",
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_look_versions": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_media": {
+        "parameters": {
+            "limit": "integer",
+            "search": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_news": {
+        "parameters": {
+            "category": "string",
+            "limit": "integer",
+            "search": "string",
+            "status": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_newsletters": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_pages": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_popups": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_redirects": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_site_parts": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_trash": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "preview_link": {
+        "parameters": {
+            "collection": "string",
+            "component": "integer",
+            "id": "integer",
+            "language": "string",
+            "minutes": "integer",
+            "part": "string",
+            "popup": "integer",
+            "site": "boolean",
+            "variant": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "publish_build": {
+        "parameters": {
+            "collection": "string",
+            "component": "integer",
+            "id": "integer",
+            "language": "string",
+            "part": "string",
+            "popup": "integer",
+            "variant": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "publish_look": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "restore_build_version": {
+        "parameters": {
+            "collection": "string",
+            "component": "integer",
+            "id": "integer",
+            "language": "string",
+            "part": "string",
+            "popup": "integer",
+            "variant": "string",
+            "version_id": "integer"
+        },
+        "required": [
+            "version_id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "restore_from_trash": {
+        "parameters": {
+            "id": "integer",
+            "type": "string"
+        },
+        "required": [
+            "type",
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "restore_item_version": {
+        "parameters": {
+            "collection": "string",
+            "id": "integer",
+            "version": "integer"
+        },
+        "required": [
+            "collection",
+            "id",
+            "version"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "restore_look_version": {
+        "parameters": {
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_build": {
+        "parameters": {
+            "build": "object",
+            "collection": "string",
+            "component": "integer",
+            "id": "integer",
+            "language": "string",
+            "part": "string",
+            "popup": "integer",
+            "publish": "boolean",
+            "variant": "string"
+        },
+        "required": [
+            "build"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_classes": {
+        "parameters": {
+            "css": "string",
+            "delete": "array",
+            "replace": "boolean"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_collection_item": {
+        "parameters": {
+            "collection": "string",
+            "description": "string",
+            "id": "integer",
+            "language": "string",
+            "name": "string",
+            "noindex": "boolean",
+            "order": "integer",
+            "publish_at": "string",
+            "seo_title": "string",
+            "share_image": "string",
+            "slug": "string",
+            "values": "object",
+            "visible": "boolean"
+        },
+        "required": [
+            "collection"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_component": {
+        "parameters": {
+            "id": "integer",
+            "name": "string",
+            "properties": "array"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_menu": {
+        "parameters": {
+            "items": [
+                "array",
+                "null"
+            ],
+            "language": "string",
+            "location": "string"
+        },
+        "required": [
+            "location",
+            "items"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_part_variant": {
+        "parameters": {
+            "delete": "boolean",
+            "language": "string",
+            "name": "string",
+            "pages": "array",
+            "part": "string",
+            "variant": "string"
+        },
+        "required": [
+            "part"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_popup": {
+        "parameters": {
+            "active": "boolean",
+            "days": "integer",
+            "frequency": "string",
+            "id": "integer",
+            "name": "string",
+            "order": "integer",
+            "rules": "object",
+            "slug": "string",
+            "template": "string",
+            "trigger": "string",
+            "type": "string",
+            "value": "integer"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_redirect": {
+        "parameters": {
+            "code": "integer",
+            "delete": "boolean",
+            "from": "string",
+            "to": "string"
+        },
+        "required": [
+            "from"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_section": {
+        "parameters": {
+            "collection": "string",
+            "component": "integer",
+            "element": "string",
+            "id": "integer",
+            "language": "string",
+            "name": "string",
+            "part": "string",
+            "popup": "integer",
+            "variant": "string"
+        },
+        "required": [
+            "element",
+            "name"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "send_newsletter": {
+        "parameters": {
+            "at": "string",
+            "id": "integer",
+            "unschedule": "boolean"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "send_test_newsletter": {
+        "parameters": {
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "site_audit": {
+        "parameters": {
+            "kind": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "site_info": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "trash_news": {
+        "parameters": {
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "trash_page": {
+        "parameters": {
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "update_category": {
+        "parameters": {
+            "description": "string",
+            "id": "integer",
+            "name": "string",
+            "order": "integer",
+            "slug": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "update_collection": {
+        "parameters": {
+            "collection": "string",
+            "fields": "array",
+            "item_pages": "boolean",
+            "name": "string",
+            "slug": "string",
+            "structured_data": "object"
+        },
+        "required": [
+            "collection"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "update_design_system": {
+        "parameters": {
+            "design": "object",
+            "preset": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "update_enquiry": {
+        "parameters": {
+            "id": "integer",
+            "note": "string",
+            "status": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "update_media": {
+        "parameters": {
+            "alt": "string",
+            "author": "string",
+            "caption": "string",
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "update_news": {
+        "parameters": {
+            "category": "string",
+            "content": "string",
+            "date": "string",
+            "faq": "string",
+            "id": "integer",
+            "image": "string",
+            "image_caption": "string",
+            "intro": "string",
+            "publish": "boolean",
+            "seo_description": "string",
+            "seo_title": "string",
+            "tags": "string",
+            "title": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "update_page": {
+        "parameters": {
+            "content": "string",
+            "copy_build": "boolean",
+            "description": "string",
+            "id": "integer",
+            "in_menu": "boolean",
+            "language": "string",
+            "noindex": "boolean",
+            "order": "integer",
+            "parent": "integer",
+            "publish_at": "string",
+            "seo_title": "string",
+            "share_image": "string",
+            "slug": "string",
+            "title": "string",
+            "translation_of": "integer",
+            "visible": "boolean"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "update_settings": {
+        "parameters": {
+            "settings": "object"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "upload_file": {
+        "parameters": {
+            "alt": "string",
+            "data": "string",
+            "filename": "string",
+            "url": "string"
+        },
+        "required": [
+            "filename"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": true
+        }
+    }
+}

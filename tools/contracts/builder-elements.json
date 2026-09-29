@@ -1,0 +1,154 @@
+{
+    "citat": [
+        "autor",
+        "pozice",
+        "text"
+    ],
+    "drobecky": [],
+    "faq": [
+        "faq",
+        "jedna",
+        "polozky"
+    ],
+    "formular": [
+        "dekovna",
+        "dekujeme",
+        "nazev",
+        "pole",
+        "potvrzeni",
+        "prijemce",
+        "tlacitko"
+    ],
+    "galerie": [
+        "fotky",
+        "pomer",
+        "popisek"
+    ],
+    "hledani": [
+        "napoveda",
+        "tlacitko"
+    ],
+    "hodnoceni": [
+        "hodnota",
+        "text"
+    ],
+    "html": [
+        "kod"
+    ],
+    "ikona": [
+        "ikona",
+        "popis",
+        "tvar"
+    ],
+    "jazyky": [
+        "smer",
+        "styl"
+    ],
+    "karusel": [
+        "naraz",
+        "popis"
+    ],
+    "kolekce": [
+        "bez_aktualni",
+        "filtr_hodnota",
+        "filtr_pole",
+        "filtry",
+        "kolekce",
+        "pocet",
+        "prazdne",
+        "razeni",
+        "razeni_pole",
+        "strankovani"
+    ],
+    "komponenta": [
+        "hodnoty",
+        "komponenta"
+    ],
+    "kontejner": [
+        "odkaz"
+    ],
+    "logo": [
+        "nazev"
+    ],
+    "mapa": [
+        "adresa",
+        "priblizeni"
+    ],
+    "mrizka": [],
+    "nadpis": [
+        "text"
+    ],
+    "nahoru": [],
+    "navigace": [
+        "jazyky",
+        "mega",
+        "menu",
+        "mobil",
+        "novinky",
+        "zvyrazneni"
+    ],
+    "newsletter": [
+        "souhlas",
+        "tlacitko"
+    ],
+    "novinky": [
+        "kategorie",
+        "obrazky",
+        "pocet"
+    ],
+    "obrazek": [
+        "alt",
+        "odkaz",
+        "popisek",
+        "priorita",
+        "src"
+    ],
+    "obsah": [],
+    "oddelovac": [],
+    "odpocet": [
+        "cil",
+        "konec"
+    ],
+    "pocitadlo": [
+        "cislo",
+        "popisek",
+        "pred",
+        "za"
+    ],
+    "prubeh": [
+        "polozky"
+    ],
+    "sekce": [
+        "sirka",
+        "video"
+    ],
+    "seznam": [
+        "polozky",
+        "styl"
+    ],
+    "socialni": [
+        "nazvy"
+    ],
+    "text": [
+        "html"
+    ],
+    "tlacitko": [
+        "ikona",
+        "ikona_vlevo",
+        "nove_okno",
+        "odkaz",
+        "text",
+        "varianta"
+    ],
+    "udaje": [
+        "udaj"
+    ],
+    "video": [
+        "plakat",
+        "titulek",
+        "url"
+    ],
+    "zalozky": [
+        "karty"
+    ]
+}
