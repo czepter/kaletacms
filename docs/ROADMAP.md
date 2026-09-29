@@ -195,7 +195,7 @@ minor release a month; the [release policy](RELEASE-POLICY.md) says what stays c
 6. **Docker image** (`ghcr.io/phprs-cms/kaleta`) and `compose.yaml`.
 7. The daily check of the update channel and the project website runs again; documentation caught up.
 
-## 2.2 – Claude, in charge and safe (in progress)
+## 2.2 – Claude, in charge and safe (released 29 September 2026)
 
 1. **What a connection may do:** everything the user may, drafts only, or read only – chosen on the consent screen and
    for personal tokens, never beyond the user's role. Existing connections keep full access. A connection limited to
