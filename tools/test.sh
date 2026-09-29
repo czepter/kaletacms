@@ -1516,7 +1516,7 @@ php -r '$b = json_decode($argv[1], true); $b["deti"][0]["deti"][] = ["id" => "ok
   "deti" => [["id" => "na1", "typ" => "nadpis", "znacka" => "h2", "obsah" => ["text" => "Sleva 20 %"], "styl" => [], "tridy" => []]]]; echo json_encode($b, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);' "$(sq "SELECT stavba FROM ka_stranky WHERE ids = $MODAL_PAGE")" > "$WORK/modal.json"
 php -r '$pdo = new PDO("mysql:host=" . $argv[1] . ";port=" . $argv[2] . ";dbname=" . $argv[3] . ";charset=utf8mb4", $argv[4], $argv[5]); $pdo->prepare("UPDATE ka_stranky SET stavba = ? WHERE ids = ?")->execute([file_get_contents($argv[6]), $argv[7]]);' \
   "$DB_HOST" "$DB_PORT" "$DB_NAME" "$DB_USER" "$DB_PASS" "$WORK/modal.json" "$MODAL_PAGE"
-sq "UPDATE ka_nastaveni SET hodnota = '33' WHERE promenna = 'db_version'" > /dev/null
+sq "UPDATE ka_nastaveni SET hodnota = '33' WHERE promenna = 'db_version'; UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'data_migrations'" > /dev/null # a site of 1.9
 rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" "$B/stara-akce"
 expect "the migration made a site pop-up with the same trigger, frequency and content, only on that page" \
   "$(sq "SELECT CONCAT_WS('|', nazev, adresa, typ, spoustec, hodnota, cetnost, dni, aktivni, stavba LIKE '%Sleva 20 %%', JSON_EXTRACT(pravidla, '$.stranky[0]')) FROM ka_popupy WHERE nazev = 'Jarní akce'")" \

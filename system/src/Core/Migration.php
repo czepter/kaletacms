@@ -25,10 +25,13 @@ final class Migration
     /** The PHP data migrations (NNNN-description.php without the extension); tools/unit-tests.php checks it against the files. */
     public const array DATA = ['0034-modal-popups'];
 
-    /** Is there anything to apply: a newer structure, or a data migration that has not run on this site yet? */
-    public static function pending(Settings $settings): bool
+    /**
+     * Is there anything to apply: a newer structure, or a data migration that has not run on this site yet? The public site
+     * compares with KALETA_DB_VERSION (no file lookup on every visit), the admin with the files themselves (latest()).
+     */
+    public static function pending(Settings $settings, ?int $latest = null): bool
     {
-        return $settings->int('db_version') < KALETA_DB_VERSION || array_diff(self::DATA, explode(',', $settings->get('data_migrations'))) !== [];
+        return $settings->int('db_version') < ($latest ?? KALETA_DB_VERSION) || array_diff(self::DATA, explode(',', $settings->get('data_migrations'))) !== [];
     }
 
     /** @return array<int, string> number => file, ascending */
