@@ -65,8 +65,9 @@ final class Account
                         break;
                     }
                     $token = 'kaleta_' . bin2hex(random_bytes(24));
-                    $db->insert('api_tokeny', ['idu' => $user['idu'], 'nazev' => mb_substr($r->post('nazev') ?: 'Claude', 0, 100), 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s')]);
-                    ChangeLog::write($app, 'ucet', 'vytvořen token pro Claude');
+                    $access = \Kaleta\Front\OAuth::access($r->post('access') ?: 'full');
+                    $db->insert('api_tokeny', ['idu' => $user['idu'], 'nazev' => mb_substr($r->post('nazev') ?: 'Claude', 0, 100), 'access' => $access, 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s')]);
+                    ChangeLog::write($app, 'ucet', 'vytvořen token pro Claude', $access);
                     // the token is shown only now - hence no redirect
                     return $this->page(['newToken' => $token] + $data);
                 case 'token_smaz':
@@ -182,7 +183,7 @@ final class Account
             'keys' => $app->auth()->accountKeys((int) $user['idu']),
             'tokens' => $app->db()->all("SELECT * FROM {api_tokeny} WHERE idu = ? AND druh = 'token' ORDER BY idt DESC", [$user['idu']]),
             // apps connected via OAuth (the Claude connector): one item per client, valid while it has a refresh token
-            'apps' => $app->db()->all("SELECT klient, MAX(nazev) AS nazev, MIN(vytvoren) AS vytvoren, MAX(pouzit) AS pouzit FROM {api_tokeny} WHERE idu = ? AND klient IS NOT NULL AND expirace > ? GROUP BY klient ORDER BY MIN(vytvoren) DESC",
+            'apps' => $app->db()->all("SELECT klient, MAX(nazev) AS nazev, MAX(access) AS access, MIN(vytvoren) AS vytvoren, MAX(pouzit) AS pouzit FROM {api_tokeny} WHERE idu = ? AND klient IS NOT NULL AND expirace > ? GROUP BY klient ORDER BY MIN(vytvoren) DESC",
                 [$user['idu'], date('Y-m-d H:i:s')]),
             'mcpUrl' => $app->request->origin() . $app->url('mcp'),
         ]));

@@ -214,7 +214,7 @@ $parity = [
         'delete' => 'delete_popup', 'reset' => 'admin: resetting the counters'],
     'users' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'admin: accounts and permissions', 'delete' => 'admin: accounts and permissions', 'password_link' => 'admin: accounts and permissions'],
     'roles' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'admin: accounts and permissions', 'delete' => 'admin: accounts and permissions'],
-    'stats' => ['list' => $readOnly], 'changelog' => ['list' => $readOnly], 'audit' => ['list' => 'site_audit'],
+    'stats' => ['list' => $readOnly], 'changelog' => ['list' => 'list_changes'], 'audit' => ['list' => 'site_audit'],
     'redirects' => ['list' => $readOnly, 'save' => 'save_redirect', 'delete' => 'save_redirect', 'clear' => 'admin: clearing the list of 404 addresses', 'ignore' => 'ignore_not_found', 'ignore_all' => 'ignore_not_found'],
     'transfer' => ['list' => $readOnly, 'preview' => $readOnly, 'download' => $readOnly, 'export' => $readOnly, 'upload' => 'admin: WordPress import', 'select' => 'admin: WordPress import',
         'run' => 'admin: WordPress import', 'progress' => 'admin: WordPress import', 'images' => 'admin: WordPress import', 'delete_file' => 'admin: WordPress import', 'delete_export' => 'admin: site export',
@@ -319,6 +319,26 @@ check('2.1: MCP catalog, English definitions, parameter types and methods agree'
     array_values(array_diff(array_map([Kaleta\Mcp\Catalog::class, 'method'], $catalogTools), $toolMethods)), array_values(array_diff($toolMethods, array_map([Kaleta\Mcp\Catalog::class, 'method'], $catalogTools))),
     count(Kaleta\Mcp\Tools::definitions()), Kaleta\Mcp\Tools::annotations('smaz_stranku'), Kaleta\Mcp\Tools::isWriteTool('site_audit'), Kaleta\Mcp\Catalog::extension('seznam_novinek'),
 ], [[], [], [], [], [], count($catalogTools), ['readOnlyHint' => false, 'destructiveHint' => true, 'openWorldHint' => false], false, 'novinky']);
+// 2.2: what a connection may do – full everything, drafts only reads and drafts, read only reads; never an unknown level
+check('2.2: connection access', [Kaleta\Mcp\Catalog::allows('full', 'publish_look'), Kaleta\Mcp\Catalog::allows('drafts', 'save_build'), Kaleta\Mcp\Catalog::allows('drafts', 'create_page'),
+    Kaleta\Mcp\Catalog::allows('drafts', 'publish_build'), Kaleta\Mcp\Catalog::allows('drafts', 'update_settings'), Kaleta\Mcp\Catalog::allows('drafts', 'trash_page'),
+    Kaleta\Mcp\Catalog::allows('read', 'get_build'), Kaleta\Mcp\Catalog::allows('read', 'save_build'), Kaleta\Mcp\Catalog::allows('read', 'stavba_uloz'), Kaleta\Mcp\Catalog::allows('whatever', 'save_build'),
+    Kaleta\Front\OAuth::access('drafts'), Kaleta\Front\OAuth::access('admin'), Kaleta\Mcp\Tools::annotations('save_build')],
+    [true, true, true, false, false, false, true, false, false, false, 'drafts', 'read', ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false]]);
+check('2.2: every drafts-only tool is a write that does not remove anything', array_values(array_filter(array_keys(Kaleta\Mcp\Catalog::TOOLS),
+    fn (string $t): bool => Kaleta\Mcp\Catalog::access($t) === 'draft' && (Kaleta\Mcp\Tools::annotations($t)['readOnlyHint'] || Kaleta\Mcp\Tools::annotations($t)['destructiveHint']))), []);
+check('2.2: MCP protocol version negotiated', [Kaleta\Mcp\Server::protocol('2025-03-26'), Kaleta\Mcp\Server::protocol('2099-01-01'), Kaleta\Mcp\Server::protocol(null)],
+    ['2025-03-26', '2025-06-18', '2025-06-18']);
+$promptText = Kaleta\Mcp\Prompts::get('build_page', ['topic' => 'kitchens', 'audience' => 'families'])['messages'][0]['content']['text'];
+$promptError = '';
+try {
+    Kaleta\Mcp\Prompts::get('translate_page', ['page_id' => '3']);
+} catch (InvalidArgumentException $e) {
+    $promptError = $e->getMessage();
+}
+check('2.2: MCP prompts and resources', [str_starts_with($promptText, 'Build a new page about kitchens for families.'), str_contains(Kaleta\Mcp\Prompts::get('build_page', ['topic' => 'x'])['messages'][0]['content']['text'], 'about x. First'),
+    $promptError, array_column(Kaleta\Mcp\Prompts::listAll(), 'name'), array_column(Kaleta\Mcp\Prompts::resources(), 'uri')],
+    [true, true, 'The prompt translate_page needs the argument language.', ['build_page', 'audit_and_fix', 'translate_page', 'write_news', 'weekly_review'], ['kaleta://instructions', 'kaleta://overview']]);
 // 2.1: public contracts – MCP tools and parameters, design tokens and builder elements are never removed or changed
 // outside the deprecation policy; an addition is recorded with php tools/contracts.php --update
 require_once __DIR__ . '/contracts.php';

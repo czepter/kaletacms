@@ -45,6 +45,30 @@ trait SettingsTools
             // keys of 1.4.0 and older still work (nazev_webu, firma_email, nazev_webu_de…)
             $key = (string) $key;
             $key = \Kaleta\Core\OldSettingsKeys::current($key); // keys of 1.4.0 and older keep working over MCP
+            if ($key === 'extensions' || $key === 'additional_languages') {
+                // lists (2.2): extensions switched on, further language versions of the site
+                $list = array_values(array_filter(array_map('trim', is_array($value) ? array_map('strval', $value) : explode(',', (string) $value))));
+                if ($key === 'extensions') {
+                    $unknown = array_diff($list, array_keys(\Kaleta\Core\Extensions::CATALOG));
+                    if ($unknown !== [] || !in_array('claude', $list, true)) {
+                        $errors[$key] = $unknown !== [] ? 'Unknown extensions: ' . implode(', ', $unknown) . '. Known: ' . implode(', ', array_keys(\Kaleta\Core\Extensions::CATALOG)) . '.'
+                            : 'The Claude connection cannot switch itself off – keep "claude" in the list (the user can switch it off in the admin).';
+                        continue;
+                    }
+                    \Kaleta\Core\Extensions::save($siteSettings, $list);
+                    $stored[$key] = \Kaleta\Core\Extensions::enabled($siteSettings);
+                } else {
+                    $codes = explode('|', \Kaleta\Core\Language::CODES);
+                    $unknown = array_diff($list, $codes);
+                    if ($unknown !== [] || in_array(\Kaleta\Core\Language::defaults($siteSettings), $list, true)) {
+                        $errors[$key] = $unknown !== [] ? 'Unknown language codes: ' . implode(', ', $unknown) . '.' : 'The default language of the site is not a further language version.';
+                        continue;
+                    }
+                    $siteSettings->set($key, implode(',', array_unique($list)));
+                    $stored[$key] = array_values(array_unique($list));
+                }
+                continue;
+            }
             if (in_array($key, ['logo', 'favicon', 'share_image'], true)) {
                 // logo and icon: a file from Media (nahraj_soubor) or from the system (image/…); empty = no logo / icon
                 $path = ltrim(trim((string) $value), '/');
@@ -82,9 +106,12 @@ trait SettingsTools
         }
         $current = [];
         foreach (['site_name', 'site_description', 'footer_text', 'logo', 'favicon', 'home_page', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin', 'news_per_page',
-            'share_image', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_email', 'company_hours', 'company_map', 'company_gps', 'dark_mode', 'theme_switcher'] as $key) {
+            'share_image', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_email', 'company_hours', 'company_map', 'company_gps', 'dark_mode', 'theme_switcher',
+            'indexing', 'schema_org', 'llms_txt', 'markdown_news', 'indexnow', 'ai_crawlers', 'cookies_mode', 'cookies_log', 'stats', 'security_contact'] as $key) {
             $current[$key] = $siteSettings->get($key);
         }
+        $current += ['extensions' => \Kaleta\Core\Extensions::enabled($siteSettings), 'additional_languages' => \Kaleta\Core\Language::additional($siteSettings),
+            'claude_instructions' => $siteSettings->get('claude_instructions')];
 
         return ['ulozeno' => $stored ?: new \stdClass(), 'chyby' => $errors ?: new \stdClass(), 'nastaveni' => $current];
     }
@@ -174,5 +201,27 @@ trait SettingsTools
         $counts = array_count_values(array_column($findings, 'kind'));
 
         return ['total' => count($findings), 'by_kind' => $counts ?: new \stdClass(), 'findings' => $findings];
+    }
+
+    /** list_changes (2.2): the change log, people and Claude told apart */
+    private function toolListChanges(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            throw new \DomainException('The change log is for administrators.');
+        }
+        $conditions = ['1 = 1'];
+        $params = [];
+        if (in_array($a['by'] ?? '', ['people', 'claude'], true)) {
+            $conditions[] = $a['by'] === 'claude' ? "via <> ''" : "via = ''";
+        }
+        if (is_string($a['since'] ?? null) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $a['since'])) {
+            $conditions[] = 'cas >= ?';
+            $params[] = $a['since'] . ' 00:00:00';
+        }
+        $limit = max(1, min(200, (int) ($a['limit'] ?? 50)));
+
+        return ['changes' => array_map(fn (array $r): array => ['when' => substr((string) $r['cas'], 0, 16), 'who' => $r['jmeno'], 'claude_connection' => $r['via'] !== '' ? $r['via'] : null,
+            'where' => $r['modul'], 'action' => $r['akce'], 'detail' => $r['popis']],
+            $this->app->db()->all('SELECT cas, jmeno, via, modul, akce, popis FROM {protokol} WHERE ' . implode(' AND ', $conditions) . ' ORDER BY idp DESC LIMIT ' . $limit, $params))];
     }
 }

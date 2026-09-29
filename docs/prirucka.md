@@ -246,11 +246,13 @@ klíč API a model. Asistent jen navrhuje. Text odchází k poskytovateli, jen k
   delší, formálněji, přátelštěji, opravit chyby). Výsledek zkontrolujte, fakta doplňte sami. Ctrl+Z změnu vrátí.
 - V novinkách: titulky, perex, SEO popis, štítky, korektura, popisy obrázků a překlad do jiného jazyka webu.
 
-**Napojení na Claude (MCP)** zapnete v Rozšířeních. Pak máte dvě možnosti:
+**Napojení na Claude (MCP)** je v nových instalacích zapnuté (na starších webech ho zapnete v Rozšířeních). Pak máte dvě
+možnosti:
 
 - **Konektor v aplikaci Claude (doporučeno):** v Nastavení → Konektory přidejte vlastní konektor s adresou
   `https://vas-web.cz/mcp`. Claude vás pošle na web přihlásit a potvrdit přístup (OAuth), nic nekopírujete. Připojené
-  aplikace uvidíte a odpojíte v **Můj účet**. Funguje, když web běží přes HTTPS v kořeni domény.
+  aplikace uvidíte a odpojíte v **Můj účet**. Web musí běžet přes HTTPS; funguje i v podsložce – aplikace Claude si tam
+  přihlášení najde, nástroji, který to neumí, dejte osobní token.
 - **Přístupový token** (Claude Code, jiné nástroje): v **Můj účet** si vytvořte token a spusťte
 
 ```bash
@@ -272,6 +274,24 @@ systém a sdílené třídy jdou do **konceptu vzhledu**, který návštěvníci
 pokyn). Rovnou na webu se projeví nastavení webu, přesměrování, položky kolekce a text stránky – předchozí text stránky
 i položky přitom jde do historie verzí. Stránku umí Claude přesunout do koše
 (obnovíte ji 30 dní v administraci); e-mail webu, webhooky, poštu, zálohy ani zabezpečení přes napojení nezmění.
+
+**Co smí napojení.** Při připojení Clauda (nebo při vytvoření tokenu) vyberete:
+
+- **Vše, co smí váš účet** – stavět, upravovat i zveřejňovat, nikdy nad rámec vaší role;
+- **Jen koncepty** – Claude staví stránky, píše koncepty novinek a připravuje změny vzhledu, zveřejníte je vy; nastavení,
+  přesměrování ani nic jiného na živém webu nezmění;
+- **Jen čtení** – Claude čte stránky, nastavení, audit a protokol změn a navrhuje úpravy.
+
+Můj účet ukáže přístup každé připojené aplikace a tokenu. **Protokol změn** u každé změny od Clauda uvede název napojení
+a umí ukázat jen změny Clauda nebo jen lidí; Claude ho čte také (`list_changes`).
+
+**Pokyny pro Clauda.** V **Rozšíření → Napojení na Claude** napište, čeho se má Claude držet – jak oslovujete zákazníky,
+která slova používat a kterým se vyhnout, pravidla domu. Každé napojení je dostane při připojení. Claude navíc nabízí
+hotové úkoly (v aplikaci Claude pod **+**): postavit stránku, projít audit a opravit, co je bezpečné, přeložit stránku,
+napsat novinku a týdenní přehled webu.
+
+**Nastavení přes napojení.** Kromě názvu webu a údajů o firmě umí Claude zapnout rozšíření a jazykové verze, cookie lištu,
+přepínače SEO, kódy analytiky a kód v `<head>` – když o to požádáte.
 
 ## 11. Přechod z WordPressu nebo z jiného webu na Kaletě
 

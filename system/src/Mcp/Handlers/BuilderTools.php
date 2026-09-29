@@ -69,6 +69,7 @@ trait BuilderTools
     /** edit_build (stavba_uprav) */
     private function toolEditBuild(string $name, array $a): mixed
     {
+        $this->mayPublish($a);
         $target = $this->loadBuildTarget($a);
         $operationErrors = [];
         $build = \Kaleta\Builder\Edits::apply($this->targetBuild($target), is_array($a['operace'] ?? null) ? $a['operace'] : [], $operationErrors);
@@ -83,6 +84,7 @@ trait BuilderTools
         $db = $this->app->db();
         $siteSettings = $this->app->settings();
 
+        $this->mayPublish($a);
         $target = $this->loadBuildTarget($a, true);
         ['stavba' => $build, 'hlaseni' => $messages] = HtmlConverter::saveToSite($db, (string) ($a['html'] ?? ''), $auth->isAdmin(), $auth->isAdmin() && !empty($a['prepsat_tridy']), $siteSettings); // only the administrator changes shared classes
         if (empty($a['prepsat_tridy'])) {
@@ -101,6 +103,7 @@ trait BuilderTools
         if (!is_array($a['stavba'] ?? null)) {
             throw new \InvalidArgumentException('Parametr stavba musí být objekt {"v":1,"deti":[…]}.');
         }
+        $this->mayPublish($a);
 
         return $this->saveBuild($this->loadBuildTarget($a), $a['stavba'], !empty($a['publikovat']));
     }

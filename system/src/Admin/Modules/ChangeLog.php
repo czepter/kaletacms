@@ -23,8 +23,12 @@ final class ChangeLog extends Module
         $who = $this->request->getInt('kdo');
         $whereParts = $this->request->get('kde');
         $search = mb_substr(trim($this->request->get('hledat')), 0, 100);
+        $by = in_array($this->request->get('by'), ['people', 'claude'], true) ? $this->request->get('by') : '';
         $conditions = [];
         $params = [];
+        if ($by !== '') {
+            $conditions[] = $by === 'claude' ? "via <> ''" : "via = ''"; // made through a Claude connection or by a person in the admin (2.2)
+        }
         if ($who > 0) {
             $conditions[] = 'kdo = ?';
             $params[] = $who;
@@ -46,7 +50,7 @@ final class ChangeLog extends Module
             'records' => $this->db->all('SELECT * FROM {protokol}' . $sql . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'users' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} ORDER BY 2"),
             'modules' => array_column($this->db->all('SELECT DISTINCT modul FROM {protokol} ORDER BY modul'), 'modul'),
-            'who' => $who, 'whereParts' => $whereParts, 'search' => $search, 'pageNumber' => $pageNumber, 'pageCount' => $pageCount, 'total' => $total,
+            'who' => $who, 'by' => $by, 'whereParts' => $whereParts, 'search' => $search, 'pageNumber' => $pageNumber, 'pageCount' => $pageCount, 'total' => $total,
         ]);
     }
 }

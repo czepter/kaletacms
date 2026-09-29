@@ -5,6 +5,7 @@
  * @var list<array<string, mixed>> $records
  * @var array<int, string> $users
  * @var int $who
+ * @var string $by  people | claude | '' (everyone)
  * @var string $whereParts
  * @var string $search
  * @var list<string> $modules
@@ -36,6 +37,10 @@ foreach (['update' => 'aktualizuj', 'automatic' => 'automaticky', 'duplicate' =>
 		<option value="<?= (int) $userId ?>"<?= $who === (int) $userId ? ' selected' : '' ?>><?= e($displayName) ?></option>
 <?php endforeach ?>
 	</select></label>
+	<label><?= e(t('Made by:')) ?> <select name="by" data-odeslat-pri-zmene><option value=""><?= e(t('people and Claude')) ?></option>
+		<option value="people"<?= $by === 'people' ? ' selected' : '' ?>><?= e(t('people in the admin')) ?></option>
+		<option value="claude"<?= $by === 'claude' ? ' selected' : '' ?>><?= e(t('Claude')) ?></option>
+	</select></label>
 	<label><?= e(t('Where:')) ?> <select name="kde" data-odeslat-pri-zmene><option value=""><?= e(t('everywhere')) ?></option>
 <?php foreach ($modules as $m): ?>
 		<option value="<?= e($m) ?>"<?= $whereParts === $m ? ' selected' : '' ?>><?= e(isset($names[$m]) ? t($names[$m]) : $m) ?></option>
@@ -51,7 +56,7 @@ foreach (['update' => 'aktualizuj', 'automatic' => 'automaticky', 'duplicate' =>
 <?php foreach ($records as $z): ?>
 <tr<?= $z['akce'] === 'neuspech' ? ' class="nevydany"' : '' ?>>
 	<td class="cislo"><?= e(format_date($z['cas'], true)) ?></td>
-	<td><?= e($z['jmeno'] !== '' ? $z['jmeno'] : '–') ?></td>
+	<td><?= e($z['jmeno'] !== '' ? $z['jmeno'] : '–') ?><?php if (($z['via'] ?? '') !== ''): ?> <span class="stitek" title="<?= e(t('Made by Claude through the connection %s', $z['via'])) ?>"><?= e(t('Claude: %s', $z['via'])) ?></span><?php endif ?></td>
 	<td><?= e(isset($names[$z['modul']]) ? t($names[$z['modul']]) : $z['modul']) ?></td>
 	<td><?= e(t($action[$z['akce']] ?? $z['akce'])) ?></td>
 	<td><?= e($z['popis']) ?></td>
@@ -63,7 +68,7 @@ foreach (['update' => 'aktualizuj', 'automatic' => 'automaticky', 'duplicate' =>
 <?php if ($pageCount > 1): ?>
 <p class="strankovani">
 <?php for ($s = max(1, $pageNumber - 5); $s <= min($pageCount, $pageNumber + 5); $s++): ?>
-	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['kdo' => $who ?: null, 'kde' => $whereParts, 'hledat' => $search, 'strana' => $s]))) . '">' . $s . '</a>' ?>
+	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['kdo' => $who ?: null, 'by' => $by, 'kde' => $whereParts, 'hledat' => $search, 'strana' => $s]))) . '">' . $s . '</a>' ?>
 <?php endfor ?>
 </p>
 <?php endif ?>

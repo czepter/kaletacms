@@ -160,7 +160,10 @@ final class Translator
         'preview_link' => ['nahled_odkaz', 'A signed link to the draft preview of a page or site part – anyone can open it without signing in (the user, a colleague, a browser); it is valid only for this target and for a limited time. Search engines do not index it.',
             ['*cil', 'minutes' => ['minut', 'validity in minutes, default 60, at most 10080'], 'site' => ['web', 'true = the whole site with every draft and the draft look (links on it keep the preview while browsing)']]],
         'update_settings' => ['uprav_nastaveni', 'Changes site settings (administrators) – they apply to the site straight away. Keys: site_name, site_description, footer_text, logo, favicon and share_image – the sharing image 1200×630 (path media/… from upload_file or image/…), home_page (ID of the home page), social_facebook|instagram|x|youtube|linkedin (URL), '
-            . 'news_per_page, share_buttons, article_outline, related_news_auto (1/0), dark_mode (vypnuto = light only | auto = by device | tmavy = always dark), theme_switcher (1/0 = light/dark switcher for visitors), company details company_name, company_type, company_id, company_vat_id, company_register (commercial register entry), company_representative (who represents the company), company_street, company_city, company_postcode, company_country (CZ), company_phone, company_email (public contact), company_hours (one day per line), company_map, company_gps; site_name_de… for language versions. Without the parameter it returns the current values.',
+            . 'news_per_page, share_buttons, article_outline, related_news_auto (1/0), dark_mode (vypnuto = light only | auto = by device | tmavy = always dark), theme_switcher (1/0 = light/dark switcher for visitors), company details company_name, company_type, company_id, company_vat_id, company_register (commercial register entry), company_representative (who represents the company), company_street, company_city, company_postcode, company_country (CZ), company_phone, company_email (public contact), company_hours (one day per line), company_map, company_gps; site_name_de… for language versions. '
+            . 'Since 2.2 also: extensions (the list of switched-on extensions, e.g. ["novinky","poptavky","claude"] – claude must stay), additional_languages (further language versions, e.g. ["de","cs"]), '
+            . 'indexing, schema_org, llms_txt, markdown_news, indexnow (1/0), ai_crawlers (povolit | zakazat), robots_extra, verification_google, verification_bing, cookies_mode (zadna | vestavena | externi), cookies_text, cookies_policy_url, cookies_log (1/0), cookies_log_months, '
+            . 'stats (1/0), ga4_id, matomo_url, matomo_id, plausible_domain, head_code, marketing_code and cookies_external_code (code in <head> – only when the user explicitly asks), security_contact, claude_instructions. Without the parameter it returns the current values.',
             ['settings' => ['nastaveni', '{"key":"value"}']]],
         'list_enquiries' => ['seznam_poptavek', 'Enquiries from the site forms (Forms and enquiries extension; only with access to Enquiries), newest first: date, form, page, campaign (utm), e-mail, status and the filled-in fields. They contain personal data – use them only for what the user asks.',
             ['status' => ['stav', 'new | read | resolved | all (default)'], 'search' => ['hledat', 'text in the e-mail or content (optional)'], 'limit' => ['limit', '1-50, default 20']]],
@@ -193,6 +196,7 @@ final class Translator
         'list_look_versions' => ['list_look_versions', '', []],
         'list_item_versions' => ['list_item_versions', '', []],
         'site_audit' => ['site_audit', '', []],
+        'list_changes' => ['list_changes', '', []],
         'ignore_not_found' => ['ignore_not_found', '', []],
         'restore_item_version' => ['restore_item_version', '', []],
         'restore_look_version' => ['restore_look_version', '', []],

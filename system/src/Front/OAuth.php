@@ -17,11 +17,13 @@ use Kaleta\Core\Response;
  *   /oauth/authorize                        start of sign-in → consent in the administration (admin.php?action=oauth)
  *   /oauth/token                            exchange of a code for tokens (PKCE S256) and token refresh
  *
- * The application gets the same permissions as the user who allowed it. The access token is valid for an hour, the
+ * The application gets the permissions of the user who allowed it – all of them, or (chosen on the consent screen, 2.2)
+ * only drafts or only reading. The access token is valid for an hour, the
  * refresh token for 30 days, and it is exchanged for a new one on every use. Tokens are stored in ka_api_tokeny (hashes
  * only) – disconnecting the application in "Můj účet" (My account) deletes them.
- * OAuth assumes the site is at the domain root (the metadata are at /.well-known/); in a subfolder, sign-in with a
- * personal token remains.
+ * At the domain root the metadata are at /.well-known/. A site in a subfolder serves them at /folder/.well-known/
+ * (openid-configuration included), where MCP clients that follow the current specification look; for others, sign-in with
+ * a personal token remains.
  */
 final class OAuth
 {
@@ -38,7 +40,7 @@ final class OAuth
     public function handle(string $path): ?Response
     {
         $r = $this->app->request;
-        $isOAuth = str_starts_with($path, '/.well-known/oauth-') || in_array($path, ['/oauth/register', '/oauth/authorize', '/oauth/token'], true);
+        $isOAuth = str_starts_with($path, '/.well-known/oauth-') || in_array($path, ['/.well-known/openid-configuration', '/oauth/register', '/oauth/authorize', '/oauth/token'], true);
         if (!$isOAuth) {
             return null;
         }
@@ -55,7 +57,9 @@ final class OAuth
 
         return match (true) {
             str_starts_with($path, '/.well-known/oauth-protected-resource') => $this->json($this->resourceMetadata()),
-            str_starts_with($path, '/.well-known/oauth-authorization-server') => $this->json($this->serverMetadata()),
+            // a site in a subfolder cannot answer at the domain root (/.well-known/oauth-authorization-server/folder); MCP clients
+            // then look for {issuer}/.well-known/openid-configuration, which it can (2.2)
+            str_starts_with($path, '/.well-known/oauth-authorization-server'), $path === '/.well-known/openid-configuration' => $this->json($this->serverMetadata()),
             $path === '/oauth/register' => $this->register(),
             $path === '/oauth/authorize' => $this->authorize(),
             default => $this->token(),
@@ -157,11 +161,11 @@ final class OAuth
      *
      * @param array<string, mixed> $pending parameters saved in authorize()
      */
-    public function issueCode(array $pending, int $idu): string
+    public function issueCode(array $pending, int $idu, string $access = 'full'): string
     {
         $code = bin2hex(random_bytes(32));
         $this->app->db()->insert('oauth_kody', ['otisk' => hash('sha256', $code), 'client_id' => $pending['client_id'], 'idu' => $idu, 'presmerovani' => $pending['redirect_uri'],
-            'vyzva' => $pending['challenge'], 'expirace' => date('Y-m-d H:i:s', time() + self::CODE_LIFETIME)]);
+            'vyzva' => $pending['challenge'], 'access' => self::access($access), 'expirace' => date('Y-m-d H:i:s', time() + self::CODE_LIFETIME)]);
 
         return self::withParams((string) $pending['redirect_uri'], ['code' => $code, 'state' => (string) $pending['state'], 'iss' => $this->issuer()]);
     }
@@ -195,7 +199,7 @@ final class OAuth
                 return $this->error('invalid_grant', 'Kód je neplatný, prošlý, už použitý, nebo nesedí adresa návratu či PKCE.');
             }
 
-            return $this->issueTokens($db, (int) $code['idu'], $client);
+            return $this->issueTokens($db, (int) $code['idu'], $client, (string) $code['access']);
         }
         if ($r->post('grant_type') === 'refresh_token') {
             $refresh = $db->one("SELECT * FROM {api_tokeny} WHERE otisk = ? AND druh = 'obnova'", [hash('sha256', $r->post('refresh_token'))]);
@@ -204,14 +208,14 @@ final class OAuth
             }
             $db->delete('api_tokeny', ['idt' => (int) $refresh['idt']]); // rotation: the old refresh token ends
 
-            return $this->issueTokens($db, (int) $refresh['idu'], $client);
+            return $this->issueTokens($db, (int) $refresh['idu'], $client, (string) $refresh['access']); // the access chosen at consent stays
         }
 
         return $this->error('unsupported_grant_type', 'Podporované je authorization_code a refresh_token.');
     }
 
     /** @param array<string, mixed> $client */
-    private function issueTokens(Db $db, int $idu, array $client): Response
+    private function issueTokens(Db $db, int $idu, array $client, string $level): Response
     {
         $user = $db->one('SELECT idu FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [$idu]);
         if ($user === null) {
@@ -220,7 +224,7 @@ final class OAuth
         $access = 'kaleta_oa_' . bin2hex(random_bytes(24));
         $refresh = 'kaleta_or_' . bin2hex(random_bytes(24));
         foreach ([[$access, 'pristup', self::ACCESS_LIFETIME], [$refresh, 'obnova', self::REFRESH_LIFETIME]] as [$token, $kind, $lifetime]) {
-            $db->insert('api_tokeny', ['idu' => $idu, 'nazev' => $client['nazev'], 'klient' => $client['client_id'], 'druh' => $kind,
+            $db->insert('api_tokeny', ['idu' => $idu, 'nazev' => $client['nazev'], 'klient' => $client['client_id'], 'druh' => $kind, 'access' => self::access($level),
                 'expirace' => date('Y-m-d H:i:s', time() + $lifetime), 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s')]);
         }
         // cleanup of expired tokens and codes
@@ -247,6 +251,12 @@ final class OAuth
     private function client(string $clientId): ?array
     {
         return preg_match(self::CLIENT_PATTERN, $clientId) ? $this->app->db()->one('SELECT * FROM {oauth_klienti} WHERE client_id = ?', [$clientId]) : null;
+    }
+
+    /** A known connection access (Mcp\Catalog::CONNECTION_ACCESS); anything else is read-only. */
+    public static function access(string $access): string
+    {
+        return isset(\Kaleta\Mcp\Catalog::CONNECTION_ACCESS[$access]) ? $access : 'read';
     }
 
     public static function isValidRedirectUri(string $url): bool

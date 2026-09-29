@@ -16,11 +16,13 @@ use Kaleta\Core\Extensions;
  *
  * Sign-in: the header "Authorization: Bearer <token>" – a personal token from the "Můj účet" (My account) menu, or the
  * token of an application connected via OAuth (connector in Claude, Front\OAuth).
- * Claude then acts with this user's permissions (author / editor / administrator). The extension is disabled by default.
+ * Claude then acts with this user's permissions (author / editor / administrator), limited by the access of the connection
+ * (full, drafts or read, 2.2). New installations have the extension switched on.
  */
 final class Server
 {
-    private const string PROTOCOL = '2025-03-26';
+    /** Protocol versions the server speaks, newest first (2.2: the client's version is answered when it is one of them). */
+    public const array PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 
     public function __construct(private readonly App $app)
     {
@@ -46,6 +48,7 @@ final class Server
                 'WWW-Authenticate' => 'Bearer resource_metadata="' . (new \Kaleta\Front\OAuth($this->app))->metadataUrl() . '"']);
         }
         $this->app->auth()->signInAs($user);
+        $this->app->auth()->useConnection((string) $user['connection_name'], (string) $user['connection_access']);
         if ($this->app->auth()->isMissingRequired2fa($this->app->settings())) {
             return Response::json(['chyba' => 'Web vyžaduje dvoufázové přihlášení. Zapněte si ho v administraci v Můj účet – do té doby napojení nefunguje.'], 403);
         }
@@ -80,14 +83,21 @@ final class Server
 
         return match ($method) {
             'initialize' => $ok([
-                'protocolVersion' => is_string($z['params']['protocolVersion'] ?? null) ? $z['params']['protocolVersion'] : self::PROTOCOL,
-                'capabilities' => ['tools' => new \stdClass()],
+                'protocolVersion' => self::protocol($z['params']['protocolVersion'] ?? null),
+                'capabilities' => ['tools' => new \stdClass(), 'resources' => new \stdClass(), 'prompts' => new \stdClass()],
                 'serverInfo' => ['name' => 'Kaleta – ' . $this->app->settings()->get('site_name'), 'version' => KALETA_VERSION],
-                'instructions' => Translator::instructions(),
+                'instructions' => Prompts::serverInstructions($this->app),
             ]),
+            // the site owner's instructions and an overview; ready-made tasks (2.2)
+            'resources/list' => $ok(['resources' => Prompts::resources()]),
+            'resources/read' => $this->guarded($id, fn (): array => Prompts::read($this->app, (string) ($z['params']['uri'] ?? ''))),
+            'prompts/list' => $ok(['prompts' => Prompts::listAll()]),
+            'prompts/get' => $this->guarded($id, fn (): array => Prompts::get((string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             'ping' => $ok([]),
             // Czech names remain as hidden aliases
-            'tools/list' => $ok(['tools' => array_map(fn (array $t): array => $t + ['annotations' => $tools->annotations(Translator::czech($t['name']) ?? $t['name'])], Translator::listAll($tools->listAll()))]),
+            // only the tools this connection may use (a connection limited to drafts or to reading, 2.2)
+            'tools/list' => $ok(['tools' => array_values(array_filter(array_map(fn (array $t): array => $t + ['annotations' => $tools->annotations(Translator::czech($t['name']) ?? $t['name'])],
+                Translator::listAll($tools->listAll())), fn (array $t): bool => Catalog::allows($this->access(), $t['name'])))]),
             'tools/call' => $ok($this->call($tools, (string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Neznámá metoda: ' . $method]],
         };
@@ -104,6 +114,11 @@ final class Server
     {
         $czech = Translator::czech($name);
         $isEnglish = $czech !== null || !in_array($name, $tools->names(), true);
+        if (Catalog::english($name) !== null && !Catalog::allows($this->access(), $name)) {
+            return ['content' => [['type' => 'text', 'text' => $this->access() === 'read'
+                ? 'This connection can only read the site. Changes need a connection with more access – the user sets it when connecting Claude, or under My account.'
+                : 'This connection can only save drafts: builds, hidden pages, news drafts and the draft look. This tool changes the live site – the user can do it in the admin, or connect Claude with full access.']], 'isError' => true];
+        }
         try {
             $items = $czech !== null ? Translator::listAll($tools->listAll()) : $tools->listAll();
             $arguments = self::extractJson($items, $name, $arguments);
@@ -193,6 +208,33 @@ final class Server
         return [];
     }
 
+    /** The protocol version to answer with: the client's when the server speaks it, otherwise the newest (2.2). */
+    public static function protocol(mixed $requested): string
+    {
+        return is_string($requested) && in_array($requested, self::PROTOCOLS, true) ? $requested : self::PROTOCOLS[0];
+    }
+
+    /**
+     * A method whose parameters may be wrong (an unknown resource or prompt): the error goes back as a JSON-RPC error.
+     *
+     * @param callable(): array<string, mixed> $result
+     * @return array<string, mixed>
+     */
+    private function guarded(mixed $id, callable $result): array
+    {
+        try {
+            return ['jsonrpc' => '2.0', 'id' => $id, 'result' => $result()];
+        } catch (\InvalidArgumentException $e) {
+            return ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32602, 'message' => $e->getMessage()]];
+        }
+    }
+
+    /** What the connection of this request may do: full | drafts | read (2.2). */
+    private function access(): string
+    {
+        return $this->app->auth()->connection()['access'] ?? 'full';
+    }
+
     /** @return array<string, mixed>|null user by token */
     private function user(): ?array
     {
@@ -207,7 +249,7 @@ final class Server
         if (!preg_match('/^Bearer\s+(kaleta_(?:oa_)?[a-f0-9]{48})$/', $header, $m)) {
             return null;
         }
-        $token = $db->one("SELECT t.idt, u.* FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0 AND t.druh <> 'obnova' AND (t.expirace IS NULL OR t.expirace > ?)",
+        $token = $db->one("SELECT t.idt, t.nazev AS connection_name, t.access AS connection_access, u.* FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0 AND t.druh <> 'obnova' AND (t.expirace IS NULL OR t.expirace > ?)",
             [hash('sha256', $m[1]), date('Y-m-d H:i:s')]);
         if ($token === null) {
             $db->insert('kontrola_ip', ['ip_adresa' => $ip, 'typ' => 'mcp', 'cas' => date('Y-m-d H:i:s')]);

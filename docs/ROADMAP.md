@@ -195,13 +195,18 @@ minor release a month; the [release policy](RELEASE-POLICY.md) says what stays c
 6. **Docker image** (`ghcr.io/phprs-cms/kaleta`) and `compose.yaml`.
 7. The daily check of the update channel and the project website runs again; documentation caught up.
 
-## 2.2 – Claude, in charge and safe (planned)
+## 2.2 – Claude, in charge and safe (in progress)
 
-- The Claude connection on by default for new installs, "Connect Claude" in First steps, OAuth for sites in a subfolder.
-- Connections limited to reading, to drafts, or full access (never beyond the user's role).
-- The change log tells a person's change from Claude's, and is readable over MCP.
-- Site instructions for Claude (brand voice, house rules) as an MCP resource, with prompts for common jobs.
-- Extensions, languages, the cookie bar, SEO switches and head code settable over MCP.
+1. **What a connection may do:** everything the user may, drafts only, or read only – chosen on the consent screen and
+   for personal tokens, never beyond the user's role. Existing connections keep full access. A connection limited to
+   drafts or reading sees only the tools it may use, and publishing through it is refused before anything is saved.
+2. **The change log tells a person's change from Claude's** and names the connection; Claude reads it with `list_changes`.
+3. **Claude on by default** for new installations, "Connect Claude" in First steps, OAuth for sites in a subfolder
+   (`/.well-known/openid-configuration` under the site).
+4. **Instructions for Claude** from the site owner, given to every connection, and MCP resources and prompts (build a
+   page, audit and fix, translate a page, write news, weekly review).
+5. **Settings over MCP:** extensions, language versions, the cookie bar, SEO switches, analytics codes and head code.
+6. The MCP protocol version is negotiated (2025-06-18, 2025-03-26, 2024-11-05).
 
 ## 2.3 – leads (planned)
 

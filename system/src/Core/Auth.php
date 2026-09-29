@@ -272,6 +272,24 @@ final class Auth
         $this->modules = null;
     }
 
+    /** @var array{name: string, access: string}|null the Claude connection of this request (MCP, 2.2) */
+    private ?array $connection = null;
+
+    /**
+     * The request comes through a Claude connection: its name goes to the change log, and a connection limited to drafts
+     * or to reading never publishes, whatever the user's role (canPublish).
+     */
+    public function useConnection(string $name, string $access): void
+    {
+        $this->connection = ['name' => $name, 'access' => isset(\Kaleta\Mcp\Catalog::CONNECTION_ACCESS[$access]) ? $access : 'read'];
+    }
+
+    /** @return array{name: string, access: string}|null */
+    public function connection(): ?array
+    {
+        return $this->connection;
+    }
+
     public function id(): int
     {
         return (int) ($this->user()['idu'] ?? 0);
@@ -298,7 +316,7 @@ final class Auth
 
     public function canPublish(): bool
     {
-        return $this->isAdmin() || $this->isEditor();
+        return ($this->isAdmin() || $this->isEditor()) && ($this->connection['access'] ?? 'full') === 'full';
     }
 
     /** Does the signed-in user have access to the module? Admin always; others according to ka_uzivatele_prava. */

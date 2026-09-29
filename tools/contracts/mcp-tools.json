@@ -433,6 +433,19 @@
             "openWorldHint": false
         }
     },
+    "list_changes": {
+        "parameters": {
+            "by": "string",
+            "limit": "integer",
+            "since": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_classes": {
         "parameters": {
             "name": "string"

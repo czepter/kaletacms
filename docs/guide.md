@@ -250,11 +250,12 @@ the API key and model. The assistant only suggests. Text goes to the provider on
   (shorter, longer, more formal, friendlier, fix mistakes). Check the result and fill in facts yourself. Ctrl+Z undoes the change.
 - In news: headlines, intro, SEO description, tags, proofreading, image descriptions and translation into another site language.
 
-Enable **Claude connection (MCP)** under Extensions. Then:
+The **Claude connection (MCP)** is switched on in new installations (under Extensions on older sites). Then:
 
 - **Connector in the Claude app (recommended):** in Settings → Connectors add a custom connector with the address
   `https://your-site.com/mcp`. Claude sends you to the website to sign in and confirm access (OAuth), nothing to copy.
-  Connected apps are listed (and can be disconnected) in **My account**. This needs the site on HTTPS in the domain root.
+  Connected apps are listed (and can be disconnected) in **My account**. This needs the site on HTTPS. A site in a
+  subfolder works too – the Claude app finds the sign-in there; for a tool that does not, use a personal token.
 - **Claude Code:** run the command below and confirm access in the browser. Alternatively, create an access token under
   **My account** and add `--header "Authorization: Bearer <token>"`.
 
@@ -275,6 +276,24 @@ only once it is published (by you, or by Claude when you ask). Site settings, re
 take effect straight away – the previous page text and item go to the version history. Claude can move a page to
 the trash (restorable for 30 days in the admin); the site e-mail, webhooks, mail, backups and security settings cannot
 be changed over the connection.
+
+**What a connection may do.** When you connect Claude (or create a token), you choose:
+
+- **Everything your account may do** – build, edit and publish, never beyond your role;
+- **Drafts only** – Claude builds pages, writes news drafts and prepares look changes, and you publish them; it cannot
+  change settings, redirects or anything else on the live site;
+- **Read only** – Claude reads pages, settings, the audit and the change log and suggests changes.
+
+My account shows the access of every connected app and token. The **change log** marks every change Claude made with the
+name of its connection, and can show only Claude's changes or only people's; Claude reads it too (`list_changes`).
+
+**Instructions for Claude.** Under **Extensions → Claude connection** write what Claude should keep to – how you address
+customers, words to use or avoid, house rules. Every connection gets them when it connects. Claude also offers ready-made
+tasks (in the Claude app under **+**): build a page, run the audit and fix what is safe, translate a page, write a news
+item, and a weekly review of the site.
+
+**Settings over the connection.** Besides the site name and company details, Claude can switch extensions and language
+versions, the cookie bar, SEO switches, analytics codes and the code in `<head>` – when you ask for it.
 
 ## 11. Moving from WordPress or another Kaleta site
 

@@ -284,9 +284,14 @@ final class Kernel
                 && $db->value('SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND zmeneno IS NOT NULL LIMIT 1') !== null],
             ['Complete the privacy policy', 'The enquiry form collects personal data – visitors must know how you handle it. The page is prepared as a hidden draft: fill in the details in square brackets and publish it.', 'admin.php?module=pages',
                 // done once the page exists and no longer contains the square brackets of the skeleton from the installation ([NÁZEV FIRMY]…)
-                $db->value("SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND (seo_link LIKE '%soukromi%' OR seo_link LIKE '%osobni%' OR seo_link LIKE '%gdpr%' OR seo_link LIKE '%privacy%') AND text NOT LIKE '%[%]%' LIMIT 1") !== null],
+                $db->value("SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND (" . implode(' OR ', array_map(fn (string $w): string => "seo_link LIKE '%" . $w . "%'", ['soukromi', 'osobni', 'osobnych', 'gdpr', 'dsgvo', 'privacy', 'datenschutz', 'privacidad', 'confidentialite', 'riservatezza', 'prywatnosc', 'prywatnosci'])) . ") AND text NOT LIKE '%[%]%' LIMIT 1") !== null],
             ['Set up e-mail', 'Where the site sends e-mail from (forms, password reset).', 'admin.php?module=settings&tab=mail', $s->get('mail_mode') === 'smtp' || $s->get('mail_from') !== ''],
         ];
+        // 2.2: Claude is the main way to build and edit a Kaleta site – done once any user has connected it
+        if (\Kaleta\Core\Extensions::isEnabled($s, 'claude')) {
+            $steps[] = ['Connect Claude', 'Build and edit the site by talking to Claude. In the Claude app, add a custom connector with your site address followed by /mcp – My account shows the exact address.',
+                'admin.php?action=account#claude', $db->value("SELECT 1 FROM {api_tokeny} WHERE druh IN ('token', 'obnova') LIMIT 1") !== null];
+        }
         $result = array_map(fn (array $k): array => ['nazev' => $k[0], 'popis' => $k[1], 'url' => $app->url($k[2]), 'hotovo' => (bool) $k[3]], $steps);
 
         return array_filter($result, fn (array $k): bool => !$k['hotovo']) === [] ? [] : $result;
@@ -361,9 +366,10 @@ final class Kernel
             if (!$app->request->postBool('povolit')) {
                 return Response::redirect($oauth->deny($pending));
             }
-            ChangeLog::write($app, 'claude', 'připojení aplikace', mb_substr((string) $pending['nazev'], 0, 100));
+            $access = \Kaleta\Front\OAuth::access($app->request->post('access') ?: 'full'); // a consent page from before 2.2 sends none: as before
+            ChangeLog::write($app, 'claude', 'připojení aplikace', mb_substr((string) $pending['nazev'] . ' (' . $access . ')', 0, 100));
 
-            return Response::redirect($oauth->issueCode($pending, $app->auth()->id()));
+            return Response::redirect($oauth->issueCode($pending, $app->auth()->id(), $access));
         }
 
         $page = $this->page('Connect an application', $app->view->render('admin/oauth', [

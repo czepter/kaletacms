@@ -39,6 +39,8 @@ trait PageTools
             'novinek_vydanych' => (int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL'),
             'uzivatel' => $auth->user()['user'], 'role' => \Kaleta\Core\Auth::TYPES[(int) $auth->user()['admin']], 'smi_vydavat' => $auth->canPublish(),
             'smi_upravovat_stranky' => $auth->hasModule('pages'),
+            // what this connection may do (2.2): full, drafts (reads and drafts, never publishes) or read
+            'connection' => $auth->connection() ?? ['name' => '', 'access' => 'full'],
             // what the site has switched on, so Claude does not guess (extension keys: novinky, poptavky, newsletter…)
             'extensions' => \Kaleta\Core\Extensions::enabled($siteSettings),
             'languages' => ['default' => Language::defaults($siteSettings),

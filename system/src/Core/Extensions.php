@@ -21,7 +21,7 @@ final class Extensions
         'presmerovani' => ['Redirects', '301 redirects from old addresses – essential after moving from another site.', true],
         'jazyky' => ['Language versions of the site', 'A site in several languages: each further version (e.g. /cs/…) has its own pages, categories and news, a language switcher and hreflang tags. Pick the languages in Settings → General.', false],
         'asistent' => ['AI assistant', 'In the builder, new sections from a description and text rewrites; in news, headlines, intro, SEO description, tags, proofreading, image descriptions and translation. Needs your own Claude, OpenAI, Google or Mistral key (below); text is sent only when you click an assistant button.', false],
-        'claude' => ['Claude connection', 'MCP server at /mcp: Claude builds pages in the builder with your account\'s permissions, edits the header, footer, collections and look, and writes news. Pages and news are saved as drafts that you publish, the menu and look go into the draft look; settings apply straight away. Everyone creates their access token under My account.', false],
+        'claude' => ['Claude connection', 'MCP server at /mcp: Claude builds pages in the builder with your account\'s permissions, edits the header, footer, collections and look, and writes news. Pages and news are saved as drafts that you publish, the menu and look go into the draft look; settings apply straight away. Everyone creates their access token under My account.', true],
     ];
 
     /** @return list<string> */

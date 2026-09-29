@@ -1407,6 +1407,63 @@ expect "obnovovací token nejde použít k MCP" "$(curl -s -o /dev/null -w '%{ht
 curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REFRESH_TOKEN" -d "client_id=$CLIENT"
 grep -q '"access_token"' "$WORK/response" && echo "  ok     obnova tokenu" || { echo "  CHYBA  obnova tokenu"; cat "$WORK/response"; ERRORS=$((ERRORS+1)); }
 expect "obnovovací token se po použití vymění" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REFRESH_TOKEN" -d "client_id=$CLIENT")" 400
+
+echo "== 2.2: connection access, change log, instructions, prompts, settings over MCP"
+expect "an OAuth connection approved without a choice (a consent page from before 2.2) has full access" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(DISTINCT access) FROM ka_api_tokeny WHERE klient = '$CLIENT'")" "full"
+REDIRECT=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' "$B/oauth/authorize?response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=$CHALLENGE&code_challenge_method=S256&state=drafts" && curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?action=oauth" -d "_csrf=$OAUTH_CSRF" -d povolit=1 -d access=drafts)
+AUTH_CODE=$(printf %s "$REDIRECT" | grep -o 'code=[a-f0-9]*' | sed 's/code=//' || true)
+curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=authorization_code -d "code=$AUTH_CODE" -d "redirect_uri=$REDIRECT_URI" -d "client_id=$CLIENT" -d "code_verifier=$VERIFIER"
+REFRESH_DRAFTS=$(grep -o '"refresh_token":"[a-z0-9_]*"' "$WORK/response" | sed 's/.*:"//;s/"//' || true)
+curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REFRESH_DRAFTS" -d "client_id=$CLIENT"
+OAUTH_DRAFTS=$(grep -o '"access_token":"[a-z0-9_]*"' "$WORK/response" | sed 's/.*:"//;s/"//' || true)
+expect "drafts only chosen on the consent screen stays after a token refresh" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT access FROM ka_api_tokeny WHERE otisk = SHA2('$OAUTH_DRAFTS', 256)")" "drafts"
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $OAUTH_DRAFTS" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$WORK/response"
+contains -q '"name":"save_build"' "$WORK/response" && ! contains -q '"name":"publish_build"' "$WORK/response" && ! contains -q '"name":"update_settings"' "$WORK/response" && echo "  ok     a drafts-only connection lists only reads and draft tools" || { echo "  CHYBA  tools/list for drafts"; ERRORS=$((ERRORS+1)); }
+# personal tokens with limited access (My account)
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account"; ACCOUNT_CSRF=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?action=account" -d "_csrf=$ACCOUNT_CSRF" -d co=token_novy -d "nazev=Claude read" -d access=read
+READ_TOKEN=$(grep -o 'kaleta_[a-f0-9]\{48\}' "$WORK/response" | head -1 || true)
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?action=account" -d "_csrf=$ACCOUNT_CSRF" -d co=token_novy -d "nazev=Claude drafts" -d access=drafts
+DRAFT_TOKEN=$(grep -o 'kaleta_[a-f0-9]\{48\}' "$WORK/response" | head -1 || true)
+expect "tokens from My account keep the chosen access" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(access ORDER BY nazev) FROM ka_api_tokeny WHERE nazev IN ('Claude read', 'Claude drafts')")" "drafts,read"
+mcp_text() { php -r 'echo json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"] ?? "";' "$WORK/response" > "$WORK/text"; } # the tool result itself
+mcp_as() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$2\",\"arguments\":$3}}"; }
+mcp_as "$READ_TOKEN" create_page '{"title":"From a read-only connection"}' > "$WORK/response"
+contains -q 'can only read the site' "$WORK/response" && expect "a read-only connection changes nothing" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stranky WHERE titulek = 'From a read-only connection'")" 0 || { echo "  CHYBA  read-only connection wrote"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp_as "$READ_TOKEN" get_page '{"id":1}' > "$WORK/response"; contains -q '"isError":true' "$WORK/response" && { echo "  CHYBA  a read-only connection cannot read"; ERRORS=$((ERRORS+1)); } || echo "  ok     a read-only connection reads"
+mcp_as "$DRAFT_TOKEN" create_page '{"title":"Drafted by Claude","visible":true}' > "$WORK/response"
+mcp_text; DRAFT_PAGE=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://' || true)
+expect "a drafts-only connection creates a page, but hidden" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zobrazit FROM ka_stranky WHERE ids = '${DRAFT_PAGE:-0}'")" 0
+mcp_as "$DRAFT_TOKEN" save_build "{\"id\":${DRAFT_PAGE:-0},\"publish\":true,\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"children\":[{\"type\":\"heading\",\"content\":{\"text\":\"Draft\"}}]}]}}" > "$WORK/response"
+contains -q 'Publishing needs' "$WORK/response" && expect "publishing over a drafts-only connection is refused before anything is saved" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COALESCE(stavba_koncept, 'none') FROM ka_stranky WHERE ids = '${DRAFT_PAGE:-0}'")" "none" || { echo "  CHYBA  save_build publish over drafts"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp_as "$DRAFT_TOKEN" save_build "{\"id\":${DRAFT_PAGE:-0},\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"children\":[{\"type\":\"heading\",\"content\":{\"text\":\"Draft\"}}]}]}}" > "$WORK/response"
+mcp_text; contains -q '"status":"draft' "$WORK/text" && echo "  ok     a drafts-only connection saves a draft build" || { echo "  CHYBA  drafts: save_build"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp_as "$DRAFT_TOKEN" update_settings '{"settings":{"site_name":"Hijacked"}}' > "$WORK/response"
+contains -q 'can only save drafts' "$WORK/response" && echo "  ok     a drafts-only connection does not change settings" || { echo "  CHYBA  drafts: update_settings"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+expect "the change log names the Claude connection" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) > 0 FROM ka_protokol WHERE via = 'Claude drafts' AND modul = 'claude'")" 1
+mcp list_changes '{"by":"claude","limit":5}' > "$WORK/response"
+mcp_text; contains -q '"claude_connection":"Claude drafts"' "$WORK/text" && echo "  ok     list_changes tells Claude's changes and their connection" || { echo "  CHYBA  list_changes"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+check "the change log in the admin filters Claude's changes" 200 "/admin.php?module=changelog&by=claude" 'Claude: Claude drafts'
+# the site owner's instructions, resources, prompts and the protocol version
+mcp update_settings '{"settings":{"claude_instructions":"Always say renovation, never reconstruction."}}' > /dev/null
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26"}}' > "$WORK/response"
+contains -q '"protocolVersion":"2025-03-26"' "$WORK/response" && contains -q 'Always say renovation' "$WORK/response" && contains -q '"prompts"' "$WORK/response" && echo "  ok     initialize: the client's protocol version, the owner's instructions, resources and prompts" || { echo "  CHYBA  initialize"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $DRAFT_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"1999-01-01"}}' > "$WORK/response"
+contains -q '"protocolVersion":"2025-06-18"' "$WORK/response" && contains -q 'CAN ONLY SAVE DRAFTS' "$WORK/response" && echo "  ok     initialize tells a drafts-only connection its limits" || { echo "  CHYBA  initialize drafts"; ERRORS=$((ERRORS+1)); }
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"resources/read","params":{"uri":"kaleta://instructions"}}' > "$WORK/response"
+contains -q 'Always say renovation' "$WORK/response" && echo "  ok     the instructions as an MCP resource" || { echo "  CHYBA  resources/read"; ERRORS=$((ERRORS+1)); }
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"prompts/get","params":{"name":"build_page","arguments":{"topic":"kitchens"}}}' > "$WORK/response"
+contains -q 'Build a new page about kitchens' "$WORK/response" && echo "  ok     prompts/get fills in a ready-made task" || { echo "  CHYBA  prompts/get"; ERRORS=$((ERRORS+1)); }
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"resources/read","params":{"uri":"kaleta://nope"}}' > "$WORK/response"
+contains -q '"code":-32602' "$WORK/response" && echo "  ok     an unknown resource is a JSON-RPC error" || { echo "  CHYBA  resources/read unknown"; ERRORS=$((ERRORS+1)); }
+# settings that were admin-only before 2.2
+mcp update_settings '{"settings":{"extensions":["novinky","poptavky"]}}' > "$WORK/response"
+contains -q 'cannot switch itself off' "$WORK/response" && echo "  ok     Claude cannot switch its own connection off" || { echo "  CHYBA  extensions without claude"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+EXT_BEFORE=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
+mcp update_settings "{\"settings\":{\"extensions\":[\"$(printf %s "$EXT_BEFORE" | sed 's/,/","/g')\",\"asistent\"],\"additional_languages\":[\"xx\"],\"llms_txt\":\"0\",\"indexing\":\"1\"}}" > "$WORK/response"
+mcp_text; contains -q 'Unknown language codes: xx' "$WORK/text" && contains -q '"asistent"' "$WORK/text" && expect "extensions, SEO switches and languages over MCP, checked" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'llms_txt'")" 0 || { echo "  CHYBA  settings parity"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp update_settings "{\"settings\":{\"extensions\":[\"$(printf %s "$EXT_BEFORE" | sed 's/,/","/g')\"],\"llms_txt\":\"1\"}}" > /dev/null
+check "OAuth metadata for a site in a subfolder (openid-configuration)" 200 "/.well-known/openid-configuration" '"token_endpoint"'
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kontrola_ip WHERE typ = 'login'" # limit přihlášení z IP vyčerpal test zámku účtu
 JAR5="$WORK/jar5"
 curl -s -c "$JAR5" -b "$JAR5" -o /dev/null "$B/oauth/authorize?response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=$CHALLENGE&code_challenge_method=S256&state=nove"

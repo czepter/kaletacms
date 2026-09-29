@@ -348,6 +348,7 @@ CREATE TABLE ka_protokol (
     cas   DATETIME NOT NULL,
     kdo   INT UNSIGNED NULL,
     jmeno VARCHAR(100) NOT NULL DEFAULT '',               -- the name at the moment of the action (the account may be removed later)
+    via   VARCHAR(100) NOT NULL DEFAULT '',               -- the Claude connection a change came through (empty = the admin)
     modul VARCHAR(30) NOT NULL,
     akce  VARCHAR(40) NOT NULL,
     popis VARCHAR(255) NOT NULL DEFAULT '',
@@ -364,6 +365,7 @@ CREATE TABLE ka_api_tokeny (
     nazev     VARCHAR(100) NOT NULL,
     klient    CHAR(32) NULL,                              -- OAuth client_id; NULL = a personal token from "Můj účet" (My account)
     druh      VARCHAR(10) NOT NULL DEFAULT 'token',       -- token | pristup | obnova
+    access    VARCHAR(10) NOT NULL DEFAULT 'full',        -- full | drafts | read – what the connection may do (2.2)
     expirace  DATETIME NULL,
     otisk     CHAR(64) NOT NULL,                          -- sha256 of the token
     vytvoren  DATETIME NOT NULL,
@@ -640,6 +642,7 @@ CREATE TABLE ka_oauth_kody (
     idu          INT UNSIGNED NOT NULL,
     presmerovani VARCHAR(500) NOT NULL,
     vyzva        VARCHAR(128) NOT NULL,              -- code_challenge (PKCE, S256)
+    access       VARCHAR(10)  NOT NULL DEFAULT 'full', -- the access chosen on the consent screen
     expirace     DATETIME     NOT NULL,
     PRIMARY KEY (otisk)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

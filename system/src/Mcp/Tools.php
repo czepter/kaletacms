@@ -33,7 +33,7 @@ final class Tools
     private const int MAX_UPLOAD = 12 * 1024 * 1024;
 
     /** Settings MCP can change (the others – e-mail, webhooks, 2FA, mail, backups – only in the administration). */
-    private const string MCP_SETTINGS = '/^(site_name|site_description|footer_text|home_page|social_(facebook|instagram|x|youtube|linkedin)|news_per_page|share_buttons|article_outline|related_news_auto|company_[a-z_]+|security_contact|dark_mode|theme_switcher|site_(name|description)_[a-z]{2})$/';
+    private const string MCP_SETTINGS = '/^(site_name|site_description|footer_text|home_page|social_(facebook|instagram|x|youtube|linkedin)|news_per_page|share_buttons|article_outline|related_news_auto|company_[a-z_]+|security_contact|claude_instructions|dark_mode|theme_switcher|site_(name|description)_[a-z]{2}|indexing|schema_org|llms_txt|markdown_news|indexnow|ai_crawlers|robots_extra|verification_(google|bing)|cookies_(mode|text|policy_url|log|log_months|external_code)|marketing_code|head_code|stats|ga4_id|matomo_(url|id)|plausible_domain)$/';
 
     public function __construct(private readonly App $app)
     {
@@ -220,6 +220,8 @@ final class Tools
             ['discard_look', 'Throws the draft look away – the published look stays (administrators; only when the user explicitly asks).', $s([])],
             ['site_audit', 'Site audit (read-only): links to pages that do not exist, broken external links in news, pages and item pages without a description, duplicate titles, menu items pointing at hidden pages, builder checks (buttons without a link, images without alt, heading outline) and frequent 404s without a redirect. Each finding says where it is (target: page / collection+item / part / component / popup / news / menu / redirect_from) and, for builds, the element id – fix it with the usual tools, then run the audit again.',
                 $s(['kind' => $text('only one kind: link | menu | description | title | build | not_found (optional)')])],
+            ['list_changes', 'The change log (administrators; read-only): who changed what and when – people in the admin and Claude, with the connection a change came through. Newest first; the log keeps six months.',
+                $s(['by' => $text('people | claude (optional; default both)'), 'limit' => $number('how many, 1–200, default 50'), 'since' => $text('only changes from this day on, YYYY-MM-DD (optional)')])],
             ['ignore_not_found', 'Ignores addresses that ended with 404 (from list_redirects → not_found): a bot probe or an address nothing replaces. They leave the list and the start-screen warning for good. Redirect real old addresses with save_redirect instead. Only when the user asks.',
                 $s(['paths' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'addresses to ignore, e.g. ["/old-page"]'], 'all' => ['type' => 'boolean', 'description' => 'true = all addresses waiting now']])],
             ['list_item_versions', 'Earlier versions of a collection item (the last 20 saves: name, address, field values and SEO fields). restore_item_version brings one back.',
@@ -763,6 +765,19 @@ final class Tools
         };
     }
 
+    /**
+     * A build tool asked to publish: only with the publishing permission (an editor or an administrator, and a connection
+     * with full access). Checked before anything is saved, so nothing half-done stays behind.
+     *
+     * @param array<string, mixed> $a
+     */
+    private function mayPublish(array $a): void
+    {
+        if (!empty($a['publikovat']) && !$this->app->auth()->canPublish()) {
+            throw new \DomainException('Publishing needs an editor or an administrator and a connection with full access. Save the build without publish – it stays a draft for the user to publish.');
+        }
+    }
+
     private function publishTarget(array $target): void
     {
         $db = $this->app->db();
@@ -797,6 +812,7 @@ final class Tools
     /** Sanitizes and saves the draft (and publishes it if asked); returns what the model needs for further work. */
     private function saveBuild(array $target, array $input, bool $publish): array
     {
+        $this->mayPublish(['publikovat' => $publish]);
         $db = $this->app->db();
         [$build, $errors] = Build::sanitize($input, $this->app->auth()->isAdmin(), Build::fromJson($target['koncept'] ?? $target['stavba']));
         $r = $target['radek'];
