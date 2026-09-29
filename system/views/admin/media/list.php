@@ -108,7 +108,7 @@ $isAll = $filter['sekce'] === null && $filter['clanek'] === 0 && !$filter['nepou
 <?php endforeach ?>
 	</select>
 	<button class="navigace" type="submit" name="provest" value="presun"><?= e(t('Move to folder')) ?></button>
-	<button class="navigace nebezpecne" type="submit" name="provest" value="smaz" data-potvrdit="<?= e(t('Really delete the selected images? They will disappear from the texts where they are used.')) ?>"><?= e(t('Smazat')) ?></button>
+	<button class="navigace nebezpecne" type="submit" name="provest" value="smaz" data-potvrdit="<?= e(t('Really delete the selected files? Files the site still uses are skipped.')) ?>"><?= e(t('Smazat')) ?></button>
 </p>
 </form>
 

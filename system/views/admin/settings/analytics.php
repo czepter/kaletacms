@@ -3,7 +3,7 @@
 <legend><?= e(t('Traffic')) ?></legend>
 <?php
 $field('stats', 'Built-in statistics', 'ano', 'Visits, most-read news and traffic sources under Statistics. No cookies and no consent needed.');
-$field('ga4_id', 'Google Analytics', 'text', 'The measurement ID in the form G-XXXXXXXXXX is enough. It runs only after the visitor\'s consent (the Privacy and cookies tab).', 'placeholder="G-" maxlength="24"');
+$field('ga4_id', 'Google Analytics', 'text', 'The measurement ID in the form G-XXXXXXXXXX is enough. With a cookie bar on, it runs only after the visitor\'s consent (the Privacy and cookies tab).', 'placeholder="G-" maxlength="24"');
 ?>
 </fieldset>
 <details class="pokrocile"<?= $values['matomo_url'] . $values['plausible_domain'] . $values['head_code'] !== '' ? ' open' : '' ?>>

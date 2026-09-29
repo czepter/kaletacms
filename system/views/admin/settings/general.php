@@ -85,7 +85,7 @@ $field('agency_name', 'Name');
 $field('agency_url', 'Website', 'url');
 $field('agency_email', 'E-mail for help', 'email');
 $field('agency_phone', 'Phone for help');
-$field('agency_logo', 'Logo', 'text', 'A path from Media, e.g. media/2026/10/agency.svg (Media → the file → Copy address).');
+$field('agency_logo', 'Logo', 'text', 'A path from Media, e.g. media/2026/10/agency.svg – click the file in Media to open it, its address starts with media/.');
 ?>
 </fieldset>
 <details class="pokrocile"<?= $values['maintenance'] === '1' ? ' open' : '' ?>>

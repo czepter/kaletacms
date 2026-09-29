@@ -233,6 +233,8 @@ minor release a month; the [release policy](RELEASE-POLICY.md) says what stays c
    kaletacms.com, in the admin language.
 4. Moved to Later: visitor dictionaries keyed by English text – an internal change with no visible effect, better done
    on its own than next to a new admin language.
+- 2.4.1: the guide gains Media, Statistics, Privacy and cookies, and Sending e-mail, and those screens link to them;
+  SMTP errors in the admin language, clearer hints for the agency logo, bulk delete in Media and Google Analytics.
 
 ## Not planned
 

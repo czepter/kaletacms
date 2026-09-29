@@ -168,7 +168,7 @@ final class Mail
         }
         $connection = @stream_socket_client(($encryption === 'ssl' ? 'ssl://' : 'tcp://') . $host . ':' . $port, $number, $error, 10);
         if ($connection === false) {
-            throw new \RuntimeException("K SMTP serveru {$host}:{$port} se nepodařilo připojit" . ($error !== '' ? " ({$error})" : '') . '. Zkontrolujte adresu, port a šifrování; některé hostingy odchozí SMTP blokují.');
+            throw new \RuntimeException(t('Could not connect to the SMTP server %s. Check the address, port and encryption; some hosts block outgoing SMTP.', "{$host}:{$port}" . ($error !== '' ? " ({$error})" : '')));
         }
         stream_set_timeout($connection, 15);
         self::$connection = $connection;
@@ -192,7 +192,7 @@ final class Mail
                     self::statement(base64_encode($siteSettings->get('smtp_password')), [235], true);
                 }
             } catch (\RuntimeException $e) {
-                throw new \RuntimeException('SMTP server odmítl přihlášení – zkontrolujte jméno a heslo (u Gmailu a Seznamu je potřeba „heslo pro aplikace“). ' . $e->getMessage());
+                throw new \RuntimeException(t('The SMTP server refused the sign-in – check the user name and password (Gmail and Seznam need an app password).') . ' ' . $e->getMessage());
             }
         }
         register_shutdown_function(self::close(...));
@@ -220,7 +220,7 @@ final class Mail
             $response .= $row;
         } while (isset($row[3]) && $row[3] === '-');
         if (!in_array((int) substr($response, 0, 3), $expected, true)) {
-            throw new \RuntimeException('Odpověď SMTP serveru na ' . $commandName . ': ' . mb_substr(trim($response), 0, 200));
+            throw new \RuntimeException(t('SMTP server reply to %s: %s', $commandName, mb_substr(trim($response), 0, 200)));
         }
 
         return $response;
