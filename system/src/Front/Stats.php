@@ -16,6 +16,16 @@ final class Stats
 {
     private const string BOTS = '/bot|crawl|spider|slurp|preview|monitor|curl|wget|python|java\/|http|scan|check|feed|lighthouse|headless/i';
 
+    /** phone | tablet | computer, by the browser's own description (nothing is stored about the device itself) */
+    public static function device(string $userAgent): string
+    {
+        return match (true) {
+            (bool) preg_match('/iPad|Tablet|Kindle|Silk|(Android(?!.*Mobile))/i', $userAgent) => 'tablet',
+            (bool) preg_match('/Mobi|iPhone|iPod|Android.*Mobile|Windows Phone/i', $userAgent) => 'phone',
+            default => 'computer',
+        };
+    }
+
     public static function record(App $app, ?int $idc): void
     {
         $server = $_SERVER;
@@ -43,9 +53,18 @@ final class Stats
         if ($new && $source !== '' && $source !== $custom) {
             $db->run('INSERT INTO {stat_zdroje} (den, zdroj, pocet) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE pocet = pocet + 1', [$today, mb_substr($source, 0, 100)]);
         }
+        if ($new) {
+            // 2.3: the device of the visit, and the campaign of the page it started on – both from the request itself
+            $db->run('INSERT INTO {stat_zarizeni} (den, zarizeni, navstevy) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE navstevy = navstevy + 1', [$today, self::device($ua)]);
+            $campaign = Forms::campaignText(Forms::campaign($app->request->origin() . ($server['REQUEST_URI'] ?? '/'), $app->request->origin()));
+            if ($campaign !== '') {
+                $db->run('INSERT INTO {stat_kampane} (den, kampan, navstevy) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE navstevy = navstevy + 1', [$today, mb_substr($campaign, 0, 255)]);
+            }
+        }
         if (random_int(1, 200) === 1) {
             $db->run('DELETE FROM {stat_navstevnici} WHERE den < CURDATE() - INTERVAL 1 DAY');
             $db->run('DELETE FROM {stat_stranky} WHERE den < CURDATE() - INTERVAL 400 DAY');
+            $db->run('DELETE FROM {stat_kampane} WHERE den < CURDATE() - INTERVAL 400 DAY');
         }
     }
 }

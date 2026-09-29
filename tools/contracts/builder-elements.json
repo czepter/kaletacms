@@ -148,6 +148,11 @@
         "titulek",
         "url"
     ],
+    "vlozeni": [
+        "adresa",
+        "titulek",
+        "vyska"
+    ],
     "zalozky": [
         "karty"
     ]

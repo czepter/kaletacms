@@ -163,7 +163,8 @@ data schema.org vedle údajů o firmě. Nabídka potřebuje pole s cenou a měnu
 ## 7. Formuláře a poptávky
 
 Prvek **Formulář** (nebo hotová sekce *Poptávkový formulář*) vloží poptávkový formulář. V panelu Obsah nastavíte pole
-(text, e-mail, telefon, výběr, přepínače, datum, číslo, souhlas), text tlačítka, poděkování nebo děkovnou stránku,
+(text, e-mail, telefon, výběr, přepínače, více zaškrtávacích možností, datum, číslo, souhlas a skrytá hodnota – např.
+produkt, kterého se formulář týká, odešle se s každou poptávkou, ale návštěvník ji nevidí), text tlačítka, poděkování nebo děkovnou stránku,
 potvrzení odesílateli a e-mail pro upozornění. Proti spamu chrání skrytá pole a limit odeslání bez CAPTCHA a cookies.
 Novou poptávku umí web poslat i do CRM nebo Make/Zapier (Nastavení → Webhooky → Webhook nové poptávky); měření
 konverzí dostane událost `kaleta:odeslano` (a záznam do `dataLayer`).
@@ -179,6 +180,19 @@ Odeslané zprávy jsou v **Obsah → Poptávky**: stav (nová, přečtená, vyř
 stránce, na kterou vede reklama nebo newsletter, poptávka ukáže i **kampaň** z adresy (`utm_source`, `utm_medium`, `utm_campaign`…) –
 v administraci, v e-mailu s upozorněním, v CSV i ve webhooku, bez cookies.
 Poptávky obsahují osobní údaje, proto se po nastaveném počtu měsíců (výchozí 24) samy mažou.
+
+**Odkud poptávky přišly.** Zapněte **Nastavení → Cookies → Pamatovat si, odkud poptávky přišly** a každá poptávka i přihláška
+k odběru uloží i **první stránku návštěvy**, její kampaň a web, ze kterého návštěvník přišel – i když je formulář na jiné
+stránce. Pamatuje se jen pro danou záložku prohlížeče a jen u návštěvníků, kteří v cookie liště povolí marketing (zapnutím
+se tato volba do lišty přidá). **Statistiky** pak ukážou, které stránky, kampaně, první stránky a weby přinášejí poptávky
+a přihlášky, s konverzním poměrem, vedle návštěv, zařízení a konverzí pop-up oken; stejný přehled čte Claude nástrojem
+`get_stats`. Prohlížeč, který posílá signál Global Privacy Control, platí za „jen nezbytné“, aniž by se lišta ptala.
+
+Prvek **Vložení** ukáže rezervační kalendář, formulář nebo přehrávač z Calendly, Google Kalendáře, Google Forms,
+Microsoft Forms, Tally, Typeformu, Airtable, Spotify nebo SoundCloudu – vložte adresu, kterou sdílíte, a zvolte výšku.
+Načte se až po kliknutí, takže stránka do té doby službě nic nepošle, a vedle je vždy odkaz na službu. Správce může také
+přidat **kód do hlavičky jedné stránky** (Nastavení stránky → Vyhledávače a sdílení), např. konverzní značku vstupní
+stránky.
 
 Rozšíření **Newsletter** přidá prvek **Odběr novinek**: návštěvník zadá e-mail a potvrdí ho odkazem (double opt-in).
 Potvrzené adresy najdete v **Obsah → Odběratelé** a vyexportujete je do CSV i s odkazem na odhlášení pro váš
@@ -319,8 +333,10 @@ doplní chybějící třídy (třída, kterou web už má, si nechá svůj vzhle
 které neexistují (ve stránkách, částech webu, šablonách, komponentách, pop-up oknech, menu, položkách a novinkách), a
 nefunkční externí odkazy nalezené na pozadí, stránky a stránky položek bez popisu, stejné titulky, položky menu vedoucí
 na skryté nebo smazané stránky, kontroly builderu (tlačítka bez odkazu, obrázky bez popisu, osnova nadpisů) a adresy,
-které často končí „stránka nenalezena“ a nemají přesměrování. Stejný audit spustí Claude nástrojem `site_audit` a nalezené
-opraví.
+které často končí „stránka nenalezena“ a nemají přesměrování, a **přístupnost** podle evropského aktu o přístupnosti (WCAG
+2.2 AA): kontrast barev design systému, odkazy a tlačítka, jejichž text neříká, kam vedou („klikněte zde“), obrázky v textu
+bez popisu, prázdné odkazy, tabulky bez záhlaví, rámce bez titulku a chybějící prohlášení o přístupnosti. Stejný audit
+spustí Claude nástrojem `site_audit` a nalezené opraví.
 
 **Adresy, které návštěvníci nenašli.** Když návštěvníci opakovaně přijdou na adresu, která neexistuje, řekne to úvodní
 obrazovka a **Projít adresy** otevře seznam v Přesměrování. U každé zvolte **Přesměrovat** (formulář se vyplní, doplňte

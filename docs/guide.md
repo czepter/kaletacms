@@ -167,7 +167,8 @@ Item pages then carry schema.org data next to your company details. An offer nee
 ## 7. Forms and enquiries
 
 The **Form** element (or the *Enquiry form* section) adds an enquiry form. In the Content panel you set the fields (text,
-email, phone, list, radio buttons, date, number, consent), button text, thank-you message or thank-you page, a confirmation
+email, phone, list, radio buttons, several ticked options, date, number, consent, and a hidden value – e.g. the product the
+form is about, sent with every enquiry but never shown), button text, thank-you message or thank-you page, a confirmation
 to the sender and the notification email. Hidden fields and a submission limit fight spam without CAPTCHA or cookies.
 The site can also send each new enquiry to a CRM or Make/Zapier (Settings → Webhooks → New enquiry webhook); conversion
 tracking gets a `kaleta:odeslano` event (and a `dataLayer` entry).
@@ -183,6 +184,20 @@ Submitted messages are in **Content → Enquiries**: status (new, read, resolved
 page an ad or a newsletter links to, the enquiry also shows the **campaign** from the address (`utm_source`, `utm_medium`, `utm_campaign`…) –
 in the admin, the notification email, the CSV and the webhook, without cookies. Enquiries
 contain personal data, so they are deleted automatically after a set number of months (24 by default).
+
+**Where leads came from.** Turn on **Settings → Cookies → Remember where leads came from** and every enquiry and newsletter
+sign-up also records the **first page of the visit**, its campaign and the site that sent the visitor – even when the form
+is on another page. It is remembered for the visitor's browser tab only, and only when they allow marketing in the cookie
+bar (turning it on adds that choice). **Statistics** then show which pages, campaigns, first pages and sites bring
+enquiries and sign-ups, with conversion rates, next to visits, devices and pop-up conversions; Claude reads the same
+report with `get_stats`. A browser that sends the Global Privacy Control signal counts as "only necessary" without the bar
+asking.
+
+The **Embed** element shows a booking calendar, a form or a player from Calendly, Google Calendar, Google Forms,
+Microsoft Forms, Tally, Typeform, Airtable, Spotify or SoundCloud – paste the address you share, choose the height. It
+loads only after a click, so the page sends nothing to the service before that, and a link to the service is always next to
+it. An administrator can also add **code to the head of one page** (Page settings → Search engines and sharing), e.g. the
+conversion tag of a landing page.
 
 The **Newsletter** extension adds a **Newsletter sign-up** element: visitors enter an e-mail and confirm it by a link
 (double opt-in). Confirmed addresses are in **Content → Subscribers**; export them to CSV, including the unsubscribe
@@ -323,8 +338,11 @@ imported before.
 links to pages that do not exist (in pages, site parts, templates, components, pop-ups, the menu, items and news) and
 broken external links found in the background, pages and item pages without a description, duplicate titles, menu
 items pointing at hidden or deleted pages, the builder checks (buttons without a link, images without a description,
-the heading outline) and addresses that often end in “page not found” and have no redirect. Claude runs the same audit
-with `site_audit` and can fix what it finds.
+the heading outline), addresses that often end in “page not found” and have no redirect, and **accessibility** for the
+European Accessibility Act (WCAG 2.2 AA): colour contrast of the design system, links and buttons whose text does not
+say where they lead (“click here”), images in text without a description, empty links, tables without header cells,
+frames without a title, and a missing accessibility statement. Claude runs the same audit with `site_audit` and can fix
+what it finds.
 
 **Addresses not found.** When visitors repeatedly land on an address that does not exist, the start screen says so and
 **Review the addresses** opens the list in Redirects. For each one choose **Redirect** (the form is filled in, add the

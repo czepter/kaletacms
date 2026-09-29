@@ -208,13 +208,19 @@ minor release a month; the [release policy](RELEASE-POLICY.md) says what stays c
 5. **Settings over MCP:** extensions, language versions, the cookie bar, SEO switches, analytics codes and head code.
 6. The MCP protocol version is negotiated (2025-06-18, 2025-03-26, 2024-11-05).
 
-## 2.3 – leads (planned)
+## 2.3 – leads (in progress)
 
-- Campaign (UTM) and landing page stored with each enquiry and sign-up, without cookies; conversions per page, pop-up
-  and campaign; statistics readable over MCP.
-- Hidden and UTM form fields, checkbox groups, a webhook per form.
-- An Embed element for known providers (booking, chat, reviews), per-page head code for administrators.
-- Accessibility checks in the site audit (EAA), the Global Privacy Control signal in the cookie bar.
+1. **Where leads came from:** the first page of the visit, its campaign and the referring site go with every enquiry and
+   newsletter sign-up – remembered for the browser tab only, with the visitor's consent to marketing (a setting, off by
+   default).
+2. **Statistics that answer "what brings enquiries":** pages, campaigns, first pages and sites with leads and conversion
+   rates, devices and campaigns of visits, pop-up conversions – the same report for Claude (`get_stats`).
+3. **Forms:** several ticked options, a hidden value. A webhook per form was left out: form fields are edited by editors,
+   and webhook addresses stay with administrators; the site webhook sends the form's id for routing.
+4. **Embed element** for Calendly, Google Calendar and Forms, Microsoft Forms, Tally, Typeform, Airtable, Spotify and
+   SoundCloud, loaded after a click; **code in the head of one page** for administrators.
+5. **Accessibility in the site audit** (European Accessibility Act): contrast, link texts, alt texts, tables, frames and
+   the accessibility statement; the cookie bar respects **Global Privacy Control**.
 
 ## 2.4 – for agencies (planned)
 

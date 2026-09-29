@@ -92,6 +92,13 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<span class="popisek"><?= e(t('Options')) ?></span>
 	<div class="volby"><label><input type="checkbox" name="noindex" value="1"<?= $page['noindex'] ? ' checked' : '' ?>> <?= e(t('Hide from search engines (noindex)')) ?></label></div>
 </div>
+<?php if ($app->auth()->isAdmin()): ?>
+<div class="radek">
+	<label for="kod_hlavicky"><?= e(t('Code in the head of this page')) ?></label>
+	<div><textarea class="textpole siroke kod" id="kod_hlavicky" name="kod_hlavicky" rows="4" spellcheck="false" placeholder="&lt;script&gt;…&lt;/script&gt;"><?= e((string) ($page['kod_hlavicky'] ?? '')) ?></textarea>
+	<span class="napoveda"><?= e(t('Only for this page, after the code for the whole site (Settings → Analytics) – e.g. the conversion tag of a landing page. Mind the cookie consent: code that tracks visitors belongs in the marketing code.')) ?></span></div>
+</div>
+<?php endif ?>
 </details>
 <?= $app->view->render('admin/language_field', ['app' => $app, 'value' => (string) ($page['jazyk'] ?? ''), 'translationOf' => (int) ($page['preklad_z'] ?? 0), 'originals' => $app->db()->pairs("SELECT ids, titulek FROM {stranky} WHERE jazyk = '' AND smazano IS NULL ORDER BY titulek"), 'hint' => '']) ?>
 <div class="radek">

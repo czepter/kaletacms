@@ -203,6 +203,18 @@ trait SettingsTools
         return ['total' => count($findings), 'by_kind' => $counts ?: new \stdClass(), 'findings' => $findings];
     }
 
+    /** get_stats (2.3): the same report as the Statistics screen */
+    private function toolGetStats(string $name, array $a): mixed
+    {
+        $auth = $this->app->auth();
+        if (!$auth->isAdmin() && !$auth->hasModule('stats')) {
+            throw new \DomainException('Statistics are for administrators and users with access to Statistics.');
+        }
+
+        return \Kaleta\Core\Report::build($this->app->db(), (int) ($a['days'] ?? 30)) + ['statistics_on' => $this->app->settings()->bool('stats')
+            && \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'statistika')];
+    }
+
     /** list_changes (2.2): the change log, people and Claude told apart */
     private function toolListChanges(string $name, array $a): mixed
     {

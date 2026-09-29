@@ -25,7 +25,8 @@ final class Form extends Element
 
     /** Form field types. */
     public const array FIELD_TYPES = ['text' => 'text', 'email' => 'e-mail', 'tel' => 'telefon', 'textarea' => 'longer text', 'vyber' => 'choice from a list',
-        'volba' => 'single choice (radio buttons)', 'datum' => 'datum', 'cislo' => 'číslo', 'soubor' => 'attachment (file)', 'souhlas' => 'checkbox (consent)'];
+        'volba' => 'single choice (radio buttons)', 'zaskrtnuti' => 'several choices (checkboxes)', 'datum' => 'datum', 'cislo' => 'číslo', 'soubor' => 'attachment (file)',
+        'souhlas' => 'checkbox (consent)', 'skryte' => 'hidden value (e.g. the product the form is about)'];
 
     /** Form attachments: allowed types and the maximum size of one file. */
     /** Phone in the pattern attribute (the browser reads it with the v flag – parentheses, slash and hyphen in the class must be escaped). */
@@ -44,6 +45,8 @@ final class Form extends Element
                 'povinne' => ['typ' => 'prepinac', 'popisek' => 'Required', 'vychozi' => false],
                 'moznosti' => ['typ' => 'radky', 'popisek' => 'Choice options (one per line)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['typ' => 'vyber']],
                 'moznosti_volby' => ['typ' => 'radky', 'popisek' => 'Options (one per line)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['typ' => 'volba']],
+                'moznosti_zaskrtnuti' => ['typ' => 'radky', 'popisek' => 'Options to tick (one per line)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['typ' => 'zaskrtnuti']],
+                'hodnota' => ['typ' => 'text', 'popisek' => 'Value sent with the form (not shown to the visitor)', 'vychozi' => '', 'max' => 300, 'kdyz' => ['typ' => 'skryte']],
             ], 'vychozi' => [
                 ['popisek' => t('Jméno'), 'typ' => 'text', 'povinne' => true, 'moznosti' => ''],
                 ['popisek' => t('Email'), 'typ' => 'email', 'povinne' => true, 'moznosti' => ''],
@@ -126,7 +129,7 @@ final class Form extends Element
 
         return '<form' . Text::withClass($a, 'ka-formular') . $id . ' method="post" action="' . e($k->url('formular')) . '"' . $files . ' data-formular="' . e($p['id']) . '"' . ($result !== '' ? ' data-obnovit' : '') . '>'
             . '<input type="hidden" name="zdroj" value="' . e($k->source) . '"><input type="hidden" name="prvek" value="' . e($p['id']) . '">'
-            . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '">'
+            . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '">' . \Kaleta\Front\Forms::ATTRIBUTION_FIELDS
             . $antispam->fields('formular|' . $k->source . '|' . $p['id'])
             . $html
             . '<p class="ka-pole"><button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e($o['tlacitko']) . '</button></p></form>';
@@ -146,6 +149,17 @@ final class Form extends Element
             $link = $privacyPolicy !== '' ? ' <a class="ka-pole-zasady" href="' . e($privacyPolicy) . '" target="_blank">' . e(t('Privacy policy')) . '</a>' : '';
 
             return '<p class="ka-pole ka-pole-souhlas"><label><input type="checkbox" name="' . $displayName . '" value="1"' . $required . $marking . '> <span>' . $labelText . $star . '</span></label>' . $link . $message . '</p>';
+        }
+        if ($field['typ'] === 'skryte') {
+            return ''; // the value is the form's own (Front\Forms), the visitor neither sees nor sends it
+        }
+        if ($field['typ'] === 'zaskrtnuti') {
+            $options = '';
+            foreach (self::options($field) as $m) {
+                $options .= '<label><input type="checkbox" name="' . $displayName . '[]" value="' . e($m) . '"' . $marking . '> ' . e($m) . '</label>';
+            }
+            // required = at least one ticked; the browser cannot say that about a group, the server does (Front\Forms)
+            return '<div class="ka-pole ka-pole-zaskrtnuti"><fieldset' . ($field['povinne'] ? ' aria-required="true"' : '') . '><legend>' . $labelText . $star . '</legend>' . $options . '</fieldset>' . $message . '</div>';
         }
         if ($field['typ'] === 'volba') {
             $options = '';
@@ -188,7 +202,11 @@ final class Form extends Element
     /** @return list<string> options of a select or radio buttons */
     public static function options(array $field): array
     {
-        $text = ($field['typ'] ?? '') === 'volba' ? (string) ($field['moznosti_volby'] ?? '') : (string) $field['moznosti'];
+        $text = match ($field['typ'] ?? '') {
+            'volba' => (string) ($field['moznosti_volby'] ?? ''),
+            'zaskrtnuti' => (string) ($field['moznosti_zaskrtnuti'] ?? ''),
+            default => (string) ($field['moznosti'] ?? ''),
+        };
 
         return array_values(array_filter(array_map('trim', explode("\n", $text)), fn (string $m): bool => $m !== ''));
     }

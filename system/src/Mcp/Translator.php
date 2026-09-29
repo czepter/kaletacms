@@ -40,6 +40,7 @@ final class Translator
         'translation_of' => ['preklad_z', 'ID of the counterpart in the default language (for a page in another language version) – language switcher and hreflang'],
         'copy_build' => ['kopie_stavby', 'only for a new page with translation_of: the draft starts as a copy of the original’s build – then translate with get_build (texts_only) and edit_build'],
         'publish_at' => ['zverejnit_od', 'Scheduled publishing of a hidden page YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)'],
+        'head_code' => ['kod_hlavicky', 'Code for <head> of this page only – e.g. the conversion tag of one landing page (administrators; only when the user explicitly asks; empty = none)'],
     ];
 
     private const array NEWS_ITEM = [
@@ -197,6 +198,7 @@ final class Translator
         'list_item_versions' => ['list_item_versions', '', []],
         'site_audit' => ['site_audit', '', []],
         'list_changes' => ['list_changes', '', []],
+        'get_stats' => ['get_stats', '', []],
         'ignore_not_found' => ['ignore_not_found', '', []],
         'restore_item_version' => ['restore_item_version', '', []],
         'restore_look_version' => ['restore_look_version', '', []],

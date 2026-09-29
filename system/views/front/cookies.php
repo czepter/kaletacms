@@ -1,6 +1,7 @@
 <?php
 /**
- * Built-in cookie bar. Consent is stored in the cookie "kaleta_souhlas" for 6 months.
+ * Built-in cookie bar. Consent is stored in the cookie "kaleta_souhlas" for 6 months. A browser sending Global Privacy
+ * Control counts as "only necessary" without asking (2.3).
  * Scripts waiting for consent have type="text/plain" data-souhlas="analytika", marketing codes are in <template data-souhlas="marketing">.
  * The appearance is deliberately neutral and independent of the layout; the layout can override it with the .cookies-* classes.
  *
@@ -61,9 +62,29 @@
 			box.querySelectorAll('script').forEach(function (s) { var n = document.createElement('script'); Array.prototype.forEach.call(s.attributes, function (a) { n.setAttribute(a.name, a.value); }); n.text = s.text; s.replaceWith(n); });
 			t.replaceWith.apply(t, Array.prototype.slice.call(box.childNodes));
 		});
+		if (kategorie === 'marketing') { puvod(true); }
 		if (window.gtag) {
 			gtag('consent', 'update', kategorie === 'analytika' ? { analytics_storage: 'granted' } : { ad_storage: 'granted', ad_user_data: 'granted', ad_personalization: 'granted' });
 		}
+	}
+	// where a lead came from (2.3): with consent to marketing, the first page of this visit, its campaign and the site that
+	// sent the visitor are remembered for this tab only (sessionStorage) and go with forms and newsletter sign-ups
+	function puvod(povoleno) {
+		var klic = 'ka-puvod', data = null;
+		try {
+			if (!povoleno) { sessionStorage.removeItem(klic); return; }
+			data = JSON.parse(sessionStorage.getItem(klic) || 'null');
+			if (!data) {
+				var q = new URLSearchParams(location.search), utm = new URLSearchParams(), odkud = '';
+				['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'].forEach(function (k) { if (q.get(k)) { utm.set(k, q.get(k).slice(0, 80)); } });
+				try { odkud = document.referrer ? new URL(document.referrer).hostname.replace(/^www\./, '') : ''; } catch (e) { odkud = ''; }
+				if (odkud === location.hostname.replace(/^www\./, '')) { odkud = ''; }
+				data = { vstup: location.pathname, kampan: utm.toString(), odkud: odkud };
+				sessionStorage.setItem(klic, JSON.stringify(data));
+			}
+		} catch (e) { return; }
+		var vypln = function (jmeno, hodnota) { document.querySelectorAll('input[name="' + jmeno + '"]').forEach(function (i) { i.value = hodnota || ''; }); };
+		vypln('ka_vstup', data.vstup); vypln('ka_kampan', data.kampan); vypln('ka_odkud', data.odkud);
 	}
 	function uloz(kategorie) {
 		var bylo = precti() || [];
@@ -94,6 +115,10 @@
 		lista.hidden = false; znovu.hidden = true;
 	});
 	var souhlas = precti();
+	if (souhlas === null || souhlas.indexOf('marketing') === -1) { puvod(false); }
+	// Global Privacy Control (2.3): a browser that asks not to be tracked counts as "only necessary" until the visitor chooses
+	// otherwise – the bar does not ask, the settings button stays
+	if (souhlas === null && navigator.globalPrivacyControl === true) { znovu.hidden = false; return; }
 	if (souhlas === null) { lista.hidden = false; } else { znovu.hidden = false; souhlas.forEach(function (k) { if (k !== 'nic') { povol(k); } }); }
 })();
 </script>

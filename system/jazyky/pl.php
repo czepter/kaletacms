@@ -1604,4 +1604,12 @@ return [
     '[ADDRESS]' => '[ADRES]',
     '[PHONE]' => '[TELEFON]',
     '[NUMBER]' => '[LICZBA]',
+    'Show: %s' => 'Pokaż: %s',
+    'Loads from %s after a click.' => 'Po kliknięciu wczyta się z %s.',
+    'Open in %s' => 'Otwórz w %s',
+    '%s from %s' => '%s z %s',
+    'Booking calendar' => 'Kalendarz rezerwacji',
+    'Form' => 'Formularz',
+    'Form or table' => 'Formularz lub tabela',
+    'Player' => 'Odtwarzacz',
 ];

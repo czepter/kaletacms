@@ -51,9 +51,9 @@ trait EnquiryAndPopupTools
         $statusNames = array_flip($statuses);
 
         return array_map(fn (array $p): array => ['id' => (int) $p['idp'], 'datum' => substr((string) $p['datum'], 0, 16), 'formular' => $p['formular'], 'stranka' => $p['stranka'],
-            'kampan' => \Kaleta\Front\Forms::campaignText((string) $p['kampan']), 'email' => $p['email'], 'stav' => $statusNames[(int) $p['stav']] ?? '',
+            'kampan' => \Kaleta\Front\Forms::campaignText((string) $p['kampan']), 'first_page' => $p['vstup'] !== '' ? $p['vstup'] : null, 'came_from' => $p['odkud'] !== '' ? $p['odkud'] : null, 'email' => $p['email'], 'stav' => $statusNames[(int) $p['stav']] ?? '',
             'pole' => array_map(fn (array $d): array => ['popisek' => $d[0], 'hodnota' => $d[1]], json_decode((string) $p['data'], true) ?: [])],
-            $db->all('SELECT idp, datum, formular, stranka, kampan, email, stav, data FROM {poptavky}' . ($whereParts !== [] ? ' WHERE ' . implode(' AND ', $whereParts) : '') . ' ORDER BY idp DESC LIMIT ' . $limit, $params));
+            $db->all('SELECT idp, datum, formular, stranka, vstup, odkud, kampan, email, stav, data FROM {poptavky}' . ($whereParts !== [] ? ' WHERE ' . implode(' AND ', $whereParts) : '') . ' ORDER BY idp DESC LIMIT ' . $limit, $params));
     }
 
     /** update_enquiry and delete_enquiry */

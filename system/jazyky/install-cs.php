@@ -2745,4 +2745,12 @@ return [
     'An empty site for moving another Kaleta site here – right after installation you import its export in Import and export.' => 'Prázdný web pro přesun jiného webu na Kaletě – hned po instalaci naimportujete jeho export v Importu a exportu.',
     'The site is empty. Sign in and import the export of your Kaleta site in Import and export → Import from Kaleta.' => 'Web je prázdný. Přihlaste se a naimportujte export svého webu na Kaletě v Import a export → Import z Kalety.',
     'Continue with the import' => 'Pokračovat importem',
+    'Show: %s' => 'Zobrazit: %s',
+    'Loads from %s after a click.' => 'Po klepnutí se načte z %s.',
+    'Open in %s' => 'Otevřít v %s',
+    '%s from %s' => '%s z %s',
+    'Booking calendar' => 'Rezervační kalendář',
+    'Form or table' => 'Formulář nebo tabulka',
+    'Player' => 'Přehrávač',
+    'Paste the address of a Calendly or Google booking page, a Google, Microsoft, Tally, Typeform or Airtable form, or a Spotify or SoundCloud track.' => 'Vložte adresu rezervační stránky Calendly nebo Google, formuláře Google, Microsoft, Tally, Typeform či Airtable, nebo skladby ze Spotify či SoundCloudu.',
 ];

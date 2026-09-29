@@ -179,6 +179,10 @@ final class Pages extends Module
             'zmeneno' => date('Y-m-d H:i:s'),
             'jazyk' => $language,
         ];
+        if ($this->app->auth()->isAdmin()) {
+            // code in <head> of this page only (2.3) – administrators, like the code for the whole site
+            $data['kod_hlavicky'] = trim((string) ($_POST['kod_hlavicky'] ?? '')) !== '' ? mb_substr((string) $_POST['kod_hlavicky'], 0, 20000) : null;
+        }
         // scheduled publishing: only for a hidden page with a future time; a past time publishes the page right away
         $from = strtotime(str_replace('T', ' ', $r->post('zverejnit_od'))) ?: null;
         $data['zverejnit_od'] = !$data['zobrazit'] && $from !== null && $from > time() ? date('Y-m-d H:i:s', $from) : null;

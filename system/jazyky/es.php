@@ -1605,4 +1605,12 @@ return [
     '[E-MAIL]' => '[CORREO ELECTRÓNICO]',
     '[PHONE]' => '[TELÉFONO]',
     '[NUMBER]' => '[NÚMERO]',
+    'Show: %s' => 'Mostrar: %s',
+    'Loads from %s after a click.' => 'Se carga desde %s al hacer clic.',
+    'Open in %s' => 'Abrir en %s',
+    '%s from %s' => '%s de %s',
+    'Booking calendar' => 'Calendario de reservas',
+    'Form' => 'Formulario',
+    'Form or table' => 'Formulario o tabla',
+    'Player' => 'Reproductor',
 ];

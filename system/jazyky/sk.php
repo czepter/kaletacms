@@ -1578,4 +1578,12 @@ return [
     '[ADDRESS]' => '[ADRESA]',
     '[PHONE]' => '[TELEFÓN]',
     '[NUMBER]' => '[POČET]',
+    'Show: %s' => 'Zobraziť: %s',
+    'Loads from %s after a click.' => 'Po kliknutí sa načíta z %s.',
+    'Open in %s' => 'Otvoriť v %s',
+    '%s from %s' => '%s z %s',
+    'Booking calendar' => 'Rezervačný kalendár',
+    'Form' => 'Formulár',
+    'Form or table' => 'Formulár alebo tabuľka',
+    'Player' => 'Prehrávač',
 ];

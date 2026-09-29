@@ -2761,4 +2761,12 @@ return [
     '[PHONE]' => '[TELEFON]',
     '[NUMBER]' => '[POČET]',
     '[E-MAIL]' => '[E-MAIL]', // the same in Czech – a key for the languages that translate it (Spanish)
+    'Show: %s' => 'Zobrazit: %s',
+    'Loads from %s after a click.' => 'Po klepnutí se načte z %s.',
+    'Open in %s' => 'Otevřít v %s',
+    '%s from %s' => '%s z %s',
+    'Booking calendar' => 'Rezervační kalendář',
+    'Form or table' => 'Formulář nebo tabulka',
+    'Player' => 'Přehrávač',
+    'Paste the address of a Calendly or Google booking page, a Google, Microsoft, Tally, Typeform or Airtable form, or a Spotify or SoundCloud track.' => 'Vložte adresu rezervační stránky Calendly nebo Google, formuláře Google, Microsoft, Tally, Typeform či Airtable, nebo skladby ze Spotify či SoundCloudu.',
 ];

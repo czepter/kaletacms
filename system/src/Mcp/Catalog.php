@@ -97,6 +97,7 @@ final class Catalog
         'ignore_not_found' => ['write', 'presmerovani'],
         'site_audit' => ['read', ''],
         'list_changes' => ['read', ''],
+        'get_stats' => ['read', ''],
         // Newsletter
         'list_newsletters' => ['read', 'newsletter'],
         'draft_newsletter' => ['draft', 'newsletter'],

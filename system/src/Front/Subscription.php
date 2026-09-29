@@ -52,7 +52,9 @@ final class Subscription
         }
         $token = bin2hex(random_bytes(16));
         if ($subscriber === null) {
-            $db->insert('odberatele', ['email' => $email, 'token' => $token, 'datum' => date('Y-m-d H:i:s'), 'zdroj' => mb_substr($r->post('zpet'), 0, 255)]);
+            [$landing, $visitCampaign] = Forms::attribution($r); // with the visitor's consent to marketing (2.3)
+            $db->insert('odberatele', ['email' => $email, 'token' => $token, 'datum' => date('Y-m-d H:i:s'), 'zdroj' => mb_substr($r->post('zpet'), 0, 255),
+                'kampan' => Forms::campaign($r->referer(), $r->origin()) ?: $visitCampaign, 'vstup' => $landing]);
         } else {
             $db->update('odberatele', ['token' => $token, 'datum' => date('Y-m-d H:i:s')], ['ido' => (int) $subscriber['ido']]);
         }

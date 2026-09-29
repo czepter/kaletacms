@@ -270,6 +270,9 @@ final class Seo
         if (trim($s->get('head_code')) !== '') {
             $h[] = $s->get('head_code');
         }
+        if (trim((string) ($meta['kod_hlavicky'] ?? '')) !== '') {
+            $h[] = (string) $meta['kod_hlavicky']; // this page only, after the code for the whole site (2.3)
+        }
 
         return implode("\n", array_filter($h)) . "\n";
     }
@@ -303,7 +306,8 @@ final class Seo
         $mode = $s->get('cookies_mode');
         $marketing = trim($s->get('marketing_code'));
         $html = $marketing === '' ? '' : self::deferUntilConsent($marketing, $mode);
-        $hasMarketing = $marketing !== '';
+        // remembering where leads came from needs the visitor's consent to marketing (2.3)
+        $hasMarketing = $marketing !== '' || $s->bool('lead_attribution');
         if ($mode !== 'vestavena' || (!$this->usesAnalyticsCookies() && !$hasMarketing)) {
             return $html;
         }

@@ -1,69 +1,98 @@
 <?php
 /**
+ * Statistics and leads (Core\Report, 2.3).
+ *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Stats $module
- * @var int $days
- * @var array<string, array{navstevy:int, zobrazeni:int}> $chart
+ * @var array<string, mixed> $report
  * @var bool $isEnabled
- * @var list<array<string, mixed>> $newsItems
- * @var list<array{cesta: string, pocet: int}> $pages
- * @var list<array<string, mixed>> $sources
  */
-$max = max(1, ...array_column($chart, 'zobrazeni'));
-$visits = array_sum(array_column($chart, 'navstevy'));
-$views = array_sum(array_column($chart, 'zobrazeni'));
+$days = (int) $report['period_days'];
+$chart = $report['days'];
+$totals = $report['totals'];
+$max = max(1, ...array_column($chart, 'views'));
+$leads = fn (array $r): string => format_count((int) $r['enquiries']) . ' / ' . format_count((int) $r['signups']);
+$table = function (string $title, array $rows, array $columns, string $empty = 'No data yet.'): void {
+    echo '<div><h2>' . e(t($title)) . '</h2>';
+    if ($rows === []) {
+        echo '<p>' . e(t($empty)) . '</p></div>';
+
+        return;
+    }
+    echo '<div class="tab-obal"><table class="vypis"><thead><tr>';
+    foreach ($columns as $label => $_) {
+        echo '<th scope="col"' . ($label === array_key_first($columns) ? '' : ' class="cislo"') . '>' . e(t($label)) . '</th>';
+    }
+    echo '</tr></thead><tbody>';
+    foreach ($rows as $row) {
+        echo '<tr>';
+        foreach ($columns as $label => $cell) {
+            echo '<td' . ($label === array_key_first($columns) ? '' : ' class="cislo"') . '>' . $cell($row) . '</td>';
+        }
+        echo '</tr>';
+    }
+    echo '</tbody></table></div></div>';
+};
+$percent = fn (?float $p): string => $p === null ? '–' : e(format_count($p, 1)) . ' %';
 ?>
 <?php if (!$isEnabled): ?>
 <p class="hlaska hlaska-chyba"><?= e(t('Analytics is turned off. Turn it on in Settings → Analytics.')) ?></p>
 <?php endif ?>
 <nav class="zalozky" aria-label="<?= e(t('Period')) ?>">
-<?php foreach ([7, 30, 90] as $d): ?>
+<?php foreach (Kaleta\Core\Report::PERIODS as $d): ?>
 	<a href="<?= e($module->url('', ['dni' => $d])) ?>"<?= $days === $d ? ' class="aktivni" aria-current="page"' : '' ?>><?= e(t('%s days', $d)) ?></a>
 <?php endforeach ?>
 </nav>
 <div class="dlazdice">
-	<div class="dlazdice-polozka"><strong><?= format_count($visits) ?></strong><span><?= e(t('Visits')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= format_count($views) ?></strong><span><?= e(t('Page views')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= $visits > 0 ? format_count($views / $visits, 1) : '0' ?></strong><span><?= e(t('Pages per visit')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= format_count((int) $totals['visits']) ?></strong><span><?= e(t('Visits')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= format_count((int) $totals['views']) ?></strong><span><?= e(t('Page views')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= format_count((int) $totals['enquiries'] + (int) $totals['signups']) ?></strong><span><?= e(t('Leads (enquiries and sign-ups)')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= $percent($totals['conversion']) ?></strong><span><?= e(t('Visits that became a lead')) ?></span></div>
 </div>
 <h2><?= e(t('Page views and visits by day')) ?></h2>
 <div class="graf" role="img" aria-label="<?= e(t('Bar chart of page views by day')) ?>">
-<?php foreach ($chart as $day => $h): ?>
-<?php $dayLabel = t('%s: %s page views, %s visits', format_date($day), $h['zobrazeni'], $h['navstevy']); ?>
-	<div class="graf-sloupec" data-tip="<?= e($dayLabel) ?>" aria-label="<?= e($dayLabel) ?>" tabindex="0"><i data-tip-kotva style="height:<?= round($h['zobrazeni'] / $max * 100, 1) ?>%"><b style="height:<?= $h['zobrazeni'] > 0 ? round($h['navstevy'] / $h['zobrazeni'] * 100, 1) : 0 ?>%"></b></i></div>
+<?php foreach ($chart as $h): ?>
+<?php $dayLabel = t('%s: %s page views, %s visits', format_date($h['day']), $h['views'], $h['visits']) . ($h['enquiries'] + $h['signups'] > 0 ? ', ' . t('%s leads', $h['enquiries'] + $h['signups']) : ''); ?>
+	<div class="graf-sloupec" data-tip="<?= e($dayLabel) ?>" aria-label="<?= e($dayLabel) ?>" tabindex="0"><i data-tip-kotva style="height:<?= round($h['views'] / $max * 100, 1) ?>%"><b style="height:<?= $h['views'] > 0 ? round($h['visits'] / $h['views'] * 100, 1) : 0 ?>%"></b></i></div>
 <?php endforeach ?>
 </div>
-<p class="smltxt"><?= e(format_date(array_key_first($chart))) ?> – <?= e(format_date(array_key_last($chart))) ?> · <?= e(t('the light part of each bar is page views, the dark part visits. Measurement uses no cookies and stores no IP addresses; bots are not counted.')) ?></p>
+<p class="smltxt"><?= e(format_date($chart[0]['day'])) ?> – <?= e(format_date($chart[count($chart) - 1]['day'])) ?> · <?= e(t('the light part of each bar is page views, the dark part visits. Measurement uses no cookies and stores no IP addresses; bots are not counted.')) ?></p>
 
 <div class="stat-tabulky">
-<div>
-<h2><?= e(t('Most visited pages')) ?></h2>
-<?php if ($pages === []): ?><p><?= e(t('No data yet.')) ?></p><?php else: ?>
-<div class="tab-obal"><table class="vypis"><tbody>
-<?php foreach ($pages as $pageRow): ?>
-<tr><td><a href="<?= e($pageRow['cesta']) ?>" target="_blank" rel="noopener"><?= e($pageRow['cesta']) ?></a></td><td class="cislo"><?= format_count((int) $pageRow['pocet']) ?>×</td></tr>
-<?php endforeach ?>
-</tbody></table></div>
-<?php endif ?>
+<?php
+$table('Pages that bring leads', $report['pages'], [
+    'Page' => fn (array $r): string => '<a href="' . e($r['path']) . '" target="_blank" rel="noopener">' . e($r['path']) . '</a>',
+    'Views' => fn (array $r): string => format_count((int) $r['views']),
+    'Enquiries / sign-ups' => $leads,
+    'Conversion' => fn (array $r): string => $percent($r['conversion']),
+]);
+$table('Campaigns', $report['campaigns'], [
+    'Campaign (source / medium / name)' => fn (array $r): string => e($r['campaign']),
+    'Visits' => fn (array $r): string => format_count((int) $r['visits']),
+    'Enquiries / sign-ups' => $leads,
+], 'No visits from links with utm parameters yet.');
+$table('First pages of visits that brought a lead', $report['landing_pages'], [
+    'Page' => fn (array $r): string => e($r['path']),
+    'Enquiries / sign-ups' => $leads,
+], 'Known only for visitors who allowed marketing cookies in the cookie bar.');
+$table('Where visitors come from', $report['referrers'], [
+    'Site' => fn (array $r): string => e($r['site']),
+    'Visits' => fn (array $r): string => format_count((int) $r['visits']),
+]);
+$table('Devices', $report['devices'], [
+    'Device' => fn (array $r): string => e(t(['phone' => 'Phone', 'tablet' => 'Tablet', 'computer' => 'Computer'][$r['device']] ?? $r['device'])),
+    'Visits' => fn (array $r): string => format_count((int) $r['visits']),
+]);
+$table('Pop-ups', $report['popups'], [
+    'Pop-up' => fn (array $r): string => e($r['popup']) . ($r['active'] ? '' : ' <span class="stitek">' . e(t('inactive')) . '</span>'),
+    'Views' => fn (array $r): string => format_count((int) $r['views']),
+    'Conversions' => fn (array $r): string => format_count((int) $r['conversions']),
+    'Conversion' => fn (array $r): string => $percent($r['conversion']),
+], 'The site has no pop-ups.');
+$table('Most read news', $report['news'], [
+    'News item' => fn (array $r): string => '<a href="' . e($app->url('admin.php?module=news&action=edit&id=' . (int) $r['id'])) . '">' . e($r['title']) . '</a>',
+    'Views' => fn (array $r): string => format_count((int) $r['views']),
+]);
+?>
 </div>
-<div>
-<h2><?= e(t('Most read news')) ?></h2>
-<?php if ($newsItems === []): ?><p><?= e(t('No data yet.')) ?></p><?php else: ?>
-<div class="tab-obal"><table class="vypis"><tbody>
-<?php foreach ($newsItems as $c): ?>
-<tr><td><a href="<?= e($app->url('admin.php?module=news&action=edit&id=' . (int) $c['idc'])) ?>"><?= e($c['titulek']) ?></a></td><td class="cislo"><?= format_count((int) $c['pocet']) ?>×</td></tr>
-<?php endforeach ?>
-</tbody></table></div>
-<?php endif ?>
-</div>
-<div>
-<h2><?= e(t('Where visitors come from')) ?></h2>
-<?php if ($sources === []): ?><p><?= e(t('No data yet.')) ?></p><?php else: ?>
-<div class="tab-obal"><table class="vypis"><tbody>
-<?php foreach ($sources as $z): ?>
-<tr><td><?= e($z['zdroj']) ?></td><td class="cislo"><?= format_count((int) $z['pocet']) ?>×</td></tr>
-<?php endforeach ?>
-</tbody></table></div>
-<?php endif ?>
-</div>
-</div>
+<p class="smltxt"><?= e(t('Pop-up counters run since the pop-up was made or reset. Claude reads the same report with get_stats.')) ?></p>

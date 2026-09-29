@@ -1464,6 +1464,40 @@ mcp update_settings "{\"settings\":{\"extensions\":[\"$(printf %s "$EXT_BEFORE" 
 mcp_text; contains -q 'Unknown language codes: xx' "$WORK/text" && contains -q '"asistent"' "$WORK/text" && expect "extensions, SEO switches and languages over MCP, checked" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'llms_txt'")" 0 || { echo "  CHYBA  settings parity"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp update_settings "{\"settings\":{\"extensions\":[\"$(printf %s "$EXT_BEFORE" | sed 's/,/","/g')\"],\"llms_txt\":\"1\"}}" > /dev/null
 check "OAuth metadata for a site in a subfolder (openid-configuration)" 200 "/.well-known/openid-configuration" '"token_endpoint"'
+
+echo "== 2.3: leads, statistics, forms, embeds, page head code, accessibility audit"
+"${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'"
+curl -s -o /dev/null -A 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148' "$B/?utm_source=facebook&utm_medium=paid&utm_campaign=autumn"
+expect "a visit from a campaign on a phone counts in the statistics" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(COALESCE((SELECT SUM(navstevy) FROM ka_stat_kampane WHERE kampan = 'facebook / paid / autumn'), 0), '|', COALESCE((SELECT SUM(navstevy) FROM ka_stat_zarizeni WHERE zarizeni = 'phone'), 0) > 0)")" "1|1"
+# a form with ticked options and a hidden value, an embed and code in the head of one page
+mcp vytvor_stranku '{"titulek":"Leads 23","zobrazit":true}' > "$WORK/response"; mcp_text; PAGE23=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
+mcp stavba_uloz "{\"id\":$PAGE23,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"typ\":\"formular\",\"obsah\":{\"nazev\":\"Poptavka 23\",\"pole\":[{\"popisek\":\"Sluzby\",\"typ\":\"zaskrtnuti\",\"povinne\":true,\"moznosti_zaskrtnuti\":\"Kuchyne\\nKoupelna\"},{\"popisek\":\"Produkt\",\"typ\":\"skryte\",\"hodnota\":\"Dubovy stul\"},{\"popisek\":\"Email\",\"typ\":\"email\",\"povinne\":true}]}},{\"typ\":\"vlozeni\",\"obsah\":{\"adresa\":\"https://calendly.com/acme/consultation\",\"titulek\":\"Book a consultation\"}},{\"typ\":\"vlozeni\",\"obsah\":{\"adresa\":\"https://evil.example/x\"}}]}]}}" > /dev/null
+mcp update_page "{\"id\":$PAGE23,\"head_code\":\"<meta name=\\\"kaleta-test\\\" content=\\\"23\\\">\"}" > /dev/null
+rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/formular.html" "$B/leads-23"
+grep -q 'type="checkbox" name="p0\[\]" value="Kuchyne"' "$WORK/formular.html" && ! grep -q 'Dubovy stul' "$WORK/formular.html" && echo "  ok     ticked options on the page, the hidden value not" || { echo "  CHYBA  checkboxes / hidden field"; ERRORS=$((ERRORS+1)); }
+grep -q 'data-vlozit="https://calendly.com/acme/consultation?embed_type=Inline&amp;hide_gdpr_banner=1"' "$WORK/formular.html" && ! grep -q 'evil.example' "$WORK/formular.html" && echo "  ok     Embed: a known service after a click, anything else not at all" || { echo "  CHYBA  Embed"; ERRORS=$((ERRORS+1)); }
+grep -q '<meta name="kaleta-test" content="23">' "$WORK/formular.html" && ! curl -s "$B/" | grep -q 'kaleta-test' && echo "  ok     code in the head of one page only" || { echo "  CHYBA  page head code"; ERRORS=$((ERRORS+1)); }
+mcp_as "$DRAFT_TOKEN" update_page "{\"id\":$PAGE23,\"head_code\":\"<script>x()</script>\"}" > "$WORK/response"
+contains -q 'connection with full access' "$WORK/response" && echo "  ok     a drafts-only connection cannot set head code (it is live at once)" || { echo "  CHYBA  drafts: head code"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+FORM_SOURCE=$(field_value zdroj); FORM_ELEMENT=$(field_value prvek); FORM_TIME=$(field_value as_cas); FORM_SIGNATURE=$(field_value as_podpis); sleep 4
+curl -s -o /dev/null -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/leads-23 -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" -d 'p0[]=Koupelna' --data-urlencode p2=petr@example.cz \
+  -d ka_vstup=/sluzby --data-urlencode "ka_kampan=utm_source=google&utm_medium=cpc&utm_campaign=kuchyne" -d ka_odkud=google.com
+expect "an enquiry carries the first page, the campaign and the referring site of the visit" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(vstup, '|', odkud, '|', kampan) FROM ka_poptavky WHERE email = 'petr@example.cz'")" "/sluzby|google.com|utm_source=google&utm_medium=cpc&utm_campaign=kuchyne"
+mcp get_stats '{"days":7}' > "$WORK/response"; mcp_text
+contains -q '"campaign":"google / cpc / kuchyne"' "$WORK/text" && contains -q '"device":"phone"' "$WORK/text" && contains -q '"path":"/sluzby"' "$WORK/text" && echo "  ok     get_stats: campaigns, devices and the first pages of leads" || { echo "  CHYBA  get_stats"; head -c 500 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+check "Statistics: pages, campaigns and first pages that bring leads" 200 "/admin.php?module=stats&dni=7" "google / cpc / kuchyne"
+case "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/leads-23 -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" --data-urlencode p2=tick@example.cz)" in *vysledek=pole\&pole=0*) echo "  ok     a required group needs at least one ticked option";; *) echo "  CHYBA  required checkbox group"; ERRORS=$((ERRORS+1));; esac
+curl -s -o /dev/null -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/leads-23 -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" -d 'p0[]=Kuchyne' -d 'p0[]=Podvrh' -d p1=Hacked --data-urlencode p2=tick@example.cz
+expect "ticked options (only offered ones) and the form's own hidden value are saved" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT data FROM ka_poptavky WHERE email = 'tick@example.cz'")" '[["Sluzby","Kuchyne"],["Produkt","Dubovy stul"],["Email","tick@example.cz"]]'
+# accessibility in the site audit
+mcp vytvor_stranku '{"titulek":"Access 23","zobrazit":true,"text":"<p>Prices: <a href=\"/sluzby\">click here</a>.</p><table><tr><td>1</td></tr></table>"}' > /dev/null
+mcp site_audit '{"kind":"accessibility"}' > "$WORK/response"; mcp_text
+contains -q 'click here' "$WORK/text" && contains -q 'header cells' "$WORK/text" && contains -q 'accessibility statement' "$WORK/text" && echo "  ok     site audit: link texts, tables and the accessibility statement" || { echo "  CHYBA  accessibility audit"; head -c 500 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+# the cookie bar: remembering leads needs consent to marketing; Global Privacy Control counts as "only necessary"
+mcp update_settings '{"settings":{"cookies_mode":"vestavena","lead_attribution":"1"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/response" "$B/leads-23"
+grep -q 'data-kategorie="marketing"' "$WORK/response" && grep -q 'ka-puvod' "$WORK/response" && grep -q 'globalPrivacyControl' "$WORK/response" && grep -q 'name="ka_vstup"' "$WORK/response" && echo "  ok     cookie bar: marketing consent for lead origins, Global Privacy Control" || { echo "  CHYBA  cookie bar with lead attribution"; ERRORS=$((ERRORS+1)); }
+mcp update_settings '{"settings":{"lead_attribution":"0"}}' > /dev/null
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kontrola_ip WHERE typ = 'login'" # limit přihlášení z IP vyčerpal test zámku účtu
 JAR5="$WORK/jar5"
 curl -s -c "$JAR5" -b "$JAR5" -o /dev/null "$B/oauth/authorize?response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=$CHALLENGE&code_challenge_method=S256&state=nove"

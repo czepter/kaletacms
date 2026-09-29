@@ -16,7 +16,10 @@ use Kaleta\Builder\Check;
  *  - pages and item pages without a description, duplicate titles;
  *  - menu items pointing at hidden or deleted pages;
  *  - the builder check of every published build: buttons without a link, images without alt, the heading outline;
- *  - the most frequent addresses that end in 404 and have no redirect.
+ *  - the most frequent addresses that end in 404 and have no redirect;
+ *  - accessibility (2.3, the European Accessibility Act, WCAG 2.2 AA): colour contrast of the design system, links that
+ *    do not say where they lead, images in text without alt, empty links, tables without header cells, frames without a
+ *    title, and whether the site has an accessibility statement.
  *
  * Runs on demand only: a company site has hundreds of rows, not millions.
  */
@@ -25,7 +28,7 @@ final class Audit
     /** Kinds of findings in the order they are shown. */
     public const array KINDS = [
         'link' => 'Broken links', 'menu' => 'Menu', 'description' => 'Missing descriptions', 'title' => 'Duplicate titles',
-        'build' => 'Buttons, images and headings', 'not_found' => 'Frequent 404 errors',
+        'build' => 'Buttons, images and headings', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors',
     ];
 
     /** At most this many findings of one kind – beyond that the list would not help anyone. */
@@ -52,6 +55,7 @@ final class Audit
         $this->collections();
         $this->menus();
         $this->news();
+        $this->accessibility();
         $this->notFound();
         $order = array_flip(array_keys(self::KINDS));
         $counts = [];
@@ -198,6 +202,111 @@ final class Audit
         foreach ($db->all('SELECT v.idc, v.url, v.stav, c.titulek, c.seo_link, c.jazyk FROM {odkazy_vadne} v JOIN {novinky} c ON c.idc = v.idc WHERE c.smazano IS NULL LIMIT 200') as $v) {
             $this->add('link', t('News item “%s”', $v['titulek']), t('The link %s does not work (%s).', $v['url'], (int) $v['stav'] === 0 ? t('no response') : 'HTTP ' . (int) $v['stav']), 'admin.php?module=news&action=edit&id=' . (int) $v['idc'],
                 $this->relative($this->app->newsItemUrl((string) $v['seo_link'], (string) $v['jazyk'])), ['news' => (int) $v['idc']]);
+        }
+    }
+
+    /** Link texts that do not say where the link leads (screen reader users often list the links of a page on their own). */
+    private const string VAGUE_LINK = '/^(click here|here|read more|more|learn more|details|link|this|zde|sem|tady|klikněte sem|klikněte zde|více|číst dál|číst více|'
+        . 'hier|mehr|weiterlesen|mehr erfahren|ici|cliquez ici|plus|en savoir plus|aquí|haz clic aquí|más|leer más|qui|clicca qui|di più|leggi di più|'
+        . 'tutaj|kliknij tutaj|więcej|czytaj więcej|tu|kliknite sem|viac|čítať ďalej)[.!…]?$/iu';
+
+    /** Page addresses of an accessibility statement in the site languages. */
+    private const string STATEMENT = '/(accessibility|pristupnost|prístupnosť|pristupnost|barrierefreiheit|accessibilite|accesibilidad|accessibilita|dostepnosc)/i';
+
+    private function accessibility(): void
+    {
+        $db = $this->app->db();
+        $s = $this->app->settings();
+        // the design system: text and buttons in light and (when the site has it) dark mode
+        $ds = \Kaleta\Builder\DesignSystem::load($s);
+        $looks = ['' => $ds] + ($s->get('dark_mode') !== 'vypnuto' ? [t(' (dark mode)') => ['barvy' => $ds['barvy_tmave'] + $ds['barvy']] + $ds] : []);
+        foreach ($looks as $suffix => $look) {
+            foreach (\Kaleta\Builder\DesignSystem::contrasts($look) as $c) {
+                if (!$c['ok']) {
+                    $this->add('accessibility', t('Site appearance') . $suffix, t('%s has a contrast of %s : 1 – text needs at least 4.5 : 1.', t($c['popis']), number_format($c['pomer'], 1)),
+                        'admin.php?module=appearance', null, ['look' => 'design_system']);
+                }
+            }
+        }
+        $home = (int) $s->get('home_page');
+        $statement = false;
+        foreach ($db->all('SELECT ids, titulek, seo_link, text, stavba FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1') as $p) {
+            $statement = $statement || preg_match(self::STATEMENT, (string) $p['seo_link']) === 1;
+            $build = $p['stavba'] !== null ? Build::fromJson((string) $p['stavba']) : null;
+            $edit = $build !== null ? 'admin.php?module=pages&action=builder&id=' . (int) $p['ids'] : 'admin.php?module=pages&action=edit&id=' . (int) $p['ids'];
+            $this->accessibleContent($build, (string) $p['text'], t('Page “%s”', $p['titulek']), $edit, (int) $p['ids'] === $home ? '' : (string) $p['seo_link'], ['page' => (int) $p['ids']]);
+        }
+        if (Extensions::isEnabled($s, 'novinky')) {
+            foreach ($db->all('SELECT idc, titulek, seo_link, jazyk, uvod, text FROM {novinky} WHERE visible = 1 AND smazano IS NULL ORDER BY datum DESC LIMIT 500') as $c) {
+                $this->accessibleContent(null, $c['uvod'] . ' ' . $c['text'], t('News item “%s”', $c['titulek']), 'admin.php?module=news&action=edit&id=' . (int) $c['idc'],
+                    $this->relative($this->app->newsItemUrl((string) $c['seo_link'], (string) $c['jazyk'])), ['news' => (int) $c['idc']]);
+            }
+        }
+        if (!$statement) {
+            $this->add('accessibility', t('The whole site'), t('No accessibility statement – the European Accessibility Act expects a service to say how accessible it is and whom to contact about barriers. Add a page such as /accessibility.'),
+                'admin.php?module=pages', null, ['site' => 'accessibility_statement']);
+        }
+    }
+
+    /**
+     * Accessibility of one page or news item: the HTML of its text and of the text elements of its build, and the button
+     * texts of the build.
+     *
+     * @param array<string, mixed>|null $build
+     * @param array<string, int|string> $target
+     */
+    private function accessibleContent(?array $build, string $text, string $where, string $edit, ?string $url, array $target): void
+    {
+        $fragments = [[$text, null]];
+        $walk = function (array $nodes) use (&$walk, &$fragments, $where, $edit, $url, $target): void {
+            foreach ($nodes as $n) {
+                if (!is_array($n)) {
+                    continue;
+                }
+                $content = is_array($n['obsah'] ?? null) ? $n['obsah'] : [];
+                foreach (['html', 'text'] as $key) {
+                    if (is_string($content[$key] ?? null) && str_contains($content[$key], '<')) {
+                        $fragments[] = [$content[$key], (string) ($n['id'] ?? '')];
+                    }
+                }
+                if (($n['typ'] ?? '') === 'tlacitko' && is_string($content['text'] ?? null) && preg_match(self::VAGUE_LINK, trim(strip_tags($content['text'])))) {
+                    $this->add('accessibility', $where, t('The button “%s” does not say what it does – screen readers read buttons and links on their own.', trim(strip_tags($content['text']))), $edit, $url, $target, (string) ($n['id'] ?? ''));
+                }
+                if (is_array($n['deti'] ?? null)) {
+                    $walk($n['deti']);
+                }
+            }
+        };
+        if ($build !== null) {
+            $walk($build['deti'] ?? []);
+        }
+        foreach ($fragments as [$html, $element]) {
+            if ($html === '' || !str_contains($html, '<')) {
+                continue;
+            }
+            $found = [];
+            preg_match_all('#<img\b(?![^>]*\balt=)[^>]*>#i', $html, $m);
+            if ($m[0] !== []) {
+                $found[] = t('An image in the text has no description for blind visitors (alt).');
+            }
+            preg_match_all('#<a\b([^>]*)>(.*?)</a>#is', $html, $links, PREG_SET_ORDER);
+            foreach ($links as [, $attributes, $inner]) {
+                $label = trim(html_entity_decode(strip_tags($inner), ENT_QUOTES | ENT_HTML5));
+                if ($label === '' && !preg_match('/aria-label=|title=/i', $attributes) && !preg_match('#<img\b[^>]*\balt="[^"]+#i', $inner)) {
+                    $found[] = t('A link has no text – a screen reader has nothing to read.');
+                } elseif ($label !== '' && preg_match(self::VAGUE_LINK, $label)) {
+                    $found[] = t('The link “%s” does not say where it leads – screen readers read links on their own.', $label);
+                }
+            }
+            if (preg_match('#<table\b#i', $html) && !preg_match('#<th\b#i', $html)) {
+                $found[] = t('A table has no header cells (th) – screen readers cannot tell what the columns mean.');
+            }
+            if (preg_match('#<iframe\b(?![^>]*\btitle=)#i', $html)) {
+                $found[] = t('An embedded frame (iframe) has no title.');
+            }
+            foreach (array_unique($found) as $message) {
+                $this->add('accessibility', $where, $message, $edit, $url, $target, $element);
+            }
         }
     }
 

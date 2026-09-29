@@ -112,6 +112,7 @@
             "content": "string",
             "copy_build": "boolean",
             "description": "string",
+            "head_code": "string",
             "in_menu": "boolean",
             "language": "string",
             "noindex": "boolean",
@@ -370,6 +371,17 @@
         "required": [
             "id"
         ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "get_stats": {
+        "parameters": {
+            "days": "integer"
+        },
+        "required": [],
         "annotations": {
             "readOnlyHint": true,
             "destructiveHint": false,
@@ -1072,6 +1084,7 @@
             "content": "string",
             "copy_build": "boolean",
             "description": "string",
+            "head_code": "string",
             "id": "integer",
             "in_menu": "boolean",
             "language": "string",

@@ -228,6 +228,7 @@ CREATE TABLE ka_stranky (
     text     MEDIUMTEXT NOT NULL,
     zobrazit BOOL NOT NULL DEFAULT 1,
     zverejnit_od DATETIME NULL,                          -- a hidden page publishes itself at this moment
+    kod_hlavicky TEXT NULL,                              -- code for <head> of this page only (administrators, 2.3)
     v_menu   BOOL NOT NULL DEFAULT 1,                     -- link in the site footer / navigation
     poradi   SMALLINT UNSIGNED NOT NULL DEFAULT 100,
     zmeneno  DATETIME NULL,
@@ -331,6 +332,20 @@ CREATE TABLE ka_stat_stranky (
     cesta VARCHAR(255) NOT NULL,
     pocet INT UNSIGNED NOT NULL DEFAULT 0,
     PRIMARY KEY (den, cesta)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Campaigns (utm_source / utm_medium / utm_campaign of the page a visit started on) and devices of the visits (2.3)
+CREATE TABLE ka_stat_kampane (
+    den      DATE NOT NULL,
+    kampan   VARCHAR(255) NOT NULL,
+    navstevy INT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (den, kampan)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+CREATE TABLE ka_stat_zarizeni (
+    den      DATE NOT NULL,
+    zarizeni VARCHAR(10) NOT NULL,                        -- phone | tablet | computer
+    navstevy INT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (den, zarizeni)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 CREATE TABLE ka_stat_zdroje (
@@ -468,7 +483,9 @@ CREATE TABLE ka_poptavky (
     zdroj    VARCHAR(40) NOT NULL DEFAULT '',
     prvek    VARCHAR(16) NOT NULL DEFAULT '',
     stranka  VARCHAR(255) NOT NULL DEFAULT '',
-    kampan   VARCHAR(255) NOT NULL DEFAULT '',          -- utm_* parameters of the page with the form
+    vstup    VARCHAR(255) NOT NULL DEFAULT '',          -- the first page of the visit (2.3; only with consent to marketing)
+    odkud    VARCHAR(100) NOT NULL DEFAULT '',          -- the site that sent the visitor (2.3; likewise)
+    kampan   VARCHAR(255) NOT NULL DEFAULT '',          -- utm_* parameters of the page with the form (or of the visit, 2.3)
     email    VARCHAR(190) NOT NULL DEFAULT '',
     data     MEDIUMTEXT NOT NULL,
     stav     TINYINT UNSIGNED NOT NULL DEFAULT 0,
@@ -602,6 +619,8 @@ CREATE TABLE ka_odberatele (
     stav      TINYINT UNSIGNED NOT NULL DEFAULT 0,       -- 0 awaiting confirmation, 1 confirmed
     token     CHAR(32)     NOT NULL,                     -- confirming and unsubscribing via a link
     zdroj     VARCHAR(255) NOT NULL DEFAULT '',          -- the page they subscribed from
+    kampan    VARCHAR(255) NOT NULL DEFAULT '',          -- utm_* of the page or of the visit (2.3)
+    vstup     VARCHAR(255) NOT NULL DEFAULT '',          -- the first page of the visit (2.3; only with consent to marketing)
     datum     DATETIME     NOT NULL,
     potvrzeno DATETIME     NULL,
     sync       VARCHAR(10)  NOT NULL DEFAULT '',          -- mailing service: '' nothing, ceka, ok, chyba

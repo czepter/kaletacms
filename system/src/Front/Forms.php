@@ -23,6 +23,27 @@ final class Forms
     /** How many messages one IP address can send in 10 minutes. */
     private const int LIMIT = 5;
 
+    /**
+     * Where a lead came from (2.3): the first page of the visit, its campaign and the site that sent the visitor. The cookie
+     * bar fills these fields only when the visitor allowed marketing (views/front/cookies.php); otherwise they stay empty.
+     */
+    public const string ATTRIBUTION_FIELDS = '<input type="hidden" name="ka_vstup" value=""><input type="hidden" name="ka_kampan" value=""><input type="hidden" name="ka_odkud" value="">';
+
+    /**
+     * The attribution a form sent, checked: [first page (a path on the site), campaign (utm_* query), referring site (host)].
+     *
+     * @return array{0: string, 1: string, 2: string}
+     */
+    public static function attribution(\Kaleta\Core\Request $r): array
+    {
+        $landing = $r->post('ka_vstup');
+        $landing = preg_match('#^/[^\s\\\\<>"]{0,254}$#', $landing) && !str_starts_with($landing, '//') ? $landing : '';
+        $campaign = self::campaign('https://site.invalid/?' . $r->post('ka_kampan'), 'https://site.invalid');
+        $referrer = strtolower($r->post('ka_odkud'));
+
+        return [$landing, $campaign, preg_match('/^[a-z0-9.-]{3,100}$/', $referrer) ? $referrer : ''];
+    }
+
     public function __construct(private readonly App $app)
     {
     }
@@ -75,6 +96,19 @@ final class Forms
                 }
                 continue;
             }
+            if ($field['typ'] === 'skryte') {
+                // the form's own value, never the visitor's (2.3)
+                $data[] = [$field['popisek'], mb_substr(trim((string) ($field['hodnota'] ?? '')), 0, 300)];
+                continue;
+            }
+            if ($field['typ'] === 'zaskrtnuti') {
+                $ticked = array_values(array_intersect(Form::options($field), $r->postList('p' . $i)));
+                if ($field['povinne'] && $ticked === []) {
+                    return $redirectUri('pole', $i);
+                }
+                $data[] = [$field['popisek'], implode(', ', $ticked)];
+                continue;
+            }
             $value = trim(str_replace("\r\n", "\n", $r->post('p' . $i)));
             $value = match ($field['typ']) {
                 'textarea' => mb_substr($value, 0, 5000),
@@ -106,13 +140,15 @@ final class Forms
         }
 
         $db = $this->app->db();
-        $campaign = self::campaign($r->referer(), $r->origin());
+        [$landing, $visitCampaign, $referrer] = self::attribution($r);
+        // the campaign of the page with the form, otherwise the campaign the visit started with (with consent, 2.3)
+        $campaign = self::campaign($r->referer(), $r->origin()) ?: $visitCampaign;
         $idp = $db->insert('poptavky', [
             'datum' => date('Y-m-d H:i:s'), 'formular' => mb_substr((string) $element['obsah']['nazev'], 0, 120), 'zdroj' => $source, 'prvek' => $element['id'],
-            'stranka' => mb_substr($back, 0, 255), 'kampan' => $campaign, 'email' => $email, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'stav' => 0,
+            'stranka' => mb_substr($back, 0, 255), 'vstup' => $landing, 'odkud' => $referrer, 'kampan' => $campaign, 'email' => $email, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'stav' => 0,
         ]);
         $this->notify($idp, $element, $data, $email, $campaign);
-        \Kaleta\Core\Webhook::enquiryReceived($this->app, $idp, (string) $element['obsah']['nazev'], $data, $email, $back, $campaign);
+        \Kaleta\Core\Webhook::enquiryReceived($this->app, $idp, (string) $element['obsah']['nazev'], $data, $email, $back, $campaign, $landing, $referrer, (string) $element['id']);
         if (!empty($element['obsah']['potvrzeni']) && $email !== '') {
             // confirmation to the sender: only the thank-you text and the form name – not the message content, so the form
             // cannot be abused to send out other people's texts

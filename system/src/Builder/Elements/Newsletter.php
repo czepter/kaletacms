@@ -65,7 +65,7 @@ final class Newsletter extends Element
             . '<div class="ka-newsletter-radek"><input type="email" id="' . e($id) . '-email" name="email" autocomplete="email" required maxlength="190" placeholder="' . e(t('you@example.com')) . '">'
             . '<button type="submit">' . e($o['tlacitko']) . '</button></div>'
             . ($o['souhlas'] !== '' ? '<small>' . e($o['souhlas']) . '</small>' : '')
-            . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '"><input type="hidden" name="kotva" value="' . e($anchor) . '">'
+            . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '"><input type="hidden" name="kotva" value="' . e($anchor) . '">' . \Kaleta\Front\Forms::ATTRIBUTION_FIELDS
             . $antispam->fields('odber') . '</form>';
     }
 }

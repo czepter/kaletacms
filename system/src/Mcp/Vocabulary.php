@@ -29,7 +29,7 @@ final class Vocabulary
     public const array TYPES = [
         'sekce' => 'section', 'kontejner' => 'container', 'mrizka' => 'grid', 'nadpis' => 'heading', 'text' => 'text', 'obrazek' => 'image', 'tlacitko' => 'button',
         'seznam' => 'list', 'citat' => 'testimonial', 'faq' => 'faq', 'video' => 'video', 'oddelovac' => 'divider', 'ikona' => 'icon', 'galerie' => 'gallery',
-        'zalozky' => 'tabs', 'karusel' => 'carousel', 'mapa' => 'map', 'drobecky' => 'breadcrumbs', 'pocitadlo' => 'counter',
+        'zalozky' => 'tabs', 'karusel' => 'carousel', 'mapa' => 'map', 'vlozeni' => 'embed', 'drobecky' => 'breadcrumbs', 'pocitadlo' => 'counter',
         'prubeh' => 'progress_bars', 'hodnoceni' => 'rating', 'odpocet' => 'countdown', 'socialni' => 'social_links', 'hledani' => 'search', 'novinky' => 'news_list',
         'kolekce' => 'collection_list', 'formular' => 'form', 'newsletter' => 'newsletter_signup', 'komponenta' => 'component', 'html' => 'custom_html',
         'nahoru' => 'back_to_top', 'logo' => 'logo', 'navigace' => 'navigation', 'jazyky' => 'language_switcher', 'udaje' => 'company_details', 'obsah' => 'page_content',
@@ -41,7 +41,7 @@ final class Vocabulary
         'priorita' => 'priority', 'varianta' => 'variant', 'nove_okno' => 'new_window', 'ikona' => 'icon', 'ikona_vlevo' => 'icon_left', 'polozky' => 'items',
         'styl' => 'style', 'autor' => 'author', 'pozice' => 'position', 'jedna' => 'single_open', 'faq' => 'faq_schema', 'url' => 'url', 'titulek' => 'title',
         'plakat' => 'poster', 'tvar' => 'shape', 'popis' => 'description', 'fotky' => 'photos', 'pomer' => 'ratio', 'karty' => 'tabs', 'naraz' => 'per_view',
-        'adresa' => 'address', 'priblizeni' => 'zoom', 'cislo' => 'number', 'pred' => 'prefix', 'za' => 'suffix',
+        'adresa' => 'address', 'priblizeni' => 'zoom', 'vyska' => 'height', 'cislo' => 'number', 'pred' => 'prefix', 'za' => 'suffix',
         'hodnota' => 'value', 'cil' => 'target', 'konec' => 'end_text', 'nazvy' => 'show_names', 'napoveda' => 'placeholder', 'tlacitko' => 'button_text',
         'pocet' => 'count', 'kategorie' => 'category', 'obrazky' => 'images', 'kolekce' => 'collection', 'razeni' => 'sort', 'razeni_pole' => 'sort_field',
         'filtr_pole' => 'filter_field', 'filtr_hodnota' => 'filter_value', 'bez_aktualni' => 'exclude_current', 'filtry' => 'filters', 'strankovani' => 'pagination',
@@ -56,10 +56,10 @@ final class Vocabulary
 
     /** Fields of items (FAQ, gallery photos, tabs, progress bars, form fields). */
     public const array ITEMS = ['otazka' => 'question', 'odpoved' => 'answer', 'src' => 'src', 'alt' => 'alt', 'nazev' => 'name', 'obsah' => 'content', 'hodnota' => 'value',
-        'popisek' => 'label', 'typ' => 'type', 'povinne' => 'required', 'moznosti' => 'options', 'moznosti_volby' => 'choices'];
+        'popisek' => 'label', 'typ' => 'type', 'povinne' => 'required', 'moznosti' => 'options', 'moznosti_volby' => 'choices', 'moznosti_zaskrtnuti' => 'checkbox_options'];
 
     public const array ITEM_VALUES = ['typ' => ['text' => 'text', 'email' => 'email', 'tel' => 'tel', 'textarea' => 'textarea', 'vyber' => 'select', 'volba' => 'radio',
-        'datum' => 'date', 'cislo' => 'number', 'soubor' => 'file', 'souhlas' => 'checkbox']];
+        'datum' => 'date', 'cislo' => 'number', 'soubor' => 'file', 'souhlas' => 'checkbox', 'zaskrtnuti' => 'checkboxes', 'skryte' => 'hidden']];
 
     private const array ICONS = ['fajfka' => 'check', 'fajfka-kruh' => 'check-circle', 'hvezda' => 'star', 'srdce' => 'heart', 'telefon' => 'phone', 'email' => 'email',
         'misto' => 'place', 'hodiny' => 'clock', 'kalendar' => 'calendar', 'clovek' => 'person', 'lide' => 'people', 'dum' => 'home', 'stit' => 'shield',

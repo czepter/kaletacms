@@ -33,7 +33,7 @@ final class Tools
     private const int MAX_UPLOAD = 12 * 1024 * 1024;
 
     /** Settings MCP can change (the others – e-mail, webhooks, 2FA, mail, backups – only in the administration). */
-    private const string MCP_SETTINGS = '/^(site_name|site_description|footer_text|home_page|social_(facebook|instagram|x|youtube|linkedin)|news_per_page|share_buttons|article_outline|related_news_auto|company_[a-z_]+|security_contact|claude_instructions|dark_mode|theme_switcher|site_(name|description)_[a-z]{2}|indexing|schema_org|llms_txt|markdown_news|indexnow|ai_crawlers|robots_extra|verification_(google|bing)|cookies_(mode|text|policy_url|log|log_months|external_code)|marketing_code|head_code|stats|ga4_id|matomo_(url|id)|plausible_domain)$/';
+    private const string MCP_SETTINGS = '/^(site_name|site_description|footer_text|home_page|social_(facebook|instagram|x|youtube|linkedin)|news_per_page|share_buttons|article_outline|related_news_auto|company_[a-z_]+|security_contact|claude_instructions|lead_attribution|dark_mode|theme_switcher|site_(name|description)_[a-z]{2}|indexing|schema_org|llms_txt|markdown_news|indexnow|ai_crawlers|robots_extra|verification_(google|bing)|cookies_(mode|text|policy_url|log|log_months|external_code)|marketing_code|head_code|stats|ga4_id|matomo_(url|id)|plausible_domain)$/';
 
     public function __construct(private readonly App $app)
     {
@@ -78,6 +78,7 @@ final class Tools
             'preklad_z' => $number('ID protějšku ve výchozím jazyce (u stránky jiné jazykové verze) – přepínač jazyků a hreflang'),
             'kopie_stavby' => ['type' => 'boolean', 'description' => 'jen u nové stránky s preklad_z: koncept začne kopií stavby originálu – pro překlad pak stavba_nacti s jen_texty a stavba_uprav'],
             'zverejnit_od' => $text('naplánované zveřejnění skryté stránky RRRR-MM-DD HH:MM (jen na výslovný pokyn uživatele; prázdné = zrušit)'),
+            'kod_hlavicky' => $text('code for <head> of this page only (administrators, only when the user asks)'),
         ];
         $target = ['id' => $number('ID stránky'), 'cast' => $text('Místo stránky část webu (jen správce): ' . implode(' | ', array_keys(SiteParts::TYPES)) . ' – záhlaví, patička, obálky detailu novinky, výpisu a 404'),
             'jazyk' => $text('Jazyk části webu nebo šablony detailu kolekce u vícejazyčného webu (prázdné = výchozí)'),
@@ -218,8 +219,10 @@ final class Tools
                     'language' => $text('language version of the part (empty = default)'), 'variant' => $text('header or footer variant (empty = the default version)')], ['part', 'template'])],
             ['publish_look', 'Publishes the draft look – design system, shared classes and menus changed by update_design_system, save_classes and save_menu (administrators; only when the user explicitly asks, after they saw the preview). The published look is kept as a version first.', $s([])],
             ['discard_look', 'Throws the draft look away – the published look stays (administrators; only when the user explicitly asks).', $s([])],
-            ['site_audit', 'Site audit (read-only): links to pages that do not exist, broken external links in news, pages and item pages without a description, duplicate titles, menu items pointing at hidden pages, builder checks (buttons without a link, images without alt, heading outline) and frequent 404s without a redirect. Each finding says where it is (target: page / collection+item / part / component / popup / news / menu / redirect_from) and, for builds, the element id – fix it with the usual tools, then run the audit again.',
-                $s(['kind' => $text('only one kind: link | menu | description | title | build | not_found (optional)')])],
+            ['site_audit', 'Site audit (read-only): links to pages that do not exist, broken external links in news, pages and item pages without a description, duplicate titles, menu items pointing at hidden pages, builder checks (buttons without a link, images without alt, heading outline) and frequent 404s without a redirect. Each finding says where it is (target: page / collection+item / part / component / popup / news / menu / redirect_from) and, for builds, the element id – fix it with the usual tools, then run the audit again. Accessibility (European Accessibility Act, WCAG 2.2 AA): colour contrast of the design system, link and button texts that do not say where they lead, images in text without alt, empty links, tables without header cells, frames without a title, a missing accessibility statement.',
+                $s(['kind' => $text('only one kind: link | menu | description | title | build | accessibility | not_found (optional)')])],
+            ['get_stats', 'What is working (read-only; users with Statistics): visits, page views, devices, campaigns (utm) and the sites visitors come from, and the leads – enquiries and newsletter sign-ups – by page, first page of the visit, campaign and referring site, with conversion rates; pop-up views and conversions; most read news. Counts only, no personal data.',
+                $s(['days' => $number('period: 7, 30 (default), 90 or 365 days')])],
             ['list_changes', 'The change log (administrators; read-only): who changed what and when – people in the admin and Claude, with the connection a change came through. Newest first; the log keeps six months.',
                 $s(['by' => $text('people | claude (optional; default both)'), 'limit' => $number('how many, 1–200, default 50'), 'since' => $text('only changes from this day on, YYYY-MM-DD (optional)')])],
             ['ignore_not_found', 'Ignores addresses that ended with 404 (from list_redirects → not_found): a bot probe or an address nothing replaces. They leave the list and the start-screen warning for good. Redirect real old addresses with save_redirect instead. Only when the user asks.',
@@ -375,6 +378,14 @@ final class Tools
             if (array_key_exists($field, $a)) {
                 $data[$field] = $max > 0 ? mb_substr((string) $a[$field], 0, $max) : (string) $a[$field];
             }
+        }
+        if (array_key_exists('kod_hlavicky', $a)) {
+            // 2.3: e.g. the conversion tag of one landing page – administrators only, like the code for the whole site; it is
+            // live at once, so never through a connection limited to drafts
+            if (!$this->app->auth()->isAdmin() || !$this->app->auth()->canPublish()) {
+                throw new \DomainException('Code in the head of a page can be set only by an administrator, through a connection with full access.');
+            }
+            $data['kod_hlavicky'] = trim((string) $a['kod_hlavicky']) !== '' ? mb_substr((string) $a['kod_hlavicky'], 0, 20000) : null;
         }
         foreach (['uvod', 'text'] as $field) {
             if (isset($data[$field])) {

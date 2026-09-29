@@ -463,6 +463,7 @@ final class Kernel
         $meta = [
             'popis' => $page['popis'] !== '' ? $page['popis'] : ($home ? $this->app->settings()->get('site_description') : ''),
             'hlavni' => $home, 'obrazek' => $page['obrazek'], 'noindex' => (bool) $page['noindex'],
+            'kod_hlavicky' => (string) ($page['kod_hlavicky'] ?? ''), // code in <head> of this page only (2.3)
         ];
         // preview of the draft build for the editor: ?stavba=koncept (only whoever can edit pages), &editor=1 adds markers
         // for selecting elements

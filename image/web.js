@@ -409,9 +409,10 @@
 	document.addEventListener('click', function (e) {
 		var tl = e.target.closest && e.target.closest('[data-vlozit]');
 		if (!tl) { return; }
-		// only services the site embeds itself (YouTube without cookies, Vimeo, Google map) – never another URL nor javascript:
+		// only services the site embeds itself (YouTube without cookies, Vimeo, Google map, the Embed element's services –
+		// Builder\Elements\Embed::SERVICES) – never another URL nor javascript:
 		var address = tl.getAttribute('data-vlozit') || '';
-		if (!/^https:\/\/(www\.youtube-nocookie\.com\/embed\/|player\.vimeo\.com\/video\/|maps\.google\.com\/maps\?)/.test(address)) { return; }
+		if (!/^https:\/\/(www\.youtube-nocookie\.com\/embed\/|player\.vimeo\.com\/video\/|maps\.google\.com\/maps\?|calendly\.com\/|calendar\.google\.com\/calendar\/appointments\/schedules\/|docs\.google\.com\/forms\/d\/e\/|forms\.office\.com\/Pages\/ResponsePage\.aspx\?|tally\.so\/embed\/|form\.typeform\.com\/to\/|airtable\.com\/embed\/|open\.spotify\.com\/embed\/|w\.soundcloud\.com\/player\/\?)/.test(address)) { return; }
 		var border = document.createElement('iframe');
 		border.src = address;
 		border.title = tl.getAttribute('data-titulek') || '';
