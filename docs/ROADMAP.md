@@ -222,7 +222,7 @@ minor release a month; the [release policy](RELEASE-POLICY.md) says what stays c
 5. **Accessibility in the site audit** (European Accessibility Act): contrast, link texts, alt texts, tables, frames and
    the accessibility statement; the cookie bar respects **Global Privacy Control**.
 
-## 2.4 – for agencies (in progress)
+## 2.4 – for agencies (released 29 September 2026)
 
 1. **The admin in German** – every screen and the builder; each user picks the language in My account. Polish and
    French follow once there is demand.
