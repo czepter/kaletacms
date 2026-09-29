@@ -182,7 +182,7 @@ nobody outside kaletacms.com uses it yet, and an MCP server alone no longer sets
 first, then make "Claude runs your site, safely" the product, then prove business value, then serve agencies. About one
 minor release a month; the [release policy](RELEASE-POLICY.md) says what stays compatible.
 
-## 2.1 – dependable (in progress)
+## 2.1 – dependable (released 29 September 2026)
 
 1. **Release and support policy** ([RELEASE-POLICY.md](RELEASE-POLICY.md)): monthly minor releases, one-step updates from
    any version, at least two minor releases and six months between deprecation and removal, removals only in a major.
