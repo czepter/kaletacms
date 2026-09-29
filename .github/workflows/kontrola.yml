@@ -106,7 +106,7 @@ jobs:
           docker compose -f docker/coolify.yaml -p coolify exec -T kaleta test -f /var/www/html/config.php
       - name: Logs on failure
         if: failure()
-        run: docker compose logs; docker compose -f docker/coolify.yaml -p coolify logs || true
+        run: KALETA_DB_PASSWORD=x docker compose logs; docker compose -f docker/coolify.yaml -p coolify logs || true
   phpstan:
     # static analysis (phpstan.neon.dist): level 5, the findings of 2.1.0 in phpstan-baseline.neon – new code adds none
     runs-on: ubuntu-latest
