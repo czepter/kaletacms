@@ -208,7 +208,7 @@ minor release a month; the [release policy](RELEASE-POLICY.md) says what stays c
 5. **Settings over MCP:** extensions, language versions, the cookie bar, SEO switches, analytics codes and head code.
 6. The MCP protocol version is negotiated (2025-06-18, 2025-03-26, 2024-11-05).
 
-## 2.3 – leads (in progress)
+## 2.3 – leads (released 29 September 2026)
 
 1. **Where leads came from:** the first page of the visit, its campaign and the referring site go with every enquiry and
    newsletter sign-up – remembered for the browser tab only, with the visitor's consent to marketing (a setting, off by
