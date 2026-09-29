@@ -29,7 +29,7 @@ $field('smtp_user', 'Přihlašovací jméno', 'text', 'Usually the full e-mail a
 	<div><input class="textpole siroke" type="password" id="smtp_password" name="smtp_password" value="" autocomplete="new-password" placeholder="<?= $values['smtp_password'] !== '' ? e(t('password is saved – enter a new one only to change it')) : '' ?>">
 	<span class="napoveda"><?= e(t('For Gmail and Seznam use an “app password”, not your account password. The password is stored only on your site and is never displayed back.')) ?></span>
 <?php if ($values['smtp_password'] !== ''): ?>
-	<label><input type="checkbox" name="smtp_heslo_smazat" value="1"> <?= e(t('Remove saved password')) ?></label>
+	<label><input type="checkbox" name="smtp_password_smazat" value="1"> <?= e(t('Remove saved password')) ?></label>
 <?php endif ?>
 	</div>
 </div>

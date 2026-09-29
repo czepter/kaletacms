@@ -51,7 +51,7 @@ $extensionSettings = [
 	<label for="ai_key"><?= e(t('API key')) ?></label>
 	<div><input class="textpole siroke" type="password" id="ai_key" name="ai_key" value="" autocomplete="off" placeholder="<?= $values['ai_key'] !== '' ? e(t('saved key ending in %s – enter a new one only to change it', $values['ai_key'])) : '' ?>">
 <?php if ($values['ai_key'] !== ''): ?>
-	<label><input type="checkbox" name="ai_klic_smazat" value="1"> <?= e(t('Remove saved key')) ?></label>
+	<label><input type="checkbox" name="ai_key_smazat" value="1"> <?= e(t('Remove saved key')) ?></label>
 <?php endif ?>
 	</div>
 </div>
@@ -83,7 +83,7 @@ $extensionSettings = [
 	<label for="newsletter_key"><?= e(t('API key')) ?></label>
 	<div><input class="textpole siroke" type="password" id="newsletter_key" name="newsletter_key" value="" autocomplete="off" placeholder="<?= $values['newsletter_key'] !== '' ? e(t('saved key ending in %s – enter a new one only to change it', $values['newsletter_key'])) : '' ?>">
 <?php if ($values['newsletter_key'] !== ''): ?>
-	<label><input type="checkbox" name="newsletter_klic_smazat" value="1"> <?= e(t('Remove saved key')) ?></label>
+	<label><input type="checkbox" name="newsletter_key_smazat" value="1"> <?= e(t('Remove saved key')) ?></label>
 <?php endif ?>
 	<span class="napoveda"><?= e(t('Create the key in your service account (API, integrations). For SmartEmailing, enter the user name and the key separated by a colon. The key is stored only on your site and is never shown over MCP.')) ?></span></div>
 </div>
