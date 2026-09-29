@@ -30,7 +30,8 @@ Renamed later, each with a migration or an alias so old links and data keep work
 Since 2.0 the old names are gone: old class names and template helpers (1.3), old admin URLs (`?modul=…&akce=…`) and
 settings under old keys. Settings keys are English since 1.4.1 (`site_name`, `company_id`…); the map of old keys lives on
 in `Core\OldSettingsKeys` only at the edges – updates from 1.4.0 and older, MCP clients that still send `nazev_webu`, and
-imports of old exports. `system/class-aliases.php` is an empty file kept for one release (updates from 1.4–1.9).
+imports of old exports. The empty `system/class-aliases.php` left the code base in 2.0.1; release packages still carry it
+for sites updating from 1.4–2.0, and the new version deletes it after the update.
 
 ## Conventions
 

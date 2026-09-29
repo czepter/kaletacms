@@ -327,7 +327,7 @@ final class Updater
         $legacy = json_decode((string) @file_get_contents($root . '/system/soubory.json'), true)['legacy'] ?? [];
         foreach (is_array($legacy) ? $legacy : [] as $relativePath => $hash) {
             $file = $root . '/' . $relativePath;
-            if (str_starts_with((string) $relativePath, 'system/src/') && !str_contains((string) $relativePath, '..') && is_file($file)
+            if ((str_starts_with((string) $relativePath, 'system/src/') || $relativePath === 'system/class-aliases.php') && !str_contains((string) $relativePath, '..') && is_file($file)
                 && hash_equals((string) $hash, (string) hash_file('sha256', $file)) && @unlink($file)) {
                 $deleted++;
                 for ($folder = dirname($file); $folder !== $root . '/system/src' && @rmdir($folder); $folder = dirname($folder));

@@ -1298,13 +1298,6 @@ foreach ($moves as $from => $to) {
     }
     @rmdir(dirname($root . '/' . $from));
 }
-// old class names keep working through the autoloader (system/class-aliases.php); an older alias follows a second rename
-$aliasFile = $root . '/system/class-aliases.php';
-$aliases = array_map(fn (string $to): string => $r->classMap()[$to] ?? $to, (array) require $aliasFile) + $r->classMap();
-ksort($aliases);
-$source = (string) file_get_contents($aliasFile);
-file_put_contents($aliasFile, substr($source, 0, (int) strpos($source, "return [")) . "return [\n"
-    . implode('', array_map(fn (string $old, string $new): string => '    ' . var_export($old, true) . ' => ' . var_export($new, true) . ",\n", array_keys($aliases), $aliases)) . "];\n");
 $bad = 0;
 foreach (array_unique([...array_keys($changed), ...array_values($moves)]) as $f) {
     $f = $moves[$f] ?? $f;

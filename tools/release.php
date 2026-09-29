@@ -104,7 +104,8 @@ foreach ($files as $file) {
 $legacy = [];
 $git = fn (string $args): string => (string) shell_exec('cd ' . escapeshellarg($root) . ' && git ' . $args . ' 2>/dev/null');
 foreach (array_filter(explode("\n", $git('tag --sort=-v:refname --merged HEAD^ "v*"'))) as $release) {
-    foreach (array_filter(explode("\n", $git('ls-tree -r --name-only ' . escapeshellarg($release) . ' -- system/src/'))) as $old) {
+    // system/class-aliases.php (1.4–2.0): the autoloader of 1.x requires it on a class it cannot find
+    foreach (array_filter(explode("\n", $git('ls-tree -r --name-only ' . escapeshellarg($release) . ' -- system/src/ system/class-aliases.php'))) as $old) {
         if (!in_array($old, $files, true) && !isset($legacy[$old])) {
             $content = $git('show ' . escapeshellarg($release . ':' . $old));
             $zip->addFromString($old, $content);

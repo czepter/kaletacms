@@ -131,7 +131,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   verze v `ka_stavba_revize` pod `cast = 'polozka:<idp>'` (`Collections::saveVersion/loadVersion`); noindex a koš mimo sitemap, llms.txt a hledání.
   Strukturovaná data kolekce `ka_kolekce.schema_org` (`Builder\CollectionSchema`, uzel v `Seo::structuredData` přes `$meta['polozka']`).
 - **Audit webu** (1.9, `Core\Audit`, modul `audit`, MCP `site_audit`): interní odkazy přes `Audit::resolves`, popisy, titulky, menu, `Check::builds`, 404.
-- **2.0 bez vrstev kompatibility:** žádné aliasy tříd (`class-aliases.php` je prázdný jen kvůli aktualizacím z 1.4–1.9), žádné staré adresy administrace ani
+- **2.0 bez vrstev kompatibility:** žádné aliasy tříd (`class-aliases.php` je od 2.0.1 pryč; balíček ho nese jen jako „legacy“ pro aktualizace z 1.4–2.0), žádné staré adresy administrace ani
   pomocné funkce, veřejné API pryč. Staré klíče nastavení jen v `Core\OldSettingsKeys` (migrace, MCP `update_settings`, import). **Datová migrace** je
   `system/sql/migrace/NNNN-*.php` (vrací funkci `(Db, Settings)`) a musí mít nejvyšší číslo svého vydání – starý kód aktualizace zná jen `.sql`.
 - **Zálohy mimo server** (`Core\RemoteBackup`): záloha databáze i přírůstková kopie `media/` (`syncMedia`, manifest `storage/zalohy/media-kopie.json`)

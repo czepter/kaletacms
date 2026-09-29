@@ -600,6 +600,14 @@ $deleted = Kaleta\Core\Updater::cleanUpObsolete($cleanup, ['index.php', 'system/
 check('Aktualizace: smaže jen soubor zrušený novým vydáním', $deleted, 1);
 check('Aktualizace: zrušený soubor i jeho prázdná složka jsou pryč', is_dir($cleanup . '/system/stare'), false);
 check('Aktualizace: chráněné cesty a vlastní soubory zůstávají', [is_file($cleanup . '/media/foto.jpg'), is_file($cleanup . '/config.php'), is_file($cleanup . '/vlastni.php'), is_file($cleanup . '/system/zustava.php')], [true, true, true, true]);
+// files that ride along only for the update (old classes, the alias file of 1.4–2.0) go after it – unless edited; nothing else
+mkdir($cleanup . '/system/src/Old', 0775, true);
+file_put_contents($cleanup . '/system/class-aliases.php', "<?php\nreturn [];\n");
+file_put_contents($cleanup . '/system/src/Old/Gone.php', 'edited');
+file_put_contents($cleanup . '/system/soubory.json', json_encode(['legacy' => ['system/class-aliases.php' => hash('sha256', "<?php\nreturn [];\n"),
+    'system/src/Old/Gone.php' => hash('sha256', 'original'), 'system/zustava.php' => hash('sha256', 'x')]]));
+check('Update: legacy files go after the update, edited and other files stay', [Kaleta\Core\Updater::cleanUpRemoved($cleanup), is_file($cleanup . '/system/class-aliases.php'),
+    is_file($cleanup . '/system/src/Old/Gone.php'), is_file($cleanup . '/system/zustava.php')], [1, false, true, true]);
 exec('rm -rf ' . escapeshellarg($cleanup));
 
 /* ---------- passkeys (WebAuthn): a software authenticator against the verification core ---------- */
@@ -1148,9 +1156,9 @@ check('Modal → pop-up: vyjmutí z hloubky stavby, kotva, přepsání odkazů',
     [1, 1, 'nabidka', 'okno-x1', 'vlastni', '{"odkaz":"#popup-nabidka","html":"<a href=\\"#popup-nabidka\\">x</a>","jiny":"#nabidka-2"}']);
 check('2.0: staré klíče nastavení jen na hranici (MCP, import, aktualizace)', [Kaleta\Core\OldSettingsKeys::current('nazev_webu'), Kaleta\Core\OldSettingsKeys::current('nazev_webu_de'),
     Kaleta\Core\OldSettingsKeys::current('site_name'), Kaleta\Core\OldSettingsKeys::current('verze_db')], ['site_name', 'site_name_de', 'site_name', 'db_version']);
-// 2.0: the old (Czech) class names and helpers of 1.3 are gone; the alias file stays empty for one release (updates from 1.4–1.9)
-check('2.0: old class names and helpers no longer exist', [require KALETA_SYSTEM . '/class-aliases.php', class_exists('Kaleta\\Jadro\\Nastaveni'), function_exists('datum_slovy'),
-    class_exists('Kaleta\\Admin\\LegacyUrls'), class_exists('Kaleta\\Front\\Api'), class_exists('Kaleta\\Builder\\Elements\\Modal')], [[], false, false, false, false, false]);
+// 2.0: the old (Czech) class names and helpers of 1.3 are gone; 2.0.1 dropped the empty alias file (it rides along in packages only)
+check('2.0: old class names and helpers no longer exist', [is_file(KALETA_SYSTEM . '/class-aliases.php'), class_exists('Kaleta\\Jadro\\Nastaveni'), function_exists('datum_slovy'),
+    class_exists('Kaleta\\Admin\\LegacyUrls'), class_exists('Kaleta\\Front\\Api'), class_exists('Kaleta\\Builder\\Elements\\Modal')], [false, false, false, false, false, false]);
 exec('php ' . escapeshellarg(__DIR__ . '/rename.php') . ' --self-test', $renameOutput, $renameCode);
 check('tools/rename.php self-test', $renameCode, 0);
 
