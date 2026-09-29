@@ -33,6 +33,20 @@ final class Seo
         return \Kaleta\Core\Routes::publicPath($path, $this->app->languagePrefix !== '' ? $this->app->languagePrefix : \Kaleta\Core\Language::defaults($this->app->settings()), $this->app->db());
     }
 
+    /**
+     * security.txt (RFC 9116, 2.1): whom to tell about a security problem of this site. Expires half a year ahead – the
+     * file is generated, so it never goes stale.
+     *
+     * @param list<string> $languages
+     */
+    public static function securityTxt(string $contact, string $siteUrl, array $languages, int $now): string
+    {
+        return 'Contact: ' . (str_contains($contact, '@') && !str_starts_with($contact, 'https://') ? 'mailto:' . $contact : $contact) . "\n"
+            . 'Expires: ' . gmdate('Y-m-d\T00:00:00\Z', $now + 183 * 86400) . "\n"
+            . ($languages !== [] ? 'Preferred-Languages: ' . implode(', ', $languages) . "\n" : '')
+            . 'Canonical: ' . rtrim($siteUrl, '/') . "/.well-known/security.txt\n";
+    }
+
     public function robotsTxt(): string
     {
         $s = $this->app->settings();

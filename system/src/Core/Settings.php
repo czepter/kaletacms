@@ -76,6 +76,7 @@ final class Settings
         'robots_extra' => '',
         'ai_crawlers' => 'povolit',   // povolit | zakazat (GPTBot, ClaudeBot, PerplexityBot...)
         'llms_txt' => '1',
+        'security_contact' => '',      // who takes reports of security problems (e-mail or https page) – /.well-known/security.txt (2.1)
         'markdown_news' => '1',     // /novinky/<slug>.md
         'indexnow' => '0',            // after a news item is published, announce its URL to search engines (Bing, Seznam, Yandex)
         'indexnow_key' => '',

@@ -174,6 +174,12 @@ final class Kernel
 
             return new Response($json, 200, ['Content-Type' => 'application/feed+json; charset=utf-8']);
         }
+        if ($path === '/.well-known/security.txt' && $this->app->settings()->get('security_contact') !== '') {
+            $siteSettings = $this->app->settings();
+
+            return new Response(Seo::securityTxt($siteSettings->get('security_contact'), $request->origin() . $this->app->url(''),
+                array_values(array_unique(array_merge([Language::defaults($siteSettings)], Language::additional($siteSettings)))), time()), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
+        }
         if ($path === '/llms.txt' && $this->app->settings()->bool('llms_txt')) {
             return new Response(Cache::text($this->app, 'llms|' . Language::siteColumn(), $seo->llmsTxt(...)), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
         }

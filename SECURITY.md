@@ -18,7 +18,8 @@ are fixed as soon as possible.
 4. After the fix is released we publish a security advisory (GitHub Security Advisory) with a description
    and credit to the reporter.
 
-Only the latest released version is supported.
+Only the latest release is supported; every earlier version updates to it in one step. Release pace, deprecation and
+what stays compatible: [docs/RELEASE-POLICY.md](docs/RELEASE-POLICY.md).
 
 ## What the system protects
 

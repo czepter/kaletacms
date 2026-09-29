@@ -283,6 +283,9 @@ expect "MCP: nastavení webu – povolené se uloží, e-mail a neplatné IČO n
 curl -s "$B/" | contains 'spravce@example.cz' && { echo "  CHYBA  e-mail webu je vidět na webu"; ERRORS=$((ERRORS+1)); } || echo "  ok     e-mail webu (poptávky, upozornění) se na webu neukazuje"
 mcp uprav_nastaveni '{"nastaveni":{"firma_email":"info@example.cz"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 check "veřejný e-mail firmy v patičce" 200 / "info@example.cz"
+check "security.txt: without a contact there is none" 404 /.well-known/security.txt
+mcp update_settings '{"settings":{"security_contact":"security@example.com"}}' > /dev/null
+check "security.txt from the security contact (RFC 9116)" 200 /.well-known/security.txt "Contact: mailto:security@example.com"
 mcp uprav_nastaveni '{"nastaveni":{"logo_webu":"image/kaleta-logo.svg","favicon":"../config.php"}}' > "$WORK/response"
 expect "MCP: logo webu ze systémových souborů, cesta mimo media/ a image/ neprojde" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'logo'), '|', COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'favicon'), ''))")" "image/kaleta-logo.svg|"
 mcp uloz_presmerovani '{"z":"/stary-web/sluzby","na":"/z-html"}' > /dev/null

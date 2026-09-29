@@ -175,6 +175,48 @@ Not new features – everything that exists is one English, builder-based system
 3. **The public REST API is removed** (deprecated in 1.8).
 4. The hidden Czech MCP tool names stay – connections never break.
 
+## Direction after 2.0
+
+Decided on 29 September 2026 after an evaluation of the product and the market: Kaleta does what it set out to do, but
+nobody outside kaletacms.com uses it yet, and an MCP server alone no longer sets a CMS apart. The next releases earn trust
+first, then make "Claude runs your site, safely" the product, then prove business value, then serve agencies. About one
+minor release a month; the [release policy](RELEASE-POLICY.md) says what stays compatible.
+
+## 2.1 – dependable (in progress)
+
+1. **Release and support policy** ([RELEASE-POLICY.md](RELEASE-POLICY.md)): monthly minor releases, one-step updates from
+   any version, at least two minor releases and six months between deprecation and removal, removals only in a major.
+2. **Recorded public contracts** (`tools/contracts`): MCP tools and parameters, design tokens and builder elements; the
+   tests fail when any of them is removed or changed.
+3. **English design token names** (`--ka-color-primary`, `--ka-space-m`…) next to the stored ones.
+4. **Output budget in CI** (`tools/test-lighthouse.sh`): every starter site scores 99–100 in Lighthouse. Pages without
+   their own description get one from their first longer paragraph; lazy images use `sizes="auto"`.
+5. **MCP layer rebuilt** on one catalog (`Mcp\Catalog`) with one method per tool; PHPStan in CI.
+6. **Docker image** (`ghcr.io/phprs-cms/kaleta`) and `compose.yaml`.
+7. The daily check of the update channel and the project website runs again; documentation caught up.
+
+## 2.2 – Claude, in charge and safe (planned)
+
+- The Claude connection on by default for new installs, "Connect Claude" in First steps, OAuth for sites in a subfolder.
+- Connections limited to reading, to drafts, or full access (never beyond the user's role).
+- The change log tells a person's change from Claude's, and is readable over MCP.
+- Site instructions for Claude (brand voice, house rules) as an MCP resource, with prompts for common jobs.
+- Extensions, languages, the cookie bar, SEO switches and head code settable over MCP.
+
+## 2.3 – leads (planned)
+
+- Campaign (UTM) and landing page stored with each enquiry and sign-up, without cookies; conversions per page, pop-up
+  and campaign; statistics readable over MCP.
+- Hidden and UTM form fields, checkbox groups, a webhook per form.
+- An Embed element for known providers (booking, chat, reviews), per-page head code for administrators.
+- Accessibility checks in the site audit (EAA), the Global Privacy Control signal in the cookie bar.
+
+## 2.4 – for agencies (planned)
+
+- The admin in German first, then Polish and French; page checks that work in every language.
+- Client handover: a client role preset, the agency's logo on the sign-in screen, a handover checklist.
+- Visitor dictionaries keyed by English text.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
@@ -187,4 +229,3 @@ Not new features – everything that exists is one English, builder-based system
 
 - Legal text templates with a clear disclaimer (privacy policy, terms, cookie policy) per country.
 - Right-to-left languages.
-- Admin in more languages (German, Polish, French…) – possible now that the source texts are English.

@@ -8,7 +8,7 @@ stránek s výstupem na úrovni ručně psaného HTML, AI asistent a napojení C
 
 ![Builder Kalety: plátno je skutečná stránka, prvky vlevo, vlastnosti vpravo](docs/screenshots/admin-builder.png)
 
-> Web projektu: [kaletacms.com](https://kaletacms.com) · návod: [kaletacms.com/cs/navod](https://kaletacms.com/cs/navod) · poslední verze: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest) · co bude dál: [roadmap](docs/ROADMAP.md)
+> Web projektu: [kaletacms.com](https://kaletacms.com) · návod: [kaletacms.com/cs/navod](https://kaletacms.com/cs/navod) · poslední verze: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest) · co bude dál: [roadmap](docs/ROADMAP.md) · [pravidla vydávání](docs/RELEASE-POLICY.md) (anglicky)
 
 ## Co umí
 
@@ -28,8 +28,8 @@ stránek s výstupem na úrovni ručně psaného HTML, AI asistent a napojení C
   značkami `{{pole}}`, filtry, řazením a stránkováním, stránky položek se šablonou z builderu.
 - **Formuláře a poptávky** – poptávkový formulář bez CAPTCHA a cookies, poptávky v administraci, upozornění e-mailem,
   export CSV a automatické mazání osobních údajů.
-- **Newsletter** – přihlášení s potvrzením (double opt-in); potvrzené odběratele web pošle do Brevo, MailerLite,
-  Mailchimp, Ecomail, SmartEmailing nebo přes webhook do jakékoli služby.
+- **Newsletter** – přihlášení s potvrzením (double opt-in); rozešlete nejnovější novinky v e-mailu podle design systému
+  (přes SMTP), nebo potvrzené odběratele pošlete do Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing či přes webhook.
 - **Firma** – adresa, IČO, otevírací doba a mapa jednou v Nastavení; web je vypíše a vyhledávače dostanou strukturovaná
   data LocalBusiness.
 - **AI** – asistent navrhne novou sekci podle popisu, přepíše text prvku, navrhne titulky, SEO popisy, korekturu i překlad
@@ -56,7 +56,11 @@ stránek s výstupem na úrovni ručně psaného HTML, AI asistent a napojení C
 3. Otevřete `https://vas-web.cz/install.php`, vyplňte formulář a vyberte ukázkový web.
 
 Další verze si web stáhne a nainstaluje sám (Nastavení → Zálohy a aktualizace); balíčky jsou podepsané vydavatelem.
-Nginx nečte `.htaccess` – použijte ukázku `system/nginx.priklad.conf`. Návod k používání je v [příručce](docs/prirucka.md).
+Nginx nečte `.htaccess` – použijte ukázku `system/nginx.example.conf` (anglicky). Návod k používání je v [příručce](docs/prirucka.md).
+
+**Přes Docker** (od 2.1): stáhněte [`compose.yaml`](compose.yaml), spusťte `KALETA_DB_PASSWORD=… docker compose up -d` a otevřete
+`http://localhost:8080` – instalátor chce databázový server `db`, databázi i uživatele `kaleta` a to heslo. Obraz je
+`ghcr.io/phprs-cms/kaleta`; web leží ve svazku a aktualizuje se sám jako každá jiná instalace.
 
 ## Vývoj
 

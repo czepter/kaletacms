@@ -1,12 +1,12 @@
-# Nahrané soubory se jen servírují - nikdy nespouštějí.
+# Uploaded files are only served – never run.
 <FilesMatch "\.(php\d?|phtml|phar|pl|py|cgi|sh|html?|js)$">
     Require all denied
 </FilesMatch>
 Options -Indexes -ExecCGI
 <IfModule mod_headers.c>
-    # prohlížeč nesmí hádat typ souboru; dokumenty se nabídnou ke stažení místo otevření v rámci webu
+    # browsers must not guess the file type; documents are offered for download instead of opening inside the site
     Header set X-Content-Type-Options "nosniff"
-    # SVG z Médií je vyčištěné (Core\Svg); přísná CSP je druhá pojistka, kdyby ho někdo otevřel samostatně
+    # SVG from Media is cleaned (Core\Svg); a strict CSP is the second safeguard when someone opens it on its own
     <FilesMatch "\.svg$">
         Header set Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox"
     </FilesMatch>

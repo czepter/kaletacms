@@ -18,7 +18,8 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   hledat `[data-…]` prvek, který nikde nevzniká (hlídá `tools/unit-tests.php`).
 - **Tabulky** mají významové názvy (`ka_novinky`, `ka_kategorie`, `ka_uzivatele`, `ka_media`, `ka_nastaveni`…); v kódu vždy přes `{novinky}`.
   Starší názvy sloupců zůstaly: `idc` = novinka, `tema`/`idt` = kategorie, `ido` = médium, `idu` = uživatel.
-- Identifikátory v kódu česky bez diakritiky; komentáře a texty česky s diakritikou.
+- Identifikátory v kódu anglicky (od 1.4); komentáře v kódu anglicky, texty rozhraní anglicky se slovníky (`t()`). Česky zůstává
+  datový model: sloupce databáze, klíče staveb (JSON) a design systému – na hranici MCP je překládá `Mcp\Translator` a `Mcp\Vocabulary`.
 - **Změna databáze = dva zápisy:** úplné schéma `system/sql/schema.sql` a migrace `system/sql/migrace/NNNN-popis.sql` + zvýšit
   `KALETA_DB_VERSION` v `system/bootstrap.php` (hlídá `tools/test.sh`). Výchozí stav je migrace 0001.
 - **Rozšíření jsou uzavřený systém** (`Core\Extensions::CATALOG`): žádné cizí plug-iny ani nahrávání kódu z administrace.
@@ -187,8 +188,8 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 ## Vydání a aktualizace
 
 Verze `KALETA_VERSION` v `system/bootstrap.php`; `php tools/release.php <verze> --url=…` sestaví a lokálně podepíše balíček (`docs/RELEASING.md`).
-**Klíče vydavatele Kalety zatím nejsou vygenerované** – `system/aktualizace.pub` je prázdný; vzniknou před prvním vydáním. Soukromé klíče nikdy do gitu.
-Web projektu: `kaletacms.com` (kanál aktualizací `https://kaletacms.com/aktualizace.json`), veřejný repozitář `github.com/phprs-cms/kaletacms`. Dokud web neběží, jsou kontroly webu v CI vypnuté (`if: false`).
+Veřejné klíče vydavatele jsou v `system/aktualizace.pub` (provozní a záložní); soukromé leží mimo repozitář (`tools/klice`, symlink) a nikdy nejdou do gitu.
+Web projektu: `kaletacms.com` (kanál aktualizací `https://kaletacms.com/aktualizace.json`), veřejný repozitář `github.com/phprs-cms/kaletacms`. Denní kontrola (`denni-kontrola.yml`) hlídá kanál aktualizací a hlavičky webu projektu.
 
 ## Spuštění a testy
 

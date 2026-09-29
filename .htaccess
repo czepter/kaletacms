@@ -3,25 +3,25 @@ Options -Indexes
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    # některé hostingy nepředávají PHP hlavičku Authorization (potřebuje ji napojení na Claude)
+    # some hosts do not pass the Authorization header to PHP (the Claude connection needs it)
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-    # /.well-known/: soubory (ověření domény, certifikát HTTPS od Let's Encrypt či AutoSSL) se podají přímo,
-    # metadata OAuth pro konektor Claude (oauth-…) sestaví Kaleta přes index.php níže
+    # /.well-known/: files (domain verification, the HTTPS certificate from Let's Encrypt or AutoSSL) are served directly;
+    # the OAuth metadata for the Claude connector (oauth-…) comes from index.php below
     RewriteCond %{REQUEST_FILENAME} -f
     RewriteRule ^\.well-known/ - [L]
-    # config.php a skryté soubory nejsou pro návštěvníky
+    # config.php and hidden files are not for visitors
     RewriteRule ^(config(\.sample)?\.php|\.(?!well-known/).*)$ - [F,L]
-    # nástroje vydavatele, dokumentace a PHP soubory šablon se z webu nespouštějí ani nečtou
+    # publisher tools, documentation and PHP files of layouts (from older releases) are never run or read from the web
     RewriteRule ^(tools|docs|dist)(/|$) - [F,L]
     RewriteRule ^layout/.+\.php$ - [F,L]
-    # Složka, ve které web leží, jako část ADRESY (prázdná = kořen domény, jinak např. /magazin). Cíle přepisů níže se
-    # píší jako adresa, ne jako relativní cesta: některé hostingy mapují subdomény do složky mimo kořen webu a relativní
-    # cíl tam skončí smyčkou přesměrování a chybou 500. Adresa funguje všude - v kořeni, v podsložce i na subdoméně.
+    # The folder of the site as part of the URL (empty = the domain root, otherwise e.g. /web). The rewrite targets below are
+    # written as URLs, not as relative paths: some hosts map subdomains to a folder outside the web root, where a relative
+    # target ends in a redirect loop and error 500. A URL works everywhere – in the root, in a subfolder and on a subdomain.
     RewriteCond %{REQUEST_URI}::$0 ^(/.+)/(.*)::\2$
     RewriteRule .* - [E=BASE:%1]
 
-    # obrázky z media/: prohlížeči, který umí AVIF (nejmenší) nebo WebP, podat sourozenecký soubor foto.jpg.avif / .webp
+    # images from media/: a browser that accepts AVIF (smallest) or WebP gets the sibling file photo.jpg.avif / .webp
     RewriteCond %{HTTP_ACCEPT} image/avif
     RewriteCond %{REQUEST_FILENAME}.avif -f
     RewriteRule ^(media/.+\.(?:jpe?g|png))$ %{ENV:BASE}/$1.avif [T=image/avif,E=webp:1,L]
@@ -29,7 +29,7 @@ Options -Indexes
     RewriteCond %{REQUEST_FILENAME}.webp -f
     RewriteRule ^(media/.+\.(?:jpe?g|png))$ %{ENV:BASE}/$1.webp [T=image/webp,E=webp:1,L]
 
-    # vše, co není existující soubor nebo adresář, obslouží index.php
+    # everything that is not an existing file or folder goes to index.php
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^ %{ENV:BASE}/index.php [L]
@@ -39,7 +39,7 @@ Options -Indexes
     Header append Vary Accept env=REDIRECT_webp
 </IfModule>
 
-# statické soubory: adresy nesou verzi (?v=…), prohlížeč si je smí nechat dlouho; sw.js se musí ověřovat vždy
+# static files: their URLs carry the version (?v=…), so browsers may keep them long; sw.js must always be revalidated
 <IfModule mod_mime.c>
     AddType font/woff2 .woff2
     AddType image/avif .avif

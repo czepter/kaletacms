@@ -29,6 +29,7 @@ $field('indexnow', 'Notify search engines about new news (IndexNow)', 'ano', 'Bi
 $field('llms_txt', 'llms.txt file', 'ano', 'A guide to the site for language models.');
 $field('markdown_news', 'Plain-text news (.md)', 'ano', 'Every news item also as plain text without navigation – for language models and AI search engines.');
 $field('robots_extra', 'Custom robots.txt rules', 'radky', '', 'spellcheck="false"');
+$field('security_contact', 'Security contact', 'text', 'An e-mail address or an https:// page where people report security problems of this site. It is published at /.well-known/security.txt (RFC 9116); empty = no file.', 'spellcheck="false"');
 ?>
 <p class="napoveda"><?= e(t('What the system generates:')) ?> <a href="<?= e($siteUrl) ?>robots.txt" target="_blank" rel="noopener"><?= e(t('robots.txt')) ?></a> · <a href="<?= e($siteUrl) ?>sitemap.xml" target="_blank" rel="noopener"><?= e(t('sitemap.xml')) ?></a> · <a href="<?= e($siteUrl) ?>llms.txt" target="_blank" rel="noopener"><?= e(t('llms.txt')) ?></a> · <a href="<?= e($siteUrl) ?>rss.xml" target="_blank" rel="noopener"><?= e(t('rss.xml')) ?></a> · <a href="<?= e($siteUrl) ?>feed.json" target="_blank" rel="noopener"><?= e(t('feed.json')) ?></a></p>
 </details>

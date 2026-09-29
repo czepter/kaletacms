@@ -8,7 +8,7 @@ whose output reads like hand-written HTML, an AI assistant, Claude over MCP, and
 
 ![The Kaleta builder: the canvas is the real page, elements on the left, properties on the right](docs/screenshots/admin-builder.png)
 
-> Project website: [kaletacms.com](https://kaletacms.com) · guide: [kaletacms.com/guide](https://kaletacms.com/guide) · latest version: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest) · what comes next: [roadmap](docs/ROADMAP.md)
+> Project website: [kaletacms.com](https://kaletacms.com) · guide: [kaletacms.com/guide](https://kaletacms.com/guide) · latest version: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest) · what comes next: [roadmap](docs/ROADMAP.md) · [release policy](docs/RELEASE-POLICY.md)
 
 ## Features
 
@@ -27,8 +27,8 @@ whose output reads like hand-written HTML, an AI assistant, Claude over MCP, and
   builder with `{{field}}` tags, filters, sorting and pagination, and item pages with a builder template.
 - **Forms and enquiries** – an enquiry form without CAPTCHA or cookies, enquiries in the admin, email notifications,
   CSV export and automatic deletion of personal data.
-- **Newsletter** – double opt-in sign-up; confirmed subscribers go to Brevo, MailerLite, Mailchimp, Ecomail,
-  SmartEmailing or any service via a webhook.
+- **Newsletter** – double opt-in sign-up; send your latest news in an e-mail styled by the design system (through SMTP),
+  or pass confirmed subscribers to Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing or any service via a webhook.
 - **Company details** – address, company ID, opening hours and map once in Settings; the site shows them and search
   engines get LocalBusiness structured data.
 - **AI** – the assistant drafts a new section from a description, rewrites element text, suggests headlines, SEO
@@ -55,7 +55,11 @@ whose output reads like hand-written HTML, an AI assistant, Claude over MCP, and
 3. Open `https://your-site.com/install.php`, fill in the form and choose a starter site.
 
 Later versions are downloaded and installed by the site itself (Settings → Backups and updates); packages are signed by the publisher.
-Nginx does not read `.htaccess` – use the example in `system/nginx.priklad.conf`. The user guide is in [docs/guide.md](docs/guide.md).
+Nginx does not read `.htaccess` – use the example in `system/nginx.example.conf`. The user guide is in [docs/guide.md](docs/guide.md).
+
+**With Docker** (2.1+): download [`compose.yaml`](compose.yaml), run `KALETA_DB_PASSWORD=… docker compose up -d` and open
+`http://localhost:8080` – the installer asks for database server `db`, database and user `kaleta` and that password. The image is
+`ghcr.io/phprs-cms/kaleta`; the site lives in a volume and updates itself like any other installation.
 
 ## Development
 
@@ -64,7 +68,9 @@ php -S localhost:8080 system/dev-router.php
 ```
 
 Tests: `php tools/unit-tests.php` (unit, no database) and `tools/test.sh` (clean install plus a walk through the site, admin,
-builder and MCP; needs MySQL; `WEB=remeslo tools/test.sh` tests another starter site). How to contribute is in
+builder and MCP; needs MySQL; `WEB=remeslo tools/test.sh` tests another starter site). `tools/test-lighthouse.sh` holds every
+starter site to the output budget; `php tools/contracts.php` shows changes of the public contracts (MCP tools, design tokens,
+builder elements); static analysis is PHPStan with `phpstan.neon.dist`. How to contribute is in
 [`CONTRIBUTING.md`](CONTRIBUTING.md); architecture notes are in [`CLAUDE.md`](CLAUDE.md) (Czech).
 
 ## Licence

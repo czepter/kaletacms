@@ -1,4 +1,4 @@
-# Denní bezpečnostní kontrola. Nic nevydává ani nepodepisuje - jen včas řekne, že je potřeba záplata (verze 3.0.x):
+# Denní bezpečnostní kontrola. Nic nevydává ani nepodepisuje - jen včas řekne, že je potřeba záplata (opravné vydání):
 #  1) kanál aktualizací na kaletacms.com je podepsaný naším klíčem a balíček odpovídá otisku (odhalí podvržení),
 #  2) testy na všech podporovaných verzích PHP a na připravované verzi (odhalí, co rozbije příští PHP),
 #  3) statická bezpečnostní analýza s denně aktualizovanými pravidly - nálezy jdou do Security → Code scanning,
@@ -14,7 +14,6 @@ permissions:
   contents: read
 jobs:
   kanal:
-    if: false # zapnout, až poběží web projektu a kanál aktualizací (kaletacms.com – web projektu zatím neběží)
     name: Kanál aktualizací
     runs-on: ubuntu-latest
     steps:
@@ -72,22 +71,22 @@ jobs:
         run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest detect --source /repo --redact --no-banner
 
   weby:
-    if: false # zapnout, až poběží web projektu a kanál aktualizací (kaletacms.com – web projektu zatím neběží)
-    name: Web projektu a demo zvenku
+    name: Project website from outside
     runs-on: ubuntu-latest
     steps:
-      - name: Bezpečnostní hlavičky a zavřené cesty
+      - name: Security headers and closed paths
         run: |
           set -u
-          chyb=0
-          hlavicka() { curl -sSI -m 20 "$1" | tr -d '\r' | grep -qi "^$2:" || { echo "CHYBÍ $2 na $1"; chyb=$((chyb+1)); }; }
-          kod() { k=$(curl -sS -m 20 -o /dev/null -w '%{http_code}' "$1"); case " $2 " in *" $k "*) ;; *) echo "NEČEKANÝ kód $k na $1 (čekal jsem: $2)"; chyb=$((chyb+1));; esac; }
-          for h in strict-transport-security content-security-policy x-content-type-options referrer-policy; do hlavicka https://kaletacms.com/cs/ "$h"; done
-          kod https://kaletacms.com/aktualizace.json "200"
-          kod https://kaletacms.com/.htaccess "403 404"
-          for cesta in config.php system/bootstrap.php system/soubory.json storage/log/chyby.log .git/config tools/release.php; do kod "https://demo.kaletacms.com/$cesta" "403 404"; done
-          hlavicka https://demo.kaletacms.com/admin.php content-security-policy
-          exit "$chyb"
+          errors=0
+          header() { curl -sSI -m 20 "$1" | tr -d '\r' | grep -qi "^$2:" || { echo "MISSING $2 on $1"; errors=$((errors+1)); }; }
+          code() { c=$(curl -sS -m 20 -o /dev/null -w '%{http_code}' "$1"); case " $2 " in *" $c "*) ;; *) echo "UNEXPECTED $c on $1 (expected: $2)"; errors=$((errors+1));; esac; }
+          # public pages: the headers every Kaleta page sends (a strict CSP is the admin's – sites carry their own code)
+          for h in x-content-type-options referrer-policy x-frame-options; do header https://kaletacms.com/ "$h"; done
+          # the admin: CSP and HSTS
+          for h in content-security-policy strict-transport-security; do header https://kaletacms.com/admin.php "$h"; done
+          code https://kaletacms.com/aktualizace.json "200 302"
+          for path in .htaccess config.php system/bootstrap.php system/soubory.json storage/log/chyby.log .git/config tools/release.php; do code "https://kaletacms.com/$path" "403 404"; done
+          exit "$errors"
 
   hlaseni:
     name: Úkol při selhání
@@ -103,5 +102,5 @@ jobs:
         run: |
           cislo=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search 'in:title "Denní kontrola selhala"' --json number -q '.[0].number')
           text="Denní kontrola dnes neprošla: $BEH
-          Podrobnosti statické analýzy jsou v Security → Code scanning (vidí je jen správci). Pokud jde o zranitelnost, neřešte ji tady veřejně - založte soukromé bezpečnostní oznámení a postupujte podle docs/RELEASING.md (vydání 3.0.x s příznakem --bezpecnostni)."
+          Podrobnosti statické analýzy jsou v Security → Code scanning (vidí je jen správci). Pokud jde o zranitelnost, neřešte ji tady veřejně - založte soukromé bezpečnostní oznámení a postupujte podle docs/RELEASING.md (opravné vydání s příznakem --bezpecnostni)."
           if [ -n "$cislo" ]; then gh issue comment "$cislo" --repo "$GITHUB_REPOSITORY" --body "$text"; else gh issue create --repo "$GITHUB_REPOSITORY" --title "Denní kontrola selhala" --body "$text"; fi

@@ -33,7 +33,7 @@ final class Tools
     private const int MAX_UPLOAD = 12 * 1024 * 1024;
 
     /** Settings MCP can change (the others – e-mail, webhooks, 2FA, mail, backups – only in the administration). */
-    private const string MCP_SETTINGS = '/^(site_name|site_description|footer_text|home_page|social_(facebook|instagram|x|youtube|linkedin)|news_per_page|share_buttons|article_outline|related_news_auto|company_[a-z_]+|dark_mode|theme_switcher|site_(name|description)_[a-z]{2})$/';
+    private const string MCP_SETTINGS = '/^(site_name|site_description|footer_text|home_page|social_(facebook|instagram|x|youtube|linkedin)|news_per_page|share_buttons|article_outline|related_news_auto|company_[a-z_]+|security_contact|dark_mode|theme_switcher|site_(name|description)_[a-z]{2})$/';
 
     public function __construct(private readonly App $app)
     {

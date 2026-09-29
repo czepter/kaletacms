@@ -270,8 +270,9 @@ draft, and read enquiries (only with access to Enquiries). After every build cha
 preview link** to the draft (valid for 60 minutes, opens without signing in) – it checks the result and can pass the
 link to you. With each save it also gets the **check before publishing** (buttons without links, images without descriptions,
 the heading outline) so it can fix them first. Page and site-part builds and news are created as a **draft** and published only when you say so (and only
-with publishing permission). The menu, design system, shared classes, site settings, redirects, collection items
-and page text take effect straight away – the previous page text goes to the version history. Claude can move a page to
+with publishing permission). The menu, design system and shared classes go into the **draft look**, which visitors see
+only once it is published (by you, or by Claude when you ask). Site settings, redirects, collection items and page text
+take effect straight away – the previous page text and item go to the version history. Claude can move a page to
 the trash (restorable for 30 days in the admin); the site e-mail, webhooks, mail, backups and security settings cannot
 be changed over the connection.
 

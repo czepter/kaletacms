@@ -267,9 +267,10 @@ nadřazenou stránku, jazykovou verzi a plánované zveřejnění, vrátit do ko
 (jen s právem k Poptávkám). Po každé úpravě stavby dostane **podepsaný odkaz na náhled** konceptu
 (platí 60 minut, otevře ho i bez přihlášení) – zkontroluje si výsledek a odkaz může poslat i vám. S každým uložením dostane i **kontrolu před publikováním** (tlačítka bez odkazu, obrázky bez popisu,
 osnova nadpisů), aby je mohl rovnou opravit. Stavby stránek
-a částí webu i novinky vznikají jako **koncept** a publikuje je jen na váš pokyn (a jen s právem vydávat). Rovnou
-na webu se projeví: menu, vzhled (design systém), sdílené třídy, nastavení webu, přesměrování, položky
-kolekce a text stránky – předchozí text stránky přitom jde do historie verzí. Stránku umí Claude přesunout do koše
+a částí webu i novinky vznikají jako **koncept** a publikuje je jen na váš pokyn (a jen s právem vydávat). Menu, design
+systém a sdílené třídy jdou do **konceptu vzhledu**, který návštěvníci uvidí až po zveřejnění (vámi, nebo Claudem na váš
+pokyn). Rovnou na webu se projeví nastavení webu, přesměrování, položky kolekce a text stránky – předchozí text stránky
+i položky přitom jde do historie verzí. Stránku umí Claude přesunout do koše
 (obnovíte ji 30 dní v administraci); e-mail webu, webhooky, poštu, zálohy ani zabezpečení přes napojení nezmění.
 
 ## 11. Přechod z WordPressu nebo z jiného webu na Kaletě
