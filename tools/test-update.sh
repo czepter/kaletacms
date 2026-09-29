@@ -35,7 +35,10 @@ curl -s -o "$WORK/response" -X POST "$B/install.php" --data-urlencode "db_host=$
   --data-urlencode "nazev_webu=Testovací firma" -d web=firemni -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" \
   -d 'rozsireni[]=novinky' -d 'rozsireni[]=poptavky' -d 'rozsireni[]=statistika' -d 'rozsireni[]=presmerovani'
 grep -q "Hotovo, web běží" "$WORK/response" || { echo "  CHYBA  install of $FROM failed"; sed 's/<[^>]*>//g' "$WORK/response" | grep -v '^\s*$' | head -20; exit 1; }
-echo "  ok     $FROM installed ($(sed -n "s/^const KALETA_VERSION = '\(.*\)';/\1/p" "$WORK/web/system/bootstrap.php"))"
+FROM_VERSION=$(sed -n "s/^const KALETA_VERSION = '\(.*\)';/\1/p" "$WORK/web/system/bootstrap.php")
+echo "  ok     $FROM installed ($FROM_VERSION)"
+# 1.x: the old admin URLs, old settings keys and the Modal element exist; from 2.0 on the update runs through the current admin
+FROM_1X=0; [ "${FROM_VERSION%%.*}" = 1 ] && FROM_1X=1
 curl -s -c "$JAR" -o "$WORK/response" "$B/admin.php"; TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN" -d user=admin --data-urlencode "password=$PASSWORD"
 check "old version: home page" /
@@ -94,7 +97,7 @@ foreach (file($channel . '/../nove-soubory.txt', FILE_IGNORE_NEW_LINES) as $s) {
 $newFiles = array_flip(file($channel . '/../nove-soubory.txt', FILE_IGNORE_NEW_LINES));
 $legacy = [];
 foreach (file($channel . '/../stare-soubory.txt', FILE_IGNORE_NEW_LINES) as $s) {
-    if (str_starts_with($s, 'system/src/') && !isset($newFiles[$s]) && is_file($site . '/' . $s)) {
+    if ((str_starts_with($s, 'system/src/') || $s === 'system/class-aliases.php') && !isset($newFiles[$s]) && is_file($site . '/' . $s)) {
         $content = (string) file_get_contents($site . '/' . $s);
         $zip->addFromString($s, $content);
         $legacy[$s] = hash('sha256', $content);
@@ -126,14 +129,20 @@ fi
 for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$CHANNEL_PORT/aktualizace.json" && break; sleep 0.2; done
 
 # a page with the per-page Modal element of 1.x: 2.0 turns it into a site pop-up (migration 0034)
-"${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -e "INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit, v_menu, stavba) VALUES ('okno-test', 'Okno test', '', 1, 0, '{\"v\":1,\"deti\":[{\"id\":\"s1\",\"typ\":\"sekce\",\"deti\":[{\"id\":\"b1\",\"typ\":\"tlacitko\",\"obsah\":{\"text\":\"Open\",\"odkaz\":\"#akce\"}},{\"id\":\"o1\",\"typ\":\"okno\",\"kotva\":\"akce\",\"obsah\":{\"samo\":\"0\",\"znovu\":\"relace\"},\"deti\":[{\"id\":\"n1\",\"typ\":\"nadpis\",\"obsah\":{\"text\":\"Modal content\"}}]}]}]}')" 2>/dev/null && MODAL_PLANTED=1 || MODAL_PLANTED=0
+[ "$FROM_1X" = 1 ] && "${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -e "INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit, v_menu, stavba) VALUES ('okno-test', 'Okno test', '', 1, 0, '{\"v\":1,\"deti\":[{\"id\":\"s1\",\"typ\":\"sekce\",\"deti\":[{\"id\":\"b1\",\"typ\":\"tlacitko\",\"obsah\":{\"text\":\"Open\",\"odkaz\":\"#akce\"}},{\"id\":\"o1\",\"typ\":\"okno\",\"kotva\":\"akce\",\"obsah\":{\"samo\":\"0\",\"znovu\":\"relace\"},\"deti\":[{\"id\":\"n1\",\"typ\":\"nadpis\",\"obsah\":{\"text\":\"Modal content\"}}]}]}]}')" 2>/dev/null && MODAL_PLANTED=1 || MODAL_PLANTED=0
 
 echo "== update through the admin"
 # the channel under the key of the old release (1.4.0 and older: aktualizace_url) and of the current one
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('aktualizace_url','http://127.0.0.1:$CHANNEL_PORT/aktualizace.json'), ('update_url','http://127.0.0.1:$CHANNEL_PORT/aktualizace.json') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('aktualizace_cache', 'update_cache')"
+[ "$FROM_1X" = 1 ] && OLD_KEY="('aktualizace_url','http://127.0.0.1:$CHANNEL_PORT/aktualizace.json'), " || OLD_KEY=""
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES $OLD_KEY('update_url','http://127.0.0.1:$CHANNEL_PORT/aktualizace.json') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('aktualizace_cache', 'update_cache')"
 # the old release answers to its own URLs (the admin of a 1.3 site clicks Update there)
-curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?modul=config&zalozka=zalohy"; TOKEN=$(csrf) # 1.4+ redirects this to its own URL
-curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?modul=config&akce=aktualizuj" -d "_csrf=$TOKEN"
+if [ "$FROM_1X" = 1 ]; then
+  curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?modul=config&zalozka=zalohy"; TOKEN=$(csrf) # 1.4+ redirects this to its own URL
+  curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?modul=config&akce=aktualizuj" -d "_csrf=$TOKEN"
+else
+  curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; TOKEN=$(csrf)
+  curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN"
+fi
 if grep -qF "$NEW_VERSION" "$WORK/response"; then echo "  ok     update installed"; else
   echo "  CHYBA  update failed:"; sed 's/<[^>]*>//g' "$WORK/response" | grep -i -m3 'aktualiz'; exit 1; fi
 cmp -s "$ROOT/system/src/helpers.php" "$WORK/web/system/src/helpers.php" && grep -qF "KALETA_VERSION = '$NEW_VERSION'" "$WORK/web/system/bootstrap.php" && echo "  ok     new core in place" || { echo "  CHYBA  the core is not the new one"; ERRORS=$((ERRORS+1)); }
