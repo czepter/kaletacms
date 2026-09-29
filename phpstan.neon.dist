@@ -1,0 +1,15 @@
+# Static analysis (2.1): php phpstan.phar analyse – CI downloads PHPStan, the site itself needs no Composer
+parameters:
+    level: 5
+    phpVersion: 80400
+    paths:
+        - system/src
+        - admin.php
+        - index.php
+        - install.php
+    bootstrapFiles:
+        - system/bootstrap.php
+    tmpDir: storage/cache/phpstan
+includes:
+    # findings of 2.1.0 (mostly type annotations, none a known bug) – new code must not add any; remove entries as they are fixed
+    - phpstan-baseline.neon

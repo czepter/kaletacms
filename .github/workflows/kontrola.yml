@@ -68,6 +68,17 @@ jobs:
       - name: Update from 1.0.0 through the admin
         run: tools/test-update.sh
         env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root, FROM: v1.0.0 }
+  phpstan:
+    # static analysis (phpstan.neon.dist): level 5, the findings of 2.1.0 in phpstan-baseline.neon – new code adds none
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: '8.4', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
+      - name: PHPStan
+        run: |
+          curl -sSL -o /tmp/phpstan.phar https://github.com/phpstan/phpstan/releases/download/2.1.30/phpstan.phar
+          php -d memory_limit=2G /tmp/phpstan.phar analyse -c phpstan.neon.dist --no-progress
   bezpecnost:
     runs-on: ubuntu-latest
     steps:
