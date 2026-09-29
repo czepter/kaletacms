@@ -236,7 +236,7 @@ minor release a month; the [release policy](RELEASE-POLICY.md) says what stays c
 - 2.4.1: the guide gains Media, Statistics, Privacy and cookies, and Sending e-mail, and those screens link to them;
   SMTP errors in the admin language, clearer hints for the agency logo, bulk delete in Media and Google Analytics.
 
-## 2.5 – easy to start (in progress)
+## 2.5 – easy to start (released 29 September 2026)
 
 Kaleta does what it set out to do, but few people have tried it. 2.5 makes the first install short wherever it happens.
 
