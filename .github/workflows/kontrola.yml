@@ -68,6 +68,27 @@ jobs:
       - name: Update from 1.0.0 through the admin
         run: tools/test-update.sh
         env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root, FROM: v1.0.0 }
+  docker:
+    # the image builds, starts with MariaDB (compose.yaml), installs and serves the site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build, start and install
+        env: { KALETA_DB_PASSWORD: docker-test }
+        run: |
+          docker compose up -d --build --wait
+          for i in $(seq 1 30); do curl -s -o /dev/null http://localhost:8080/install.php && break; sleep 1; done
+          curl -s -o /tmp/install.html -X POST http://localhost:8080/install.php -d jazyk=en -d db_host=db -d db_port=3306 -d db_name=kaleta -d db_user=kaleta \
+            -d db_password=docker-test -d db_prefix=ka_ -d nazev_webu=Docker -d web=firemni -d user=admin -d jmeno=Tester -d email= \
+            -d password=Docker-test-2026 -d password2=Docker-test-2026 -d 'rozsireni[]=novinky' -d 'rozsireni[]=poptavky'
+          grep -q "Done, your website is running" /tmp/install.html || { sed 's/<[^>]*>//g' /tmp/install.html | grep -v '^\s*$' | head -20; exit 1; }
+          curl -sf -o /tmp/home.html http://localhost:8080/ && grep -q '<title>' /tmp/home.html
+          curl -sf -o /dev/null http://localhost:8080/admin.php
+          curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/about-us | grep -q 200
+          curl -sI http://localhost:8080/ | grep -qi '^x-content-type-options'
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs
   phpstan:
     # static analysis (phpstan.neon.dist): level 5, the findings of 2.1.0 in phpstan-baseline.neon – new code adds none
     runs-on: ubuntu-latest
