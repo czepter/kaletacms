@@ -19,7 +19,9 @@ use Kaleta\Builder\Check;
  *  - the most frequent addresses that end in 404 and have no redirect;
  *  - accessibility (2.3, the European Accessibility Act, WCAG 2.2 AA): colour contrast of the design system, links that
  *    do not say where they lead, images in text without alt, empty links, tables without header cells, frames without a
- *    title, and whether the site has an accessibility statement.
+ *    title, and whether the site has an accessibility statement;
+ *  - before handing the site over (2.4): what an agency checks before a client takes it – mail, backups, two-step sign-in,
+ *    legal pages, indexing, tracking without consent, the client's own account, the agency's contact.
  *
  * Runs on demand only: a company site has hundreds of rows, not millions.
  */
@@ -28,7 +30,7 @@ final class Audit
     /** Kinds of findings in the order they are shown. */
     public const array KINDS = [
         'link' => 'Broken links', 'menu' => 'Menu', 'description' => 'Missing descriptions', 'title' => 'Duplicate titles',
-        'build' => 'Buttons, images and headings', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors',
+        'build' => 'Buttons, images and headings', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'handover' => 'Before handing over',
     ];
 
     /** At most this many findings of one kind – beyond that the list would not help anyone. */
@@ -57,6 +59,7 @@ final class Audit
         $this->news();
         $this->accessibility();
         $this->notFound();
+        $this->handover();
         $order = array_flip(array_keys(self::KINDS));
         $counts = [];
         $out = [];
@@ -307,6 +310,37 @@ final class Audit
             foreach (array_unique($found) as $message) {
                 $this->add('accessibility', $where, $message, $edit, $url, $target, $element);
             }
+        }
+    }
+
+    /** Before handing the site over to a client (2.4) – each item says what to set and where. */
+    private function handover(): void
+    {
+        $s = $this->app->settings();
+        $db = $this->app->db();
+        $site = t('The whole site');
+        $check = function (bool $ok, string $message, string $edit, string $key) use ($site): void {
+            if (!$ok) {
+                $this->add('handover', $site, $message, $edit, null, ['handover' => $key]);
+            }
+        };
+        $check($s->get('site_email') !== '', t('No site e-mail: enquiries and password resets have nowhere to go.'), 'admin.php?module=settings&tab=general', 'site_email');
+        $check($s->get('mail_mode') === 'smtp', t('E-mail goes out through the host’s mail() – set an SMTP server so enquiries and newsletters do not end up in spam.'), 'admin.php?module=settings&tab=mail', 'smtp');
+        $check($s->get('remote_backup') !== '' && $s->get('remote_backup') !== 'vypnuto', t('Backups stay on the same server – add an off-site copy (FTPS or S3) in case the hosting is lost.'), 'admin.php?module=settings&tab=backups', 'remote_backup');
+        $check(trim($s->get('company_name')) !== '' && trim($s->get('company_street')) !== '', t('Company details are missing – the footer, the imprint and search engines use them.'), 'admin.php?module=settings&tab=company', 'company');
+        $check($s->bool('indexing'), t('Search engines are blocked – switch indexing on when the site goes live.'), 'admin.php?module=settings&tab=seo', 'indexing');
+        $check($s->get('favicon') !== '' || is_file(KALETA_ROOT . '/media/ikona-32.png'), t('No site icon (favicon) – browsers and phones show a blank one.'), 'admin.php?module=appearance', 'favicon');
+        $tracking = trim($s->get('ga4_id') . $s->get('matomo_url') . $s->get('marketing_code')) !== '';
+        $check(!$tracking || $s->get('cookies_mode') !== 'zadna', t('Analytics or marketing codes run without a cookie bar – visitors in the EU must consent first.'), 'admin.php?module=settings&tab=cookies', 'cookies');
+        $check($s->get('security_contact') !== '', t('No security contact – add who takes reports of security problems (published as security.txt).'), 'admin.php?module=settings&tab=seo', 'security_contact');
+        foreach ($db->all("SELECT idu, user, jmeno FROM {uzivatele} WHERE admin = 2 AND blokovat = 0 AND totp_tajemstvi = '' AND idu NOT IN (SELECT idu FROM {uzivatele_klice})") as $u) {
+            $this->add('handover', $site, t('The administrator %s signs in without two-step sign-in or a passkey.', (string) ($u['jmeno'] ?: $u['user'])),
+                'admin.php?module=users&action=edit&id=' . (int) $u['idu'], null, ['handover' => 'two_step', 'user' => (int) $u['idu']]);
+        }
+        $check((int) $db->value('SELECT COUNT(*) FROM {uzivatele} WHERE admin < 2 AND blokovat = 0') > 0, t('The client has no account of their own yet – create one with the Client role (Users → Roles).'), 'admin.php?module=users', 'client_account');
+        $check($s->get('agency_name') !== '' && ($s->get('agency_email') !== '' || $s->get('agency_phone') !== ''), t('Your contact is not set – the client will not see whom to ask (Settings → General → Built and looked after by).'), 'admin.php?module=settings&tab=general', 'agency');
+        if (Extensions::isEnabled($s, 'newsletter')) {
+            $check($s->int('tasks_last_run') > 0, t('Background tasks have never run – newsletters are sent only while they do. Add the cron line from System status.'), 'admin.php?module=settings&tab=health', 'cron');
         }
     }
 

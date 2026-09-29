@@ -37,9 +37,23 @@ final class Roles extends Module
         return $this->view('list', 'Roles', ['role' => $role, 'names' => self::configurable()]);
     }
 
+    /**
+     * Ready-made roles (2.4) – what an agency hands a client most often. A starting point: the form can still be changed.
+     * key => [name, description, level, sections]
+     */
+    public const array PRESETS = [
+        'client' => ['Client', 'Edits pages, news and collection items, answers enquiries and sees the statistics – the look, settings and users stay with the agency.',
+            Auth::EDITOR, ['pages', 'news', 'collections', 'categories', 'tags', 'enquiries', 'stats']],
+        'writer' => ['Writer', 'Writes news for someone else to publish.', Auth::AUTHOR, ['news', 'tags']],
+        'office' => ['Enquiries only', 'Handles enquiries from the site forms and the newsletter subscribers.', Auth::AUTHOR, ['enquiries', 'subscribers']],
+    ];
+
     protected function actionNew(): Response
     {
-        return $this->form(['idr' => 0, 'nazev' => '', 'popis' => '', 'uroven' => Auth::AUTHOR, 'moduly' => '']);
+        $preset = self::PRESETS[$this->request->get('preset')] ?? null;
+
+        return $this->form($preset === null ? ['idr' => 0, 'nazev' => '', 'popis' => '', 'uroven' => Auth::AUTHOR, 'moduly' => '']
+            : ['idr' => 0, 'nazev' => t($preset[0]), 'popis' => t($preset[1]), 'uroven' => $preset[2], 'moduly' => implode(',', array_intersect($preset[3], array_keys(self::configurable())))]);
     }
 
     protected function actionEdit(): Response

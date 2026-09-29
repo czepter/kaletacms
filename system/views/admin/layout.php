@@ -93,9 +93,12 @@ if ($user !== null) {
 </dialog>
 <?php endif ?>
 <main class="obsah">
-<?php if ($heading !== ''): ?>
+<?php if ($heading !== ''): $guide = $user !== null ? Kaleta\Admin\Guide::forScreen($active === '' && $app->request->get('action') === 'account' ? 'account' : $active, '', (string) $app->request->get('tab'), Kaleta\Core\Language::code()) : null; ?>
 <div class="zahlavi-stranky">
 <h1><?= e($heading) ?></h1>
+<?php if ($guide !== null): ?>
+<?= $app->view->render('admin/guide_link', ['url' => $guide]) ?>
+<?php endif ?>
 </div>
 <?php endif ?>
 <?php foreach ($flashes as $message): ?>
@@ -105,6 +108,7 @@ if ($user !== null) {
 <?= $app->view->render('admin/look_bar', ['app' => $app, 'summary' => Kaleta\Core\Look::summary($app->db(), $app->settings()), 'csrf' => $app->session->csrfField()]) ?>
 <?php endif ?>
 <?= $content ?>
+<?= $app->view->render('admin/agency', ['app' => $app, 'withLogo' => false]) ?>
 <footer class="verze">Kaleta <?= e(KALETA_VERSION) ?> · <?= e(t('Kaleta is free and has no ads.')) ?>
 	<a class="verze-podpora" href="https://github.com/sponsors/phprscms" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><?= e(t('Support its development on GitHub Sponsors')) ?></a></footer>
 </main>

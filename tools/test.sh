@@ -492,6 +492,9 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=components
 IDM=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idm FROM ka_komponenty ORDER BY idm DESC LIMIT 1")
 component_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=components&action=$1&id=$IDM" -d "_csrf=$TOKEN" "${@:2}"; }
 check "komponenta v builderu" 200 "/admin.php?module=components&action=builder&id=$IDM" 'id="stavitel-data"'
+check "2.4: builder links to its guide article" 200 "/admin.php?module=components&action=builder&id=$IDM" '"navod":"https:[^"]*guide[^"]*components"'
+check "2.4: settings tab links to its guide article" 200 "/admin.php?module=settings&tab=backups" 'class="navod-odkaz" href="https://kaletacms.com/[a-z/]*guide/backups-updates"'
+check "2.4: dashboard links to the guide" 200 "/admin.php" 'guide/first-steps#the-dashboard'
 component_action build_save --data-urlencode 'stavba={"v":1,"deti":[{"id":"kse1","typ":"sekce","deti":[{"id":"kna1","typ":"nadpis","znacka":"h3","obsah":{"text":"{{nadpis}}"},"styl":{"zaklad":{"barva":"primarni"}}},{"typ":"tlacitko","obsah":{"text":"Více","odkaz":"{{odkaz}}"}},{"typ":"komponenta","obsah":{"komponenta":"'"$IDM"'"}}]}]}' > /dev/null
 expect "publikování komponenty" "$(component_action build_publish)" 200
 check "náhled komponenty pro editor" 200 "/_komponenta/$IDM?stavba=koncept&editor=1" "Výchozí nadpis"
@@ -1493,6 +1496,16 @@ expect "ticked options (only offered ones) and the form's own hidden value are s
 mcp vytvor_stranku '{"titulek":"Access 23","zobrazit":true,"text":"<p>Prices: <a href=\"/sluzby\">click here</a>.</p><table><tr><td>1</td></tr></table>"}' > /dev/null
 mcp site_audit '{"kind":"accessibility"}' > "$WORK/response"; mcp_text
 contains -q 'click here' "$WORK/text" && contains -q 'header cells' "$WORK/text" && contains -q 'accessibility statement' "$WORK/text" && echo "  ok     site audit: link texts, tables and the accessibility statement" || { echo "  CHYBA  accessibility audit"; head -c 500 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+# 2.4 for agencies: a ready-made role, whom to ask for help, the check before handing the site over
+check "2.4: ready-made Client role fills the form" 200 "/admin.php?module=roles&action=new&preset=client" 'name="nazev" value="Klient"'
+mcp site_audit '{"kind":"handover"}' > "$WORK/response"; mcp_text
+contains -qE '"handover": ?"agency"' "$WORK/text" && contains -qE '"handover": ?"smtp"' "$WORK/text" && echo "  ok     hand-over check: agency contact and SMTP missing" || { echo "  CHYBA  hand-over audit"; head -c 500 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+mcp update_settings '{"settings":{"agency_name":"Studio Test","agency_email":"help@studio.example","agency_phone":"+420 777 123 456"}}' > /dev/null
+curl -s -o "$WORK/response" "$B/admin.php"
+grep -q 'Studio Test' "$WORK/response" && grep -q 'mailto:help@studio.example' "$WORK/response" && grep -q 'tel:+420777123456' "$WORK/response" && echo "  ok     sign-in screen shows whom to ask for help" || { echo "  CHYBA  agency contact on the sign-in screen"; ERRORS=$((ERRORS+1)); }
+check "2.4: admin footer shows the agency" 200 "/admin.php?module=pages" 'class="agentura"'
+mcp site_audit '{"kind":"handover"}' > "$WORK/response"; mcp_text
+contains -qE '"handover": ?"agency"' "$WORK/text" && { echo "  CHYBA  hand-over audit still misses the agency contact"; ERRORS=$((ERRORS+1)); } || echo "  ok     hand-over check: the agency contact is set"
 # the cookie bar: remembering leads needs consent to marketing; Global Privacy Control counts as "only necessary"
 mcp update_settings '{"settings":{"cookies_mode":"vestavena","lead_attribution":"1"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/leads-23"

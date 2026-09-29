@@ -55,6 +55,7 @@
 <?php if (!$code): ?>
 <p class="login-odkaz"><a href="<?= e($app->url('admin.php?action=password')) ?>"><?= e(t('Forgotten your password?')) ?></a></p>
 <?php endif ?>
+<?= $app->view->render('admin/agency', ['app' => $app, 'withLogo' => true]) ?>
 </div>
 </body>
 </html>

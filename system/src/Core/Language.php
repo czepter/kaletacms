@@ -76,7 +76,7 @@ final class Language
     private static array $dictionary = [];
 
     /** Languages the administration is translated into (dictionary system/jazyky/admin-<code>.php). */
-    public const array ADMIN_LANGUAGES = ['cs' => 'Čeština', 'en' => 'English'];
+    public const array ADMIN_LANGUAGES = ['cs' => 'Čeština', 'en' => 'English', 'de' => 'Deutsch'];
 
     /** The language has no dictionary of its own, texts come from the English one (the date in words then comes from the intl extension, if the server has it). */
     private static bool $baseOnly = false;

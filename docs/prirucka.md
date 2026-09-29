@@ -16,6 +16,18 @@ Návod pro toho, kdo web spravuje: od instalace přes builder stránek až po na
 Administrace je na adrese `/admin.php`. Role: **správce** smí všechno, **editor** spravuje obsah, **autor novinek** píše
 jen své novinky a vydat je smí jen s právem vydávat. V **Uživatelé → Role** si založíte **vlastní role** – pojmenovanou
 sadu sekcí (třeba „Obchodník“ jen s Poptávkami); změna role se přenese na všechny její členy.
+Začít můžete hotovou rolí: **Klient** (stránky, novinky, kolekce, poptávky a statistika – vzhled, nastavení a uživatelé
+zůstávají vám), **Autor textů** (novinky, které vydá někdo jiný) a **Jen poptávky**.
+
+**Nápověda na každé obrazovce.** Vedle nadpisu každé části administrace otevře **Jak s tím pracovat** její článek
+v návodu (v jazyce administrace, pokud ho návod má); v builderu je článek v Nápovědě (**?**). Administrace je česky,
+anglicky a německy – každý uživatel si vybere v **Můj účet**.
+
+**Stavíte web pro klienta?** V **Nastavení → Obecné → Web postavil a stará se o něj** vyplňte své jméno, web, e-mail,
+telefon a logo: přihlašovací obrazovka a patička administrace klientovi ukážou, koho se zeptat. Před předáním vypíše
+**Audit webu → Před předáním**, co ještě chybí – e-mail webu, SMTP server, kopie záloh mimo server, údaje o firmě,
+indexování, ikona webu, měření bez cookie lišty, bezpečnostní kontakt, správci bez dvoufázového přihlášení nebo passkey,
+vlastní účet klienta, váš kontakt a úlohy na pozadí.
 
 ## 2. Builder stránek
 

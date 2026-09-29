@@ -96,7 +96,8 @@ trait BuilderActions
                 'sdilet' => 'build_share',
             ]) + ['smazSekci' => $app->auth()->isAdmin() ? $this->url('build_delete_section', $target['parametry']) : null] + ['admin' => $app->url('admin.php'), 'nastaveni' => $e['nastaveni'],
                 'komponenta' => $app->auth()->isAdmin() ? $app->url('admin.php?module=components&action=from_element') : null,
-                'nahledSekce' => $app->url('_sekce/')],
+                'nahledSekce' => $app->url('_sekce/'),
+                'navod' => \Kaleta\Admin\Guide::forScreen(static::IDENT, 'builder', '', \Kaleta\Core\Language::code())],
         ];
 
         return Response::html($app->view->render('admin/pages/builder', ['app' => $app, 'data' => $data, 'title' => $target['titulek']]));

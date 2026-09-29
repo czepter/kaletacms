@@ -772,7 +772,7 @@
 		return findings.slice(0, 6);
 	}
 
-	/** Help: keyboard shortcuts and starting the editor tour. */
+	/** Help: keyboard shortcuts, the builder guide on kaletacms.com and starting the editor tour. */
 	function hint() {
 		const mod = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
 		const shortcuts = [[mod + '+S', T('Save draft')], [mod + '+Z / ' + mod + '+Shift+Z', T('Undo / redo')], [mod + '+D', T('Duplicate the selected element')],
@@ -781,7 +781,8 @@
 		const d = el('dialog', { class: 'st-dialog' },
 			el('div', {}, el('h2', {}, T('Keyboard shortcuts')),
 				el('dl', { class: 'st-zkratky' }, shortcuts.flatMap(([k, t]) => [el('dt', {}, el('kbd', {}, k)), el('dd', {}, t)]))),
-			el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => { d.close(); tour(0); } }, T('Editor tour')),
+			el('footer', {}, D.adresy.navod ? el('a', { class: 'st-tl', href: D.adresy.navod, target: '_blank', rel: 'noopener' }, T('Builder guide')) : null,
+				el('button', { type: 'button', class: 'st-tl', onclick: () => { d.close(); tour(0); } }, T('Editor tour')),
 				el('button', { type: 'button', class: 'st-tl st-tl-hlavni', onclick: () => d.close() }, T('Close'))));
 		d.addEventListener('close', () => d.remove());
 		document.body.append(d);

@@ -3,6 +3,7 @@
  * Finds Czech in the English interface (tools/test-english.sh). Two modes:
  *
  *   php tools/find-czech.php stranka.html…   visible text of pages (text, title, placeholder, aria-label, alt, buttons, data-potvrdit)
+ *   php tools/find-czech.php --de stranka.html…   the same for the German admin (2.4): German words spelled like Czech ones are fine
  *   php tools/find-czech.php --js            texts in admin scripts (image/*.js) that are neither translated in image/jazyky/admin-en.js nor an English source text (admin-cs.js)
  *
  * Recognizes Czech by three signs: letters with a caron or an acute accent; text that is a Czech dictionary key with an English
@@ -22,6 +23,9 @@ const WORDS = ['nebo', 'jsou', 'jako', 'pokud', 'bude', 'byla', 'bylo', 'jsme', 
     'koncept', 'kategorie', 'nastavit', 'nastaveni', 'vlastnosti', 'barva', 'sekce', 'kontejner', 'galerie', 'podklad', 'odstavec',
     'titulek', 'perex', 'aktuality', 'pravidla', 'kolekce', 'komponenta', 'komponenty', 'obnovit', 'zahodit', 'odebrat', 'posunout',
     'stranka', 'stranky', 'polozka', 'polozky', 'uzivatel', 'sluzby', 'uvod', 'znacka'];
+
+/** German words that are spelled like Czech ones (--de). */
+const GERMAN_WORDS = ['kategorie', 'kontakt'];
 
 /** Words with diacritics that belong in English (language names, loanwords). */
 const ALLOWED = ['Čeština', 'café', 'Café'];
@@ -166,8 +170,14 @@ foreach (dictionaries($root) as $czech => $translation) {
     $keys[$czech] = true;
 }
 
+// --de: a Czech key that is also the German translation of something (Telefon, Datum, Typ) is German text
+$german = ($argv[1] ?? '') === '--de';
+if ($german) {
+    $keys = array_diff_key($keys, array_flip(array_map('strval', [...array_values(require $root . '/system/jazyky/admin-de.php'), ...array_values(require $root . '/system/jazyky/de.php')])));
+}
+
 $findings = 0;
-foreach (array_slice($argv, 1) as $file) {
+foreach (array_slice($argv, $german ? 2 : 1) as $file) {
     $html = (string) file_get_contents($file);
     if (trim($html) === '') {
         continue;
@@ -191,7 +201,7 @@ foreach (array_slice($argv, 1) as $file) {
             hasDiacritics($text) => 'diakritika',
             isset($keys[$text]) || isset($keys[rtrim($text, ':')]) => 'český klíč slovníku',
             (bool) array_filter($patterns, fn (string $v): bool => preg_match($v, $text) === 1) => 'český klíč slovníku',
-            ($words = czechWords($text)) !== [] => 'české slovo „' . implode('“, „', $words) . '“',
+            ($words = array_values(array_filter(czechWords($text), fn (string $w): bool => !$german || !in_array(mb_strtolower($w), GERMAN_WORDS, true)))) !== [] => 'české slovo „' . implode('“, „', $words) . '“',
             default => '',
         };
         if ($reason !== '') {

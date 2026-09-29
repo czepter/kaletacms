@@ -17,6 +17,18 @@ For whoever runs the site: from installation through the page builder to connect
 The admin is at `/admin.php`. Roles: an **administrator** can do everything, an **editor** manages content, a **news
 author** writes their own news and may publish only with the publishing permission. In **Users → Roles** you can create
 **custom roles** – a named set of sections (for example “Sales” with Enquiries only); changing a role updates all its members.
+Three ready-made roles are a starting point: **Client** (pages, news, collections, enquiries and statistics – the look,
+settings and users stay with you), **Writer** (news for someone else to publish) and **Enquiries only**.
+
+**Help on every screen.** Next to the heading of each part of the admin, **How to use this** opens its article in this
+guide (in the admin language, if the guide has it); in the builder the article is in Help (**?**). The admin speaks
+Czech, English and German – each user chooses in **My account**.
+
+**Building the site for a client?** In **Settings → General → Built and looked after by** fill in your name, website,
+e-mail, phone and logo: the sign-in screen and the foot of the admin show the client whom to ask for help. Before
+handing over, **Site audit → Before handing over** lists what is still missing – site e-mail, an SMTP server, an
+off-site backup copy, company details, indexing, the site icon, tracking without a cookie bar, the security contact,
+administrators without two-step sign-in or a passkey, the client's own account, your contact and background tasks.
 
 ## 2. Page builder
 

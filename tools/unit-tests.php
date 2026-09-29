@@ -1225,5 +1225,38 @@ check('2.0: old class names and helpers no longer exist', [is_file(KALETA_SYSTEM
 exec('php ' . escapeshellarg(__DIR__ . '/rename.php') . ' --self-test', $renameOutput, $renameCode);
 check('tools/rename.php self-test', $renameCode, 0);
 
+/* ---------- 2.4: guide links in the administration ---------- */
+// the articles of the guide on kaletacms.com; a new admin module or settings tab needs its article here and in Admin\Guide
+$guideArticles = ['install', 'first-steps', 'extensions', 'builder-basics', 'styling-responsive', 'elements', 'page-settings', 'site-appearance', 'classes', 'components',
+    'site-parts', 'popups', 'menus', 'collections', 'collection-lists', 'site-search', 'news', 'forms', 'newsletter', 'company-details', 'seo', 'languages',
+    'claude-connect', 'claude-capabilities', 'ai-assistant', 'users-roles', 'wordpress-import', 'backups-updates'];
+$guideTargets = [...Kaleta\Admin\Guide::MODULES, ...Kaleta\Admin\Guide::SETTINGS, ...Kaleta\Admin\Guide::BUILDER];
+check('2.4: every admin module and settings tab links to an existing guide article', [
+    array_values(array_diff(array_map(fn (string $c): string => $c::IDENT, Kaleta\Admin\Kernel::MODULES), array_keys(Kaleta\Admin\Guide::MODULES), ['settings'])),
+    array_values(array_diff(array_keys(Kaleta\Admin\Modules\Settings::TABS), array_keys(Kaleta\Admin\Guide::SETTINGS))),
+    array_values(array_filter($guideTargets, fn (string $a): bool => !in_array(strtok($a, '#'), $guideArticles, true))),
+], [[], [], []]);
+check('2.4: guide link follows the admin language', [
+    Kaleta\Admin\Guide::forScreen('settings', '', 'backups', 'cs'), Kaleta\Admin\Guide::forScreen('pages', 'builder', '', 'de'),
+    Kaleta\Admin\Guide::forScreen('popups', 'builder', '', 'en'), Kaleta\Admin\Guide::forScreen('stats', '', '', 'pl'), Kaleta\Admin\Guide::forScreen('nothing', '', '', 'en'),
+], ['https://kaletacms.com/cs/guide/backups-updates', 'https://kaletacms.com/de/guide/builder-basics', 'https://kaletacms.com/guide/popups', 'https://kaletacms.com/guide/seo#analytics', null]);
+
+/* ---------- 2.4: German administration ---------- */
+// every admin text translated into Czech has a German translation too, with the same placeholders and tags
+$placeholders = function (string $text): array { preg_match_all('/%(?:\d+\$)?[sd]|<\/?[a-z]+/i', $text, $m); sort($m[0]); return $m[0]; };
+$jsDictionary = function (string $file): array { preg_match_all('/^\t("(?:[^"\\\\]|\\\\.)*"):\s*("(?:[^"\\\\]|\\\\.)*"),?$/m', (string) file_get_contents($file), $m, PREG_SET_ORDER);
+    return array_combine(array_map(fn (array $x): string => json_decode($x[1]), $m), array_map(fn (array $x): string => json_decode($x[2]), $m)); };
+$deGaps = [];
+foreach ([[require KALETA_SYSTEM . '/jazyky/admin-cs.php', require KALETA_SYSTEM . '/jazyky/admin-de.php'],
+    [$jsDictionary(KALETA_ROOT . '/image/jazyky/admin-cs.js'), $jsDictionary(KALETA_ROOT . '/image/jazyky/admin-de.js')]] as [$csTexts, $deTexts]) {
+    foreach ($csTexts as $key => $_) {
+        $key = (string) $key;
+        if (!isset($deTexts[$key]) && !in_array($key, ['Name'], true)) { $deGaps[] = 'missing: ' . $key; }
+        elseif (isset($deTexts[$key]) && $placeholders($key) !== $placeholders((string) $deTexts[$key])) { $deGaps[] = 'placeholders: ' . $key; }
+    }
+}
+check('2.4: German admin covers every Czech admin text', array_slice($deGaps, 0, 5), []);
+check('2.4: German is an admin language', [isset(Kaleta\Core\Language::ADMIN_LANGUAGES['de']), count($jsDictionary(KALETA_ROOT . '/image/jazyky/admin-de.js')) > 2500], [true, true]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

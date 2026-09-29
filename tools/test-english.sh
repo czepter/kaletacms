@@ -18,7 +18,7 @@ fail() { echo "  CHYBA  $1"; FOUND=$((FOUND+1)); }
 sql() { "${MYSQL[@]}" "$DB_NAME" -N -e "$1"; }
 token() { grep -o 'name="_csrf" value="[a-f0-9]*"' "$1" | head -1 | sed 's/.*value="//;s/"//'; }
 # check <label> <file>: the visible text of a saved page has no Czech
-check() { SCREENS=$((SCREENS+1)); local hits; hits=$(php "$ROOT/tools/find-czech.php" "$2") || { fail "$1"; echo "$hits"; }; }
+check() { SCREENS=$((SCREENS+1)); local hits; hits=$(php "$ROOT/tools/find-czech.php" ${GERMAN:+--de} "$2") || { fail "$1"; echo "$hits"; }; }
 # page <label> <path> [expected HTTP code] [cookie jar]: fetch a page and check it
 page() {
   local code; code=$(curl -s ${4:+-b "$4"} -o "$WORK/page.html" -w '%{http_code}' "$B$2")
@@ -111,14 +111,22 @@ PRIVACY=$(sql "SELECT CONCAT(titulek, '|', zobrazit, '|', text LIKE '%This polic
 login "$JAR" admin "$PASSWORD"
 public_site firemni
 NEWS=$(sql "SELECT idc FROM ka_novinky LIMIT 1")
-for u in "" "module=pages" "module=pages&action=new" "module=pages&action=builder&id=1" "module=enquiries" "module=parts" "module=parts&action=builder&typ=hlavicka&jazyk=" \
+ADMIN_SCREENS=("" "module=pages" "module=pages&action=new" "module=pages&action=builder&id=1" "module=enquiries" "module=parts" "module=parts&action=builder&typ=hlavicka&jazyk=" \
   "module=components" "module=collections" "module=collections&action=new" "module=news" "module=news&action=new" "module=news&action=edit&id=$NEWS" "module=categories" "module=categories&action=new" \
   "module=tags" "module=media" "module=stats" "module=appearance" "module=menu" "module=users" "module=users&action=new" "module=roles" "module=roles&action=new" "module=redirects" \
   "module=changelog" "module=transfer" "module=extensions" "module=subscribers" "module=newsletters" "module=newsletters&action=new" "module=parts&action=templates&typ=hlavicka" "module=parts&action=templates&typ=paticka" "action=account" "module=settings&tab=general" "module=settings&tab=company" "module=settings&tab=seo" \
   "module=settings&tab=analytics" "module=settings&tab=cookies" "module=settings&tab=mail" "module=settings&tab=backups" "module=settings&tab=health" \
-  "module=popups" "module=popups&action=new"; do
+  "module=popups" "module=popups&action=new")
+for u in "${ADMIN_SCREENS[@]}"; do
   page "admin.php?$u" "/admin.php?$u" 200 "$JAR"
 done
+# 2.4: the same screens in the German admin – no Czech either; the menu and the guide link are in German
+sql "UPDATE ka_uzivatele SET jazyk = 'de' WHERE user = 'admin'"; GERMAN=1
+for u in "${ADMIN_SCREENS[@]}"; do
+  page "German admin.php?$u" "/admin.php?$u" 200 "$JAR"
+done
+grep -q 'Einstellungen' "$WORK/page.html" && grep -q 'So funktioniert es' "$WORK/page.html" || fail "German admin: the settings screen is not in German"
+sql "UPDATE ka_uzivatele SET jazyk = '' WHERE user = 'admin'"; GERMAN=
 
 # messages after saving: settings, menu, an upload over the server limit and a news item saved by its author
 TOKEN=$(token "$WORK/page.html")

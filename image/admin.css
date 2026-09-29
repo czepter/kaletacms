@@ -300,6 +300,22 @@ h3.stred {
 .zahlavi-stranky h1 {
 	margin: 0;
 }
+/* link to the guide article about the open screen (2.4) */
+.navod-odkaz {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--text-slaby);
+	font-size: 14px;
+	text-decoration: none;
+}
+.navod-odkaz:hover,
+.navod-odkaz:focus-visible {
+	color: var(--akcent);
+	text-decoration: underline;
+}
+.navod-odkaz svg { flex: none; }
+.navod-skryte { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .napoveda-panel-nadpis {
 	margin: 4px 10px 6px;
 	color: var(--text-slaby);
@@ -726,6 +742,10 @@ body.login {
 }
 .login-karta .kaleta-logo { margin-bottom: 6px; }
 .login-odkaz { margin: 14px 0 0; font-size: 13px; text-align: center; }
+/* who looks after the site (Settings → General, 2.4) */
+.agentura { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 18px 0 0; font-size: 13px; color: var(--text-slaby); text-align: center; }
+.agentura img { max-width: 120px; height: 28px; object-fit: contain; }
+.login .agentura { padding-top: 14px; border-top: 1px solid var(--linka); }
 .login-nebo { margin: 14px 0 10px; font-size: 12px; text-align: center; color: var(--text-slaby); }
 .login-karta button.tl { width: 100%; }
 .login-karta h1 {

@@ -21,6 +21,7 @@
 		<a class="navigace" href="<?= e($app->url('admin.php?module=news&action=new')) ?>"><?= e(t('Write a news item')) ?></a>
 <?php endif ?>
 		<a class="navigace" href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= e(t('Zobrazit web')) ?></a>
+		<?= $app->view->render('admin/guide_link', ['url' => Kaleta\Admin\Guide::forScreen('', '', '', Kaleta\Core\Language::code())]) ?>
 	</p>
 </div>
 <?php foreach ($warnings as $w): [$text, $url] = $w; ?>

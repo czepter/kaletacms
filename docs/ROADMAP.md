@@ -222,11 +222,17 @@ minor release a month; the [release policy](RELEASE-POLICY.md) says what stays c
 5. **Accessibility in the site audit** (European Accessibility Act): contrast, link texts, alt texts, tables, frames and
    the accessibility statement; the cookie bar respects **Global Privacy Control**.
 
-## 2.4 – for agencies (planned)
+## 2.4 – for agencies (in progress)
 
-- The admin in German first, then Polish and French; page checks that work in every language.
-- Client handover: a client role preset, the agency's logo on the sign-in screen, a handover checklist.
-- Visitor dictionaries keyed by English text.
+1. **The admin in German** – every screen and the builder; each user picks the language in My account. Polish and
+   French follow once there is demand.
+2. **Handing a site to a client:** ready-made roles (Client, Writer, Enquiries only), the agency's name, contact and logo
+   on the sign-in screen and at the foot of the admin, and a **Before handing over** check in the site audit (also for
+   Claude: `site_audit`, `kind: handover`).
+3. **A guide link on every screen:** each part of the admin and the builder opens its article in the guide on
+   kaletacms.com, in the admin language.
+4. Moved to Later: visitor dictionaries keyed by English text – an internal change with no visible effect, better done
+   on its own than next to a new admin language.
 
 ## Not planned
 
@@ -238,5 +244,6 @@ minor release a month; the [release policy](RELEASE-POLICY.md) says what stays c
 
 ## Later
 
+- Visitor dictionaries keyed by English text, like the admin ones (moved from 2.4).
 - Legal text templates with a clear disclaimer (privacy policy, terms, cookie policy) per country.
 - Right-to-left languages.

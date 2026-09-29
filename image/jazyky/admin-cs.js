@@ -2754,5 +2754,6 @@ window.KALETA_PREKLAD = {
 	"Valid until %s.": "Platí do %s.",
 	"Create link": "Vytvořit odkaz",
 	"Share preview": "Sdílet náhled",
-	"Anyone with the link can see the draft without signing in – including changes you make later. Search engines do not index it.": "Kdo dostane odkaz, uvidí koncept bez přihlášení – i změny, které uděláte později. Vyhledávače ho neindexují."
+	"Anyone with the link can see the draft without signing in – including changes you make later. Search engines do not index it.": "Kdo dostane odkaz, uvidí koncept bez přihlášení – i změny, které uděláte později. Vyhledávače ho neindexují.",
+	"Builder guide": "Návod k builderu"
 };

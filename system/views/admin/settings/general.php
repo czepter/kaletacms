@@ -77,6 +77,17 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 </div>
 <?php $field('news_per_page', 'News items per page', 'cislo', '', 'min="1" max="100"'); ?>
 </fieldset>
+<fieldset>
+<legend><?= e(t('Built and looked after by')) ?></legend>
+<p class="napoveda"><?= e(t('The agency or freelancer who looks after the site. The sign-in screen and the foot of the admin show whom to ask for help.')) ?></p>
+<?php
+$field('agency_name', 'Name');
+$field('agency_url', 'Website', 'url');
+$field('agency_email', 'E-mail for help', 'email');
+$field('agency_phone', 'Phone for help');
+$field('agency_logo', 'Logo', 'text', 'A path from Media, e.g. media/2026/10/agency.svg (Media → the file → Copy address).');
+?>
+</fieldset>
 <details class="pokrocile"<?= $values['maintenance'] === '1' ? ' open' : '' ?>>
 <summary><?= e(t('Maintenance mode')) ?><?= $values['maintenance'] === '1' ? ' – ' . e(t('ON')) : '' ?></summary>
 <?php
