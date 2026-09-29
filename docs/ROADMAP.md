@@ -165,7 +165,7 @@ findable, then remove what is left of the old ways. Each step uses the previous 
 5. **Deprecation report in Health:** old class names, settings keys or helpers in custom code, pages using the old
    per-page pop-up element – a full release to react before 2.0.
 
-## 2.0 – one clear system
+## 2.0 – one clear system (released 29 September 2026)
 
 Not new features – everything that exists is one English, builder-based system.
 
