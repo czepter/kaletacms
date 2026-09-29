@@ -2753,4 +2753,11 @@ return [
     'Form or table' => 'Formulář nebo tabulka',
     'Player' => 'Přehrávač',
     'Paste the address of a Calendly or Google booking page, a Google, Microsoft, Tally, Typeform or Airtable form, or a Spotify or SoundCloud track.' => 'Vložte adresu rezervační stránky Calendly nebo Google, formuláře Google, Microsoft, Tally, Typeform či Airtable, nebo skladby ze Spotify či SoundCloudu.',
+    'again' => 'znovu',
+    'The server has set up the database for you: %s on %s.' => 'Databázi za vás připravil server: %s na %s.',
+    'Build it with Claude' => 'Postavte ho s Claudem',
+    'In Claude, open Settings → Connectors, add a custom connector with this address and sign in with the account you have just created:' => 'V Claudovi otevřete Nastavení → Konektory, přidejte vlastní konektor s touto adresou a přihlaste se účtem, který jste právě založili:',
+    'Then tell Claude about your business, for example:' => 'Pak Claudovi řekněte, čím se zabýváte, třeba:',
+    'We are [company], we do [services] in [city]. Rewrite the pages of my Kaleta site for us, match the colours to our logo and leave everything as drafts for me to check.' => 'Jsme [firma], děláme [služby] v [místo]. Přepiš pro nás stránky mého webu v Kaletě, slaď barvy s naším logem a všechno nech jako koncepty, ať to můžu zkontrolovat.',
+    'Guide: connect Claude' => 'Návod: napojení Clauda',
 ];

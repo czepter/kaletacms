@@ -4,6 +4,7 @@
  * @var bool $alreadyInstalled
  * @var bool $deleted the installer deleted itself
  * @var bool $fromExport "Start from an export": the next step is the import
+ * @var string|null $mcp address of the Claude connection, when it is switched on (2.5: the next step after installing)
  */
 ?>
 <!doctype html>
@@ -45,6 +46,16 @@
 <?php endif ?>
 	<a class="tlacitko druhe" href="<?= e($base) ?>/"><?= e(t('Zobrazit web')) ?></a>
 </div>
+<?php if (!empty($mcp) && empty($fromExport)): ?>
+<section class="claude">
+	<h2><?= e(t('Build it with Claude')) ?></h2>
+	<p><?= e(t('In Claude, open Settings → Connectors, add a custom connector with this address and sign in with the account you have just created:')) ?></p>
+	<p><code><?= e($mcp) ?></code></p>
+	<p><?= e(t('Then tell Claude about your business, for example:')) ?></p>
+	<blockquote><?= e(t('We are [company], we do [services] in [city]. Rewrite the pages of my Kaleta site for us, match the colours to our logo and leave everything as drafts for me to check.')) ?></blockquote>
+	<p><a href="<?= e(Kaleta\Admin\Guide::url('claude-connect', $language ?? 'en')) ?>" target="_blank" rel="noopener"><?= e(t('Guide: connect Claude')) ?></a></p>
+</section>
+<?php endif ?>
 </main>
 </body>
 </html>

@@ -11,7 +11,10 @@ For whoever runs the site: from installation through the page builder to connect
 3. Choose **what you want switched on**: News, Forms and enquiries, Newsletter, Statistics, Redirects, language versions,
    the AI assistant… Extensions can be switched on and off at any time in the admin (**Extensions**); switching off deletes nothing.
 4. The installation also creates a hidden draft **Privacy policy** page in the site language, linked from the footer, the cookie bar and the form consent. Fill in the details in square brackets and publish it. A new page from the **Privacy policy** template (Pages → New page) follows what the site has switched on – enquiries, newsletter, statistics, analytics and marketing codes, maps – and fills in your company details. It is always a template to check, not legal advice.
-5. After logging in, **First steps** on the **Dashboard** guide you through: site appearance, company details, pages,
+5. The installer is in English, Czech and German. When it finishes, it shows the address for connecting Claude and
+   a first prompt to try. On Docker and Coolify the database is set for you, and the site can install itself on the first
+   start (see the README); `php install.php --help` installs from the command line.
+6. After logging in, **First steps** on the **Dashboard** guide you through: site appearance, company details, pages,
    the privacy policy and email.
 
 The admin is at `/admin.php`. Roles: an **administrator** can do everything, an **editor** manages content, a **news

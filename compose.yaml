@@ -1,5 +1,8 @@
-# Kaleta with MariaDB: docker compose up -d, then open http://localhost:8080 and fill in the installer
-#   Database server: db · Database: kaleta · User: kaleta · Password: the KALETA_DB_PASSWORD below
+# Kaleta with MariaDB: KALETA_DB_PASSWORD=… docker compose up -d, then open http://localhost:8080 and fill in the installer
+# (the database is already set – only the site and the administrator are asked for).
+# Without the browser: also set KALETA_URL (the address of the site) and KALETA_ADMIN_PASSWORD, optionally KALETA_ADMIN_USER,
+# KALETA_ADMIN_EMAIL, KALETA_SITE_NAME, KALETA_LANGUAGE (en, cs, de) and KALETA_STARTER – the first start installs the site.
+# Change the password after the first sign-in and remove KALETA_ADMIN_PASSWORD; it is not used again.
 # The site (files, media, config.php) is in the volume "site", the database in "data". Updates: Settings → Backups and
 # updates in the admin, as on any hosting. For newsletters, schedule the line from Settings → System status (cron) on the
 # host or in your platform (Coolify: Scheduled tasks).
@@ -9,6 +12,18 @@ services:
     build: .
     ports:
       - "${KALETA_PORT:-8080}:80"
+    environment:
+      KALETA_DB_HOST: db
+      KALETA_DB_NAME: kaleta
+      KALETA_DB_USER: kaleta
+      KALETA_DB_PASSWORD: ${KALETA_DB_PASSWORD:?set KALETA_DB_PASSWORD}
+      KALETA_URL: ${KALETA_URL:-}
+      KALETA_ADMIN_USER: ${KALETA_ADMIN_USER:-admin}
+      KALETA_ADMIN_EMAIL: ${KALETA_ADMIN_EMAIL:-}
+      KALETA_ADMIN_PASSWORD: ${KALETA_ADMIN_PASSWORD:-}
+      KALETA_SITE_NAME: ${KALETA_SITE_NAME:-}
+      KALETA_LANGUAGE: ${KALETA_LANGUAGE:-en}
+      KALETA_STARTER: ${KALETA_STARTER:-firemni}
     volumes:
       - site:/var/www/html
     depends_on:

@@ -645,12 +645,22 @@ foreach ([...array_values(Kaleta\Core\Extensions::CATALOG), ...array_values(Kale
     $keys[$card['nazev'] ?? $card[0]] = true;
     $keys[$card['popis'] ?? $card[1]] = true;
 }
-foreach (['en'] as $code) {
-    $dictionary = (require KALETA_ROOT . '/system/jazyky/install-' . $code . '.php') + (require KALETA_ROOT . '/system/jazyky/install-cs.php');
+foreach (['en', 'de'] as $code) {
+    // English: Czech keys to English on top of the English source texts; German (2.5): every source text translated
+    $dictionary = (require KALETA_ROOT . '/system/jazyky/install-' . $code . '.php') + ($code === 'en' ? require KALETA_ROOT . '/system/jazyky/install-cs.php' : []);
     // international words are not translated (the dictionary tool does not write identical entries)
     $missing = array_values(array_diff(array_keys($keys), array_keys($dictionary), ['Server', 'Port', 'E-mail', 'Newsletter']));
     check('instalátor: úplný slovník ' . $code, $missing, []);
 }
+
+/* ---------- 2.5: the database from the environment (Docker, Coolify) ---------- */
+$installEnv = fn (array $vars) => array_map(fn (string $k, string $v) => putenv($v === '' ? $k : "{$k}={$v}"), array_keys($vars), $vars);
+$installEnv(['KALETA_DB_HOST' => 'db', 'KALETA_DB_NAME' => 'kaleta', 'KALETA_DB_USER' => 'kaleta', 'KALETA_DB_PASSWORD' => 'se cret', 'KALETA_DB_PORT' => '', 'KALETA_DB_PREFIX' => '']);
+$fromEnv = Kaleta\Install\Installer::databaseFromEnvironment();
+$installEnv(['KALETA_DB_NAME' => '']);
+check('2.5: installer reads the database from KALETA_DB_*, only with a name and a user', [$fromEnv, Kaleta\Install\Installer::databaseFromEnvironment()],
+    [['db_host' => 'db', 'db_name' => 'kaleta', 'db_user' => 'kaleta', 'db_password' => 'se cret'], null]);
+$installEnv(['KALETA_DB_HOST' => '', 'KALETA_DB_USER' => '', 'KALETA_DB_PASSWORD' => '']);
 
 /* ---------- numbers by language ---------- */
 check('pocet: česky mezera jako oddělovač tisíců', Kaleta\Core\Language::runWith('cs', fn () => format_count(1234567)), "1\u{00A0}234\u{00A0}567");

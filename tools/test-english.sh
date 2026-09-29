@@ -48,6 +48,7 @@ install() { # install <starter> <extension…>: a clean English install (the ins
     --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" "${ext[@]}"
   [ ! -f "$WORK/web/install.php" ] || { echo "  CHYBA  English install of $1 failed"; sed 's/<[^>]*>//g' "$WORK/install.html" | grep -v '^\s*$' | head -20; exit 1; }
   check "installer: finished ($1)" "$WORK/install.html"
+  if [[ " ${*:2} " == *" claude "* ]]; then grep -q "<code>$B/mcp</code>" "$WORK/install.html" || fail "installer: no Claude address after installing ($1)"; fi
 }
 public_site() { # public_site <starter>: every visible page, news, search, 404 and the privacy policy, as a visitor sees them
   local slug
@@ -84,6 +85,8 @@ for i in $(seq 1 30); do curl -s -o /dev/null "$B/install.php" && break; sleep 0
 
 echo "== Installer"
 page "installer" "/install.php?jazyk=en"
+GERMAN=1; page "German installer" "/install.php?jazyk=de"; GERMAN=
+grep -q 'Datenbank' "$WORK/page.html" || fail "German installer: not in German"
 curl -s -o "$WORK/page.html" -X POST "$B/install.php" -d jazyk=en --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d db_user=nosuchuser \
   -d db_password=wrong -d db_prefix=ka_ -d nazev_webu=Acme -d web=firemni -d user=admin -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD"
 check "installer: wrong database user" "$WORK/page.html"
@@ -92,6 +95,19 @@ php -r '$d = Dom\HTMLDocument::createFromString(file_get_contents($argv[1]), LIB
   || fail "installer: a wrong database user is not reported in plain words at the User field"
 curl -s -o "$WORK/page.html" -X POST "$B/install.php" -d jazyk=en -d db_name= -d db_user= -d user=admin --data-urlencode "password=$PASSWORD" -d password2=other
 check "installer: missing fields and passwords that do not match" "$WORK/page.html"
+
+echo "== Installation from the command line (2.5): German, the database from the environment"
+cli_env=(KALETA_DB_HOST="$DB_HOST" KALETA_DB_PORT="$DB_PORT" KALETA_DB_NAME="$DB_NAME" KALETA_DB_USER="$DB_USER" KALETA_DB_PASSWORD="$DB_PASS")
+(cd "$WORK/web" && env "${cli_env[@]}" php install.php --url="$B" --language=de > "$WORK/cli.txt" 2>&1 < /dev/null) \
+  && fail "cli: installed without the administrator's password" || grep -q 'KALETA_ADMIN_PASSWORD' "$WORK/cli.txt" || fail "cli: no hint where the password comes from"
+(cd "$WORK/web" && env "${cli_env[@]}" KALETA_ADMIN_PASSWORD="$PASSWORD" php install.php --url="$B" --language=de --site-name="Acme GmbH" --admin-email=office@example.com > "$WORK/cli.txt" 2>&1) \
+  || { fail "cli: the installation failed"; cat "$WORK/cli.txt"; }
+[ ! -f "$WORK/web/install.php" ] || fail "cli: install.php did not delete itself"
+[ "$(sql "SELECT CONCAT(u.user, ':', u.jazyk, ':', n.hodnota) FROM ka_uzivatele u, ka_nastaveni n WHERE n.promenna = 'site_language'")" = "admin:de:de" ] || fail "cli: the admin and the site are not German"
+curl -s -o "$WORK/page.html" "$B/"; grep -q 'lang="de"' "$WORK/page.html" && grep -q 'Acme GmbH' "$WORK/page.html" || fail "cli: the German home page is not there"
+login "$JAR" admin "$PASSWORD"; GERMAN=1; page "cli: German admin after the installation" "/admin.php" 200 "$JAR"; GERMAN=
+grep -q 'Einstellungen' "$WORK/page.html" || fail "cli: the first administrator does not see the German admin"
+echo "  ok     command-line installation: German site and admin, database from the environment"
 
 echo "== Crafts starter without the Forms extension"
 install remeslo novinky statistika presmerovani

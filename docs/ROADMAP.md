@@ -236,6 +236,18 @@ minor release a month; the [release policy](RELEASE-POLICY.md) says what stays c
 - 2.4.1: the guide gains Media, Statistics, Privacy and cookies, and Sending e-mail, and those screens link to them;
   SMTP errors in the admin language, clearer hints for the agency logo, bulk delete in Media and Google Analytics.
 
+## 2.5 – easy to start (in progress)
+
+Kaleta does what it set out to do, but few people have tried it. 2.5 makes the first install short wherever it happens.
+
+1. **The installer in German**, next to English and Czech.
+2. **No database typing on platforms:** Docker, Coolify and similar platforms set the database (`KALETA_DB_*`); the
+   installer asks only for the site and the administrator.
+3. **Installation without the browser:** `php install.php` for hosting panels (Softaculous, Installatron) and scripts;
+   the container installs itself on the first start when the address and the administrator's password are set.
+4. **A Coolify template** (`docker/coolify.yaml`), tested in CI like `compose.yaml`.
+5. **Straight to Claude:** the last installer screen shows the site's Claude address and a first prompt to try.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
