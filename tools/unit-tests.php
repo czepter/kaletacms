@@ -354,6 +354,32 @@ preg_match('/if \(!(\/\^https:.*?\/)\.test\(address\)\)/', (string) file_get_con
 $jsPattern = '#' . str_replace('\\/', '/', substr($webJsAllow[1] ?? '//', 1, -1)) . '#';
 check('2.3: every Embed frame address is allowed in image/web.js', array_keys(array_filter(Kaleta\Builder\Elements\Embed::SERVICES,
     fn (array $s): bool => preg_match($jsPattern, sprintf($s[3], 'x')) !== 1)), []);
+// 2.3.1: in a language version, a path that already names its language keeps it (a menu link /cs/funkce, not /cs/cs/funkce)
+$urlApp = new Kaleta\Core\App([]);
+$urlApp->languagePrefix = 'cs';
+check('2.3.1: App::url does not double the language prefix', [$urlApp->url('cs/funkce'), $urlApp->url('/cs/funkce'), $urlApp->url('funkce'), $urlApp->url('cs'), $urlApp->url('image/x.svg'), $urlApp->url('css-tricks')],
+    array_map(fn (string $p): string => $urlApp->request->basePath() . $p, ['/cs/funkce', '/cs/funkce', '/cs/funkce', '/cs', '/image/x.svg', '/cs/css-tricks']));
+// 2.3.1: every field a settings tab posts is read by the save – a setting, the "remove" box of a secret setting, or one of the
+// few the save reads on purpose (a field under an old name was silently dropped: saving General removed the language versions)
+$settingsFields = [];
+foreach ((new ReflectionClass(Kaleta\Admin\Modules\Settings::class))->getReflectionConstant('FIELDS')->getValue() as $tabFields) {
+    foreach ($tabFields as $key => $type) {
+        $settingsFields[$key] = true;
+        if (str_starts_with($type, 'tajne')) {
+            $settingsFields[$key . '_smazat'] = true;
+        }
+    }
+}
+$unknownFields = [];
+foreach (glob(KALETA_SYSTEM . '/views/admin/settings/*.php') as $view) {
+    preg_match_all('/name="([a-z_]+)(?:\[\])?"/', (string) file_get_contents($view), $viewNames);
+    foreach (array_unique($viewNames[1]) as $name) {
+        if (!isset($settingsFields[$name]) && !in_array($name, ['rozsireni', 'ai_poskytovatel_puvodni', 'novy_token_ulohy', 'novy_token', 'soubor', 'tab', 'id'], true)) {
+            $unknownFields[] = basename($view) . ': ' . $name;
+        }
+    }
+}
+check('2.3.1: settings forms post only fields the save reads', $unknownFields, []);
 // 2.1: public contracts – MCP tools and parameters, design tokens and builder elements are never removed or changed
 // outside the deprecation policy; an addition is recorded with php tools/contracts.php --update
 require_once __DIR__ . '/contracts.php';

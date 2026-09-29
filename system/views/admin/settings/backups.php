@@ -43,7 +43,7 @@ $field('backup_user', 'User name / access key', 'text', '', 'maxlength="190" aut
 ?>
 <div class="radek"><label for="backup_password"><?= e(t('Password / secret key')) ?></label><div><input class="textpole siroke" type="password" id="backup_password" name="backup_password" value="" autocomplete="new-password" placeholder="<?= $values['backup_password'] !== '' ? e(t('saved – enter a new one only to change it')) : '' ?>">
 <?php if ($values['backup_password'] !== ''): ?>
-	<label><input type="checkbox" name="zaloha_heslo_smazat" value="1"> <?= e(t('Remove saved password')) ?></label>
+	<label><input type="checkbox" name="backup_password_smazat" value="1"> <?= e(t('Remove saved password')) ?></label>
 <?php endif ?>
 </div></div>
 <?php

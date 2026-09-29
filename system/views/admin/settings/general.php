@@ -51,7 +51,7 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 	<div class="volby">
 		<div class="volby-jazyky">
 <?php foreach (Kaleta\Core\Language::AVAILABLE as $code => [$languageName]): if ($code === $values['site_language']) { continue; } ?>
-		<label><input type="checkbox" name="jazyky_dalsi[]" value="<?= e($code) ?>"<?= in_array($code, explode(',', $values['additional_languages']), true) ? ' checked' : '' ?>> <?= e($languageName) ?> <small>(/<?= e($code) ?>/)</small></label>
+		<label><input type="checkbox" name="additional_languages[]" value="<?= e($code) ?>"<?= in_array($code, explode(',', $values['additional_languages']), true) ? ' checked' : '' ?>> <?= e($languageName) ?> <small>(/<?= e($code) ?>/)</small></label>
 <?php endforeach ?>
 		</div>
 		<span class="napoveda"><?= e(t('Each version has its own pages, categories and news. A news item\'s language is set by its category. Link translations in the editor.')) ?></span>
@@ -60,7 +60,7 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 	</div>
 </div>
 <?php else: ?>
-<?php foreach (array_filter(explode(',', $values['additional_languages'])) as $code): ?><input type="hidden" name="jazyky_dalsi[]" value="<?= e($code) ?>"><?php endforeach ?>
+<?php foreach (array_filter(explode(',', $values['additional_languages'])) as $code): ?><input type="hidden" name="additional_languages[]" value="<?= e($code) ?>"><?php endforeach ?>
 <?php endif ?>
 </fieldset>
 <fieldset>
