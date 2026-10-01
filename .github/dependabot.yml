@@ -4,3 +4,6 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    # a new release of an action waits a week before it is proposed (a compromised release is usually caught by then);
+    # the actions are pinned to commit SHAs, Dependabot updates the SHA and the version comment
+    cooldown: { default-days: 7 }

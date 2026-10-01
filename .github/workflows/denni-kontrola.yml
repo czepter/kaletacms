@@ -17,8 +17,8 @@ jobs:
     name: Kanál aktualizací
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with: { php-version: '8.4', extensions: 'sodium, zip', coverage: none }
       - run: php tools/check-channel.php
 
@@ -37,8 +37,8 @@ jobs:
         ports: ['3306:3306']
         options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with: { php-version: '${{ matrix.php }}', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
       - run: tools/test.sh
         env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
@@ -50,14 +50,14 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: { fetch-depth: 0 }
       - name: Semgrep (výsledky jen do Code scanning)
         run: |
           docker run --rm -v "$PWD:/src" semgrep/semgrep semgrep scan --quiet --metrics=off \
             --config p/php --config p/javascript --config p/secrets --config p/owasp-top-ten --config p/security-audit \
             --sarif --output /src/semgrep.sarif /src || true
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@1190a975f95ce23525efb6a3fc21ea29567c1b52 # v3
         with: { sarif_file: semgrep.sarif, category: semgrep-denni }
       - name: Nové nálezy vysoké závažnosti zastaví běh (bez podrobností v záznamu)
         run: |

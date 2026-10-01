@@ -22,8 +22,8 @@ jobs:
         ports: ['3306:3306']
         options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with: { php-version: '${{ matrix.php }}', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
       - name: Kouřový test (čistá instalace a průchod stránkami)
         run: tools/test.sh
@@ -55,9 +55,9 @@ jobs:
         ports: ['3306:3306']
         options: --health-cmd="${{ matrix.db.health }}" --health-interval=5s --health-timeout=5s --health-retries=30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: { fetch-depth: 0 }
-      - uses: shivammathur/setup-php@v2
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with: { php-version: '8.4', extensions: 'pdo_mysql, mbstring, gd, intl, zip, sodium', coverage: none }
       - name: Aktualizace databáze z 1.0.0 na současnou verzi
         run: tools/test-migrations.sh
@@ -72,7 +72,7 @@ jobs:
     # the image builds, starts with MariaDB (compose.yaml), installs and serves the site
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Build, start and install
         env: { KALETA_DB_PASSWORD: docker-test }
         run: |
@@ -111,8 +111,8 @@ jobs:
     # static analysis (phpstan.neon.dist): level 5, the findings of 2.1.0 in phpstan-baseline.neon – new code adds none
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with: { php-version: '8.4', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
       - name: PHPStan
         run: |
@@ -121,10 +121,10 @@ jobs:
   bezpecnost:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: { fetch-depth: 0 }
       - name: Semgrep - bezpečnostní pravidla pro PHP a JavaScript
-        uses: returntocorp/semgrep-action@v1
+        uses: returntocorp/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
         with: { config: 'p/php p/javascript p/secrets p/owasp-top-ten' }
       - name: Gitleaks - v repozitáři nesmí být klíče ani hesla
         # přímo program: hotová akce gitleaks-action chce u organizací placenou licenci

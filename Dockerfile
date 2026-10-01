@@ -18,5 +18,8 @@ COPY --chown=www-data:www-data . /usr/src/kaleta
 RUN rm -rf /usr/src/kaleta/docker /usr/src/kaleta/Dockerfile
 
 VOLUME /var/www/html
+# The entrypoint and Apache start as root (port 80, copying the site into the volume); Apache serves every request as www-data
+# nosemgrep: dockerfile.security.missing-user-entrypoint.missing-user-entrypoint
 ENTRYPOINT ["kaleta-entrypoint"]
+# nosemgrep: dockerfile.security.missing-user.missing-user
 CMD ["apache2-foreground"]

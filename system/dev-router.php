@@ -8,29 +8,35 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $path = rawurldecode((string) parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
-
-if (preg_match('#^/(system|storage|tools|docs|dist)(/|$)|^/layout/.+\.php$|^/config(\.sample)?\.php$|/\.(?!well-known/)|^/media/.*\.php#i', $path)) {
+// Semgrep's tainted-filename findings below are covered by this rule: a path with /. (also /..) or a backslash never reaches the file system
+if (preg_match('#^/(system|storage|tools|docs|dist)(/|$)|^/layout/.+\.php$|^/config(\.sample)?\.php$|/\.(?!well-known/)|\\\\|\x00|^/media/.*\.php#i', $path)) {
     http_response_code(403);
     exit('403');
 }
 // same as .htaccess: serve a browser that supports AVIF or WebP the sibling file foto.jpg.avif / .webp
+// nosemgrep: php.lang.security.injection.tainted-filename.tainted-filename
 if (preg_match('#^/media/.+\.(jpe?g|png)$#i', $path) && is_file($root . $path . '.avif') && str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'image/avif')) {
     header('Content-Type: image/avif');
     header('Vary: Accept');
+    // nosemgrep: php.lang.security.injection.tainted-filename.tainted-filename
     readfile($root . $path . '.avif');
 
     return true;
 }
+// nosemgrep: php.lang.security.injection.tainted-filename.tainted-filename
 if (preg_match('#^/media/.+\.(jpe?g|png)$#i', $path) && is_file($root . $path . '.webp') && str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'image/webp')) {
     header('Content-Type: image/webp');
     header('Vary: Accept');
+    // nosemgrep: php.lang.security.injection.tainted-filename.tainted-filename
     readfile($root . $path . '.webp');
 
     return true;
 }
+// nosemgrep: php.lang.security.injection.tainted-filename.tainted-filename
 if ($path !== '/' && is_file($root . $path)) {
     if (str_ends_with($path, '.php')) {
         $_SERVER['SCRIPT_NAME'] = $path;
+        // nosemgrep: php.lang.security.injection.tainted-filename.tainted-filename
         require $root . $path;
 
         return true;
