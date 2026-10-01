@@ -181,8 +181,16 @@ Prvek **Formulář** (nebo hotová sekce *Poptávkový formulář*) vloží popt
 (text, e-mail, telefon, výběr, přepínače, více zaškrtávacích možností, datum, číslo, souhlas a skrytá hodnota – např.
 produkt, kterého se formulář týká, odešle se s každou poptávkou, ale návštěvník ji nevidí), text tlačítka, poděkování nebo děkovnou stránku,
 potvrzení odesílateli a e-mail pro upozornění. Proti spamu chrání skrytá pole a limit odeslání bez CAPTCHA a cookies.
+Když spam přesto prochází, přidá **Nastavení → Soukromí a cookies → Kontrola spamu ve formulářích** navíc hCaptcha, Google
+reCAPTCHA v3 nebo Cloudflare Turnstile (2.6): skript poskytovatele se načte jen na stránkách s formulářem, odpověď se ověří
+na serveru, tajný klíč neopustí administraci a jednotlivý formulář jde z kontroly vyjmout v jeho nastavení.
 Novou poptávku umí web poslat i do CRM nebo Make/Zapier (Nastavení → Webhooky → Webhook nové poptávky); měření
 konverzí dostane událost `kaleta:odeslano` (a záznam do `dataLayer`).
+
+**Google Tag Manager** (Nastavení → Měření, 2.6): zadejte ID kontejneru (`GTM-…`). Režim souhlasu je vestavěný – s vestavěnou
+cookie lištou se kontejner spustí, až návštěvník povolí analytické nebo marketingové cookies. Kaleta posílá do datové vrstvy
+události konverzí: `generate_lead` (odeslaný formulář), `sign_up` (newsletter), `popup_conversion`, `click_phone`,
+`click_email` a `file_download`. Na záložce je ke stažení šablona kontejneru s těmito spouštěči a značkami pro GA4 a Google Ads.
 
 **Nastavení → Webhooky** drží obě adresy webhooků (nová poptávka, vydaná novinka). Volání odchází až po odeslání stránky,
 takže pomalý příjemce návštěvníka nikdy nezdrží, a každé je podepsané: hlavičky `X-Kaleta-Timestamp` a
@@ -323,6 +331,12 @@ napsat novinku a týdenní přehled webu.
 přepínače SEO, kódy analytiky a kód v `<head>` – když o to požádáte.
 
 ## 11. Přechod z WordPressu nebo z jiného webu na Kaletě
+
+**Správa → Import a export → Import z webu** (2.6): zadejte adresu webu na jakékoli platformě – Wix, Webnode, Jimdo,
+Squarespace, Joomla, Drupal nebo WordPress bez exportu. Kaleta přečte mapu webu (nebo projde odkazy), ukáže, co našla, a po
+potvrzení z každé stránky udělá skrytou stránku v builderu s obrázky v Médiích; články blogu se stanou novinkami a staré
+adresy se přesměrují na nové. Hlavička, patička, menu, cookie lišty a formuláře starého webu se vynechají a vzhled převezme
+design systém. Totéž umí Claude nástrojem `import_website` a pak sladí vzhled a upraví texty.
 
 **Správa → Import a export → WordPress:** nahrajte export z WordPressu (Nástroje → Export, soubor XML). Import převede
 příspěvky na novinky, stránky volitelně **rovnou do builderu**, stáhne obrázky do Médií a založí přesměrování ze starých

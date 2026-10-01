@@ -185,8 +185,17 @@ The **Form** element (or the *Enquiry form* section) adds an enquiry form. In th
 email, phone, list, radio buttons, several ticked options, date, number, consent, and a hidden value – e.g. the product the
 form is about, sent with every enquiry but never shown), button text, thank-you message or thank-you page, a confirmation
 to the sender and the notification email. Hidden fields and a submission limit fight spam without CAPTCHA or cookies.
+If spam still gets through, **Settings → Privacy and cookies → Spam check for forms** adds hCaptcha, Google reCAPTCHA v3 or
+Cloudflare Turnstile on top (2.6): the provider's script loads only on pages with a form, the answer is checked on the
+server, the secret key never leaves the admin, and a single form can opt out in its settings.
 The site can also send each new enquiry to a CRM or Make/Zapier (Settings → Webhooks → New enquiry webhook); conversion
 tracking gets a `kaleta:odeslano` event (and a `dataLayer` entry).
+
+**Google Tag Manager** (Settings → Analytics, 2.6): enter the container ID (`GTM-…`). Consent mode is built in – with the
+built-in cookie bar the container starts only after the visitor allows analytics or marketing. Kaleta sends conversion
+events to the data layer: `generate_lead` (a form was sent), `sign_up` (newsletter), `popup_conversion`, `click_phone`,
+`click_email` and `file_download`. The tab offers a container template with these triggers and GA4 and Google Ads tags
+to import into Tag Manager.
 
 **Settings → Webhooks** holds both webhook addresses (a new enquiry, a published news item). The call goes out right after
 the page is sent, so a slow receiver never delays a visitor, and every call is signed: the headers `X-Kaleta-Timestamp`
@@ -326,6 +335,13 @@ item, and a weekly review of the site.
 versions, the cookie bar, SEO switches, analytics codes and the code in `<head>` – when you ask for it.
 
 ## 11. Moving from WordPress or another Kaleta site
+
+**Administration → Import and export → Import from a website** (2.6): enter the address of a site on any platform – Wix,
+Webnode, Jimdo, Squarespace, Joomla, Drupal or WordPress without an export. Kaleta reads its sitemap (or follows its links),
+shows what it found, and on confirmation turns each page into a hidden builder page with its images in Media; blog posts
+become news, and old addresses redirect to the new ones. The header, footer, menus, cookie bars and forms of the old site
+are left out and the look comes from your design system. Claude does the same with `import_website` and can then match
+the look and tidy the texts.
 
 **Administration → Import and export → WordPress:** upload a WordPress export (Tools → Export, an XML file). The import
 turns posts into news, pages optionally **straight into the builder**, downloads images into Media and creates redirects

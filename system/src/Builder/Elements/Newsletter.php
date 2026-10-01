@@ -50,6 +50,7 @@ final class Newsletter extends Element
             'ok' => t('Thank you! We have sent you an e-mail with a link – click it to confirm your subscription.'),
             'chyba' => t('Please check the e-mail address.'),
             'limit' => t('Too many attempts in a row. Please try again in a moment.'),
+            'captcha' => t('Please confirm that you are not a robot and send the form again.'),
             default => '',
         };
         $antispam = new Antispam($k->app->db(), $k->app->settings());
@@ -64,6 +65,7 @@ final class Newsletter extends Element
             . '<label class="ka-jen-ctecka" for="' . e($id) . '-email">' . e(t('Your e-mail')) . '</label>'
             . '<div class="ka-newsletter-radek"><input type="email" id="' . e($id) . '-email" name="email" autocomplete="email" required maxlength="190" placeholder="' . e(t('you@example.com')) . '">'
             . '<button type="submit">' . e($o['tlacitko']) . '</button></div>'
+            . Form::captcha($k)
             . ($o['souhlas'] !== '' ? '<small>' . e($o['souhlas']) . '</small>' : '')
             . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '"><input type="hidden" name="kotva" value="' . e($anchor) . '">' . \Kaleta\Front\Forms::ATTRIBUTION_FIELDS
             . $antispam->fields('odber') . '</form>';

@@ -50,6 +50,9 @@ final class Seo
     public function robotsTxt(): string
     {
         $s = $this->app->settings();
+        if (\Kaleta\Core\Demo::active()) {
+            return "# The public demo of Kaleta is not indexed.\nUser-agent: *\nDisallow: /\n";
+        }
         if (!$s->bool('indexing')) {
             return "# Indexování webu je vypnuté v Nastavení.\nUser-agent: *\nDisallow: /\n";
         }
@@ -138,6 +141,9 @@ final class Seo
     /** @param string $url URL on the site from the server root (App::newsItemUrl()) */
     public function indexNow(string $url): void
     {
+        if (\Kaleta\Core\Demo::active()) {
+            return;
+        }
         $s = $this->app->settings();
         $host = (string) parse_url($this->siteSettings, PHP_URL_HOST);
         if (!$s->bool('indexnow') || $s->get('indexnow_key') === '' || !$s->bool('indexing') || in_array($host, ['localhost', '127.0.0.1'], true) || str_ends_with($host, '.test')) {
@@ -306,8 +312,13 @@ final class Seo
         $mode = $s->get('cookies_mode');
         $marketing = trim($s->get('marketing_code'));
         $html = $marketing === '' ? '' : self::deferUntilConsent($marketing, $mode);
+        if (\Kaleta\Core\Demo::active()) {
+            // the public demo (2.6): a badge that leads to the admin; inline styles, so no site class can hide it
+            $html .= '<a href="' . e($this->app->url('admin.php')) . '" style="position:fixed;left:12px;bottom:12px;z-index:2147483000;padding:8px 12px;border-radius:999px;background:#121212;color:#fff;font:600 13px/1.2 system-ui,sans-serif;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.25)">'
+                . e(t('Kaleta demo – try the admin')) . '</a>';
+        }
         // remembering where leads came from needs the visitor's consent to marketing (2.3)
-        $hasMarketing = $marketing !== '' || $s->bool('lead_attribution');
+        $hasMarketing = $marketing !== '' || $s->bool('lead_attribution') || $s->get('gtm_id') !== ''; // GTM usually also runs ad tags
         if ($mode !== 'vestavena' || (!$this->usesAnalyticsCookies() && !$hasMarketing)) {
             return $html;
         }
@@ -340,7 +351,7 @@ final class Seo
     {
         $s = $this->app->settings();
 
-        return $s->get('ga4_id') !== '' || ($s->get('matomo_url') !== '' && $s->int('matomo_id') > 0);
+        return $s->get('ga4_id') !== '' || $s->get('gtm_id') !== '' || ($s->get('matomo_url') !== '' && $s->int('matomo_id') > 0);
     }
 
     private function analyticsCode(): string
@@ -357,6 +368,9 @@ final class Seo
                 . "gtag('js',new Date());gtag('config','{$id}');</script>\n"
                 . "<script async{$attributes} src=\"https://www.googletagmanager.com/gtag/js?id={$id}\"></script>\n";
         }
+        if ($s->get('gtm_id') !== '') {
+            $code .= self::tagManager($s->get('gtm_id'), $s->get('cookies_mode'), $s->get('ga4_id') === '');
+        }
         if ($s->get('matomo_url') !== '' && $s->int('matomo_id') > 0) {
             $url = json_encode(rtrim($s->get('matomo_url'), '/') . '/', JSON_UNESCAPED_SLASHES | JSON_HEX_TAG);
             $code .= "<script{$attributes}>var _paq=window._paq=window._paq||[];_paq.push(['trackPageView']);_paq.push(['enableLinkTracking']);(function(){var u={$url};_paq.push(['setTrackerUrl',u+'matomo.php']);_paq.push(['setSiteId','{$s->int('matomo_id')}']);var d=document,g=d.createElement('script'),s=d.getElementsByTagName('script')[0];g.async=true;g.src=u+'matomo.js';s.parentNode.insertBefore(g,s);})();</script>\n";
@@ -366,6 +380,25 @@ final class Seo
         }
 
         return $code;
+    }
+
+    /**
+     * Google Tag Manager (2.6). Consent mode starts with everything denied; with the built-in cookie bar the container
+     * loads after the first consent to analytics or marketing (the bar enables scripts marked data-gtm), with an external
+     * consent service right away – that service updates the consent itself – and without a bar right away.
+     */
+    public static function tagManager(string $id, string $cookiesMode, bool $defineGtag = true): string
+    {
+        $id = preg_match('/^GTM-[A-Z0-9]{4,12}$/', $id) ? $id : '';
+        if ($id === '') {
+            return '';
+        }
+        $consent = $cookiesMode !== 'zadna'
+            ? "gtag('consent','default',{ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',analytics_storage:'denied',wait_for_update:500});" : '';
+        $loader = "(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s);j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','{$id}');";
+
+        return '<script>window.dataLayer=window.dataLayer||[];' . ($defineGtag ? 'function gtag(){dataLayer.push(arguments);}' . $consent : '') . "</script>\n"
+            . ($cookiesMode === 'vestavena' ? '<script type="text/plain" data-gtm>' . $loader . '</script>' : '<script>' . $loader . '</script>') . "\n";
     }
 
     /**

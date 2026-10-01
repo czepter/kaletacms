@@ -51,7 +51,12 @@
 	var volby = lista.querySelector('.cookies-volby');
 	function precti() { var m = document.cookie.match(/(?:^|; )kaleta_souhlas=([^;]*)/); return m ? decodeURIComponent(m[1]).split(',') : null; }
 	function povol(kategorie) {
-		document.querySelectorAll('script[type="text/plain"][data-souhlas="' + kategorie + '"]').forEach(function (s) {
+		// Google consent mode first, so tags that start now already see the granted consent
+		if (window.gtag) {
+			gtag('consent', 'update', kategorie === 'analytika' ? { analytics_storage: 'granted' } : { ad_storage: 'granted', ad_user_data: 'granted', ad_personalization: 'granted' });
+		}
+		// Google Tag Manager (2.6) starts with the first consent to analytics or marketing; its tags follow consent mode
+		document.querySelectorAll('script[type="text/plain"][data-souhlas="' + kategorie + '"], script[type="text/plain"][data-gtm]').forEach(function (s) {
 			var n = document.createElement('script');
 			if (s.src || s.getAttribute('src')) { n.src = s.getAttribute('src'); n.async = true; } else { n.text = s.text; }
 			s.replaceWith(n);
@@ -63,9 +68,7 @@
 			t.replaceWith.apply(t, Array.prototype.slice.call(box.childNodes));
 		});
 		if (kategorie === 'marketing') { puvod(true); }
-		if (window.gtag) {
-			gtag('consent', 'update', kategorie === 'analytika' ? { analytics_storage: 'granted' } : { ad_storage: 'granted', ad_user_data: 'granted', ad_personalization: 'granted' });
-		}
+		if (Array.isArray(window.dataLayer)) { window.dataLayer.push({ event: 'kaleta_consent', consent: kategorie === 'analytika' ? 'analytics' : 'marketing' }); }
 	}
 	// where a lead came from (2.3): with consent to marketing, the first page of this visit, its campaign and the site that
 	// sent the visitor are remembered for this tab only (sessionStorage) and go with forms and newsletter sign-ups

@@ -61,6 +61,9 @@ final class Webhook
      */
     public static function queue(Settings $settings, string $event, string $url, array $data): ?int
     {
+        if (Demo::active()) {
+            return null; // the public demo calls no other servers
+        }
         $body = (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
         try {
             $id = $settings->db()->insert('webhook_deliveries', [

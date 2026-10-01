@@ -2769,4 +2769,9 @@ return [
     'Form or table' => 'Formulář nebo tabulka',
     'Player' => 'Přehrávač',
     'Paste the address of a Calendly or Google booking page, a Google, Microsoft, Tally, Typeform or Airtable form, or a Spotify or SoundCloud track.' => 'Vložte adresu rezervační stránky Calendly nebo Google, formuláře Google, Microsoft, Tally, Typeform či Airtable, nebo skladby ze Spotify či SoundCloudu.',
+    'CAPTCHA is checked here when the form is sent.' => 'Při odeslání formuláře se tu ověří CAPTCHA.',
+    'Please confirm that you are not a robot and send the form again.' => 'Potvrďte prosím, že nejste robot, a odešlete formulář znovu.',
+    'With your consent, the website uses Google Tag Manager (Google Ireland Limited) to run analytics and advertising tags; they store cookies in your browser.' => 'S vaším souhlasem web používá Google Tag Manager (Google Ireland Limited) ke spouštění analytických a reklamních značek; ty ukládají do prohlížeče cookies.',
+    'To protect the forms against spam, the website uses %s, which receives your IP address and details about your browser when you send a form.' => 'Na ochranu formulářů před spamem web používá %s, který při odeslání formuláře dostane vaši IP adresu a údaje o prohlížeči.',
+    'Kaleta demo – try the admin' => 'Demo Kalety – vyzkoušejte administraci',
 ];

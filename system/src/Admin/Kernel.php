@@ -103,7 +103,7 @@ final class Kernel
             }
         }
 
-        if ($app->auth()->isAdmin()) {
+        if ($app->auth()->isAdmin() && !\Kaleta\Core\Demo::active()) {
             \Kaleta\Core\Backup::createAutomatic($app->db(), $app->settings());
         }
         if ($app->auth()->user() !== null) {
@@ -113,6 +113,11 @@ final class Kernel
         }
 
         $ident = $request->get('module');
+        if (\Kaleta\Core\Demo::active() && \Kaleta\Core\Demo::blocksAdmin($ident, $action, $request->post('tab') ?: $request->get('tab'), $request->isPost())) {
+            $app->session->flash('chyba', \Kaleta\Core\Demo::refusal());
+
+            return Response::redirect($app->url('admin.php' . ($ident !== '' ? '?module=' . rawurlencode($ident) : '')));
+        }
         // mandatory two-factor sign-in: whoever does not have it yet can only go to My account (and sign out) until they enable it
         if ($app->auth()->isMissingRequired2fa($app->settings()) && !in_array($action, ['account', 'token'], true)) {
             $app->session->flash('chyba', t('This site requires two-factor sign-in. Please turn it on below – until then the administration is locked.'));

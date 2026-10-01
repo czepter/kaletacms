@@ -37,6 +37,51 @@ trait MediaTools
                 [...($search !== null ? [$search, $search] : []), max(1, min(50, (int) ($a['limit'] ?? 20)))]));
     }
 
+    /** import_website (importuj_web, 2.6): one batch of Core\WebImport per call */
+    private function toolImportWebsite(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            throw new \DomainException('A site is imported by an administrator.');
+        }
+        $id = trim((string) ($a['import'] ?? ''));
+        if ($id === '') {
+            $url = trim((string) ($a['adresa'] ?? ''));
+            $url = preg_match('#^https?://#i', $url) ? $url : 'https://' . $url;
+            if (!\Kaleta\Core\WebImport::validUrl($url)) {
+                throw new \InvalidArgumentException('Give the address of the site, e.g. https://www.example.com.');
+            }
+            $language = (string) ($a['jazyk'] ?? '');
+            $state = \Kaleta\Core\WebImport::newState($url, [
+                'jazyk' => in_array($language, \Kaleta\Core\Language::additional($this->app->settings()), true) ? $language : '',
+                'obrazky' => ($a['obrazky'] ?? true) !== false, 'presmerovani' => ($a['presmerovani'] ?? true) !== false, 'novinky' => ($a['novinky'] ?? true) !== false,
+            ]);
+        } else {
+            $state = \Kaleta\Core\WebImport::load($id) ?? throw new \InvalidArgumentException('The import does not exist; start a new one with the url.');
+        }
+        if (($a['potvrdit'] ?? false) === true && $state['faze'] === 'nahled') {
+            $state['faze'] = 'import';
+            $state['pozice'] = 0;
+        }
+        if (in_array($state['faze'], ['hledani', 'import'], true)) {
+            (new \Kaleta\Core\WebImport($this->app->db(), $this->app->settings(), $this->app->auth()->id(), new \Kaleta\Core\ImageDownloader($state['web'], true)))->step($state);
+        }
+        \Kaleta\Core\WebImport::save($state);
+        $urls = array_keys($state['adresy']);
+
+        $r = $state['vysledek'];
+
+        return ['import_id' => $state['id'], 'site' => $state['web'], 'phase' => ['hledani' => 'finding', 'nahled' => 'preview', 'import' => 'importing', 'hotovo' => 'done'][$state['faze']] ?? $state['faze'],
+            'found' => count($urls), 'processed' => (int) $state['pozice'],
+            'result' => ['new_pages' => $r['stranky'], 'new_news' => $r['clanky'], 'images' => $r['obrazky'], 'redirects' => $r['presmerovani'], 'skipped' => $r['preskoceno'], 'failed' => $r['chyb']],
+            'failures' => $state['chyby'],
+            'addresses' => $state['faze'] === 'nahled' ? array_map(fn (string $u): string => '/' . \Kaleta\Core\WebImport::path($u), array_slice($urls, 0, 50)) : [],
+            'next' => match ($state['faze']) {
+                'hledani', 'import' => 'Call again with the same import id.',
+                'nahled' => 'Show the user what was found; on their instruction call again with confirm: true.',
+                default => 'Done: the pages are hidden – check them with list_pages, put the ones to keep in the menu and publish them on the user\'s instruction.',
+            }];
+    }
+
     /** upload_file (nahraj_soubor) */
     private function toolUploadFile(string $name, array $a): mixed
     {

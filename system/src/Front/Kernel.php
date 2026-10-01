@@ -98,6 +98,10 @@ final class Kernel
         if ($this->redirect !== null) {
             return $this->redirect;
         }
+        // the public demo (2.6) offers no Claude connection: anyone could connect to the shared admin
+        if (\Kaleta\Core\Demo::active() && preg_match('#^/(mcp|oauth|\.well-known/oauth|\.well-known/openid)#', $request->path())) {
+            return new Response('{"error":"The Claude connection is switched off in the public demo."}', 403, ['Content-Type' => 'application/json']);
+        }
         // OAuth for the Claude connector (metadata, registration, tokens) – runs in maintenance mode too, just like /mcp
         if (($oauth = (new OAuth($this->app))->handle($request->path())) !== null) {
             return $oauth;

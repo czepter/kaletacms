@@ -470,6 +470,12 @@ final class Library
         if ($get('ga4_id') !== '') {
             $analytics[] = $x('With your consent, the website uses Google Analytics (Google Ireland Limited) to measure traffic; it stores cookies in your browser.');
         }
+        if ($get('gtm_id') !== '') {
+            $analytics[] = $x('With your consent, the website uses Google Tag Manager (Google Ireland Limited) to run analytics and advertising tags; they store cookies in your browser.');
+        }
+        if ($s !== null && \Kaleta\Core\Captcha::provider($s) !== null) {
+            $analytics[] = $x('To protect the forms against spam, the website uses %s, which receives your IP address and details about your browser when you send a form.', \Kaleta\Core\Captcha::PROVIDERS[$get('captcha_provider')][0]);
+        }
         if ($get('matomo_url') !== '') {
             $analytics[] = $x('The website measures traffic with Matomo, run at %s.', (string) parse_url($get('matomo_url'), PHP_URL_HOST));
         }

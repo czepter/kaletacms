@@ -1611,4 +1611,9 @@ return [
     'Booking calendar' => 'Buchungskalender',
     'Form' => 'Formular',
     'Form or table' => 'Formular oder Tabelle',
+    'CAPTCHA is checked here when the form is sent.' => 'Beim Absenden des Formulars wird hier das CAPTCHA geprüft.',
+    'Please confirm that you are not a robot and send the form again.' => 'Bitte bestätigen Sie, dass Sie kein Roboter sind, und senden Sie das Formular erneut.',
+    'With your consent, the website uses Google Tag Manager (Google Ireland Limited) to run analytics and advertising tags; they store cookies in your browser.' => 'Mit Ihrer Einwilligung nutzt die Website Google Tag Manager (Google Ireland Limited), um Analyse- und Werbe-Tags auszuführen; diese speichern Cookies in Ihrem Browser.',
+    'To protect the forms against spam, the website uses %s, which receives your IP address and details about your browser when you send a form.' => 'Zum Schutz der Formulare vor Spam nutzt die Website %s; der Dienst erhält beim Absenden eines Formulars Ihre IP-Adresse und Angaben zu Ihrem Browser.',
+    'Kaleta demo – try the admin' => 'Kaleta-Demo – Verwaltung ausprobieren',
 ];

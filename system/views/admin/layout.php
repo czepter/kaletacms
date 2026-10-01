@@ -93,6 +93,9 @@ if ($user !== null) {
 </dialog>
 <?php endif ?>
 <main class="obsah">
+<?php if (Kaleta\Core\Demo::active()): ?>
+<p class="hlaska hlaska-varovani" role="status"><?= e(t('Public demo: everything you change here is reset in %s minutes. E-mail, imports, updates, users and the Claude connection are switched off.', (string) max(1, (int) ceil(Kaleta\Core\Demo::secondsToReset() / 60)))) ?></p>
+<?php endif ?>
 <?php if ($heading !== ''): $guide = $user !== null ? Kaleta\Admin\Guide::forScreen($active === '' && $app->request->get('action') === 'account' ? 'account' : $active, '', (string) $app->request->get('tab'), Kaleta\Core\Language::code()) : null; ?>
 <div class="zahlavi-stranky">
 <h1><?= e($heading) ?></h1>

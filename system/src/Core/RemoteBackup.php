@@ -42,6 +42,9 @@ final class RemoteBackup
 
     public static function isOn(Settings $s): bool
     {
+        if (Demo::active()) {
+            return false;
+        }
         return in_array($s->get('remote_backup'), ['ftp', 's3'], true) && $s->get('backup_host') !== '';
     }
 

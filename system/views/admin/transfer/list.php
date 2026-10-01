@@ -12,12 +12,45 @@
  * @var bool $hasZip
  * @var list<array{soubor:string, velikost:int, cas:int, stav:array<string,mixed>|null}> $kaletaFiles  Kaleta exports in storage/import/
  * @var array{prazdny: bool, stranky: int, novinky: int, polozky: int, media: int} $siteContent
+ * @var list<array<string, mixed>> $webImports  imports from a website (2.6)
+ * @var bool $canDownload  the server can download from other sites and has GD
+ * @var list<string> $languages  additional language versions of the site
  */
 $phase = [
     'analyza' => 'being read', 'nahled' => 'ready to import', 'import' => 'import in progress', 'hotovo' => 'content imported',
     'obrazky' => 'downloading images', 'obrazky-hotovo' => 'imported including images',
 ];
 ?>
+<h2><?= e(t('Import from a website')) ?></h2>
+<p><?= e(t('Enter the address of a site on any platform – Wix, Webnode, Jimdo, Squarespace, Joomla, Drupal or WordPress without an export. Its pages become builder pages with their images, and the old addresses redirect to the new ones. The pages stay hidden until you check and publish them; the design is not copied – the pages take this site’s look.')) ?></p>
+<?php if (!$canDownload): ?>
+<p class="hlaska hlaska-chyba"><?= e(t('This server cannot download from other sites (both curl and allow_url_fopen are missing, or the GD extension).')) ?></p>
+<?php else: ?>
+<form class="formular" method="post" action="<?= e($module->url('web_start')) ?>">
+<?= $csrf ?>
+<div class="radek"><label for="adresa"><?= e(t('Address of the site')) ?></label><div><input class="textpole siroke" type="url" id="adresa" name="adresa" placeholder="https://www.example.com" required maxlength="300">
+	<span class="napoveda"><?= e(t('Kaleta reads the sitemap, or follows the site’s links when there is none – at most %s pages.', Kaleta\Core\WebImport::MAX_PAGES)) ?></span></div></div>
+<?php if ($languages !== []): ?>
+<div class="radek"><label for="web_jazyk"><?= e(t('Language version')) ?></label><div><select id="web_jazyk" name="jazyk"><option value=""><?= e(t('the main language')) ?></option>
+<?php foreach ($languages as $code): ?><option value="<?= e($code) ?>"><?= e(Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code) ?></option><?php endforeach ?></select></div></div>
+<?php endif ?>
+<div class="radek"><span></span><div>
+	<label><input type="checkbox" name="obrazky" value="1" checked> <?= e(t('Download the images into Media')) ?></label><br>
+	<label><input type="checkbox" name="presmerovani" value="1" checked> <?= e(t('Redirect the old addresses to the new pages')) ?></label><br>
+	<label><input type="checkbox" name="novinky" value="1" checked> <?= e(t('Import blog posts as news (addresses like /blog/…, or with a publication date)')) ?></label>
+</div></div>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Find the pages')) ?>"></p>
+</form>
+<?php endif ?>
+<?php if ($webImports !== []): ?>
+<ul class="seznam-importu">
+<?php foreach ($webImports as $w): ?>
+	<li><a href="<?= e($module->url('web_progress', ['id' => $w['id']])) ?>"><?= e($w['web']) ?></a> – <?= e(t(['hledani' => 'finding pages', 'nahled' => 'ready to import', 'import' => 'import in progress', 'hotovo' => 'content imported'][$w['faze']] ?? '–')) ?>
+		<form class="vradku" method="post" action="<?= e($module->url('web_delete')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($w['id']) ?>"><button class="navigace" type="submit"><?= e(t('Remove from the list')) ?></button></form></li>
+<?php endforeach ?>
+</ul>
+<?php endif ?>
+
 <h2><?= e(t('Import from WordPress')) ?></h2>
 <?= $app->view->render('admin/transfer/steps', ['step' => 1]) ?>
 <p><?= e(t('In WordPress, open Tools → Export, choose “All content” and download the .xml file. Then upload it here. Pages, posts (as news), categories and tags are converted and redirects from the old addresses are created; nothing changes on the site until you confirm the import in the next step.')) ?></p>

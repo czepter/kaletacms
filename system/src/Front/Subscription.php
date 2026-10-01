@@ -40,6 +40,9 @@ final class Subscription
         if ($antispam->count($r->ip(), 'odber', 0, 10) >= self::LIMIT) {
             return 'limit';
         }
+        if (!\Kaleta\Core\Captcha::accepted($this->app->settings(), \Kaleta\Core\Captcha::verify($this->app->settings(), $r))) {
+            return 'captcha';
+        }
         $antispam->write($r->ip(), 'odber', 0);
         $email = mb_strtolower(trim($r->post('email')));
         if (mb_strlen($email) > 190 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {

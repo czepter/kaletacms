@@ -31,6 +31,10 @@ final class Updater
 
     public function url(): string
     {
+        if (Demo::active()) {
+            return ''; // the public demo is reset every hour and never updates itself
+        }
+
         return $this->settings->get('update_url') !== '' ? $this->settings->get('update_url') : self::DEFAULT_URL;
     }
 

@@ -81,6 +81,7 @@ final class Catalog
         // Media
         'list_media' => ['read', ''],
         'upload_file' => ['draft', ''],
+        'import_website' => ['write', ''],
         'update_media' => ['write', ''],
         'delete_media' => ['destructive', ''],
         // Enquiries and pop-ups

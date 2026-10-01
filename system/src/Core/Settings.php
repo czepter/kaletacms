@@ -90,6 +90,7 @@ final class Settings
         'indexnow_key' => '',
         // analytics
         'ga4_id' => '',
+        'gtm_id' => '',                // Google Tag Manager container GTM-… (2.6): consent mode and conversion events in the data layer
         'matomo_url' => '',
         'matomo_id' => '0',
         'plausible_domain' => '',
@@ -101,6 +102,10 @@ final class Settings
         'cookies_policy_url' => '',
         'marketing_code' => '',
         'cookies_log' => '1',    // record the consents given (evidence for a possible inspection)
+        'captcha_provider' => '',      // an extra spam check for forms (2.6): hcaptcha | recaptcha | turnstile; empty = only the built-in protection
+        'captcha_site_key' => '',
+        'captcha_secret' => '',
+        'captcha_fail_open' => '1',    // when the provider cannot be reached, accept the form on the built-in protection alone
         'cookies_log_months' => '36', // consent records older than this many months are deleted; 0 = do not delete
         'health_token' => '',
         'remote_backup' => 'vypnuto', // copy of the backup off the server: vypnuto (off) | ftp | s3

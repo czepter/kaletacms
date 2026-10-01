@@ -4,7 +4,13 @@
 <?php
 $field('stats', 'Built-in statistics', 'ano', 'Visits, most-read news and traffic sources under Statistics. No cookies and no consent needed.');
 $field('ga4_id', 'Google Analytics', 'text', 'The measurement ID in the form G-XXXXXXXXXX is enough. With a cookie bar on, it runs only after the visitor\'s consent (the Privacy and cookies tab).', 'placeholder="G-" maxlength="24"');
+$field('gtm_id', 'Google Tag Manager', 'text', 'The container ID in the form GTM-XXXXXXX. Consent mode is built in: with the built-in cookie bar the container starts after the visitor allows analytics or marketing.', 'placeholder="GTM-" maxlength="16"');
 ?>
+<?php if ($values['gtm_id'] !== '' && $values['ga4_id'] !== ''): ?>
+<p class="hlaska hlaska-varovani"><?= e(t('Google Analytics is set here and probably also in your Tag Manager container – visits would be counted twice. Keep it in one place.')) ?></p>
+<?php endif ?>
+<p class="napoveda"><?= e(t('Kaleta sends these events to the data layer for your tags: generate_lead (a form was sent), sign_up (newsletter), popup_conversion, click_phone, click_email and file_download.')) ?>
+	<a href="<?= e($siteUrl . 'image/gtm-kaleta.json') ?>" download><?= e(t('Download a container template with these triggers')) ?></a></p>
 </fieldset>
 <details class="pokrocile"<?= $values['matomo_url'] . $values['plausible_domain'] . $values['head_code'] !== '' ? ' open' : '' ?>>
 <summary><?= e(t('Other tools (Matomo, Plausible, custom code)')) ?></summary>

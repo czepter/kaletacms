@@ -37,7 +37,8 @@ final class Response
     {
         http_response_code($this->status);
         // basic security headers; a specific response may override them
-        $defaults = ['X-Content-Type-Options' => 'nosniff', 'Referrer-Policy' => 'strict-origin-when-cross-origin', 'X-Frame-Options' => 'SAMEORIGIN'];
+        $defaults = ['X-Content-Type-Options' => 'nosniff', 'Referrer-Policy' => 'strict-origin-when-cross-origin', 'X-Frame-Options' => 'SAMEORIGIN']
+            + (Demo::active() ? ['X-Robots-Tag' => 'noindex, nofollow'] : []); // the public demo stays out of search engines
         foreach ($this->headers + $defaults as $name => $value) {
             header($name . ': ' . $value);
         }

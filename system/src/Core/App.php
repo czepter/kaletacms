@@ -23,6 +23,7 @@ final class App
         $this->request = $request ?? Request::fromGlobals();
         $this->session = new Session($this->request->isHttps(), $this->request->basePath() . '/');
         $this->view = new View([KALETA_SYSTEM . '/views']);
+        Demo::configure($config['demo'] ?? null);
     }
 
     /** Loads config.php; when it is missing, the site is not installed yet. */

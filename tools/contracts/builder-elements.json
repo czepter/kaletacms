@@ -11,6 +11,7 @@
         "polozky"
     ],
     "formular": [
+        "bez_captcha",
         "dekovna",
         "dekujeme",
         "nazev",

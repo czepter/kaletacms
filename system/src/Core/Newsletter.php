@@ -32,6 +32,9 @@ final class Newsletter
 
     public static function isEnabled(Settings $s): bool
     {
+        if (Demo::active()) {
+            return false;
+        }
         $service = $s->get('newsletter_service');
         if (!isset(self::SERVICES[$service])) {
             return false;

@@ -400,6 +400,23 @@
             "openWorldHint": false
         }
     },
+    "import_website": {
+        "parameters": {
+            "confirm": "boolean",
+            "images": "boolean",
+            "import_id": "string",
+            "language": "string",
+            "news": "boolean",
+            "redirects": "boolean",
+            "url": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": true
+        }
+    },
     "insert_section": {
         "parameters": {
             "collection": "string",

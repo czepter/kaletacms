@@ -225,6 +225,7 @@
 			if (target && modal.contains(target) && (modal.querySelector('[data-odeslano]') || new URLSearchParams(location.search).get('odber') === 'ok')) {
 				conversion = true;
 				report(modal, 'konverze');
+				track({ event: 'popup_conversion', popup_id: modal.getAttribute('data-popup'), popup_name: modal.getAttribute('aria-label') || '' });
 				write(persistent(), key + '-odeslano', '1');
 			}
 			modal.addEventListener('toggle', function (e) {
@@ -362,6 +363,26 @@
 		if (!isNaN(target) && parts.s) { tick(); }
 	});
 
+	/* ---------- the data layer (Google Tag Manager, GA4): Kaleta pushes conversion events only when the site has one ---------- */
+	function track(data) { if (Array.isArray(window.dataLayer)) { window.dataLayer.push(data); } }
+
+	/* ---------- reCAPTCHA v3 (2.6): the token is fetched when the form is sent, then the form goes on as usual ---------- */
+	document.querySelectorAll('input[data-recaptcha]').forEach(function (input) {
+		var f = input.form;
+		if (!f) { return; }
+		f.addEventListener('submit', function (e) {
+			if (input.value || typeof window.grecaptcha === 'undefined') { return; } // without the script the server answers with a message
+			e.preventDefault();
+			e.stopImmediatePropagation();
+			window.grecaptcha.ready(function () {
+				window.grecaptcha.execute(input.getAttribute('data-recaptcha'), { action: 'submit' }).then(function (token) {
+					input.value = token;
+					if (f.requestSubmit) { f.requestSubmit(); } else { f.submit(); }
+				});
+			});
+		}, true);
+	});
+
 	/* ---------- forms: after an error restore the filled-in values, after a submit report a conversion ---------- */
 
 	// the values are kept only by the visitor's browser (sessionStorage) and disappear after a successful submit; nothing is written to the URL
@@ -401,7 +422,20 @@
 		try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf('ka-formular-') === 0) { sessionStorage.removeItem(k); } }); } catch (error) { /* nothing */ }
 		// conversion tracking: a custom script listens for the event, Google Tag Manager gets an entry in dataLayer
 		window.dispatchEvent(new CustomEvent('kaleta:odeslano', { detail: { formular: name } }));
-		if (Array.isArray(window.dataLayer)) { window.dataLayer.push({ event: 'kaleta_formular_odeslan', formular: name }); }
+		track({ event: 'kaleta_formular_odeslan', formular: name }); // the event name of 1.x, kept for existing containers
+		track({ event: 'generate_lead', form_name: name });
+	});
+	if (new URLSearchParams(location.search).get('odber') === 'ok') { track({ event: 'sign_up', method: 'newsletter' }); }
+
+	/* ---------- conversion events for Google Tag Manager (2.6): calls, e-mails and downloads; only when the site has a data layer ---------- */
+	document.addEventListener('click', function (e) {
+		var a = e.target.closest && e.target.closest('a[href]');
+		if (!a || !Array.isArray(window.dataLayer)) { return; }
+		var href = a.getAttribute('href');
+		if (/^tel:/i.test(href)) { track({ event: 'click_phone', link_url: href }); return; }
+		if (/^mailto:/i.test(href)) { track({ event: 'click_email', link_url: href }); return; }
+		var file = /\.(pdf|zip|docx?|xlsx?|pptx?|odt|ods|csv|txt|rar|7z|dmg|exe|epub|mp3|mp4)(?:[?#]|$)/i.exec(a.pathname || '');
+		if (file) { track({ event: 'file_download', file_name: (a.pathname.split('/').pop() || ''), file_extension: file[1].toLowerCase(), link_url: a.href }); }
 	});
 
 	/* ---------- a third-party player is embedded only after a click ---------- */

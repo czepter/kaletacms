@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-kaleta_test}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8099}"
 WORK="$(mktemp -d)"; JAR="$WORK/cookies.txt"; B="http://127.0.0.1:$PORT"; ERRORS=0
-cleanup() { for pid in "${SERVER_PID:-}" "${CHANNEL_PID:-}" "${SERVICE_PID:-}" "${SMTP_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
+cleanup() { for pid in "${SERVER_PID:-}" "${CHANNEL_PID:-}" "${SERVICE_PID:-}" "${SMTP_PID:-}" "${CAPTCHA_PID:-}" "${OLDSITE_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
 trap cleanup EXIT
 
 echo "== syntaxe PHP"
@@ -19,7 +19,8 @@ MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER"); [ -n "$DB_PASS" ] && MYSQL
 "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
 mkdir "$WORK/web" && (cd "$ROOT" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' s; do if [ -e "$s" ]; then printf '%s\0' "$s"; fi; done | tar --null -T - -cf - | tar -xf - -C "$WORK/web") # soubory smazané a ještě nezapsané do gitu se nekopírují
 mkdir -p "$WORK/web/media" "$WORK/web/storage/log" "$WORK/web/storage/cache"
-(cd "$WORK/web" && exec php -S "127.0.0.1:$PORT" system/dev-router.php > "$WORK/server.log" 2>&1) & SERVER_PID=$!
+CAPTCHA_PORT=$((PORT + 9)) # a fake CAPTCHA provider (2.6): Core\Captcha asks it instead of hCaptcha, Google or Cloudflare
+(cd "$WORK/web" && KALETA_CAPTCHA_VERIFY="http://127.0.0.1:$CAPTCHA_PORT/" KALETA_IMPORT_LOCAL=1 exec php -S "127.0.0.1:$PORT" system/dev-router.php > "$WORK/server.log" 2>&1) & SERVER_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "$B/install.php" && break; sleep 0.3; done
 
 check() { # over <popis> <očekávaný kód> <adresa> [hledaný text]
@@ -1534,6 +1535,78 @@ mcp update_settings '{"settings":{"cookies_mode":"vestavena","lead_attribution":
 curl -s -o "$WORK/response" "$B/leads-23"
 grep -q 'data-kategorie="marketing"' "$WORK/response" && grep -q 'ka-puvod' "$WORK/response" && grep -q 'globalPrivacyControl' "$WORK/response" && grep -q 'name="ka_vstup"' "$WORK/response" && echo "  ok     cookie bar: marketing consent for lead origins, Global Privacy Control" || { echo "  CHYBA  cookie bar with lead attribution"; ERRORS=$((ERRORS+1)); }
 mcp update_settings '{"settings":{"lead_attribution":"0"}}' > /dev/null
+# 2.6: an optional CAPTCHA on top of the built-in protection, checked with the provider on the server
+mkdir -p "$WORK/captcha" && cat > "$WORK/captcha/router.php" <<'CAPTCHA'
+<?php
+$answer = $_POST['response'] ?? '';
+header('Content-Type: application/json');
+echo json_encode(($_POST['secret'] ?? '') !== 'test-secret' ? ['success' => false] : match ($answer) { 'pass' => ['success' => true, 'score' => 0.9], 'low' => ['success' => true, 'score' => 0.2], default => ['success' => false] });
+CAPTCHA
+(cd "$WORK/captcha" && exec php -S "127.0.0.1:$CAPTCHA_PORT" router.php > /dev/null 2>&1) & CAPTCHA_PID=$!
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('captcha_provider','turnstile'),('captcha_site_key','test-site'),('captcha_secret','test-secret') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota); DELETE FROM ka_kontrola_ip WHERE typ IN ('formular','odber')"
+rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/formular.html" "$B/leads-23"
+grep -q 'class="ka-captcha cf-turnstile" data-sitekey="test-site"' "$WORK/formular.html" && [ "$(grep -o 'challenges.cloudflare.com/turnstile/v0/api.js' "$WORK/formular.html" | wc -l | tr -d ' ')" = 1 ] \
+  && echo "  ok     CAPTCHA: the Turnstile widget in the form, its script once" || { echo "  CHYBA  CAPTCHA widget"; ERRORS=$((ERRORS+1)); }
+FORM_SOURCE=$(field_value zdroj); FORM_ELEMENT=$(field_value prvek); FORM_TIME=$(field_value as_cas); FORM_SIGNATURE=$(field_value as_podpis); sleep 4
+captcha_post() { curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/leads-23 -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" -d 'p0[]=Koupelna' --data-urlencode "p2=$1" "${@:2}"; }
+case "$(captcha_post fail@example.cz -d cf-turnstile-response=wrong)" in *vysledek=captcha*) echo "  ok     CAPTCHA: a failed check is refused";; *) echo "  CHYBA  CAPTCHA: failed check"; ERRORS=$((ERRORS+1));; esac
+case "$(captcha_post none@example.cz)" in *vysledek=captcha*) echo "  ok     CAPTCHA: a form without the answer is refused";; *) echo "  CHYBA  CAPTCHA: missing answer"; ERRORS=$((ERRORS+1));; esac
+captcha_post pass@example.cz -d cf-turnstile-response=pass > /dev/null
+expect "CAPTCHA: a passed check saves the enquiry, the failed ones not" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(email ORDER BY email) FROM ka_poptavky WHERE email IN ('fail@example.cz','none@example.cz','pass@example.cz')")" "pass@example.cz"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = 'recaptcha' WHERE promenna = 'captcha_provider'"; rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/formular.html" "$B/leads-23"
+grep -q 'name="g-recaptcha-response" value="" data-recaptcha="test-site"' "$WORK/formular.html" && grep -q 'recaptcha/api.js?render=test-site' "$WORK/formular.html" || { echo "  CHYBA  reCAPTCHA v3 field and script"; ERRORS=$((ERRORS+1)); }
+case "$(captcha_post low@example.cz -d g-recaptcha-response=low)" in *vysledek=captcha*) echo "  ok     reCAPTCHA v3: a low score is refused";; *) echo "  CHYBA  reCAPTCHA score"; ERRORS=$((ERRORS+1));; esac
+kill "$CAPTCHA_PID" 2>/dev/null; wait "$CAPTCHA_PID" 2>/dev/null || true; CAPTCHA_PID=
+captcha_post down@example.cz -d g-recaptcha-response=pass > /dev/null
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('captcha_fail_open', '0') ON DUPLICATE KEY UPDATE hodnota = '0'"
+case "$(captcha_post closed@example.cz -d g-recaptcha-response=pass)" in *vysledek=captcha*) ;; *) echo "  CHYBA  CAPTCHA: fail closed"; ERRORS=$((ERRORS+1));; esac
+expect "CAPTCHA: when the provider is down the owner's choice decides" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(email) FROM ka_poptavky WHERE email IN ('down@example.cz','closed@example.cz')")" "down@example.cz"
+mcp update_settings '{"settings":{"captcha_secret":"stolen","captcha_provider":"hcaptcha"}}' > "$WORK/response"
+[ "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'captcha_secret'")" = "test-secret" ] && mcp update_settings '{}' > "$WORK/response" && ! contains -q 'test-secret' "$WORK/response" \
+  && echo "  ok     CAPTCHA: Claude can neither set nor read the secret key" || { echo "  CHYBA  CAPTCHA secret over MCP"; ERRORS=$((ERRORS+1)); }
+"${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_nastaveni WHERE promenna LIKE 'captcha_%'"
+# 2.6: Google Tag Manager with consent mode – with the built-in bar it starts only after consent, without a bar right away
+mcp update_settings '{"settings":{"gtm_id":"GTM-TEST123","cookies_mode":"vestavena"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/response" "$B/leads-23"
+grep -q '<script type="text/plain" data-gtm>(function(w,d,s,l,i)' "$WORK/response" && grep -q "gtag('consent','default',{ad_storage:'denied'" "$WORK/response" && grep -q "'dataLayer','GTM-TEST123'" "$WORK/response" \
+  && grep -q 'data-kategorie="analytika"' "$WORK/response" && grep -q 'data-kategorie="marketing"' "$WORK/response" && echo "  ok     GTM: consent mode, the container waits for the cookie bar" || { echo "  CHYBA  GTM with the cookie bar"; ERRORS=$((ERRORS+1)); }
+mcp update_settings '{"settings":{"cookies_mode":"zadna"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/response" "$B/leads-23"
+grep -q "<script>(function(w,d,s,l,i)" "$WORK/response" && ! grep -q "gtag('consent','default'" "$WORK/response" && echo "  ok     GTM: without a cookie bar the container loads right away" || { echo "  CHYBA  GTM without a bar"; ERRORS=$((ERRORS+1)); }
+mcp update_settings '{"settings":{"gtm_id":"GTM-<x>"}}' > "$WORK/response"
+[ "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'gtm_id'")" = "GTM-TEST123" ] || { echo "  CHYBA  GTM: an invalid container ID was saved"; ERRORS=$((ERRORS+1)); }
+mcp update_settings '{"settings":{"gtm_id":"","cookies_mode":"vestavena"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+# 2.6: import from a website – a small "old site" with a sitemap, a header, a footer, an image and a blog post
+OLD_PORT=$((PORT + 10)); OLD="http://127.0.0.1:$OLD_PORT"
+mkdir -p "$WORK/oldsite/about-us" "$WORK/oldsite/blog/first-post" "$WORK/oldsite/img"
+php -r '$i = imagecreatetruecolor(400, 300); imagefill($i, 0, 0, imagecolorallocate($i, 40, 120, 90)); imagepng($i, $argv[1]);' "$WORK/oldsite/img/team.png"
+printf 'User-agent: *\nSitemap: %s/sitemap.xml\n' "$OLD" > "$WORK/oldsite/robots.txt"
+printf '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>%s/</loc></url><url><loc>%s/about-us/</loc></url><url><loc>%s/blog/first-post/</loc></url></urlset>' "$OLD" "$OLD" "$OLD" > "$WORK/oldsite/sitemap.xml"
+oldpage() { printf '<!doctype html><html><head><title>%s | Old Oak</title><meta name="description" content="%s"></head><body><header><nav><a href="/">Old home</a> <a href="/about-us/">About</a></nav></header><main><h1>%s</h1>%s</main><footer>Old footer 1990</footer></body></html>' "$1" "$2" "$1" "$3"; }
+oldpage "Welcome" "The old home page" "<p>Old Oak makes furniture by hand in our workshop near the river, since many years, for homes and offices alike.</p>" > "$WORK/oldsite/index.html"
+oldpage "About us" "Who we are" '<p>We build oak furniture since 1990, for homes and offices across the region and beyond it, always by hand.</p><img src="/img/team.png" alt="Our team"><p><a href="/blog/first-post/">Read our story</a></p><div class="cookie-notice">We use cookies</div>' > "$WORK/oldsite/about-us/index.html"
+printf '<!doctype html><html><head><title>Our first post | Old Oak</title><meta property="article:published_time" content="2024-05-06T09:00:00+02:00"></head><body><article><h1>Our first post</h1><p>Today we opened the new workshop for visitors, come and see how a table is made from a single oak.</p></article></body></html>' > "$WORK/oldsite/blog/first-post/index.html"
+(cd "$WORK/oldsite" && exec php -S "127.0.0.1:$OLD_PORT" > /dev/null 2>&1) & OLDSITE_PID=$!
+for i in $(seq 1 30); do curl -s -o /dev/null "$OLD/" && break; sleep 0.3; done
+import_field() { php -r '$r = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"] ?? "{}", true); echo is_array($r[$argv[2]] ?? null) ? json_encode($r[$argv[2]]) : ($r[$argv[2]] ?? "");' "$WORK/response" "$1"; }
+mcp import_website "{\"url\":\"$OLD\"}" > "$WORK/response"; IMPORT_ID=$(import_field import_id)
+for i in $(seq 1 20); do [ "$(import_field phase)" = finding ] || break; mcp import_website "{\"import_id\":\"$IMPORT_ID\"}" > "$WORK/response"; done
+[ "$(import_field phase)" = preview ] && [ "$(import_field found)" = 3 ] && contains -q '/about-us' "$WORK/response" && echo "  ok     website import: three pages found in the sitemap, shown before importing" || { echo "  CHYBA  website import: finding pages"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp import_website "{\"import_id\":\"$IMPORT_ID\",\"confirm\":true}" > "$WORK/response"
+for i in $(seq 1 20); do [ "$(import_field phase)" = importing ] || break; mcp import_website "{\"import_id\":\"$IMPORT_ID\"}" > "$WORK/response"; done
+[ "$(import_field phase)" = done ] || { echo "  CHYBA  website import did not finish"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+expect "website import: pages hidden, the post as a hidden news item" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT CONCAT(titulek, ':', zobrazit) FROM ka_stranky WHERE seo_link = 'about-us'), '|', (SELECT CONCAT(titulek, ':', visible, ':', DATE(datum)) FROM ka_novinky WHERE titulek = 'Our first post'))")" "About us:0|Our first post:0:2024-05-06"
+ABOUT=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(text, ' ', IFNULL(stavba, '')) FROM ka_stranky WHERE seo_link = 'about-us'")
+echo "$ABOUT" | grep -q 'oak furniture' && echo "$ABOUT" | grep -q 'media/' && ! echo "$ABOUT" | grep -qE 'Old footer|Old home|We use cookies|127\.0\.0\.1' && echo "$ABOUT" | grep -q '"typ":"nadpis"' \
+  && echo "  ok     website import: the content in the builder, the image in Media, no header, footer or cookie bar" || { echo "  CHYBA  website import: page content"; echo "$ABOUT" | head -c 600; ERRORS=$((ERRORS+1)); }
+[ "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy = 'blog/first-post' AND na_adresu LIKE 'novinky/%'")" = 1 ] && echo "  ok     website import: the old address of the post redirects" || { echo "  CHYBA  website import: redirect"; ERRORS=$((ERRORS+1)); }
+mcp import_website "{\"url\":\"$OLD\"}" > "$WORK/response"; IMPORT_ID=$(import_field import_id)
+for i in $(seq 1 20); do [ "$(import_field phase)" = finding ] || break; mcp import_website "{\"import_id\":\"$IMPORT_ID\"}" > "$WORK/response"; done
+mcp import_website "{\"import_id\":\"$IMPORT_ID\",\"confirm\":true}" > "$WORK/response"
+for i in $(seq 1 20); do [ "$(import_field phase)" = importing ] || break; mcp import_website "{\"import_id\":\"$IMPORT_ID\"}" > "$WORK/response"; done
+expect "website import: running it again skips what is already there" "$(import_field result)" '{"new_pages":0,"new_news":0,"images":0,"redirects":0,"skipped":3,"failed":0}'
+kill "$OLDSITE_PID" 2>/dev/null; OLDSITE_PID=
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kontrola_ip WHERE typ = 'login'" # limit přihlášení z IP vyčerpal test zámku účtu
 JAR5="$WORK/jar5"
 curl -s -c "$JAR5" -b "$JAR5" -o /dev/null "$B/oauth/authorize?response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=$CHALLENGE&code_challenge_method=S256&state=nove"

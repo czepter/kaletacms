@@ -36,7 +36,7 @@ final class Tools
      * Settings MCP can change (the others – e-mail, webhooks, 2FA, mail, backups – only in the administration). Code that runs on the site
      * (head_code, marketing_code, cookies_external_code) is not among them since 2.5.1: a prompt-injected Claude must not put script on every page.
      */
-    private const string MCP_SETTINGS = '/^(site_name|site_description|footer_text|home_page|social_(facebook|instagram|x|youtube|linkedin)|news_per_page|share_buttons|article_outline|related_news_auto|company_[a-z_]+|security_contact|claude_instructions|lead_attribution|agency_(name|url|email|phone|logo)|dark_mode|theme_switcher|site_(name|description)_[a-z]{2}|indexing|schema_org|llms_txt|markdown_news|indexnow|ai_crawlers|robots_extra|verification_(google|bing)|cookies_(mode|text|policy_url|log|log_months)|stats|ga4_id|matomo_(url|id)|plausible_domain)$/';
+    private const string MCP_SETTINGS = '/^(site_name|site_description|footer_text|home_page|social_(facebook|instagram|x|youtube|linkedin)|news_per_page|share_buttons|article_outline|related_news_auto|company_[a-z_]+|security_contact|claude_instructions|lead_attribution|agency_(name|url|email|phone|logo)|captcha_(provider|site_key|fail_open)|gtm_id|dark_mode|theme_switcher|site_(name|description)_[a-z]{2}|indexing|schema_org|llms_txt|markdown_news|indexnow|ai_crawlers|robots_extra|verification_(google|bing)|cookies_(mode|text|policy_url|log|log_months)|stats|ga4_id|matomo_(url|id)|plausible_domain)$/';
 
     public function __construct(private readonly App $app)
     {
@@ -181,6 +181,12 @@ final class Tools
                 . 'Zadej url veřejného souboru (https – obrázek, písmo, PDF; u větších souborů vždy url), nebo data v base64 (nejvýš ' . (self::MAX_UPLOAD >> 20) . ' MB). Vrátí adresu pro prvek obrázek, obrazek_pozadi nebo vlastni_pisma.',
                 $s(['nazev' => $text('název souboru s příponou, např. tym-praha.jpg'), 'data' => $text('obsah souboru v base64'), 'url' => $text('https adresa souboru ke stažení (místo data)'),
                     'popis' => $text('popis obrázku pro nevidomé (alt); jinak z názvu')], ['nazev'])],
+            ['importuj_web', 'Import webu z jiné platformy podle adresy (správce, 2.6): stránky se najdou v sitemapě nebo po odkazech, stanou se z nich skryté stránky v builderu (články jako novinky), obrázky jdou do Médií a staré adresy se přesměrují. '
+                . 'Jedno volání = jedna dávka (asi 15 s). Začni s adresa, pak volej znovu s import (id) – nejdřív se hledají stránky; ve fázi nahled ukaž uživateli, co se našlo, a teprve na jeho pokyn pošli potvrdit: true. Pokračuj, dokud faze není hotovo.',
+                $s(['adresa' => $text('adresa webu, např. https://www.example.com (jen pro nový import)'), 'import' => $text('id rozběhnutého importu (z předchozího volání)'),
+                    'potvrdit' => ['type' => 'boolean', 'description' => 'true = importovat nalezené stránky (jen ve fázi nahled, na pokyn uživatele)'], 'jazyk' => $text('jazyková verze webu (kód, např. de; jinak hlavní jazyk)'),
+                    'obrazky' => ['type' => 'boolean', 'description' => 'stáhnout obrázky do Médií (výchozí true)'], 'presmerovani' => ['type' => 'boolean', 'description' => 'přesměrovat staré adresy (výchozí true)'],
+                    'novinky' => ['type' => 'boolean', 'description' => 'články jako novinky (výchozí true)']])],
             ['nahled_odkaz', 'Podepsaný odkaz na náhled konceptu stránky nebo části webu – otevře ho kdokoli i bez přihlášení (uživatel, kolega, prohlížeč), platí jen pro tenhle cíl a jen omezenou dobu. Vyhledávače ho neindexují.',
                 $s($target + ['minut' => $number('platnost v minutách, výchozí 60, nejvýš ' . \Kaleta\Core\Preview::MAX_MINUTES), 'web' => ['type' => 'boolean', 'description' => 'true = celý web se všemi koncepty a konceptem vzhledu']])],
             ['uprav_nastaveni', 'Změní nastavení webu (správce) – hned se projeví na webu. Klíče: nazev_webu, popis_webu, text_paticky, logo_webu, favicon a og_obrazek – obrázek pro sdílení 1200×630 (cesta media/… z nahraj_soubor nebo image/…), titulni_stranka (ID úvodní stránky), soc_facebook|instagram|x|youtube|linkedin (URL), '
@@ -273,7 +279,7 @@ final class Tools
     public static function annotations(string $name): array
     {
         return ['readOnlyHint' => !self::isWriteTool($name), 'destructiveHint' => Catalog::access($name) === 'destructive',
-            'openWorldHint' => $name === 'nahraj_soubor']; // an upload from a URL reaches outside the site
+            'openWorldHint' => in_array($name, ['nahraj_soubor', 'importuj_web'], true)]; // an upload from a URL and an import reach outside the site
     }
 
     public static function isWriteTool(string $name): bool

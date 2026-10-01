@@ -243,10 +243,21 @@ Kaleta does what it set out to do, but few people have tried it. 2.5 makes the f
 1. **The installer in German**, next to English and Czech.
 2. **No database typing on platforms:** Docker, Coolify and similar platforms set the database (`KALETA_DB_*`); the
    installer asks only for the site and the administrator.
-3. **Installation without the browser:** `php install.php` for hosting panels (Softaculous, Installatron) and scripts;
+3. **Installation without the browser:** `php install.php` for scripts;
    the container installs itself on the first start when the address and the administrator's password are set.
 4. **A Coolify template** (`docker/coolify.yaml`), tested in CI like `compose.yaml`.
 5. **Straight to Claude:** the last installer screen shows the site's Claude address and a first prompt to try.
+
+## 2.6 – try it, move in, measure (in progress)
+
+1. **Import from any site by its address:** the pages of a site on any platform (Wix, Webnode, Jimdo, Squarespace, Joomla,
+   Drupal, WordPress without an export…) become builder pages with their images, and the old addresses redirect.
+2. **A public demo** of the admin at demo.kaletacms.com, reset every hour.
+3. **Google Tag Manager** in one field, with Consent Mode and ready-made conversion events for campaigns.
+4. **An optional CAPTCHA** for forms: hCaptcha, Google reCAPTCHA v3 or Cloudflare Turnstile, on top of the built-in
+   protection.
+5. **Docker and Coolify are the only packaged platforms**; the command-line installer is what they run on their first
+   start.
 
 ## Not planned
 

@@ -75,6 +75,9 @@ final class Forms
         if ($antispam->count($r->ip(), 'formular', 0, 10) >= self::LIMIT) {
             return $redirectUri('limit');
         }
+        if (empty($element['obsah']['bez_captcha']) && !\Kaleta\Core\Captcha::accepted($this->app->settings(), \Kaleta\Core\Captcha::verify($this->app->settings(), $r))) {
+            return $redirectUri('captcha');
+        }
 
         $data = [];
         $email = '';

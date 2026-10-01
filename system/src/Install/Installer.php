@@ -16,7 +16,8 @@ use Kaleta\Builder\Build;
 
 /**
  * Installer: checks the server, creates the tables and the first administrator and writes config.php. In the browser
- * (install.php) or, for hosting panels, containers and scripts, from the command line (php install.php --help, 2.5).
+ * (install.php) or from the command line (php install.php --help, 2.5) – the Docker image and the Coolify template run it on their
+ * first start.
  * The database can come from the environment (KALETA_DB_*): Docker, Coolify and similar platforms set it, so nobody
  * types it in.
  */

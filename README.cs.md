@@ -67,7 +67,7 @@ ve svazku a aktualizuje se sám jako každá jiná instalace.
 **Přes Coolify**: přidejte [`docker/coolify.yaml`](docker/coolify.yaml) jako Docker Compose – Coolify vygeneruje adresu,
 databázi i heslo správce a web se nainstaluje sám.
 
-**Z příkazové řádky** (panely hostingů, skripty): `php install.php --help`. Hesla se berou z proměnných prostředí nebo
+**Z příkazové řádky** (to spouští obraz pro Docker a Coolify při prvním startu; hodí se i pro vlastní skripty): `php install.php --help`. Hesla se berou z proměnných prostředí nebo
 ze souborů, nikdy z příkazové řádky.
 
 ## Vývoj

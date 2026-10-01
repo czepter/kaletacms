@@ -179,8 +179,8 @@ final class Pages extends Module
             'zmeneno' => date('Y-m-d H:i:s'),
             'jazyk' => $language,
         ];
-        if ($this->app->auth()->isAdmin()) {
-            // code in <head> of this page only (2.3) – administrators, like the code for the whole site
+        if ($this->app->auth()->isAdmin() && !\Kaleta\Core\Demo::active()) {
+            // code in <head> of this page only (2.3); never in the public demo – administrators, like the code for the whole site
             $data['kod_hlavicky'] = trim((string) ($_POST['kod_hlavicky'] ?? '')) !== '' ? mb_substr((string) $_POST['kod_hlavicky'], 0, 20000) : null;
         }
         // scheduled publishing: only for a hidden page with a future time; a past time publishes the page right away

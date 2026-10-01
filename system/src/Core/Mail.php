@@ -89,6 +89,11 @@ final class Mail
     private static function deliver(Settings $siteSettings, string $recipient, string $subject, string $text, string $html = '', array $headers = []): bool
     {
         self::$error = '';
+        if (Demo::active()) {
+            self::$error = 'Sending e-mail is switched off in the public demo.';
+
+            return false; // nobody uses the demo to send e-mail to strangers
+        }
         $from = $siteSettings->get('mail_from') !== '' ? $siteSettings->get('mail_from') : $siteSettings->get('site_email');
         if ($from === '' || filter_var($recipient, FILTER_VALIDATE_EMAIL) === false || preg_match('/[\x00-\x20\x7F"<>]/', $recipient)) {
             self::$error = $from === '' ? 'Není vyplněný e-mail webu (Nastavení → Základní) ani adresa odesílatele.' : 'The recipient address is not valid.';

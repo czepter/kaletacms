@@ -66,7 +66,7 @@ installation code from `docker compose logs kaleta` (so nobody else installs the
 **With Coolify**: add [`docker/coolify.yaml`](docker/coolify.yaml) as a Docker Compose resource – Coolify generates the address,
 the database and the administrator's password, and the site installs itself.
 
-**From the command line** (hosting panels, scripts): `php install.php --help`. The passwords come from environment variables
+**From the command line** (what the Docker image and Coolify run on their first start; also for your own scripts): `php install.php --help`. The passwords come from environment variables
 or files, never from the command line.
 
 ## Development

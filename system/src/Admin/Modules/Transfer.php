@@ -10,11 +10,13 @@ use Kaleta\Core\SiteImport;
 use Kaleta\Core\Language;
 use Kaleta\Core\Response;
 use Kaleta\Core\ImageDownloader;
+use Kaleta\Core\WebImport;
 use Kaleta\Core\WpImport;
 use Kaleta\Core\WpFile;
 
 /**
- * Import and export: moving from WordPress (a WXR file), moving a whole Kaleta site into a new installation (1.8,
+ * Import and export: import from any website by its address (2.6, Core\WebImport), moving from WordPress (a WXR file),
+ * moving a whole Kaleta site into a new installation (1.8,
  * Core\SiteImport) and export of the whole site to an open format.
  *
  * The import has three steps on one screen: 1. file (uploaded with the form, or via FTP to storage/import/),
@@ -46,7 +48,80 @@ final class Transfer extends Module
             'kaletaFiles' => array_map(fn (array $s): array => $s + ['stav' => SiteImport::loadState($s['soubor'])], SiteImport::listAll()),
             'siteContent' => SiteImport::siteContent($this->db),
             'hasZip' => class_exists(\ZipArchive::class),
+            'webImports' => array_values(array_filter(array_map(fn (string $f): ?array => WebImport::load(substr(basename($f, '.json'), 4)), glob(WpFile::folder() . '/web-*.json') ?: []))),
+            'canDownload' => ImageDownloader::isAvailable() && extension_loaded('gd'),
+            'languages' => Language::additional($this->app->settings()),
         ]);
+    }
+
+    /* ---------- import from a website (2.6) ---------- */
+
+    /** Starts finding the pages of the site at the given address. */
+    protected function actionWebStart(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $url = trim($this->request->post('adresa'));
+        $url = preg_match('#^https?://#i', $url) ? $url : 'https://' . $url;
+        if (!WebImport::validUrl($url) || !ImageDownloader::isAvailable()) {
+            return $this->back('Enter the address of the site, e.g. https://www.example.com.', type: 'chyba');
+        }
+        $state = WebImport::newState($url, [
+            'jazyk' => in_array($this->request->post('jazyk'), Language::additional($this->app->settings()), true) ? $this->request->post('jazyk') : '',
+            'obrazky' => $this->request->postBool('obrazky'), 'presmerovani' => $this->request->postBool('presmerovani'), 'novinky' => $this->request->postBool('novinky'),
+        ]);
+        WebImport::save($state);
+
+        return $this->back('', 'web_progress', ['id' => $state['id']]);
+    }
+
+    /** GET shows where the import is; POST does one batch (finding pages, or importing them). The page submits itself until done. */
+    protected function actionWebProgress(): Response
+    {
+        $state = WebImport::load($this->request->post('id') ?: $this->request->get('id'));
+        if ($state === null) {
+            return $this->back('The import does not exist any more.', type: 'chyba');
+        }
+        if ($this->request->isPost() && in_array($state['faze'], ['hledani', 'import'], true)) {
+            $lock = fopen(WpFile::folder() . '/web-import.zamek', 'c');
+            if ($lock !== false && flock($lock, LOCK_EX | LOCK_NB)) {
+                try {
+                    @set_time_limit(60);
+                    $state = WebImport::load($state['id']) ?? $state;
+                    (new WebImport($this->db, $this->app->settings(), $this->app->auth()->id(), new ImageDownloader($state['web'], true)))->step($state);
+                } finally {
+                    WebImport::save($state);
+                    flock($lock, LOCK_UN);
+                }
+            }
+        }
+
+        return $this->view('web', 'Import from a website', ['state' => $state]);
+    }
+
+    /** After the preview: import the pages found. */
+    protected function actionWebRun(): Response
+    {
+        $state = WebImport::load($this->request->post('id'));
+        if (!$this->request->isPost() || $state === null || $state['faze'] !== 'nahled') {
+            return $this->back();
+        }
+        $state['faze'] = 'import';
+        $state['pozice'] = 0;
+        WebImport::save($state);
+
+        return $this->back('', 'web_progress', ['id' => $state['id']]);
+    }
+
+    /** Removes the record of an import; the imported pages stay. */
+    protected function actionWebDelete(): Response
+    {
+        if ($this->request->isPost()) {
+            WebImport::delete($this->request->post('id'));
+        }
+
+        return $this->back();
     }
 
     /* ---------- import: 1. file ---------- */

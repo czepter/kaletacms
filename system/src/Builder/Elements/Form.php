@@ -59,6 +59,7 @@ final class Form extends Element
             'prijemce' => ['typ' => 'text', 'popisek' => 'Notification email (empty = site email from Settings)', 'vychozi' => '', 'max' => 190],
             'dekovna' => ['typ' => 'odkaz', 'popisek' => 'After sending, go to a page (empty = thank-you message in place of the form)', 'vychozi' => ''],
             'potvrzeni' => ['typ' => 'prepinac', 'popisek' => 'Send the sender a confirmation e-mail (thank-you only, without the message content)', 'vychozi' => false],
+            'bez_captcha' => ['typ' => 'prepinac', 'popisek' => 'Without the extra spam check (CAPTCHA from Settings → Privacy and cookies)', 'vychozi' => false],
         ];
     }
 
@@ -94,6 +95,17 @@ final class Form extends Element
         return $p['kotva'] ?? (!empty($p['styl']) ? 's-' . $p['id'] : 'formular-' . $p['id']);
     }
 
+    /** The CAPTCHA widget when the site has one (2.6); in the editor only a note, the provider's script does not load there. */
+    public static function captcha(Context $k): string
+    {
+        if (\Kaleta\Core\Captcha::provider($k->app->settings()) === null) {
+            return '';
+        }
+
+        return $k->editor ? '<p class="ka-pole ka-captcha"><small>' . e(t('CAPTCHA is checked here when the form is sent.')) . '</small></p>'
+            : '<div class="ka-pole">' . \Kaleta\Core\Captcha::widget($k->app->settings()) . '</div>';
+    }
+
     /** Message after sending by the code in the url (?formular=<id>&vysledek=<code>) – the text never comes from the url. */
     public static function messages(string $code): string
     {
@@ -102,6 +114,7 @@ final class Form extends Element
             'limit' => t('Too many messages have come from your address in a short time. Please try again later.'),
             'rychle' => t('The form was sent before we could check that a person is sending it. Please wait a moment and send it again.'),
             'overeni' => t('The form could not be verified. Reload the page and try again.'),
+            'captcha' => t('Please confirm that you are not a robot and send the form again.'),
             default => t('The message could not be sent. Please try again.'),
         };
     }
@@ -132,6 +145,7 @@ final class Form extends Element
             . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '">' . \Kaleta\Front\Forms::ATTRIBUTION_FIELDS
             . $antispam->fields('formular|' . $k->source . '|' . $p['id'])
             . $html
+            . (empty($o['bez_captcha']) ? self::captcha($k) : '')
             . '<p class="ka-pole"><button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e($o['tlacitko']) . '</button></p></form>';
     }
 

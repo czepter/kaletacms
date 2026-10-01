@@ -46,7 +46,7 @@ final class Vocabulary
         'pocet' => 'count', 'kategorie' => 'category', 'obrazky' => 'images', 'kolekce' => 'collection', 'razeni' => 'sort', 'razeni_pole' => 'sort_field',
         'filtr_pole' => 'filter_field', 'filtr_hodnota' => 'filter_value', 'bez_aktualni' => 'exclude_current', 'filtry' => 'filters', 'strankovani' => 'pagination',
         'prazdne' => 'empty_text', 'nazev' => 'name', 'pole' => 'fields', 'dekujeme' => 'thank_you', 'prijemce' => 'recipient', 'dekovna' => 'thank_you_page',
-        'potvrzeni' => 'confirmation', 'souhlas' => 'consent', 'komponenta' => 'component', 'hodnoty' => 'values', 'kod' => 'code', 'menu' => 'menu',
+        'potvrzeni' => 'confirmation', 'bez_captcha' => 'no_captcha', 'souhlas' => 'consent', 'komponenta' => 'component', 'hodnoty' => 'values', 'kod' => 'code', 'menu' => 'menu',
         'novinky' => 'news_link', 'mobil' => 'phone_menu', 'mega' => 'mega_menu', 'zvyrazneni' => 'highlight', 'jazyky' => 'language_switcher', 'smer' => 'direction',
         'udaj' => 'detail',
     ];

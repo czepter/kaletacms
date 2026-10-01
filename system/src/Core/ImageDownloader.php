@@ -40,10 +40,20 @@ final class ImageDownloader
     /** Domain of the old site in lowercase and without „www.“. */
     private readonly string $domain;
 
-    /** @param string $siteUrl URL of the old site from the imported file (<channel><link>) */
-    public function __construct(string $siteUrl)
+    /**
+     * @param string $siteUrl URL of the old site from the imported file (<channel><link>)
+     * @param bool $anyDomain images may come from any public host (2.6, import from a website: Wix, Squarespace and others
+     *        keep images on their CDN); everything else in the rules above still applies
+     */
+    public function __construct(string $siteUrl, private readonly bool $anyDomain = false)
     {
         $this->domain = self::domainFromUrl($siteUrl);
+    }
+
+    /** The automated tests download from their own server on 127.0.0.1 (KALETA_IMPORT_LOCAL=1); never set on a real site. */
+    private static function localTests(): bool
+    {
+        return getenv('KALETA_IMPORT_LOCAL') === '1';
     }
 
     /** Can the server download at all? Without both curl and allow_url_fopen the images have to be moved manually. */
@@ -80,11 +90,11 @@ final class ImageDownloader
             return false;
         }
         $schema = strtolower($c['scheme'] ?? '');
-        if (!in_array($schema, ['http', 'https'], true) || (isset($c['port']) && $c['port'] !== ($schema === 'https' ? 443 : 80))) {
+        if (!in_array($schema, ['http', 'https'], true) || (isset($c['port']) && $c['port'] !== ($schema === 'https' ? 443 : 80) && !self::localTests())) {
             return false;
         }
 
-        return self::domainFromUrl($url) === $this->domain;
+        return self::domainFromUrl($url) === $this->domain || ($this->anyDomain && self::domainFromUrl($url) !== '');
     }
 
     /** Point 2: is the IP address public? IPv4 wrapped in IPv6 (::ffff:10.0.0.1) is judged as IPv4. */
@@ -144,7 +154,7 @@ final class ImageDownloader
     {
         $host = trim($host, '[]');
         if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
-            return self::isPublicIp($host) ? $host : null;
+            return self::isPublicIp($host) || ($host === '127.0.0.1' && self::localTests()) ? $host : null;
         }
         $addresses = gethostbynamel($host) ?: [];
         foreach (@dns_get_record($host, DNS_AAAA) ?: [] as $record) {
@@ -168,6 +178,9 @@ final class ImageDownloader
      */
     public function download(string $url, bool $imagesOnly = true): string
     {
+        if (Demo::active()) {
+            throw new \RuntimeException('Downloading from other sites is switched off in the public demo.');
+        }
         for ($step = 0; $step <= self::MAX_REDIRECTS; $step++) {
             if (!$this->isAllowedUrl($url)) {
                 throw new \RuntimeException('The address does not belong to the old site.');
@@ -201,7 +214,7 @@ final class ImageDownloader
     private function curlRequest(string $url, string $ip): array
     {
         $c = parse_url($url);
-        $port = strtolower((string) $c['scheme']) === 'https' ? 443 : 80;
+        $port = (int) ($c['port'] ?? (strtolower((string) $c['scheme']) === 'https' ? 443 : 80)); // another port only in the tests
         $data = '';
         $headers = ['content-type' => '', 'location' => ''];
         $ch = curl_init($url);
