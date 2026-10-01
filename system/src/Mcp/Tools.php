@@ -32,8 +32,11 @@ final class Tools
     /** The largest file uploaded via MCP (base64 in one tool call). */
     private const int MAX_UPLOAD = 12 * 1024 * 1024;
 
-    /** Settings MCP can change (the others – e-mail, webhooks, 2FA, mail, backups – only in the administration). */
-    private const string MCP_SETTINGS = '/^(site_name|site_description|footer_text|home_page|social_(facebook|instagram|x|youtube|linkedin)|news_per_page|share_buttons|article_outline|related_news_auto|company_[a-z_]+|security_contact|claude_instructions|lead_attribution|agency_(name|url|email|phone|logo)|dark_mode|theme_switcher|site_(name|description)_[a-z]{2}|indexing|schema_org|llms_txt|markdown_news|indexnow|ai_crawlers|robots_extra|verification_(google|bing)|cookies_(mode|text|policy_url|log|log_months|external_code)|marketing_code|head_code|stats|ga4_id|matomo_(url|id)|plausible_domain)$/';
+    /**
+     * Settings MCP can change (the others – e-mail, webhooks, 2FA, mail, backups – only in the administration). Code that runs on the site
+     * (head_code, marketing_code, cookies_external_code) is not among them since 2.5.1: a prompt-injected Claude must not put script on every page.
+     */
+    private const string MCP_SETTINGS = '/^(site_name|site_description|footer_text|home_page|social_(facebook|instagram|x|youtube|linkedin)|news_per_page|share_buttons|article_outline|related_news_auto|company_[a-z_]+|security_contact|claude_instructions|lead_attribution|agency_(name|url|email|phone|logo)|dark_mode|theme_switcher|site_(name|description)_[a-z]{2}|indexing|schema_org|llms_txt|markdown_news|indexnow|ai_crawlers|robots_extra|verification_(google|bing)|cookies_(mode|text|policy_url|log|log_months)|stats|ga4_id|matomo_(url|id)|plausible_domain)$/';
 
     public function __construct(private readonly App $app)
     {
@@ -78,7 +81,7 @@ final class Tools
             'preklad_z' => $number('ID protějšku ve výchozím jazyce (u stránky jiné jazykové verze) – přepínač jazyků a hreflang'),
             'kopie_stavby' => ['type' => 'boolean', 'description' => 'jen u nové stránky s preklad_z: koncept začne kopií stavby originálu – pro překlad pak stavba_nacti s jen_texty a stavba_uprav'],
             'zverejnit_od' => $text('naplánované zveřejnění skryté stránky RRRR-MM-DD HH:MM (jen na výslovný pokyn uživatele; prázdné = zrušit)'),
-            'kod_hlavicky' => $text('code for <head> of this page only (administrators, only when the user asks)'),
+            'kod_hlavicky' => $text('not settable through MCP – code for <head> of a page is set in the administration'),
         ];
         $target = ['id' => $number('ID stránky'), 'cast' => $text('Místo stránky část webu (jen správce): ' . implode(' | ', array_keys(SiteParts::TYPES)) . ' – záhlaví, patička, obálky detailu novinky, výpisu a 404'),
             'jazyk' => $text('Jazyk části webu nebo šablony detailu kolekce u vícejazyčného webu (prázdné = výchozí)'),
@@ -380,12 +383,12 @@ final class Tools
             }
         }
         if (array_key_exists('kod_hlavicky', $a)) {
-            // 2.3: e.g. the conversion tag of one landing page – administrators only, like the code for the whole site; it is
-            // live at once, so never through a connection limited to drafts
-            if (!$this->app->auth()->isAdmin() || !$this->app->auth()->canPublish()) {
-                throw new \DomainException('Code in the head of a page can be set only by an administrator, through a connection with full access.');
+            // code that runs on the site is never written through MCP (2.5.1): the parameter stays in the interface (public contract),
+            // the administrator sets the code in the page settings in the administration; removing it is harmless, so an empty value clears it
+            if (trim((string) $a['kod_hlavicky']) !== '') {
+                throw new \DomainException('Code in the head of a page is set only in the administration (page settings), not through a Claude connection.');
             }
-            $data['kod_hlavicky'] = trim((string) $a['kod_hlavicky']) !== '' ? mb_substr((string) $a['kod_hlavicky'], 0, 20000) : null;
+            $data['kod_hlavicky'] = null;
         }
         foreach (['uvod', 'text'] as $field) {
             if (isset($data[$field])) {
@@ -825,7 +828,7 @@ final class Tools
     {
         $this->mayPublish(['publikovat' => $publish]);
         $db = $this->app->db();
-        [$build, $errors] = Build::sanitize($input, $this->app->auth()->isAdmin(), Build::fromJson($target['koncept'] ?? $target['stavba']));
+        [$build, $errors] = Build::sanitize($input, $this->app->auth()->canWriteCode(), Build::fromJson($target['koncept'] ?? $target['stavba']));
         $r = $target['radek'];
         if ($target['druh'] === 'stranka') {
             $db->update('stranky', ['stavba_koncept' => Build::toJson($build)], ['ids' => $r['ids']]);

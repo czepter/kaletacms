@@ -3141,4 +3141,5 @@ return [
     'Could not connect to the SMTP server %s. Check the address, port and encryption; some hosts block outgoing SMTP.' => 'Nepodařilo se připojit k SMTP serveru %s. Zkontrolujte adresu, port a šifrování; některé hostingy odchozí SMTP blokují.',
     'The SMTP server refused the sign-in – check the user name and password (Gmail and Seznam need an app password).' => 'SMTP server odmítl přihlášení – zkontrolujte jméno a heslo (u Gmailu a Seznamu je potřeba „heslo pro aplikace“).',
     'SMTP server reply to %s: %s' => 'Odpověď SMTP serveru na %s: %s',
+    'A scheduled newsletter can be changed only by someone who may send newsletters – unschedule it first.' => 'Naplánovaný newsletter může měnit jen ten, kdo smí newslettery odesílat – nejdřív zrušte naplánování.',
 ];

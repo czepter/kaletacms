@@ -2760,4 +2760,8 @@ return [
     'Then tell Claude about your business, for example:' => 'Pak Claudovi řekněte, čím se zabýváte, třeba:',
     'We are [company], we do [services] in [city]. Rewrite the pages of my Kaleta site for us, match the colours to our logo and leave everything as drafts for me to check.' => 'Jsme [firma], děláme [služby] v [místo]. Přepiš pro nás stránky mého webu v Kaletě, slaď barvy s naším logem a všechno nech jako koncepty, ať to můžu zkontrolovat.',
     'Guide: connect Claude' => 'Návod: napojení Clauda',
+    'The installation code could not be created – make the storage folder writable.' => 'Instalační kód se nepodařilo vytvořit – povolte zápis do složky storage.',
+    'The installation code is not correct.' => 'Instalační kód nesouhlasí.',
+    'So that nobody else installs the site first, enter the installation code. Docker and Coolify print it in the log of the container; on the server it is in the file storage/install-code.' => 'Aby web nenainstaloval dřív někdo jiný, zadejte instalační kód. Docker a Coolify ho vypíšou do logu kontejneru, na serveru je v souboru storage/install-code.',
+    'Installation code' => 'Instalační kód',
 ];

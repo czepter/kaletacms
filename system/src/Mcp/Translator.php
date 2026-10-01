@@ -40,7 +40,7 @@ final class Translator
         'translation_of' => ['preklad_z', 'ID of the counterpart in the default language (for a page in another language version) – language switcher and hreflang'],
         'copy_build' => ['kopie_stavby', 'only for a new page with translation_of: the draft starts as a copy of the original’s build – then translate with get_build (texts_only) and edit_build'],
         'publish_at' => ['zverejnit_od', 'Scheduled publishing of a hidden page YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)'],
-        'head_code' => ['kod_hlavicky', 'Code for <head> of this page only – e.g. the conversion tag of one landing page (administrators; only when the user explicitly asks; empty = none)'],
+        'head_code' => ['kod_hlavicky', 'Not settable through MCP (since 2.5.1): code for <head> of a page is set by the administrator in the administration – tell the user where'],
     ];
 
     private const array NEWS_ITEM = [
@@ -164,7 +164,7 @@ final class Translator
             . 'news_per_page, share_buttons, article_outline, related_news_auto (1/0), dark_mode (vypnuto = light only | auto = by device | tmavy = always dark), theme_switcher (1/0 = light/dark switcher for visitors), company details company_name, company_type, company_id, company_vat_id, company_register (commercial register entry), company_representative (who represents the company), company_street, company_city, company_postcode, company_country (CZ), company_phone, company_email (public contact), company_hours (one day per line), company_map, company_gps; site_name_de… for language versions. '
             . 'Since 2.2 also: extensions (the list of switched-on extensions, e.g. ["novinky","poptavky","claude"] – claude must stay), additional_languages (further language versions, e.g. ["de","cs"]), '
             . 'indexing, schema_org, llms_txt, markdown_news, indexnow (1/0), ai_crawlers (povolit | zakazat), robots_extra, verification_google, verification_bing, cookies_mode (zadna | vestavena | externi), cookies_text, cookies_policy_url, cookies_log (1/0), cookies_log_months, '
-            . 'stats (1/0), ga4_id, matomo_url, matomo_id, plausible_domain, head_code, marketing_code and cookies_external_code (code in <head> – only when the user explicitly asks), security_contact, claude_instructions. Without the parameter it returns the current values.',
+            . 'stats (1/0), ga4_id, matomo_url, matomo_id, plausible_domain, security_contact, claude_instructions. Code that runs on the site (head_code, marketing_code, cookies_external_code) is set only in the administration. Without the parameter it returns the current values.',
             ['settings' => ['nastaveni', '{"key":"value"}']]],
         'list_enquiries' => ['seznam_poptavek', 'Enquiries from the site forms (Forms and enquiries extension; only with access to Enquiries), newest first: date, form, page, campaign (utm), e-mail, status and the filled-in fields. They contain personal data – use them only for what the user asks.',
             ['status' => ['stav', 'new | read | resolved | all (default)'], 'search' => ['hledat', 'text in the e-mail or content (optional)'], 'limit' => ['limit', '1-50, default 20']]],

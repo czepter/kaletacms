@@ -241,18 +241,20 @@ final class Server
         $header = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
         $db = $this->app->db();
         $ip = substr(hash('sha256', 'kaleta|' . $this->app->request->ip()), 0, 40);
-        if ((int) $db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'mcp' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [$ip]) >= 20) {
-            return null;
-        }
         // a personal token from "Můj účet" (kaleta_…) or the access token of an application connected via OAuth
         // (kaleta_oa_…, valid for an hour)
         if (!preg_match('/^Bearer\s+(kaleta_(?:oa_)?[a-f0-9]{48})$/', $header, $m)) {
             return null;
         }
+        // the limit of wrong tokens stops only unknown tokens: a valid token always works, so nobody can lock out the site's
+        // Claude connections by sending wrong tokens from a shared address (a proxy in front of Docker, Claude's own servers)
+        $limited = (int) $db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'mcp' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [$ip]) >= 20;
         $token = $db->one("SELECT t.idt, t.nazev AS connection_name, t.access AS connection_access, u.* FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0 AND t.druh <> 'obnova' AND (t.expirace IS NULL OR t.expirace > ?)",
             [hash('sha256', $m[1]), date('Y-m-d H:i:s')]);
         if ($token === null) {
-            $db->insert('kontrola_ip', ['ip_adresa' => $ip, 'typ' => 'mcp', 'cas' => date('Y-m-d H:i:s')]);
+            if (!$limited) {
+                $db->insert('kontrola_ip', ['ip_adresa' => $ip, 'typ' => 'mcp', 'cas' => date('Y-m-d H:i:s')]);
+            }
 
             return null;
         }

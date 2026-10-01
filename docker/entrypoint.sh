@@ -23,4 +23,15 @@ if [ ! -e /var/www/html/config.php ] && [ -e /var/www/html/install.php ] && [ -n
     done
     chown -R www-data:www-data /var/www/html
 fi
+# Not installed yet with the database from the environment: the web installer asks for a one-time code (2.5.1), otherwise
+# whoever opens the site first would install it into this database and become its administrator.
+if [ ! -e /var/www/html/config.php ] && [ -e /var/www/html/install.php ] && [ -n "$KALETA_DB_NAME" ] && [ -n "$KALETA_DB_USER" ]; then
+    code_file=/var/www/html/storage/install-code
+    if [ ! -s "$code_file" ]; then
+        od -An -N8 -tx1 /dev/urandom | tr -d ' \n' | sed 's/\(....\)/\1-/g; s/-$//' > "$code_file"
+        chown www-data:www-data "$code_file"
+        chmod 600 "$code_file"
+    fi
+    echo "Kaleta: not installed yet – the installer at ${KALETA_URL:-this site} asks for the installation code $(cat "$code_file")"
+fi
 exec docker-php-entrypoint "$@"

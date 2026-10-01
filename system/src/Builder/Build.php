@@ -243,21 +243,80 @@ final class Build
         return trim(str_replace(['</p>', '<p>'], ['<br>', ''], $clean));
     }
 
+    /** Elements the administrator's custom HTML never keeps: they run code, change the page's base or reload it, or hide markup from the parser. */
+    private const array CODE_DISCARD = ['script', 'object', 'embed', 'applet', 'base', 'meta', 'link', 'frame', 'frameset', 'portal', 'template', 'noscript',
+        'noembed', 'noframes', 'xmp', 'plaintext', 'math', 'animate', 'animatemotion', 'animatetransform', 'set', 'handler', 'foreignobject'];
+
+    /** Attributes holding an address: only http(s), mailto, tel or a relative one (checked after the parser decoded entities). */
+    private const array CODE_URLS = ['href', 'src', 'action', 'formaction', 'poster', 'cite', 'data', 'background', 'lowsrc', 'ping', 'longdesc', 'codebase', 'manifest', 'xlink:href'];
+
     /**
-     * The administrator's custom HTML (an administrator-only element): without scripts, event handlers and javascript: links. Embedded
-     * maps and service forms are <iframe>s, those stay – this is not a sanitizer for content from other roles (that is Core\Html::safe).
+     * The administrator's custom HTML (an administrator-only element). Embedded maps and service forms are <iframe>s and <form>s, those
+     * stay; scripts, event handlers, srcdoc, script-like URLs (also entity-encoded or unquoted) and SVG animation of attributes are removed.
+     * A DOM pass, not a regular expression – regular expressions over HTML can be bypassed. It repeats until the output parses back to
+     * itself, so markup that a browser would read differently after serialization (mutation XSS) is cleaned in the form the browser sees.
+     * Runs on save and again when rendering.
      */
     public static function code(string $html): string
     {
-        // repeat while something changes: a nested <scr<script></script>ipt> would reassemble after a single pass
-        do {
-            $before = $html;
-            $html = (string) preg_replace(['#<script\b[^>]*>.*?</script\s*>#is', '#<script\b[^>]*>#i', '#</script\s*>#i'], '', $html);
-            $html = (string) preg_replace('#\son[a-z]+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)#i', '', $html);
-            $html = (string) preg_replace('#(href|src|action|formaction|srcdoc)\s*=\s*(["\'])\s*(javascript|vbscript|data:text/html)[^"\']*\2#i', '$1="#"', $html);
-        } while ($html !== $before);
+        for ($i = 0; $i < 4; $i++) {
+            $clean = self::codePass($html);
+            if ($clean === $html) {
+                return $clean;
+            }
+            $html = $clean;
+        }
 
-        return $html;
+        return ''; // never settles – such markup is not an embed code
+    }
+
+    private static function codePass(string $html): string
+    {
+        if (trim($html) === '' || !preg_match('/<|&/', $html)) {
+            return $html;
+        }
+        $doc = \Dom\HTMLDocument::createFromString('<!DOCTYPE html><html><body>' . $html . '</body></html>', LIBXML_NOERROR, 'UTF-8');
+        $body = $doc->body;
+        if ($body === null) {
+            return '';
+        }
+        self::codeNode($body);
+        $output = '';
+        foreach ($body->childNodes as $n) {
+            $output .= $doc->saveHtml($n);
+        }
+
+        return $output;
+    }
+
+    private static function codeNode(\Dom\Node $node): void
+    {
+        foreach (iterator_to_array($node->childNodes) as $n) {
+            if ($n instanceof \Dom\Comment || ($n instanceof \Dom\Element && (in_array(strtolower($n->localName), self::CODE_DISCARD, true)
+                || !preg_match('/^[a-z][a-z0-9-]*$/i', $n->localName)))) {
+                $n->remove();
+                continue;
+            }
+            if (!$n instanceof \Dom\Element) {
+                continue;
+            }
+            if (strtolower($n->localName) === 'style' && preg_match('/javascript:|expression\s*\(|@import|behavior\s*:|-moz-binding/i', (string) $n->textContent)) {
+                $n->remove();
+                continue;
+            }
+            foreach (iterator_to_array($n->attributes) as $a) {
+                $name = strtolower($a->name);
+                $ok = !str_starts_with($name, 'on') && $name !== 'srcdoc' && $name !== 'http-equiv'
+                    && (!in_array($name, self::CODE_URLS, true) && !str_ends_with($name, ':href') || WpContent::isSafeUrl($a->value) || trim($a->value) === '')
+                    && ($name !== 'srcset' || !preg_match('/(javascript|data|vbscript):/i', $a->value))
+                    && ($name !== 'style' || !preg_match('/javascript:|expression\s*\(|behavior\s*:|-moz-binding|url\s*\(\s*["\']?\s*(javascript|data|vbscript):/i', $a->value))
+                    && ($name !== 'attributename' && $name !== 'formtarget');
+                if (!$ok) {
+                    $n->removeAttribute($a->name);
+                }
+            }
+            self::codeNode($n);
+        }
     }
 
     private static function link(string $url, string $path, array &$errors): string

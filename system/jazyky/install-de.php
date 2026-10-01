@@ -98,4 +98,8 @@ return [
     'Warm colours, how you work, projects and guarantees.' => 'Warme Farben, Arbeitsweise, Projekte und Garantien.',
     'Consulting and agency' => 'Beratung und Agentur',
     'An elegant look, clients, service packages and the team.' => 'Ein eleganter Look, Kunden, Leistungspakete und das Team.',
+    'The installation code could not be created – make the storage folder writable.' => 'Der Installationscode konnte nicht erstellt werden – erlauben Sie das Schreiben in den Ordner storage.',
+    'The installation code is not correct.' => 'Der Installationscode stimmt nicht.',
+    'So that nobody else installs the site first, enter the installation code. Docker and Coolify print it in the log of the container; on the server it is in the file storage/install-code.' => 'Damit niemand anderes die Website zuerst installiert, geben Sie den Installationscode ein. Docker und Coolify schreiben ihn ins Log des Containers; auf dem Server steht er in der Datei storage/install-code.',
+    'Installation code' => 'Installationscode',
 ];

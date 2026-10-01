@@ -46,6 +46,8 @@ final class Auth
 
         $user = $this->db->one('SELECT * FROM {uzivatele} WHERE user = ?', [$login]);
         // The hash is verified even for a nonexistent user, so that the response time does not reveal that the account does not exist
+        // (a hash of a random password nobody knows – not a secret)
+        // nosemgrep: generic.secrets.security.detected-bcrypt-hash.detected-bcrypt-hash
         $hash = $user['password'] ?? '$2y$12$6C4TPEcYRJ/rRw6iWsrlxu0aH1i91pzK/8KiwqEW3Pa6sTj89Q3Zu';
         $ok = password_verify($password, $hash) && $user !== null;
 
@@ -317,6 +319,15 @@ final class Auth
     public function canPublish(): bool
     {
         return ($this->isAdmin() || $this->isEditor()) && ($this->connection['access'] ?? 'full') === 'full';
+    }
+
+    /**
+     * Can insert or change code that runs on the site (the Custom HTML element, head code): an administrator, and through a Claude
+     * connection only one with full access – a connection limited to drafts must not reach the administrator's browser through a preview.
+     */
+    public function canWriteCode(): bool
+    {
+        return $this->isAdmin() && ($this->connection['access'] ?? 'full') === 'full';
     }
 
     /** Does the signed-in user have access to the module? Admin always; others according to ka_uzivatele_prava. */

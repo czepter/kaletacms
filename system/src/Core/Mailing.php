@@ -113,6 +113,10 @@ final class Mailing
             if (!in_array($n['status'], ['draft', 'scheduled'], true)) {
                 throw new \DomainException('A newsletter that is being sent or was sent cannot be changed.');
             }
+            // a scheduled newsletter goes out on its own: changing it is publishing (not for authors or a Claude connection limited to drafts)
+            if ($n['status'] === 'scheduled' && !$app->auth()->canPublish()) {
+                throw new \DomainException('A scheduled newsletter can be changed only by someone who may send newsletters – unschedule it first.');
+            }
             $db->update('newsletters', self::sanitize($app, $input, $n) + ['changed' => date('Y-m-d H:i:s')], ['id' => $id]);
 
             return $id;

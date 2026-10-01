@@ -1,5 +1,5 @@
 # Kaleta with MariaDB: KALETA_DB_PASSWORD=… docker compose up -d, then open http://localhost:8080 and fill in the installer
-# (the database is already set – only the site and the administrator are asked for).
+# (the database is already set – only the site, the administrator and the installation code from `docker compose logs kaleta`).
 # Without the browser: also set KALETA_URL (the address of the site) and KALETA_ADMIN_PASSWORD, optionally KALETA_ADMIN_USER,
 # KALETA_ADMIN_EMAIL, KALETA_SITE_NAME, KALETA_LANGUAGE (en, cs, de) and KALETA_STARTER – the first start installs the site.
 # Change the password after the first sign-in and remove KALETA_ADMIN_PASSWORD; it is not used again.

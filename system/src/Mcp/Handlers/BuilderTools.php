@@ -86,7 +86,7 @@ trait BuilderTools
 
         $this->mayPublish($a);
         $target = $this->loadBuildTarget($a, true);
-        ['stavba' => $build, 'hlaseni' => $messages] = HtmlConverter::saveToSite($db, (string) ($a['html'] ?? ''), $auth->isAdmin(), $auth->isAdmin() && !empty($a['prepsat_tridy']), $siteSettings); // only the administrator changes shared classes
+        ['stavba' => $build, 'hlaseni' => $messages] = HtmlConverter::saveToSite($db, (string) ($a['html'] ?? ''), $auth->canWriteCode(), $auth->isAdmin() && !empty($a['prepsat_tridy']), $siteSettings); // only the administrator changes shared classes
         if (empty($a['prepsat_tridy'])) {
             $messages = array_map(fn (string $h): string => str_ends_with($h, 'ponechána beze změny.') ? substr($h, 0, -1) . ' (prepsat_tridy: true ji přepíše).' : $h, $messages);
         }
@@ -118,7 +118,7 @@ trait BuilderTools
         if ((int) ($a['saved_section'] ?? 0) > 0) {
             // a section someone saved in the builder ("Save as section"), with fresh element ids
             $saved = $db->value('SELECT prvek FROM {sekce} WHERE idx = ?', [(int) $a['saved_section']]) ?? throw new \InvalidArgumentException('The saved section does not exist – saved_sections in builder_schema lists them.');
-            [$clean] = Build::sanitize(['v' => Build::VERSION, 'deti' => [\Kaleta\Builder\Library::withNewIds(json_decode((string) $saved, true) ?: [])]], $auth->isAdmin());
+            [$clean] = Build::sanitize(['v' => Build::VERSION, 'deti' => [\Kaleta\Builder\Library::withNewIds(json_decode((string) $saved, true) ?: [])]], $auth->canWriteCode());
             $section = ['prvek' => $clean['deti'][0] ?? throw new \InvalidArgumentException('The saved section is empty.')];
         } else {
             $section = Library::section((string) ($a['sekce'] ?? ''), $target['jazyk']) ?? throw new \InvalidArgumentException('Sekce v knihovně není. Klíče: ' . implode(', ', array_column(Library::listAll(), 'klic')) . '.');

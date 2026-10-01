@@ -54,6 +54,23 @@ final class Installer
             + ['db_name' => $values['db_name'], 'db_user' => $values['db_user'], 'db_password' => $values['db_password']];
     }
 
+    /**
+     * With the database from the environment the web installer would otherwise give the site to whoever opens it first, so it asks for
+     * a one-time code (2.5.1): the Docker image prints it to the container log, and it is stored on the server in this file.
+     */
+    public const string CODE_FILE = '/storage/install-code';
+
+    /** The installation code (lowercase hex digits only); created when it does not exist yet, '' when it cannot be written. */
+    public static function installCode(): string
+    {
+        $file = KALETA_ROOT . self::CODE_FILE;
+        if (!is_file($file) && @file_put_contents($file, implode('-', str_split(bin2hex(random_bytes(8)), 4)) . "\n", LOCK_EX) !== false) {
+            @chmod($file, 0600);
+        }
+
+        return strtolower((string) preg_replace('/[^a-f0-9]/i', '', (string) @file_get_contents($file)));
+    }
+
     private string $language = 'cs';
 
     /** Installation language: an explicit choice (?jazyk=, hidden form field), otherwise the first known language from the browser header. */
@@ -105,11 +122,22 @@ final class Installer
             }
             $data['jazyk_webu'] = isset(\Kaleta\Core\Language::AVAILABLE[$data['jazyk_webu']]) ? $data['jazyk_webu'] : $this->language;
             $extensions = array_values(array_intersect($this->request->postList('rozsireni'), array_keys(Extensions::CATALOG)));
-            $errors = $this->install($data, (string) ($_POST['password'] ?? ''), (string) ($_POST['password2'] ?? ''), $extensions);
+            $code = $environment === null ? '' : self::installCode();
+            $given = strtolower((string) preg_replace('/[^a-f0-9]/i', '', (string) ($_POST['install_code'] ?? '')));
+            $errors = match (true) {
+                $environment !== null && strlen($code) < 16 => ['install_code' => t('The installation code could not be created – make the storage folder writable.')],
+                $environment !== null && !hash_equals($code, $given) => ['install_code' => t('The installation code is not correct.')],
+                default => $this->install($data, (string) ($_POST['password'] ?? ''), (string) ($_POST['password2'] ?? ''), $extensions),
+            };
             if ($errors === []) {
+                @unlink(KALETA_ROOT . self::CODE_FILE);
                 return $this->page('done', ['alreadyInstalled' => false, 'deleted' => $this->deleteSelf(), 'fromExport' => $data['web'] === 'export',
                     'mcp' => in_array('claude', $extensions, true) ? $this->request->origin() . $this->request->basePath() . '/mcp' : null]);
             }
+        }
+
+        if ($environment !== null) {
+            self::installCode(); // the code exists before the form asks for it
         }
 
         return $this->page('form', ['requirements' => $requirements, 'data' => $data, 'errors' => $errors, 'extensions' => $extensions,

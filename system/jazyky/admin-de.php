@@ -3537,4 +3537,5 @@ return [
     'Could not connect to the SMTP server %s. Check the address, port and encryption; some hosts block outgoing SMTP.' => 'Keine Verbindung zum SMTP-Server %s. Prüfen Sie Adresse, Port und Verschlüsselung; manche Hoster sperren ausgehendes SMTP.',
     'The SMTP server refused the sign-in – check the user name and password (Gmail and Seznam need an app password).' => 'Der SMTP-Server hat die Anmeldung abgelehnt – prüfen Sie Benutzername und Passwort (Gmail und Seznam brauchen ein App-Passwort).',
     'SMTP server reply to %s: %s' => 'Antwort des SMTP-Servers auf %s: %s',
+    'A scheduled newsletter can be changed only by someone who may send newsletters – unschedule it first.' => 'Einen geplanten Newsletter kann nur ändern, wer Newsletter versenden darf – heben Sie zuerst die Planung auf.',
 ];

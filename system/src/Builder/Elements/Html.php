@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaleta\Builder\Elements;
 
+use Kaleta\Builder\Build;
 use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
@@ -25,6 +26,7 @@ final class Html extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        return '<div' . $a . '>' . $p['obsah']['kod'] . '</div>';
+        // filtered again when rendering: builds saved before the filter changed, and values of {{placeholders}} filled in just now
+        return '<div' . $a . '>' . Build::code((string) $p['obsah']['kod']) . '</div>';
     }
 }

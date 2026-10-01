@@ -11,7 +11,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-kaleta_test_en}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8096}"
 WORK="$(mktemp -d)"; B="http://127.0.0.1:$PORT"; JAR="$WORK/jar"; FOUND=0; SCREENS=0
 MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER"); [ -n "$DB_PASS" ] && MYSQL+=(-p"$DB_PASS")
-cleanup() { [ -n "${SERVER_PID:-}" ] && kill "$SERVER_PID" 2>/dev/null || true; rm -rf "$WORK"; }
+cleanup() { for pid in "${SERVER_PID:-}" "${ENV_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
 trap cleanup EXIT
 
 fail() { echo "  CHYBA  $1"; FOUND=$((FOUND+1)); }
@@ -108,6 +108,23 @@ curl -s -o "$WORK/page.html" "$B/"; grep -q 'lang="de"' "$WORK/page.html" && gre
 login "$JAR" admin "$PASSWORD"; GERMAN=1; page "cli: German admin after the installation" "/admin.php" 200 "$JAR"; GERMAN=
 grep -q 'Einstellungen' "$WORK/page.html" || fail "cli: the first administrator does not see the German admin"
 echo "  ok     command-line installation: German site and admin, database from the environment"
+
+echo "== Web installer with the database from the environment (2.5.1): a one-time installation code"
+"${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
+rm -f "$WORK/web/config.php" "$WORK/web/storage/install-code"; cp "$WORK/install.php" "$WORK/web/install.php"
+ENV_PORT=$((PORT + 1)); ENV_B="http://127.0.0.1:$ENV_PORT"
+(cd "$WORK/web" && exec env "${cli_env[@]}" php -S "127.0.0.1:$ENV_PORT" system/dev-router.php > "$WORK/server-env.log" 2>&1) & ENV_PID=$!
+for i in $(seq 1 30); do curl -s -o /dev/null "$ENV_B/install.php" && break; sleep 0.3; done
+curl -s -o "$WORK/page.html" "$ENV_B/install.php?jazyk=en"; check "installer with the database from the environment" "$WORK/page.html"
+grep -q 'name="install_code"' "$WORK/page.html" && [ -s "$WORK/web/storage/install-code" ] || fail "env installer: no installation code asked for or stored"
+env_install() { curl -s -o "$WORK/page.html" -X POST "$ENV_B/install.php" -d jazyk=en -d nazev_webu=Acme -d web=firemni -d user=admin -d email= \
+  --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" "$@"; }
+env_install -d install_code=0000-0000-0000-0000
+grep -q 'installation code is not correct' "$WORK/page.html" && [ ! -f "$WORK/web/config.php" ] || fail "env installer: installed without the right installation code"
+env_install --data-urlencode "install_code=$(tr 'a-f' 'A-F' < "$WORK/web/storage/install-code")"
+[ -f "$WORK/web/config.php" ] && [ ! -f "$WORK/web/storage/install-code" ] && [ ! -f "$WORK/web/install.php" ] || fail "env installer: the right installation code did not install the site"
+kill "$ENV_PID" 2>/dev/null || true
+echo "  ok     web installer with the database from the environment needs the installation code"
 
 echo "== Crafts starter without the Forms extension"
 install remeslo novinky statistika presmerovani

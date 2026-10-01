@@ -38,10 +38,10 @@ final class Html
         return $output;
     }
 
-    /** Sanitizes only for users without administrator permission. */
+    /** Sanitizes only for users without administrator permission (and for an administrator's Claude connection without full access). */
     public static function forUser(string $html, Auth $auth): string
     {
-        return $auth->isAdmin() ? $html : self::safe($html);
+        return $auth->canWriteCode() ? $html : self::safe($html);
     }
 
     private static function node(\Dom\Node $node): void

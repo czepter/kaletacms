@@ -1451,6 +1451,18 @@ mcp_as "$DRAFT_TOKEN" save_build "{\"id\":${DRAFT_PAGE:-0},\"build\":{\"v\":1,\"
 mcp_text; contains -q '"status":"draft' "$WORK/text" && echo "  ok     a drafts-only connection saves a draft build" || { echo "  CHYBA  drafts: save_build"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp_as "$DRAFT_TOKEN" update_settings '{"settings":{"site_name":"Hijacked"}}' > "$WORK/response"
 contains -q 'can only save drafts' "$WORK/response" && echo "  ok     a drafts-only connection does not change settings" || { echo "  CHYBA  drafts: update_settings"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+# 2.5.1: an administrator's drafts-only connection must not reach the administrator's browser through a draft preview
+mcp_as "$DRAFT_TOKEN" save_build "{\"id\":${DRAFT_PAGE:-0},\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"children\":[{\"type\":\"custom_html\",\"content\":{\"code\":\"<p>drafted-code</p>\"}}]}]}}" > /dev/null
+expect "a drafts-only connection cannot insert Custom HTML" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stranky WHERE ids = '${DRAFT_PAGE:-0}' AND stavba_koncept LIKE '%drafted-code%'")" 0
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_newsletters (subject, intro, status, scheduled_at, created) VALUES ('Scheduled 251', 'Original intro', 'scheduled', NOW() + INTERVAL 1 DAY, NOW())"
+NL_SCHEDULED=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT id FROM ka_newsletters WHERE subject = 'Scheduled 251'")
+mcp_as "$DRAFT_TOKEN" draft_newsletter "{\"id\":$NL_SCHEDULED,\"intro\":\"Changed by a drafts connection\"}" > /dev/null
+expect "a drafts-only connection cannot change a scheduled newsletter" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT intro FROM ka_newsletters WHERE id = $NL_SCHEDULED")" "Original intro"
+"${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_newsletters WHERE id = $NL_SCHEDULED"
+# wrong tokens from one address do not lock out a valid one (a proxy in front of Docker, Claude's servers)
+for i in $(seq 1 21); do mcp_as "kaleta_$(printf '0%.0s' $(seq 1 48))" get_page '{"id":1}' > /dev/null; done
+mcp get_page '{"id":1}' > "$WORK/response"; contains -q '"isError":true\|"error"' "$WORK/response" && { echo "  CHYBA  wrong tokens locked out a valid token"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); } || echo "  ok     wrong tokens do not lock out a valid token"
+"${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kontrola_ip WHERE typ = 'mcp'"
 expect "the change log names the Claude connection" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) > 0 FROM ka_protokol WHERE via = 'Claude drafts' AND modul = 'claude'")" 1
 mcp list_changes '{"by":"claude","limit":5}' > "$WORK/response"
 mcp_text; contains -q '"claude_connection":"Claude drafts"' "$WORK/text" && echo "  ok     list_changes tells Claude's changes and their connection" || { echo "  CHYBA  list_changes"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -1483,13 +1495,16 @@ expect "a visit from a campaign on a phone counts in the statistics" "$("${MYSQL
 # a form with ticked options and a hidden value, an embed and code in the head of one page
 mcp vytvor_stranku '{"titulek":"Leads 23","zobrazit":true}' > "$WORK/response"; mcp_text; PAGE23=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
 mcp stavba_uloz "{\"id\":$PAGE23,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"typ\":\"formular\",\"obsah\":{\"nazev\":\"Poptavka 23\",\"pole\":[{\"popisek\":\"Sluzby\",\"typ\":\"zaskrtnuti\",\"povinne\":true,\"moznosti_zaskrtnuti\":\"Kuchyne\\nKoupelna\"},{\"popisek\":\"Produkt\",\"typ\":\"skryte\",\"hodnota\":\"Dubovy stul\"},{\"popisek\":\"Email\",\"typ\":\"email\",\"povinne\":true}]}},{\"typ\":\"vlozeni\",\"obsah\":{\"adresa\":\"https://calendly.com/acme/consultation\",\"titulek\":\"Book a consultation\"}},{\"typ\":\"vlozeni\",\"obsah\":{\"adresa\":\"https://evil.example/x\"}}]}]}}" > /dev/null
-mcp update_page "{\"id\":$PAGE23,\"head_code\":\"<meta name=\\\"kaleta-test\\\" content=\\\"23\\\">\"}" > /dev/null
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET kod_hlavicky = '<meta name=\"kaleta-test\" content=\"23\">' WHERE ids = $PAGE23" # set in the administration, never through MCP (2.5.1)
 rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/formular.html" "$B/leads-23"
 grep -q 'type="checkbox" name="p0\[\]" value="Kuchyne"' "$WORK/formular.html" && ! grep -q 'Dubovy stul' "$WORK/formular.html" && echo "  ok     ticked options on the page, the hidden value not" || { echo "  CHYBA  checkboxes / hidden field"; ERRORS=$((ERRORS+1)); }
 grep -q 'data-vlozit="https://calendly.com/acme/consultation?embed_type=Inline&amp;hide_gdpr_banner=1"' "$WORK/formular.html" && ! grep -q 'evil.example' "$WORK/formular.html" && echo "  ok     Embed: a known service after a click, anything else not at all" || { echo "  CHYBA  Embed"; ERRORS=$((ERRORS+1)); }
 grep -q '<meta name="kaleta-test" content="23">' "$WORK/formular.html" && ! curl -s "$B/" | grep -q 'kaleta-test' && echo "  ok     code in the head of one page only" || { echo "  CHYBA  page head code"; ERRORS=$((ERRORS+1)); }
-mcp_as "$DRAFT_TOKEN" update_page "{\"id\":$PAGE23,\"head_code\":\"<script>x()</script>\"}" > "$WORK/response"
-contains -q 'connection with full access' "$WORK/response" && echo "  ok     a drafts-only connection cannot set head code (it is live at once)" || { echo "  CHYBA  drafts: head code"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp update_page "{\"id\":$PAGE23,\"head_code\":\"<script>x()</script>\"}" > "$WORK/response"
+contains -q 'only in the administration' "$WORK/response" && echo "  ok     MCP cannot set head code, not even with full access (2.5.1)" || { echo "  CHYBA  MCP: head code"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp update_settings '{"settings":{"head_code":"<script>x()</script>","marketing_code":"<script>y()</script>"}}' > "$WORK/response"
+contains -q 'set only in the administration' "$WORK/response" && [ "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_nastaveni WHERE promenna IN ('head_code','marketing_code') AND hodnota LIKE '%<script>%'")" = 0 ] \
+  && echo "  ok     MCP cannot set code for the whole site (2.5.1)" || { echo "  CHYBA  MCP: site code"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 FORM_SOURCE=$(field_value zdroj); FORM_ELEMENT=$(field_value prvek); FORM_TIME=$(field_value as_cas); FORM_SIGNATURE=$(field_value as_podpis); sleep 4
 curl -s -o /dev/null -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/leads-23 -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" -d 'p0[]=Koupelna' --data-urlencode p2=petr@example.cz \
   -d ka_vstup=/sluzby --data-urlencode "ka_kampan=utm_source=google&utm_medium=cpc&utm_campaign=kuchyne" -d ka_odkud=google.com

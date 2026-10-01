@@ -94,6 +94,10 @@ trait SettingsTools
                 $errors[$key] = 'Úvodní stránkou může být jen zveřejněná stránka.';
                 continue;
             }
+            if (in_array($key, ['head_code', 'marketing_code', 'cookies_external_code'], true)) {
+                $errors[$key] = 'Code that runs on the site is set only in the administration (Settings), not through a Claude connection.';
+                continue;
+            }
             if ($clean === null) {
                 $errors[$key] = preg_match(self::MCP_SETTINGS, $key) ? 'Neplatná hodnota.' : 'Tohle nastavení přes MCP měnit nejde (jen v administraci).';
                 continue;
