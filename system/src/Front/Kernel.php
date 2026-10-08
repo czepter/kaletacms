@@ -44,6 +44,9 @@ final class Kernel
     /** System URL in a foreign form (/novinky on the English site) – redirect to the valid one (Core\Routes). */
     private ?Response $redirect = null;
 
+    /** The requested path as the visitor wrote it (before Routes turned /blog/x into /novinky/x): old redirects are stored under it. */
+    private string $publicPath = '/';
+
     /** The requested listing page is past its end - the response is 404. */
     private bool $pastEnd = false;
 
@@ -82,6 +85,7 @@ final class Kernel
         Language::setSite($app->settings(), $language);
         // system URLs in the version's language (/news ↔ /novinky): the internal form is used from here on, a foreign form
         // redirects
+        $this->publicPath = $app->request->path();
         [$internal, $canonicalUrl] = \Kaleta\Core\Routes::internalPath($app->request->path(), $language, $app->db());
         if ($canonicalUrl !== $app->request->path() && !$app->request->isPost()) {
             $query = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
@@ -929,6 +933,8 @@ final class Kernel
             'web' => $this->app->settings(),
             'novinky' => $this->news->listPublished(1, 20)[0],
             'adresa' => $this->app->request->origin() . $this->app->url(''),
+            'origin' => $this->app->request->origin(),
+            'url' => $this->app->url(...),
         ]));
 
         return new Response($xml, 200, ['Content-Type' => 'application/rss+xml; charset=utf-8']);
@@ -938,7 +944,7 @@ final class Kernel
     {
         // before the site answers 404, it tries a redirect from an old URL (manual, after import and after a slug change)
         $target = Extensions::isEnabled($this->app->settings(), 'presmerovani')
-            ? $this->app->db()->one('SELECT * FROM {presmerovani} WHERE z_adresy = ?', [trim($this->app->request->path(), '/')])
+            ? $this->app->db()->one('SELECT * FROM {presmerovani} WHERE z_adresy IN (?, ?) ORDER BY z_adresy = ? DESC LIMIT 1', [trim($this->app->request->path(), '/'), trim($this->publicPath, '/'), trim($this->publicPath, '/')])
             : null;
         if ($target !== null) {
             $this->app->db()->run('UPDATE {presmerovani} SET pocet = pocet + 1 WHERE idp = ?', [$target['idp']]);

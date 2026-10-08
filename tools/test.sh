@@ -605,6 +605,22 @@ php -r '$t = array_column(json_decode(file_get_contents($argv[1]), true)["result
   && echo "  ok     MCP: tools carry annotations (read-only, destructive)" || { echo "  CHYBA  MCP annotations"; ERRORS=$((ERRORS+1)); }
 mcp site_info '{}' > "$WORK/response"
 expect "MCP: site_info lists extensions and languages" "$(mcp_value extensions | grep -c novinky)|$(mcp_value languages default)" "1|cs"
+# 3.3.5: a custom news URL slug – system paths are refused, old addresses and earlier slugs keep working
+clear_cache() { rm -f "$WORK"/web/storage/cache/stranky/*.html; }
+news_redirect() { curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B$1"; }
+mcp update_settings '{"settings":{"news_slug":"oauth"}}' > "$WORK/response"
+expect "news slug: a system path such as oauth is refused" "$(sq "SELECT COUNT(*) FROM ka_nastaveni WHERE promenna = 'news_slug' AND hodnota <> ''")" "0"
+mcp update_settings '{"settings":{"news_slug":"blog"}}' > /dev/null; clear_cache
+check "news slug: /blog lists the news" 200 /blog
+expect "news slug: /novinky redirects to /blog" "$(news_redirect /novinky)" "301 $B/blog"
+mcp uloz_presmerovani '{"z":"/blog/stary-clanek","na":"/blog"}' > /dev/null
+expect "news slug: a redirect stored under the public /blog/… address fires" "$(news_redirect /blog/stary-clanek)" "301 $B/blog"
+mcp update_settings '{"settings":{"news_slug":"magazin"}}' > /dev/null; clear_cache
+expect "news slug: after a change the previous slug redirects to the new one" "$(news_redirect /blog)|$(news_redirect /novinky)" "301 $B/magazin|301 $B/magazin"
+check "news slug: /magazin lists the news" 200 /magazin
+expect "news slug: the OAuth endpoints still answer" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/token")" "401"
+sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('news_slug', 'news_slug_old')"; clear_cache
+check "news slug: the default /novinky works again" 200 /novinky
 mcp builder_schema '{}' > "$WORK/response"
 expect "MCP: builder_schema in the English vocabulary" "$(mcp_value elements heading | grep -c 'content: text')|$(mcp_value style gap | grep -c gap)|$(mcp_value states 2)" "1|1|mobile"
 mcp builder_schema '{"elements":["form"]}' > "$WORK/response"

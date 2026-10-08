@@ -587,6 +587,16 @@ check('Cesty: vlastní adresa novinek – požadavek a přesměrování ze star�
 check('Cesty: vlastní adresa novinek koliduje se stránkou', [Routes::isNewsSlug('blog', null), Routes::isNewsSlug('o-nas', null), Routes::isNewsSlug('', null)], [true, false, false]);
 check('Cesty: adresa novinek nesmí být systémová cesta ani mít špatný tvar', [Routes::systemSlugError('mcp'), Routes::systemSlugError('en'), Routes::systemSlugError('Blog'), Routes::systemSlugError('a/b'), Routes::systemSlugError('blog'), Routes::systemSlugError('news'), Routes::systemSlugError('')],
     ['This URL is used by the system, choose another one.', 'This URL is used by the system, choose another one.', 'This URL is used by the system, choose another one.', 'This URL is used by the system, choose another one.', null, null, null]);
+check('Cesty: adresa novinek nesmí zachytit cesty systému (oauth, odber, fleet…)', array_map(fn (string $s): ?string => Routes::systemSlugError($s), ['oauth', 'odber', 'fleet', 'manifest', 'favicon', 'index']),
+    array_fill(0, 6, 'This URL is used by the system, choose another one.'));
+check('Cesty: zapamatování dřívějších adres novinek', [Routes::rememberSlug('', 'blog', 'magazin'), Routes::rememberSlug('blog', 'magazin', ''), Routes::rememberSlug('blog,x', 'magazin', 'blog'), Routes::rememberSlug('blog', '', 'blog')],
+    ['blog', 'magazin,blog', 'magazin,x', '']);
+Routes::setNewsSlug('magazin');
+Routes::setOldSlugs('blog');
+check('Cesty: dřívější adresa novinek přesměruje na současnou', [Routes::internalPath('/blog/x', 'cs', null), Routes::internalPath('/magazin/x', 'cs', null), Routes::internalPath('/blog', 'en', null)],
+    [['/novinky/x', '/magazin/x'], ['/novinky/x', '/magazin/x'], ['/novinky', '/magazin']]);
+check('Cesty: dřívější adresa novinek koliduje se stránkou', [Routes::isNewsSlug('blog', null), Routes::isNewsSlug('magazin', null), Routes::isNewsSlug('o-nas', null)], [true, true, false]);
+Routes::setOldSlugs(null);
 Routes::setNewsSlug(null);
 // dictionaries of other site languages: only keys of the English dictionary (and English day and month names for dates in words), the same %s and tags
 $enDictionary = require KALETA_ROOT . '/system/jazyky/en.php';

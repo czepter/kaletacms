@@ -14,7 +14,8 @@ namespace Kaleta\Core;
  * or search, the page keeps it and the system uses the Czech word.
  *
  * The setting news_slug (Settings → General) replaces the first segment of the news URLs in every language (/blog,
- * /blog/category/x); the old forms /novinky and /news redirect to it.
+ * /blog/category/x); the old forms /novinky and /news redirect to it, and so do the slugs the site used before (setting
+ * news_slug_old, kept by Settings::set).
  */
 final class Routes
 {
@@ -25,8 +26,17 @@ final class Routes
     /** @var array<string, bool>|null English words that a page of the site itself occupies */
     private static ?array $taken = null;
 
+    /** Paths the system answers itself before any page (OAuth, the newsletter, the manifest…) – a news slug must not capture them. */
+    private const array NEWS_RESERVED = ['oauth', 'odber', 'fleet', 'manifest', 'favicon', 'index'];
+
+    /** How many previous news slugs keep redirecting. */
+    private const int OLD_SLUGS = 10;
+
     /** The custom news slug (setting news_slug), null = not read yet. */
     private static ?string $news = null;
+
+    /** @var list<string>|null previous news slugs (setting news_slug_old, comma separated), null = not read yet */
+    private static ?array $old = null;
 
     /** The custom first segment of the news URLs ('' = the default word of the version's language). */
     public static function newsSlug(?Db $db): string
@@ -49,10 +59,47 @@ final class Routes
         self::$news = $slug;
     }
 
-    /** Does a page or collection slug collide with the custom news slug? */
+    /**
+     * Slugs the news used before the current one: their URLs redirect to the current form. Invalid stored values are ignored
+     * (same as newsSlug()).
+     *
+     * @return list<string>
+     */
+    public static function oldSlugs(?Db $db): array
+    {
+        if (self::$old === null && $db !== null) {
+            try {
+                $stored = (string) ($db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'news_slug_old'") ?? '');
+                self::$old = array_values(array_filter(explode(',', $stored), fn (string $s): bool => $s !== '' && self::systemSlugError($s) === null));
+            } catch (\Throwable) {
+                self::$old = []; // site before installation
+            }
+        }
+
+        return array_values(array_diff(self::$old ?? [], [self::newsSlug($db)]));
+    }
+
+    /** Settings::set keeps the list current; null forgets it (read again from the database). */
+    public static function setOldSlugs(?string $list): void
+    {
+        self::$old = $list === null ? null : array_values(array_filter(explode(',', $list), fn (string $s): bool => $s !== ''));
+    }
+
+    /** The value of news_slug_old after the news slug changes from $previous to $new (newest first, the new one is dropped). */
+    public static function rememberSlug(string $stored, string $previous, string $new): string
+    {
+        $list = array_filter(explode(',', $stored), fn (string $s): bool => $s !== '' && $s !== $new);
+        if ($previous !== '' && $previous !== $new) {
+            array_unshift($list, $previous);
+        }
+
+        return implode(',', array_slice(array_values(array_unique($list)), 0, self::OLD_SLUGS));
+    }
+
+    /** Does a page or collection slug collide with the custom news slug (or one the news used before)? */
     public static function isNewsSlug(string $slug, ?Db $db): bool
     {
-        return $slug !== '' && $slug === self::newsSlug($db);
+        return $slug !== '' && ($slug === self::newsSlug($db) || in_array($slug, self::oldSlugs($db), true));
     }
 
     /** Format and system addresses only (no database): the slug is one lowercase segment and not a path of the system. */
@@ -61,8 +108,8 @@ final class Routes
         if ($slug === '') {
             return null;
         }
-        $system = array_diff(\Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, ['novinky', 'news']);
-        if (preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $slug) !== 1 || strlen($slug) > 40 || in_array($slug, $system, true) || isset(Language::AVAILABLE[$slug])) {
+        $system = [...array_diff(\Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, ['novinky', 'news']), ...self::NEWS_RESERVED];
+        if (preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug) !== 1 || strlen($slug) > 40 || in_array($slug, $system, true) || isset(Language::AVAILABLE[$slug])) {
             return 'This URL is used by the system, choose another one.';
         }
 
@@ -116,12 +163,13 @@ final class Routes
     public static function internalPath(string $path, string $language, ?Db $db): array
     {
         $custom = self::newsSlug($db);
-        if (!preg_match('#^/(novinky|hledani|news|search' . ($custom !== '' ? '|' . preg_quote($custom, '#') : '') . ')(?=$|[/.])#', $path, $m)) {
+        $slugs = array_filter([$custom, ...self::oldSlugs($db)], fn (string $s): bool => $s !== '');
+        if (!preg_match('#^/(novinky|hledani|news|search' . ($slugs !== [] ? '|' . implode('|', array_map(fn (string $s): string => preg_quote($s, '#'), $slugs)) : '') . ')(?=$|[/.])#', $path, $m)) {
             return [$path, $path];
         }
         $word = $m[1];
-        $czech = $custom !== '' && $word === $custom ? 'novinky' : array_search($word, self::FIRST_SEGMENTS, true);
-        if ($czech !== false && $word !== $custom && self::isTaken($word, $db)) {
+        $czech = in_array($word, $slugs, true) ? 'novinky' : array_search($word, self::FIRST_SEGMENTS, true);
+        if ($czech !== false && !in_array($word, $slugs, true) && self::isTaken($word, $db)) {
             return [$path, $path]; // the site's own page
         }
         $internal = '/' . ($czech !== false ? $czech : $word) . substr($path, strlen($m[0]));
