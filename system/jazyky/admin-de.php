@@ -5604,4 +5604,7 @@ return [
     'The request is declined and the customer was told by e-mail.' => 'Die Anfrage ist abgelehnt und der Kunde wurde per E-Mail informiert.',
     'Only a booking waiting for confirmation can be declined.' => 'Nur eine Buchung, die auf Bestätigung wartet, kann abgelehnt werden.',
     'The other times were sent to the customer.' => 'Die anderen Zeiten wurden an den Kunden gesendet.',
+    'Hours for %s' => 'Zeiten für %s',
+    'Only for this service: when set, these hours replace the weekly hours above for it. All empty = the weekly hours above. Bookings of all services share the same calendar of the person, so times never overlap.' => 'Nur für diesen Service: Wenn ausgefüllt, ersetzen diese Zeiten dafür die Wochenzeiten oben. Alles leer = es gelten die Wochenzeiten oben. Buchungen aller Services teilen sich denselben Kalender der Person, Termine überschneiden sich also nie.',
+    'Hours per service need an existing service (the ids are listed by booking_availability).' => 'Zeiten pro Service brauchen einen bestehenden Service (die IDs listet booking_availability auf).',
 ];

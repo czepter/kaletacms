@@ -5198,4 +5198,7 @@ return [
     'The request is declined and the customer was told by e-mail.' => 'Žádost je odmítnuta a zákazník se to dozvěděl e-mailem.',
     'Only a booking waiting for confirmation can be declined.' => 'Odmítnout lze jen rezervaci čekající na potvrzení.',
     'The other times were sent to the customer.' => 'Jiné termíny byly odeslány zákazníkovi.',
+    'Hours for %s' => 'Hodiny pro službu %s',
+    'Only for this service: when set, these hours replace the weekly hours above for it. All empty = the weekly hours above. Bookings of all services share the same calendar of the person, so times never overlap.' => 'Jen pro tuto službu: když jsou vyplněné, nahradí pro ni týdenní hodiny výše. Vše prázdné = platí týdenní hodiny výše. Rezervace všech služeb sdílejí jeden kalendář osoby, termíny se tedy nikdy nepřekrývají.',
+    'Hours per service need an existing service (the ids are listed by booking_availability).' => 'Hodiny podle služby potřebují existující službu (čísla služeb vypíše booking_availability).',
 ];
