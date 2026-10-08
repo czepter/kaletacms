@@ -856,13 +856,23 @@ final class Booking
         if ($booking['status'] !== 'pending') {
             return 'Only a booking waiting for confirmation can be accepted.';
         }
-        if (self::occupied($db, (int) $booking['staff_id'], (string) $booking['starts_at'], (string) $booking['ends_at'], (int) $booking['id'])) {
-            return 'This time has been taken meanwhile – propose other times or decline the request.';
+        // under the lock of the person's row – the same one book() takes – so a visitor booking the time whose hold ran out,
+        // or a second click, cannot slip in between the check and the update
+        $error = $db->transaction(function (Db $db) use ($booking): ?string {
+            $db->all('SELECT id FROM {booking_staff} WHERE id = ? FOR UPDATE', [(int) $booking['staff_id']]);
+            if (self::occupied($db, (int) $booking['staff_id'], (string) $booking['starts_at'], (string) $booking['ends_at'], (int) $booking['id'])) {
+                return 'This time has been taken meanwhile – propose other times or decline the request.';
+            }
+            if ($db->run("UPDATE {bookings} SET status = 'confirmed', hold_until = NULL WHERE id = ? AND status = 'pending'", [(int) $booking['id']])->rowCount() === 0) {
+                return 'Only a booking waiting for confirmation can be accepted.';
+            }
+            $db->delete('booking_proposals', ['booking_id' => (int) $booking['id']]);
+
+            return null;
+        });
+        if ($error !== null) {
+            return $error;
         }
-        if ($db->run("UPDATE {bookings} SET status = 'confirmed', hold_until = NULL WHERE id = ? AND status = 'pending'", [(int) $booking['id']])->rowCount() === 0) {
-            return 'Only a booking waiting for confirmation can be accepted.';
-        }
-        $db->delete('booking_proposals', ['booking_id' => (int) $booking['id']]);
         $token = self::rotateToken($db, (int) $booking['id']);
         $booking = (self::find($db, (int) $booking['id']) ?? $booking) + ['token' => $token];
         ChangeLog::write($app, $by === 'claude' ? 'claude' : 'bookings', 'confirm', '#' . $booking['id']);
@@ -929,13 +939,22 @@ final class Booking
             }
             $rows[] = [$slot . ':00', date('Y-m-d H:i:s', strtotime($slot . ' +' . $service['duration_min'] . ' minutes'))];
         }
-        $db->transaction(function (Db $db) use ($booking, $rows, $app): void {
+        $answered = $db->transaction(function (Db $db) use ($booking, $rows, $app): bool {
+            // first the status (still pending?), then the proposals: a booking answered meanwhile gets none
+            if ($db->value('SELECT status FROM {bookings} WHERE id = ? FOR UPDATE', [(int) $booking['id']]) !== 'pending') {
+                return true;
+            }
+            $db->run('UPDATE {bookings} SET hold_until = ?, hold_reminded_at = NULL WHERE id = ?', [date('Y-m-d H:i:s', strtotime('+' . max(1, $app->settings()->int('booking_hold_hours')) . ' hours')), (int) $booking['id']]);
             $db->delete('booking_proposals', ['booking_id' => (int) $booking['id']]);
             foreach ($rows as [$start, $end]) {
                 $db->insert('booking_proposals', ['booking_id' => (int) $booking['id'], 'starts_at' => $start, 'ends_at' => $end]);
             }
-            $db->run('UPDATE {bookings} SET hold_until = ?, hold_reminded_at = NULL WHERE id = ?', [date('Y-m-d H:i:s', strtotime('+' . max(1, $app->settings()->int('booking_hold_hours')) . ' hours')), (int) $booking['id']]);
+
+            return false;
         });
+        if ($answered) {
+            return 'Only a booking waiting for confirmation can get other times.';
+        }
         $token = self::rotateToken($db, (int) $booking['id']);
         $booking = (self::find($db, (int) $booking['id']) ?? $booking) + ['token' => $token];
         ChangeLog::write($app, $by === 'claude' ? 'claude' : 'bookings', 'propose', '#' . $booking['id']);
@@ -970,7 +989,10 @@ final class Booking
             if (!isset(self::availability($app, $service, (int) $booking['staff_id'], $day, null, true, (int) $booking['id'])[substr($proposal['starts_at'], 11, 5)])) {
                 return 'Sorry, this time has just been taken. Please choose another one.';
             }
-            $db->run("UPDATE {bookings} SET starts_at = ?, ends_at = ?, status = 'confirmed', hold_until = NULL WHERE id = ? AND status = 'pending'", [$proposal['starts_at'], $proposal['ends_at'], (int) $booking['id']]);
+            // answered meanwhile (declined, confirmed, a second click)? then no confirmation mail and no new token
+            if ($db->run("UPDATE {bookings} SET starts_at = ?, ends_at = ?, status = 'confirmed', hold_until = NULL WHERE id = ? AND status = 'pending'", [$proposal['starts_at'], $proposal['ends_at'], (int) $booking['id']])->rowCount() === 0) {
+                return 'This request is no longer waiting for an answer.';
+            }
             $db->delete('booking_proposals', ['booking_id' => (int) $booking['id']]);
 
             return null;
