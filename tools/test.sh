@@ -279,7 +279,9 @@ mcp publikuj_stavbu "{\"id\":$IDZ}" > /dev/null
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/z-html"
 grep -q '<h1>Stránka od Clauda</h1>' "$WORK/response" && grep -q 'class="uvod-x"' "$WORK/response" && ! grep -q 'container' "$WORK/response" && grep -q '"FAQPage"' "$WORK/response" && echo "  ok     MCP: publikovaná stránka od Clauda na webu" || { echo "  CHYBA  MCP publikování"; ERRORS=$((ERRORS+1)); }
-mcp uprav_design_system '{"ds":{"barvy":{"primarni":"#0f766e"},"zaobleni":"l"}}' > "$WORK/response"; mcp publish_look '{}' > /dev/null; grep -q 'citelnost' "$WORK/response" && echo "  ok     MCP: úprava design systému" || { echo "  CHYBA  MCP uprav_design_system"; ERRORS=$((ERRORS+1)); }
+mcp uprav_design_system '{"ds":{"barvy":{"primarni":"#0f766e"},"zaobleni":"l"}}' > "$WORK/response"; mcp publish_look '{}' > "$WORK/response2"; grep -q 'citelnost' "$WORK/response" && echo "  ok     MCP: úprava design systému" || { echo "  CHYBA  MCP uprav_design_system"; ERRORS=$((ERRORS+1)); }
+grep -q 'Design system:' "$WORK/response2" && ! grep -q 'Hlavní' "$WORK/response2" && echo "  ok     MCP: shrnutí vzhledu anglicky i na českém webu" || { echo "  CHYBA  MCP publish_look česky"; head -c 300 "$WORK/response2"; ERRORS=$((ERRORS+1)); }
+curl -s -X POST "$B/mcp" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | grep -q '"error":"The token is invalid or missing."' && echo "  ok     MCP: chyba bez tokenu anglicky" || { echo "  CHYBA  MCP chyba bez tokenu"; ERRORS=$((ERRORS+1)); }
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 check "design systém z MCP je na webu" 200 / 'ka-barva-primarni: #0f766e'
 check "design systém z MCP zachoval ostatní barvy" 200 / 'ka-barva-plocha: #f5f6f8'
