@@ -27,10 +27,13 @@ trait HealthTools
         $checks = Language::runWith('en', fn (): array => Health::checks($this->app), 'admin-'); // as System status in an English administration (the group names are Czech keys of the admin dictionary)
         $backup = Backup::listAll()[0] ?? null;
         $cron = $this->app->settings()->int('tasks_last_run');
+        $update = (new \Kaleta\Core\Updater($this->app->settings()))->state(); // remembered from the checks above, no new request
 
         return [
             'status' => ['ok' => 'ok', 'varovani' => 'warning', 'chyba' => 'error'][Health::summary($checks)],
             'kaleta_version' => KALETA_VERSION,
+            // 3.8 (D3): the release channel (latest | stable | custom), the version it offers, and the stable version a stable site is already past
+            'update' => ['channel' => $update['channel'], 'available' => $update['nova']['verze'] ?? $update['vyzaduje_php']['verze'] ?? null, 'ahead_of_stable' => $update['ahead_of']],
             'problems' => array_values(array_map(fn (array $c): array => ['group' => $c['skupina'], 'check' => $c['nazev'], 'status' => $c['stav'] === 'chyba' ? 'error' : 'warning', 'detail' => strip_tags((string) $c['info'])],
                 array_filter($checks, fn (array $c): bool => $c['stav'] !== 'ok'))),
             'jobs' => array_map(fn (array $j): array => ['job' => $j['name'], 'last_run' => $j['last_run'], 'failures_in_a_row' => $j['failures'], 'last_error' => $j['last_error'] !== '' ? $j['last_error'] : null], Scheduler::overview($db, $this->app->settings())),

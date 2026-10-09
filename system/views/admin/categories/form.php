@@ -23,7 +23,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 </div>
 <div class="radek">
 	<label for="popis"><?= e(t('Description')) ?></label>
-	<div><textarea class="textbox" id="popis" name="popis" rows="4"><?= e($category['popis']) ?></textarea>
+	<div><textarea class="textbox" id="popis" name="popis" rows="4"><?= e($category['popis']) ?></textarea><?= $error('popis') ?>
 	<span class="napoveda"><?= e(t('Shown above the category\'s news list and used as the description for search engines.')) ?></span></div>
 </div>
 <div class="radek">

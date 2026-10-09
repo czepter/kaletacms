@@ -84,6 +84,90 @@ spouští 8.3 s `opcache.jit=tracing` a `Health::riskyJit()` hlásí ten režim 
 Podepisujte **lokálně**, ne v GitHub Actions. V CI by klíčem mohl podepisovat každý, kdo smí měnit workflow, a bezpečnost
 všech instalací by stála na zabezpečení jednoho účtu. CI sestavuje a testuje; podpis je jeden příkaz na počítači vydavatele.
 
+## Kanály vydání: Latest a Stable (3.8, rozhodnutí D3)
+
+Web si v *Nastavení → Zálohy a aktualizace* volí kanál (nastavení `update_channel`):
+
+- **Latest** (`latest`, výchozí pro každý existující i nový web) čte `aktualizace.json` – každý týden nová minor verze.
+- **Stable** (`stable`) čte druhý podepsaný manifest **vedle něj**, `aktualizace-stable.json`: stejný klíč, stejný formát,
+  navíc `"kanal": "stable"`. Vydavatel ho mění jen dvakrát: **bezpečnostní záplata stabilní řady** (patch z udržovací větve)
+  a **vědomé povýšení** na novější minor (zhruba jednou za měsíc, až se minor osvědčí na Latest).
+
+Jak to funguje (`Core\Updater`):
+
+- Adresa stabilního manifestu je vždy „dvojče“ adresy `aktualizace.json` (`Updater::stableUrl`): pro web projektu
+  `https://kaletacms.com/aktualizace-stable.json`, pro vlastní zdroj (zrcadlo) soubor vedle jeho `aktualizace.json`.
+  Vlastní zdroj s jiným názvem souboru stabilní dvojče nemá – web se jím řídí dál, ať zvolí jakýkoli kanál (`custom`).
+  Nastavení `update_url` se přepnutím kanálu nikdy nemění.
+- Výběr verze je jedna čistá funkce `Updater::choose()` (jednotkové testy): nabídne se **jen novější** verze, než web
+  běží; vydání pro novější PHP se nenabídne (`min_php`, 3.7). Na kanálu Stable musí manifest říkat `"kanal": "stable"` –
+  když na stabilní adrese omylem leží manifest Latest (špatné přesměrování), web nenabídne ani nenainstaluje nic a řekne proč.
+  Pole `kanal` (stejně jako `min_php`) zatím není součástí podpisu (N38-3): kdo ovládne stabilní adresu, může jako Stable
+  podstrčit jiné, ale vždy pravé a novější vydání – downgrade, nepodepsaný balíček ani změnu příznaku bezpečnostní nikoli.
+  Podpis kanálu a min_php přijde s verzí 2 podpisu manifestu.
+- **Web napřed před stabilní řadou** (přepnul z Latest, když běžel na novější minor): žádný downgrade. Nic se nenabízí,
+  dokud stabilní řada jeho verzi nepředežene; administrace, Stav systému (řádek *Kanál aktualizací*, varování) i MCP
+  `get_health` (`update.ahead_of_stable`) to říkají. Bezpečnostní opravy k němu do té doby dorazí jen na Latest.
+- Automatická instalace (úloha `updates`) se nemění: sama instaluje jen vydání s příznakem `bezpecnostni` (krytým podpisem)
+  nebo verzi povolenou konzolí webů. Povýšení stabilního kanálu bez příznaku tedy správce instaluje tlačítkem; web, který
+  povýšení vynechal, dostane novou řadu s její první bezpečnostní záplatou.
+- Kanál ukazují: administrace (karty Nejnovější/Stabilní), Stav systému, měsíční zpráva (řádek *Verze Kalety*), MCP
+  `site_info` (`update_channel`) a `get_health` (`update`), heartbeat konzole webů (`update_channel`).
+- `tools/check-channel.php` (i denní kontrola) ověří oba manifesty: podpis, balíček, klíče, `"kanal"` a že Stable není
+  napřed před Latest. Dokud stabilní manifest neexistuje (404), kontroluje se jen Latest.
+
+### Kde stabilní manifest leží
+
+Stejně jako Latest: `https://kaletacms.com/aktualizace-stable.json` je na webu projektu **přesměrování 302** (Kaleta →
+Přesměrování) na `https://github.com/phprs-cms/kaletacms/releases/download/stable-channel/aktualizace-stable.json`.
+`stable-channel` je jedno pevné vydání na GitHubu (pre-release, nikdy „latest“), které nese **jen** tenhle soubor;
+zveřejnění = `gh release upload stable-channel dist/aktualizace-stable.json --clobber`. Adresa `releases/latest/download/`
+použít nejde: „latest“ se každý týden posune na nové vydání, které soubor nemá.
+
+Tag `stable-channel` musí ukazovat na **první commit repozitáře**, ne na `main`: `tools/test-update.sh` i workflow berou
+předchozí vydání z `git describe --tags`, a tag na novějším commitu by ho přebil. Workflow Vydání reaguje jen na `v*`.
+
+### Bezpečnostní záplata stabilní řady (např. 3.8 → 3.8.1)
+
+Každá stabilní řada má udržovací větev `stable-X.Y` z tagu, který je ve stabilním manifestu.
+
+1. `git switch stable-3.8`, oprava přes `git cherry-pick` z `main`, `KALETA_VERSION = '3.8.1'` (další volný patch řady),
+   commit, tag `v3.8.1`, push větve i tagu. Testy jako u běžného vydání.
+2. `php tools/release.php 3.8.1 --channel=stable --bezpecnostni --url=https://github.com/phprs-cms/kaletacms/releases/download/v3.8.1/kaleta-3.8.1.zip --zmena="Security fix: …"`
+   – zapíše `dist/aktualizace-stable.json` (Latest manifest se nemění). Balíček vyzkoušejte jako aktualizaci:
+   `PACKAGE=dist/kaleta-3.8.1.zip MANIFEST=dist/aktualizace-stable.json FROM=v3.8.0 tools/test-update.sh`.
+3. `gh release upload v3.8.1 dist/kaleta-3.8.1.zip` a vydání zveřejněte **bez** označení latest:
+   `gh release edit v3.8.1 --draft=false --latest=false`. **Pozor:** kdyby se v3.8.1 stalo „latest“, přesměrování
+   `aktualizace.json` (`releases/latest/download/…`) by vedlo na vydání bez manifestu a všechny weby na Latest by hlásily chybu.
+4. `gh release upload stable-channel dist/aktualizace-stable.json --clobber`, pak `php tools/check-channel.php`.
+5. Stejnou opravu vydejte i na Latest jako běžnou bezpečnostní záplatu z `main` (např. 3.10.1 `--bezpecnostni`).
+   Je-li stabilní řada zrovna stejná minor jako Latest, stačí jeden balíček: vydat ho na Latest a pak ho podepsat i pro
+   Stable (`--channel=stable --package=dist/kaleta-X.Y.Z.zip`, viz povýšení).
+
+### Povýšení stabilního kanálu na novější minor
+
+1. Vyberte minor, který běží na Latest aspoň dva týdny bez regresí, a jeho poslední patch (např. `v3.10.2`).
+2. Balíček ze skutečného vydání (stejný soubor = stejný otisk): `gh release download v3.10.2 -p kaleta-3.10.2.zip -D dist`.
+3. `php tools/release.php 3.10.2 --channel=stable --package=dist/kaleta-3.10.2.zip --url=https://github.com/phprs-cms/kaletacms/releases/download/v3.10.2/kaleta-3.10.2.zip --zmena="Stable channel moves to 3.10: …"`
+   – nic nestaví, jen podepíše manifest pro existující balíček. Odmítne verzi, která stabilní kanál sama nezná (před 3.8).
+4. `gh release upload stable-channel dist/aktualizace-stable.json --clobber`, `php tools/check-channel.php`.
+5. `git branch stable-3.10 v3.10.2 && git push origin stable-3.10`; větev `stable-3.8` už nedostává opravy.
+
+### První stabilní manifest
+
+Doporučená první stabilní řada je **3.8**: je to první vydání, které kanál samo zná – web na Stable, který by nainstaloval
+starší vydání (3.7), by kanál zapomněl a četl zase Latest (`release.php` takové vydání na Stable odmítne). Zveřejněte ho,
+až 3.8 poběží na Latest bez regresí a vyjde 3.9:
+
+1. Jednou: `gh release create stable-channel --prerelease --latest=false --target "$(git rev-list --max-parents=0 HEAD)" --title "Stable update channel" --notes "Holds aktualizace-stable.json, the manifest of the Stable update channel. Not a release."`
+2. `gh release download v3.8.N -p kaleta-3.8.N.zip -D dist` (poslední patch 3.8) a
+   `php tools/release.php 3.8.N --channel=stable --package=dist/kaleta-3.8.N.zip --url=https://github.com/phprs-cms/kaletacms/releases/download/v3.8.N/kaleta-3.8.N.zip --zmena="First release of the Stable channel"`
+3. `gh release upload stable-channel dist/aktualizace-stable.json --clobber`
+4. Na kaletacms.com: Přesměrování `/aktualizace-stable.json` → 302 →
+   `https://github.com/phprs-cms/kaletacms/releases/download/stable-channel/aktualizace-stable.json`
+5. `php tools/check-channel.php` – musí vypsat obě verze; `git branch stable-3.8 v3.8.N && git push origin stable-3.8`.
+6. Na zkušebním webu přepněte kanál na Stabilní a ověřte nabídku (a že web na 3.9 hlásí „napřed před stabilní řadou“).
+
 ## Plánovaná výměna provozního klíče
 
 1. Starý `tools/klice/vydavatel.key` přesuňte do archivu (nemažte ho, dokud výměna neproběhne).
@@ -141,4 +225,5 @@ Spustit ji jde i ručně: *Actions → Denní kontrola → Run workflow*.
 6. **Zveřejnit oznámení** (advisory) s popisem, zasaženými verzemi a poděkováním nálezci.
 
 Po vydání 1.0.0 se opravy dělají na `main` a přenášejí do větve `1.0` (`git cherry-pick`), ze které se vydávají verze 1.0.x;
-nové funkce jdou jen do `main` a vyjdou jako 1.1.
+nové funkce jdou jen do `main` a vyjdou jako 1.1. Od 3.8 dostává bezpečnostní záplaty nejnovější minor (Latest, z `main`)
+a stabilní řada (Stable, z větve `stable-X.Y`) – postup v části *Kanály vydání*.

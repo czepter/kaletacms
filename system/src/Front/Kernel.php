@@ -1295,6 +1295,7 @@ final class Kernel
             'zpet' => $url . ($this->app->request->get('preview') === '1' ? '?preview=1' : ''),
             'akce' => $this->app->url('admin.php?module=' . ($type === 'novinka' ? 'news' : 'pages') . '&action=save_text'),
             'chyba' => $this->app->request->get('error') === '1',
+            'limit' => $this->app->request->get('error') === 'limit', // 3.8: the text was over a limit of Core\HtmlLimits
         ]);
     }
 

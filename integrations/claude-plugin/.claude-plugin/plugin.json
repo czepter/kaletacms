@@ -1,0 +1,22 @@
+{
+    "name": "kaleta",
+    "displayName": "Kaleta for Claude",
+    "version": "3.8.0",
+    "description": "Runbooks for Kaleta CMS sites over the site's own Claude connection (MCP): move a WordPress or any other site, launch a fresh install, weekly care, online bookings and an EU compliance check. Drafts first; the site owner publishes.",
+    "author": {
+        "name": "Kaleta",
+        "url": "https://kaletacms.com"
+    },
+    "homepage": "https://kaletacms.com",
+    "repository": "https://github.com/phprs-cms/kaletacms",
+    "license": "GPL-2.0-or-later",
+    "keywords": ["kaleta", "cms", "website", "mcp", "wordpress-migration", "bookings", "accessibility", "gdpr"],
+    "userConfig": {
+        "mcp_url": {
+            "type": "string",
+            "title": "Kaleta site connection address",
+            "description": "Claude Code only: the address your Kaleta administration shows for connecting Claude, e.g. https://www.example.com/mcp (a site in a subfolder: https://www.example.com/web/mcp). You sign in on the site when Claude Code connects; no password or token goes here. In claude.ai, the desktop app and Cowork add the site as a custom connector instead.",
+            "required": true
+        }
+    }
+}

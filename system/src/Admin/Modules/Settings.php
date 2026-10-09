@@ -82,7 +82,7 @@ class Settings extends Module
             'newsletter_list' => 'vzor:#^[A-Za-z0-9_-]{0,64}$#', 'newsletter_webhook' => 'url'],
         'webhooks' => ['webhook_enquiries' => 'url', 'webhook_url' => 'url'],
         'backups' => ['remote_backup' => 'vyber:vypnuto|ftp|s3', 'backup_host' => 'vzor:#^[A-Za-z0-9.:/-]{0,150}$#', 'backup_user' => 'text', 'backup_password' => 'tajne',
-            'backup_folder' => 'vzor:#^[A-Za-z0-9._/-]{0,150}$#', 'backup_region' => 'vzor:/^[a-z0-9-]{0,40}$/', 'auto_backups' => 'ano', 'backup_media' => 'ano', 'auto_updates' => 'ano', 'update_url' => 'url'],
+            'backup_folder' => 'vzor:#^[A-Za-z0-9._/-]{0,150}$#', 'backup_region' => 'vzor:/^[a-z0-9-]{0,40}$/', 'auto_backups' => 'ano', 'backup_media' => 'ano', 'auto_updates' => 'ano', 'update_channel' => 'vyber:latest|stable', 'update_url' => 'url'],
         'firewall' => ['firewall_enabled' => 'ano', 'firewall_proxy' => 'vyber:|cloudflare', 'firewall_ips' => 'radky', 'firewall_countries' => 'vzor:/^[A-Za-z,;\s]{0,400}$/',
             'firewall_rate' => 'cislo:0:10000', 'firewall_probes' => 'ano'],
         'console' => [], // paired and changed by its own buttons (Fleet\Link), nothing to save

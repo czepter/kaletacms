@@ -224,14 +224,18 @@ final class Media extends Module
         if (!is_uploaded_file($tmp)) {
             throw new \RuntimeException('The SVG file could not be read (max. 2 MB, valid SVG).');
         }
-
-        return self::saveSvgContent((string) file_get_contents($tmp), (string) ($file['name'] ?? 'obrazek'));
+        try {
+            return self::saveSvgContent((string) file_get_contents($tmp), (string) ($file['name'] ?? 'obrazek'));
+        } catch (\Kaleta\Core\HtmlTooLarge $e) {
+            throw new \RuntimeException(t('The SVG file was refused: %s', $e->localized()), 0, $e); // already in the admin's language
+        }
     }
 
     /**
      * SVG from text (upload and MCP): cleaned of scripts and outbound links (Core\Svg) and saved under a new name.
      *
      * @return array<string, mixed> row for the media table
+     * @throws \Kaleta\Core\HtmlTooLarge when the SVG is over a limit of Core\HtmlLimits (the file is refused)
      */
     public static function saveSvgContent(string $content, string $displayName): array
     {

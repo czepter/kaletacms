@@ -225,11 +225,21 @@ final class News extends Module
             }
         }
 
+        $errors = [];
+        $html = [];
+        foreach (['uvod', 'text'] as $field) {
+            try {
+                $html[$field] = \Kaleta\Core\Html::forUserOrFail($r->post($field), $auth, $field);
+            } catch (\Kaleta\Core\HtmlTooLarge $e) {
+                $html[$field] = $r->post($field); // only shown again in the form (escaped), never saved
+                $errors[$field] = $e->localized();
+            }
+        }
         $data = [
             'titulek' => $r->post('titulek'),
             'seo_link' => slugify($r->post('seo_link') !== '' ? $r->post('seo_link') : $r->post('titulek'), 150),
-            'uvod' => \Kaleta\Core\Html::forUser($r->post('uvod'), $this->app->auth()),
-            'text' => \Kaleta\Core\Html::forUser($r->post('text'), $this->app->auth()),
+            'uvod' => $html['uvod'],
+            'text' => $html['text'],
             'obrazek' => $r->post('obrazek'),
             'obrazek_popis' => mb_substr(trim($r->post('obrazek_popis')), 0, 300),
             'obrazek_autor' => mb_substr(trim($r->post('obrazek_autor')), 0, 120),
@@ -248,7 +258,6 @@ final class News extends Module
             'review_by' => \Kaleta\Core\Validity::date($r->post('review_by')),
         ];
 
-        $errors = [];
         if ($data['titulek'] === '') {
             $errors['titulek'] = 'Fill in the title.';
         }
@@ -316,9 +325,15 @@ final class News extends Module
         if ($newsItem === null || ($newsItem['visible'] && !$this->app->auth()->canPublish())) {
             return $this->redirectToSite($r->post('zpet'));
         }
-        $data = ['titulek' => mb_substr($r->post('titulek'), 0, 255), 'uvod' => \Kaleta\Core\Html::forUser($r->post('uvod'), $this->app->auth()), 'text' => \Kaleta\Core\Html::forUser($r->post('text'), $this->app->auth())];
         // an unpublished news item is visible on the site only in the preview
         $preview = $newsItem['visible'] && strtotime((string) $newsItem['datum']) <= time() ? '' : 'preview=1';
+        try {
+            $data = ['titulek' => mb_substr($r->post('titulek'), 0, 255), 'uvod' => \Kaleta\Core\Html::forUserOrFail($r->post('uvod'), $this->app->auth(), 'uvod'),
+                'text' => \Kaleta\Core\Html::forUserOrFail($r->post('text'), $this->app->auth(), 'text')];
+        } catch (\Kaleta\Core\HtmlTooLarge) {
+            // over a limit of Core\HtmlLimits: nothing is saved (the result is only a code in the address, never a text)
+            return $this->redirectToSite($r->post('zpet'), '?' . ($preview !== '' ? $preview . '&' : '') . 'edit=text&error=limit');
+        }
         if ($data['titulek'] === '') {
             return $this->redirectToSite($r->post('zpet'), '?' . ($preview !== '' ? $preview . '&' : '') . 'upravit=text&error=1');
         }

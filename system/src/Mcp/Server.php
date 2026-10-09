@@ -86,7 +86,7 @@ final class Server
             'initialize' => $ok([
                 'protocolVersion' => self::protocol($z['params']['protocolVersion'] ?? null),
                 'capabilities' => ['tools' => new \stdClass(), 'resources' => new \stdClass(), 'prompts' => new \stdClass()],
-                'serverInfo' => ['name' => 'Kaleta – ' . $this->app->settings()->get('site_name'), 'version' => KALETA_VERSION],
+                'serverInfo' => $this->serverInfo(),
                 'instructions' => Prompts::serverInstructions($this->app),
             ]),
             // the site owner's instructions and an overview; ready-made tasks (2.2)
@@ -97,11 +97,43 @@ final class Server
             'ping' => $ok([]),
             // Czech names remain as hidden aliases
             // only the tools this connection may use (a connection limited to drafts or to reading, 2.2)
-            'tools/list' => $ok(['tools' => array_values(array_filter(array_map(fn (array $t): array => self::withReason($t) + ['annotations' => $tools->annotations(Translator::czech($t['name']) ?? $t['name'])],
+            // 3.8: each tool also carries its title (top level and annotations.title, MCP 2025-06-18) – additive fields only
+            'tools/list' => $ok(['tools' => array_values(array_filter(array_map(fn (array $t): array => self::listed($t),
                 [...Translator::listAll($tools->listAll()), ...\Kaleta\Extension\Registry::get()->toolDefinitions()]), fn (array $t): bool => Catalog::allows($this->access(), $t['name'])))]),
             'tools/call' => $ok($this->call($tools, (string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Unknown method: ' . $method]],
         };
+    }
+
+    /** The project's website (3.8: serverInfo.websiteUrl, MCP 2025-11-25). */
+    public const string WEBSITE = 'https://kaletacms.com';
+
+    /**
+     * Who answers (3.8): the name stays as it always was (the site's name in it), the title is the product, websiteUrl the
+     * project's site and the icons Kaleta's mark served by the site itself (two short URLs – fields older clients ignore).
+     *
+     * @return array<string, mixed>
+     */
+    private function serverInfo(): array
+    {
+        $icon = fn (string $file): string => $this->app->request->origin() . $this->app->url('image/' . $file);
+
+        return ['name' => 'Kaleta – ' . $this->app->settings()->get('site_name'), 'title' => 'Kaleta', 'version' => KALETA_VERSION, 'websiteUrl' => self::WEBSITE,
+            'icons' => [['src' => $icon('kaleta-znacka.svg'), 'mimeType' => 'image/svg+xml', 'sizes' => ['any']], ['src' => $icon('kaleta-znacka-180.png'), 'mimeType' => 'image/png', 'sizes' => ['180x180']]]];
+    }
+
+    /**
+     * A tools/list item (3.8): name, title, then the definition as before (with the reason of a write tool) and the
+     * annotations – the title is the same in both places.
+     *
+     * @param array<string, mixed> $tool a tool definition
+     * @return array<string, mixed>
+     */
+    public static function listed(array $tool): array
+    {
+        $annotations = Tools::annotations((string) $tool['name']);
+
+        return ['name' => $tool['name'], 'title' => $annotations['title']] + self::withReason($tool) + ['annotations' => $annotations];
     }
 
     /**

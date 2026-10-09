@@ -39,7 +39,7 @@ final class Registry
     /** @var array<string, array{slug: string, name: string, title: string, render: callable}> "slug.name" => page */
     private array $pages = [];
 
-    /** @var array<string, array{name: string, description: string, inputSchema: array<string, mixed>, access: string, handler: callable, requires: string}> */
+    /** @var array<string, array{name: string, description: string, inputSchema: array<string, mixed>, access: string, handler: callable, requires: string, title: string, openWorld: bool, idempotent: bool}> */
     private array $tools = [];
 
     /** @var array<string, array{0: int, 1: string, 2: string, 3: callable}> */
@@ -206,10 +206,18 @@ final class Registry
         $this->pages[$slug . '.' . $name] = ['slug' => $slug, 'name' => $name, 'title' => mb_substr($title, 0, 80), 'render' => $render];
     }
 
-    /** @param array<string, mixed> $schema */
-    public function addTool(string $name, string $description, array $schema, string $access, callable $handler, string $requires = 'admin'): void
+    /**
+     * An add-on's tool. The MCP title (3.8) comes from Api::mcpTool (the name in words unless the add-on gives one, the full
+     * name here as the last resort); openWorld and idempotent are the MCP hints the add-on declares (both off unless it says so).
+     *
+     * @param array<string, mixed> $schema
+     */
+    public function addTool(string $name, string $description, array $schema, string $access, callable $handler, string $requires = 'admin', string $title = '', bool $openWorld = false, bool $idempotent = false): void
     {
-        $this->tools[$name] = ['name' => $name, 'description' => mb_substr($description, 0, 2000), 'inputSchema' => $schema, 'access' => $access, 'handler' => $handler, 'requires' => $requires];
+        $title = trim(preg_replace('/\s+/u', ' ', strip_tags($title)) ?? '');
+        $this->tools[$name] = ['name' => $name, 'description' => mb_substr($description, 0, 2000), 'inputSchema' => $schema, 'access' => $access, 'handler' => $handler, 'requires' => $requires,
+            'title' => mb_substr($title !== '' ? $title : $name, 0, 60),
+            'openWorld' => $openWorld, 'idempotent' => $idempotent];
     }
 
     public function addJob(string $name, int $interval, string $label, callable $run): void
@@ -296,7 +304,7 @@ final class Registry
         return array_values(array_map(fn (array $t): array => ['name' => $t['name'], 'description' => $t['description'], 'inputSchema' => $t['inputSchema']], $this->tools));
     }
 
-    /** @return array{name: string, description: string, inputSchema: array<string, mixed>, access: string, handler: callable, requires: string}|null */
+    /** @return array{name: string, description: string, inputSchema: array<string, mixed>, access: string, handler: callable, requires: string, title: string, openWorld: bool, idempotent: bool}|null */
     public function tool(string $name): ?array
     {
         return $this->tools[$name] ?? null;

@@ -82,16 +82,23 @@ final class Categories extends Module
         }
         $r = $this->request;
         $id = $r->postInt('idt');
+        $descriptionError = null;
+        try {
+            $description = \Kaleta\Core\Html::forUserOrFail($r->post('popis'), $this->app->auth(), 'popis');
+        } catch (\Kaleta\Core\HtmlTooLarge $e) {
+            $description = $r->post('popis'); // only shown again in the form (escaped), never saved
+            $descriptionError = $e->localized();
+        }
         $data = [
             'nazev' => $r->post('nazev'),
             'seo_link' => slugify($r->post('seo_link') !== '' ? $r->post('seo_link') : $r->post('nazev'), 110),
-            'popis' => \Kaleta\Core\Html::forUser($r->post('popis'), $this->app->auth()),
+            'popis' => $description,
             'hodnost' => max(0, min(65535, $r->postInt('hodnost', 100))),
             'jazyk' => \Kaleta\Core\Language::column($this->app->settings(), $r->post('jazyk')),
         ];
         $data['preklad_z'] = $data['jazyk'] === '' ? null : ($this->db->value("SELECT idt FROM {kategorie} WHERE idt = ? AND jazyk = '' AND idt <> ?", [$r->postInt('preklad_z'), $id]) ?: null);
-        if ($data['nazev'] === '') {
-            return $this->form(['idt' => $id] + $data, ['nazev' => 'Fill in the category name.']);
+        if ($data['nazev'] === '' || $descriptionError !== null) {
+            return $this->form(['idt' => $id] + $data, array_filter(['nazev' => $data['nazev'] === '' ? 'Fill in the category name.' : null, 'popis' => $descriptionError]));
         }
 
         $data['seo_link'] = \Kaleta\Core\Slug::makeUnique($data['seo_link'], fn (string $a): bool => $this->db->value('SELECT idt FROM {kategorie} WHERE seo_link = ? AND idt <> ?', [$a, $id]) !== null, 120);

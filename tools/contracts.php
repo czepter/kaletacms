@@ -21,7 +21,7 @@ function kaleta_mcp_contract(): array
         $contract[$tool['name']] = [
             'parameters' => array_map(fn (array $p): mixed => $p['type'] ?? 'any', $properties),
             'required' => $tool['inputSchema']['required'],
-            'annotations' => Kaleta\Mcp\Tools::annotations(Kaleta\Mcp\Translator::czech($tool['name']) ?? $tool['name']),
+            'annotations' => Kaleta\Mcp\Tools::annotations($tool['name']),
         ];
     }
     ksort($contract);
@@ -101,9 +101,9 @@ function kaleta_contract_diff(): array
         foreach (array_diff($c['required'], $r['required']) as $param) {
             $broken[] = "MCP $tool: parameter $param became required";
         }
-        if ($c['annotations'] !== $r['annotations']) {
-            $broken[] = "MCP $tool: annotations changed";
-        }
+        $annotations = kaleta_annotation_diff($r['annotations'], $c['annotations']);
+        array_push($broken, ...array_map(fn (string $change): string => "MCP $tool: $change", $annotations['broken']));
+        array_push($added, ...array_map(fn (string $change): string => "MCP $tool: $change", $annotations['added']));
         foreach (array_diff(array_keys($c['parameters']), array_keys($r['parameters'])) as $param) {
             $added[] = "MCP $tool: parameter $param";
         }
@@ -179,6 +179,38 @@ if (PHP_SAPI === 'cli' && realpath((string) ($_SERVER['argv'][0] ?? '')) === __F
     $diff = kaleta_contract_diff();
     echo $diff['broken'] === [] && $diff['added'] === [] ? "contracts unchanged\n" : "broken:\n  " . implode("\n  ", $diff['broken'] ?: ['–']) . "\nadded:\n  " . implode("\n  ", $diff['added'] ?: ['–']) . "\n";
     exit($diff['broken'] === [] ? 0 : 1);
+}
+
+/**
+ * How the annotations of one tool changed (3.8). readOnlyHint and destructiveHint decide what Claude confirms with the user,
+ * so they never change; a hint may only become more careful – openWorldHint false → true, idempotentHint true → false (or
+ * gone); a new hint or a new or reworded title (display only) is an addition. A recorded hint that is gone is broken.
+ *
+ * @param array<string, mixed> $recorded
+ * @param array<string, mixed> $current
+ * @return array{broken: list<string>, added: list<string>}
+ */
+function kaleta_annotation_diff(array $recorded, array $current): array
+{
+    $broken = $added = [];
+    foreach ($recorded as $key => $value) {
+        $now = $current[$key] ?? null;
+        $careful = ['openWorldHint' => $value === false && $now === true, 'idempotentHint' => $value === true && $now !== true, 'title' => is_string($now)][$key] ?? false;
+        if ($now === $value) {
+            continue;
+        } elseif ($careful) {
+            $added[] = "annotation $key " . json_encode($value) . ' → ' . json_encode($now);
+        } elseif ($now === null && $key !== 'idempotentHint') {
+            $broken[] = "annotation $key removed";
+        } else {
+            $broken[] = "annotation $key changed";
+        }
+    }
+    foreach (array_diff_key($current, $recorded) as $key => $value) {
+        $added[] = "annotation $key " . json_encode($value, JSON_UNESCAPED_UNICODE);
+    }
+
+    return ['broken' => $broken, 'added' => $added];
 }
 
 /** The first recording has nothing to compare with. */

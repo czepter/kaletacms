@@ -42,6 +42,10 @@ final class WpContent
      */
     public static function sanitize(string $content, array $attachments = []): string
     {
+        if (strlen($content) > HtmlLimits::MAX_BYTES) {
+            HtmlLimits::refuse(HtmlLimits::check($content)); // before the conversions below run over it
+            return '';
+        }
         $html = str_replace(["\r\n", "\r"], "\n", $content);
         $blockEditor = str_contains($html, '<!-- wp:'); // Gutenberg has the paragraphs ready, the classic editor does not
         $html = self::blocks($html);
@@ -248,15 +252,18 @@ final class WpContent
 
     /* ---------- allowed tags only ---------- */
 
-    /** Lets through only tags and attributes from the ALLOWED list; the HTML is read by a real HTML5 parser, not regular expressions. */
+    /**
+     * Lets through only tags and attributes from the ALLOWED list; the HTML is read by a real HTML5 parser, not regular
+     * expressions. Over a limit of HtmlLimits: '' (HtmlLimits::guard() turns that into an error).
+     */
     private static function allowedHtml(string $html, bool $mediaIds = true): string
     {
         if (trim($html) === '') {
             return '';
         }
-        $doc = \Dom\HTMLDocument::createFromString('<!DOCTYPE html><html><body>' . $html . '</body></html>', LIBXML_NOERROR, 'UTF-8');
-        $body = $doc->body;
-        if ($body === null) {
+        $doc = HtmlLimits::fragment($html);
+        $body = $doc?->body;
+        if ($doc === null || $body === null) {
             return '';
         }
         self::sanitizeNode($doc, $body, $mediaIds);

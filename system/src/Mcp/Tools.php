@@ -277,7 +277,7 @@ final class Tools
             ['resolve_draft_comment', 'Marks a comment on a draft as resolved (administrators and editors of pages) – after the draft was changed accordingly or the user decided not to. Resolving changes nothing on the site.', $s(['id' => $number('comment id from list_draft_comments')], ['id'])],
             ['ignore_not_found', 'Ignores addresses that ended with 404 (from list_redirects → not_found): a bot probe or an address nothing replaces. They leave the list and the start-screen warning for good. Redirect real old addresses with save_redirect instead. Only when the user asks.',
                 $s(['paths' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'addresses to ignore, e.g. ["/old-page"]'], 'all' => ['type' => 'boolean', 'description' => 'true = all addresses waiting now']])],
-            ['save_redirects', 'Adds or changes many redirects at once (administrators, 3.6) – the old addresses of a site being moved, the rules of its SEO or redirect plugin. Each one is {"from":"/old","to":"/new","code":301}; the target is a path or an https://… address, code 301 (permanent, default) or 302. '
+            ['save_redirects', 'Adds or changes many redirects at once (administrators, 3.6) – the old addresses of a site being moved, the rules of its SEO or redirect plugin. Each one is {"from":"/old","to":"/new","code":301}; the target is a path or an https://… address, code 301 (permanent, default) or 302; code 410 has no target – the address answers 410 Gone, so search engines drop it (spam addresses of a hacked site). '
                 . 'A pattern keeps the rest of the address with an asterisk: {"from":"/blog/*","to":"/news/*"} sends /blog/2019/post to /news/2019/post (at most 3 asterisks, no regular expressions). An exact redirect always wins over a pattern, the longest fixed beginning wins among patterns, and a rule that would make a loop is refused. '
                 . 'Every row is checked on its own and the result says per row: added, changed, unchanged or refused with the reason. dry_run: true only checks and saves nothing – use it to show the user what would change. At most ' . \Kaleta\Core\RedirectRules::MAX_BATCH . ' per call; save_redirect stays for one redirect and for deleting.',
                 $s(['redirects' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"from":"/old-page","to":"/new-page","code":301},{"from":"/blog/*","to":"/news/*"}]'],
@@ -468,14 +468,19 @@ final class Tools
 
     /**
      * MCP annotations of a tool, so a client knows what to confirm with the user: reads, writes, and writes that remove
-     * something or cannot be taken back (Catalog). Every tool works only on this site.
+     * something or cannot be taken back (Catalog). 3.8: the title, idempotentHint on the write tools where it holds, and
+     * openWorldHint for the tools that reach outside the site – all by the English name, whichever name is given.
      *
-     * @return array{readOnlyHint: bool, destructiveHint: bool, openWorldHint: bool}
+     * @return array{title: string, readOnlyHint: bool, destructiveHint: bool, idempotentHint?: true, openWorldHint: bool}
      */
     public static function annotations(string $name): array
     {
-        return ['readOnlyHint' => !self::isWriteTool($name), 'destructiveHint' => Catalog::access($name) === 'destructive',
-            'openWorldHint' => in_array($name, ['nahraj_soubor', 'importuj_web', 'migration_report', 'import_wordpress', 'save_collection_items'], true)]; // an upload from a URL, an import, the migration report and media of items by URL reach outside the site
+        $english = Catalog::english($name) ?? $name;
+        $write = self::isWriteTool($english);
+
+        return ['title' => Catalog::title($english), 'readOnlyHint' => !$write, 'destructiveHint' => Catalog::access($english) === 'destructive']
+            + ($write && Catalog::isIdempotent($english) ? ['idempotentHint' => true] : [])
+            + ['openWorldHint' => Catalog::isOpenWorld($english)];
     }
 
     public static function isWriteTool(string $name): bool
@@ -531,7 +536,8 @@ final class Tools
         }
         foreach (['uvod', 'text'] as $field) {
             if (isset($data[$field])) {
-                $data[$field] = \Kaleta\Core\Html::forUser($data[$field], $this->app->auth());
+                // over a limit of Core\HtmlLimits the call is refused: nothing is saved, the error names the parameter and the limit
+                $data[$field] = \Kaleta\Core\Html::forUserOrFail($data[$field], $this->app->auth(), $field === 'uvod' ? 'intro' : 'text');
             }
         }
         if (array_key_exists('kategorie', $a)) {
@@ -606,7 +612,8 @@ final class Tools
         }
         foreach (['uvod', 'text'] as $field) {
             if (isset($data[$field])) {
-                $data[$field] = \Kaleta\Core\Html::forUser($data[$field], $this->app->auth());
+                // over a limit of Core\HtmlLimits the call is refused: nothing is saved, the error names the parameter and the limit
+                $data[$field] = \Kaleta\Core\Html::forUserOrFail($data[$field], $this->app->auth(), $field);
             }
         }
         foreach (['v_menu', 'zobrazit', 'noindex'] as $field) {

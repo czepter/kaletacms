@@ -24,13 +24,14 @@ final class Html
     private const array ATTRIBUTES = ['href', 'src', 'alt', 'title', 'class', 'id', 'width', 'height', 'colspan', 'rowspan', 'scope', 'target', 'rel', 'lang', 'dir',
         'loading', 'decoding', 'srcset', 'sizes', 'start', 'reversed', 'type', 'cite', 'datetime', 'controls', 'poster', 'preload', 'playsinline', 'muted', 'loop'];
 
+    /** Sanitized HTML; '' when it is over a limit of HtmlLimits (HtmlLimits::guard() turns that into an error). */
     public static function safe(string $html): string
     {
         if (trim($html) === '' || !preg_match('/<|&/', $html)) {
-            return $html;
+            return HtmlLimits::refuse(HtmlLimits::check($html)) ? '' : $html; // plain text can still be too long
         }
-        $doc = \Dom\HTMLDocument::createFromString('<!DOCTYPE html><html><body>' . $html . '</body></html>', LIBXML_NOERROR, 'UTF-8');
-        $body = $doc->body;
+        $doc = HtmlLimits::fragment($html); // kept in a variable: the document must live while its nodes are written out
+        $body = $doc?->body;
         if ($body === null) {
             return '';
         }
@@ -107,13 +108,15 @@ final class Html
      * Parses an HTML fragment, lets $change edit it on the DOM and writes it back with inner(). Changes of sanitized HTML
      * (rewriting images, dropping attributes) go through here, never through regular expressions over the markup.
      *
+     * HTML over a limit of HtmlLimits gives '' (never the input unchanged).
+     *
      * @param callable(\Dom\HTMLElement, \Dom\HTMLDocument): void $change gets the <body> holding the fragment
      */
     public static function transform(string $html, callable $change): string
     {
-        $doc = \Dom\HTMLDocument::createFromString('<!DOCTYPE html><html><body>' . $html . '</body></html>', LIBXML_NOERROR, 'UTF-8');
-        $body = $doc->body;
-        if (!$body instanceof \Dom\HTMLElement) {
+        $doc = HtmlLimits::fragment($html);
+        $body = $doc?->body;
+        if ($doc === null || !$body instanceof \Dom\HTMLElement) {
             return '';
         }
         $change($body, $doc);
@@ -124,7 +127,8 @@ final class Html
     /**
      * Rewrites the <img> elements of (sanitized) HTML on the DOM – the importers point images at Media this way.
      * $image gets the image's src and alt (entities decoded) and returns null to keep the image as it is, false to remove it,
-     * or the new attributes (all others are dropped). When nothing changes, the HTML comes back untouched.
+     * or the new attributes (all others are dropped). When nothing changes, the HTML comes back untouched; HTML over a limit of
+     * HtmlLimits gives ''.
      *
      * @param callable(string, string): (array<string, string|int>|false|null) $image
      */
@@ -134,7 +138,9 @@ final class Html
             return $html;
         }
         $changed = false;
-        $output = self::transform($html, function (\Dom\HTMLElement $body) use ($image, &$changed): void {
+        $parsed = false;
+        $output = self::transform($html, function (\Dom\HTMLElement $body) use ($image, &$changed, &$parsed): void {
+            $parsed = true;
             foreach (iterator_to_array($body->querySelectorAll('img')) as $img) {
                 $result = $image((string) $img->getAttribute('src'), (string) $img->getAttribute('alt'));
                 if ($result === null) {
@@ -154,13 +160,49 @@ final class Html
             }
         });
 
-        return $changed ? $output : $html;
+        return $changed || !$parsed ? $output : $html; // HTML over a limit of HtmlLimits: '' (transform() refused it)
     }
 
-    /** Sanitizes only for users without administrator permission (and for an administrator's Claude connection without full access). */
+    /**
+     * Sanitizes only for users without administrator permission (and for an administrator's Claude connection without full
+     * access). An administrator's text is stored as written, but within the limits of HtmlLimits too: it is parsed whenever
+     * the site shows it. Over a limit the result is '' – save paths call this inside HtmlLimits::guard() and show the error.
+     */
     public static function forUser(string $html, Auth $auth): string
     {
-        return $auth->canWriteCode() ? $html : self::safe($html);
+        if ($auth->canWriteCode()) {
+            return HtmlLimits::refuse(HtmlLimits::check($html)) ? '' : $html;
+        }
+
+        return self::safe($html);
+    }
+
+    /**
+     * forUser() for a save (forms, MCP): HTML over a limit of HtmlLimits throws, naming the field, and nothing is saved.
+     *
+     * @throws HtmlTooLarge
+     */
+    public static function forUserOrFail(string $html, Auth $auth, string $field): string
+    {
+        try {
+            return HtmlLimits::guard(fn (): string => self::forUser($html, $auth));
+        } catch (HtmlTooLarge $e) {
+            throw $e->inField($field);
+        }
+    }
+
+    /**
+     * safe() for a save: HTML over a limit of HtmlLimits throws, naming the field.
+     *
+     * @throws HtmlTooLarge
+     */
+    public static function safeOrFail(string $html, string $field): string
+    {
+        try {
+            return HtmlLimits::guard(fn (): string => self::safe($html));
+        } catch (HtmlTooLarge $e) {
+            throw $e->inField($field);
+        }
     }
 
     private static function node(\Dom\Node $node): void

@@ -5,6 +5,7 @@
 # admin still work. Same env as tools/test.sh: DB_HOST DB_PORT DB_NAME DB_USER DB_PASS PORT.
 # PACKAGE=dist/kaleta-X.Y.Z.zip tests a real release package instead (tools/release.php; the manifest next to it), signed
 # with the publisher's key the old release already trusts – run it before uploading a release.
+# MANIFEST=dist/aktualizace-stable.json takes the stable manifest instead (a patch of the stable line, docs/RELEASING.md).
 # The database DB_NAME is DROPPED and created again.
 set -euo pipefail
 
@@ -58,7 +59,7 @@ cat > "$WORK/balicek.php" <<'PHP'
 [, $root, $site, $channel, $port] = $argv;
 require $root . '/system/src/Core/Signature.php';
 require $root . '/system/src/Core/Integrity.php';
-$exclude = '#^(tools/|docs/|\.github/|\.claude/|CLAUDE\.md$|\.gitignore$|\.gitleaks\.toml$|\.git-blame-ignore-revs$|phpstan\.neon\.dist$|phpstan-baseline\.neon$|docker/|Dockerfile$|compose\.yaml$|\.dockerignore$)#';
+$exclude = '#^(tools/|docs/|integrations/|\.github/|\.claude/|CLAUDE\.md$|\.gitignore$|\.gitleaks\.toml$|\.git-blame-ignore-revs$|phpstan\.neon\.dist$|phpstan-baseline\.neon$|docker/|Dockerfile$|compose\.yaml$|\.dockerignore$)#';
 $unhashed = '#^(media|storage)/|^install\.php$#';
 $pair = sodium_crypto_sign_keypair();
 $sk = sodium_crypto_sign_secretkey($pair);
@@ -123,7 +124,7 @@ if [ -n "${PACKAGE:-}" ]; then
   php -r '$h = []; foreach (file($argv[2], FILE_IGNORE_NEW_LINES) as $s) { if (!preg_match("#^(tools/|docs/|\.github/|\.claude/|CLAUDE\.md$|\.git|media/|storage/|install\.php$)#", $s) && is_file($argv[1] . "/" . $s)) { $h[$s] = hash_file("sha256", $argv[1] . "/" . $s); } }
     file_put_contents($argv[1] . "/system/soubory.json", json_encode(["verze" => "stara", "soubory" => $h]));' "$WORK/web" "$WORK/stare-soubory.txt"
   cp "$PACKAGE" "$WORK/kanal/kaleta.zip"
-  php -r '$m = json_decode(file_get_contents($argv[1]), true); $m["url"] = "http://127.0.0.1:" . $argv[2] . "/kaleta.zip"; file_put_contents($argv[3], json_encode($m));' "$(dirname "$PACKAGE")/aktualizace.json" "$CHANNEL_PORT" "$WORK/kanal/aktualizace.json"
+  php -r '$m = json_decode(file_get_contents($argv[1]), true); $m["url"] = "http://127.0.0.1:" . $argv[2] . "/kaleta.zip"; file_put_contents($argv[3], json_encode($m));' "${MANIFEST:-$(dirname "$PACKAGE")/aktualizace.json}" "$CHANNEL_PORT" "$WORK/kanal/aktualizace.json"
   NEW_VERSION=$(php -r 'echo json_decode(file_get_contents($argv[1]), true)["verze"];' "$WORK/kanal/aktualizace.json")
   echo "  ok     release package $PACKAGE ($NEW_VERSION)"
 else

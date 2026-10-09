@@ -32,6 +32,7 @@ final class MigrationReport
     public const array PROBLEMS = [
         'missing' => 'error', 'form_missing' => 'error', 'hidden' => 'warning', 'chain' => 'warning',
         'no_description' => 'warning', 'fewer_images' => 'warning', 'not_read' => 'info', 'redirect_out' => 'info', 'robots' => 'info',
+        'too_large' => 'info',
     ];
 
     private float $end = 0.0;
@@ -150,7 +151,11 @@ final class MigrationReport
         $old = null;
         $html = WebImport::robotsAllow($robots, $url) ? $this->fetch($url, $robots) : null;
         if ($html !== null) {
-            $old = self::analyse($html, $url);
+            try {
+                $old = self::analyse($html, $url);
+            } catch (HtmlTooLarge) {
+                $problems[] = 'too_large'; // over a limit of HtmlLimits (3.8): never parsed, only the address is checked
+            }
         } else {
             $problems[] = WebImport::robotsAllow($robots, $url) ? 'not_read' : 'robots';
         }
@@ -306,10 +311,11 @@ final class MigrationReport
      * number of images in the main content.
      *
      * @return array{titulek: string, popis: string, formular: bool, obrazky: int}
+     * @throws HtmlTooLarge when the page is over a limit of HtmlLimits
      */
     public static function analyse(string $html, string $url): array
     {
-        $doc = \Dom\HTMLDocument::createFromString($html, LIBXML_NOERROR);
+        $doc = HtmlLimits::document($html);
         $title = trim((string) preg_replace('/\s+/u', ' ', (string) $doc->querySelector('title')?->textContent));
         $description = trim((string) $doc->querySelector('meta[name="description"]')?->getAttribute('content'));
         $form = false;
@@ -386,6 +392,7 @@ final class MigrationReport
             'fewer_images' => t('The new page has less than half of the old page’s images.'),
             'not_read' => t('The old page could not be read, so only the address was checked.'),
             'robots' => t('The robots.txt of the old site asks robots not to read this page, so only the address was checked.'),
+            'too_large' => t('The old page is over a safety limit for HTML (too large or nested too deeply), so only the address was checked.'),
             default => $code,
         };
     }

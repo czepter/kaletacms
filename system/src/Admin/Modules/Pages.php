@@ -205,7 +205,11 @@ final class Pages extends Module
         if ($title === '') {
             return $this->redirectToSite($r->post('zpet'), '?edit=text&error=1');
         }
-        $text = \Kaleta\Core\Html::forUser($r->post('text'), $this->app->auth());
+        try {
+            $text = \Kaleta\Core\Html::forUserOrFail($r->post('text'), $this->app->auth(), 'text');
+        } catch (\Kaleta\Core\HtmlTooLarge) {
+            return $this->redirectToSite($r->post('zpet'), '?edit=text&error=limit'); // over a limit of Core\HtmlLimits: nothing saved
+        }
         if ($page['titulek'] !== $title || (string) $page['text'] !== $text) {
             $this->saveVersion((int) $page['ids'], $page['titulek'], (string) $page['text']); // an edit directly on the site goes to the history as in the admin
         }
@@ -247,6 +251,13 @@ final class Pages extends Module
         }
         $prefix = $parent !== null ? $parent['seo_link'] . '/' : '';
         $slug = slugify($r->post('seo_link') !== '' ? basename(str_replace('\\', '/', $r->post('seo_link'))) : $r->post('titulek'), max(20, 118 - strlen($prefix)));
+        $textError = null;
+        try {
+            $text = \Kaleta\Core\Html::forUserOrFail($r->post('text'), $this->app->auth(), 'text');
+        } catch (\Kaleta\Core\HtmlTooLarge $e) {
+            $text = $r->post('text'); // only shown again in the form (escaped), never saved
+            $textError = $e->localized();
+        }
         $data = [
             'titulek' => mb_substr($r->post('titulek'), 0, 200),
             'seo_link' => $prefix . $slug,
@@ -255,7 +266,7 @@ final class Pages extends Module
             'seo_titulek' => mb_substr(trim($r->post('seo_titulek')), 0, 200),
             'obrazek' => mb_substr(trim($r->post('obrazek')), 0, 255),
             'noindex' => (int) $r->postBool('noindex'),
-            'text' => \Kaleta\Core\Html::forUser($r->post('text'), $this->app->auth()),
+            'text' => $text,
             'zobrazit' => (int) $r->postBool('zobrazit'),
             'v_menu' => (int) $r->postBool('v_menu'),
             'poradi' => max(0, min(65535, $r->postInt('poradi', 100))),
@@ -283,7 +294,7 @@ final class Pages extends Module
         // a page with nothing to show yet stays hidden until its build is published (3.5): a template, the builder, or no text
         $stored = $id > 0 ? $this->db->one('SELECT zobrazit, stavba FROM {stranky} WHERE ids = ?', [$id]) : null;
         $data = self::visibility((bool) $data['zobrazit'], (bool) ($stored['zobrazit'] ?? false), self::hasContent(['stavba' => $stored['stavba'] ?? null, 'text' => $data['text']])) + $data;
-        $errors = [];
+        $errors = $textError !== null ? ['text' => $textError] : [];
         if ($data['titulek'] === '') {
             $errors['titulek'] = 'Enter the page title.';
         }
@@ -521,8 +532,13 @@ final class Pages extends Module
         $title = mb_substr(trim((string) $data['titulek']), 0, 200);
         // never a system address (3.7, N37-2): a page "Subscription" would take over /subscription, so it gets subscription-2
         $wanted = slugify($title, 110);
+        try {
+            $text = \Kaleta\Core\HtmlLimits::guard(fn (): string => \Kaleta\Core\WpContent::safeHtml((string) ($data['text'] ?? '')));
+        } catch (\Kaleta\Core\HtmlTooLarge $e) {
+            return $this->back(t('The page was not imported: %s', $e->localized()), '', [], 'chyba');
+        }
         $record = ['titulek' => $title, 'seo_link' => self::freeSlug($this->db, $wanted), 'popis' => mb_substr((string) ($data['popis'] ?? ''), 0, 300),
-            'text' => \Kaleta\Core\WpContent::safeHtml((string) ($data['text'] ?? '')), 'zobrazit' => 0, 'v_menu' => 0, 'zmeneno' => date('Y-m-d H:i:s')];
+            'text' => $text, 'zobrazit' => 0, 'v_menu' => 0, 'zmeneno' => date('Y-m-d H:i:s')];
         $created = ['tridy' => 0, 'komponenty' => 0];
         if (is_array($data['stavba'] ?? null)) {
             // the classes and components that came with it first: the build then points at this site's components

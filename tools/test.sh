@@ -306,6 +306,16 @@ contains() { grep "$@" > /dev/null; }
 mcp() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2}}"; }
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$WORK/response"
 grep -q '"name":"create_page"' "$WORK/response" && ! grep -q '"name":"vytvor_stranku"' "$WORK/response" && grep -q '"title":{' "$WORK/response" && echo "  ok     MCP: nástroje s anglickými názvy a parametry" || { echo "  CHYBA  MCP tools/list anglicky"; ERRORS=$((ERRORS+1)); }
+# 3.8 (Connectors Directory): every tool has a title (top level = annotations.title), the hints are by the English name
+php -r '$t = json_decode(file_get_contents($argv[1]), true)["result"]["tools"]; $bad = array_filter($t, fn ($x) => !is_string($x["title"] ?? null) || $x["title"] === "" || $x["title"] !== ($x["annotations"]["title"] ?? null) || array_slice(array_keys($x), 0, 2) !== ["name", "title"]);
+  $a = array_column($t, "annotations", "name"); exit($bad === [] && $a["upload_file"]["openWorldHint"] === true && $a["import_website"]["openWorldHint"] === true && $a["list_pages"]["openWorldHint"] === false
+  && ($a["save_build"]["idempotentHint"] ?? null) === true && !isset($a["publish_build"]["idempotentHint"]) && $a["list_pages"]["title"] === "List pages" ? 0 : 1);' "$WORK/response" \
+  && echo "  ok     3.8 MCP: every tool has a title, open-world and idempotent hints by the English name" || { echo "  CHYBA  3.8 MCP titles and hints"; ERRORS=$((ERRORS+1)); }
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}' > "$WORK/initialize.json"
+php -r '$i = json_decode(file_get_contents($argv[1]), true)["result"]; $s = $i["serverInfo"]; exit($i["protocolVersion"] === "2025-06-18" && str_starts_with($s["name"], "Kaleta – ") && $s["title"] === "Kaleta" && $s["websiteUrl"] === "https://kaletacms.com"
+  && $s["icons"][0]["src"] === $argv[2] . "/image/kaleta-znacka.svg" && $s["icons"][1]["sizes"] === ["180x180"] ? 0 : 1);' "$WORK/initialize.json" "$B" \
+  && [ "$(curl -s -o /dev/null -w '%{http_code}' "$B/image/kaleta-znacka-180.png")" = 200 ] \
+  && echo "  ok     3.8 MCP: initialize names the server (title Kaleta, websiteUrl, icons the site serves)" || { echo "  CHYBA  3.8 MCP serverInfo"; head -c 400 "$WORK/initialize.json"; ERRORS=$((ERRORS+1)); }
 mcp list_pages '{}' > "$WORK/response"; grep -q 'title\\":' "$WORK/response" && grep -q 'in_menu\\":' "$WORK/response" && echo "  ok     MCP: anglický nástroj vrací anglické klíče" || { echo "  CHYBA  MCP list_pages"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp seznam_stranek '{}' > "$WORK/response"; grep -q 'titulek\\":' "$WORK/response" && echo "  ok     MCP: český název funguje dál jako skrytý alias" || { echo "  CHYBA  MCP český alias"; ERRORS=$((ERRORS+1)); }
 mcp get_page '{"id":99999}' > "$WORK/response"; grep -q 'The page does not exist. Use list_pages.' "$WORK/response" && echo "  ok     MCP: chyba anglického nástroje anglicky" || { echo "  CHYBA  MCP anglická chyba"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -2233,6 +2243,10 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?action=oauth" -d 
 sq "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('claude_apps_only', '1') ON DUPLICATE KEY UPDATE hodnota = '1'" > /dev/null
 expect "3.3.4 N65: with claude_apps_only a foreign host cannot register or sign in, Claude and Claude Code can" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/register" -H 'Content-Type: application/json' -d '{"redirect_uris":["https://evil.example/cb"]}')|$(curl -s -o /dev/null -w '%{http_code}' "$B/oauth/authorize?$(authorize_query "$CLIENT_B" "$URI_B" only)")|$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/register" -H 'Content-Type: application/json' -d '{"redirect_uris":["https://claude.ai/api/mcp/auth_callback","http://localhost:33418/callback"]}')|$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' "$B/oauth/authorize?$(authorize_query "$CLIENT_A" "$URI_A" only)")" "400|403|201|302"
 sq "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'claude_apps_only'" > /dev/null
+# 3.8 (Connectors Directory): Claude Code registers a loopback redirect and comes back on another port next time (RFC 8252
+# §7.3 – any port for a loopback address); a different path or a non-loopback host with another port is still refused
+CLIENT_CC=$(register_client "Claude Code" "http://127.0.0.1:33418/callback")
+expect "3.8 OAuth: a loopback redirect_uri on another port goes to the consent, another path or host does not" "$(curl -s -o /dev/null -w '%{http_code}' "$B/oauth/authorize?$(authorize_query "$CLIENT_CC" "http://127.0.0.1:51234/callback" cc)")|$(curl -s -o /dev/null -w '%{http_code}' "$B/oauth/authorize?$(authorize_query "$CLIENT_CC" "http://127.0.0.1:51234/other" cc)")|$(curl -s -o /dev/null -w '%{http_code}' "$B/oauth/authorize?$(authorize_query "$CLIENT_A" "https://claude.ai:8443/api/mcp/auth_callback" cc)")" "302|400|400"
 # N13: six parallel redemptions of one code give one token pair; a second server on the same files with six workers runs
 # them at the same time, as PHP-FPM would
 RACE_PORT=$((PORT + 17)); RACE="http://127.0.0.1:$RACE_PORT"
@@ -2312,6 +2326,36 @@ expect "a drafts-only connection cannot insert Custom HTML" "$("${MYSQL[@]}" "$D
 mcp_as "$DRAFT_TOKEN" create_news '{"title":"N37-1 prefixed attributes","category":"'"$CATEGORY"'","text":"<p><img xml:onerror=alert(1) src=/media/x.png><a xml:href=javascript:alert(2) href=/ok>a</a> <a xlink:href=javascript:alert(3)>b</a> <span XML:ONCLICK=alert(4) x:onmouseover=alert(5) xmlns:x=y>c</span></p><svg><a xlink:href=javascript:alert(6)><text>d</text></a></svg><math><mi xml:onclick=alert(7)>e</mi></math>"}' > /dev/null
 expect "N37-1: create_news over a drafts-only connection with xml:/xlink:/x: attributes stores nothing executable, the safe href stays" \
   "$(sq "SELECT CONCAT(text REGEXP '[[:space:]]on[a-z]+[[:space:]]*=', '/', text LIKE '%javascript%', '/', text LIKE '%<a href=\"/ok\">a</a>%', '/', text LIKE '%src=\"/media/x.png\"%') FROM ka_novinky WHERE titulek = 'N37-1 prefixed attributes'")" "0/0/1/1"
+# 3.8 (N37-3 follow-up): markup over a limit of Core\HtmlLimits is refused before any parser sees it, on every PHP version – a
+# Custom HTML element nested 3,000 deep is stored empty with the limit and the measured value among the errors, build_from_html,
+# create_news, an SVG upload and the admin news form refuse it and store nothing
+LIMIT_DEEP=$(printf '<div>%.0s' $(seq 1 3000))
+mcp create_page '{"title":"Limit MCP","slug":"limit-mcp"}' > /dev/null
+LIMIT_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'limit-mcp'")
+mcp save_build "{\"id\":${LIMIT_PAGE:-0},\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"children\":[{\"type\":\"custom_html\",\"content\":{\"code\":\"$LIMIT_DEEP\"}},{\"type\":\"heading\",\"content\":{\"text\":\"Kept by the limit\"}}]}]}}" > "$WORK/response"
+contains -q 'The markup is nested 3000 levels deep; the limit is 512 – the field was left empty.' "$WORK/response" \
+  && expect "3.8: save_build with Custom HTML nested 3,000 deep returns the limit, the element stays empty, the rest is saved" \
+    "$(sq "SELECT CONCAT(stavba_koncept LIKE '%<div><div>%', '/', stavba_koncept LIKE '%Kept by the limit%') FROM ka_stranky WHERE ids = ${LIMIT_PAGE:-0}")" "0/1" \
+  || { echo "  CHYBA  3.8: save_build over the nesting limit"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp build_from_html "{\"id\":${LIMIT_PAGE:-0},\"html\":\"<section>$LIMIT_DEEP</section>\"}" > "$WORK/response"
+contains -q '"isError":true' "$WORK/response" && contains -q 'The markup is nested 3,001 levels deep; the limit is 512.' "$WORK/response" \
+  && expect "3.8: build_from_html over the nesting limit is refused with the limit, the draft stays as it was" "$(sq "SELECT stavba_koncept LIKE '%Kept by the limit%' FROM ka_stranky WHERE ids = ${LIMIT_PAGE:-0}")" 1 \
+  || { echo "  CHYBA  3.8: build_from_html over the nesting limit"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp create_news "{\"title\":\"Limit news\",\"category\":\"$CATEGORY\",\"text\":\"$LIMIT_DEEP\"}" > "$WORK/response"
+mcp_as "$DRAFT_TOKEN" create_news "{\"title\":\"Limit news draft\",\"category\":\"$CATEGORY\",\"text\":\"<blockquote>$LIMIT_DEEP</blockquote>\"}" > "$WORK/response2"
+contains -q 'text: The markup is nested 3,000 levels deep; the limit is 512.' "$WORK/response" && contains -q 'text: The markup is nested 3,001 levels deep' "$WORK/response2" \
+  && expect "3.8: create_news over the limit is refused on a full and a drafts-only connection, nothing is stored" "$(sq "SELECT COUNT(*) FROM ka_novinky WHERE titulek LIKE 'Limit news%'")" 0 \
+  || { echo "  CHYBA  3.8: create_news over the nesting limit"; head -c 300 "$WORK/response"; head -c 300 "$WORK/response2"; ERRORS=$((ERRORS+1)); }
+LIMIT_SVG=$(php -r 'echo base64_encode("<svg xmlns=\"http://www.w3.org/2000/svg\">" . str_repeat("<g>", 300) . str_repeat("</g>", 300) . "</svg>");')
+mcp upload_file "{\"filename\":\"deep.svg\",\"data\":\"$LIMIT_SVG\"}" > "$WORK/response"
+contains -q '"isError":true' "$WORK/response" && contains -q 'The markup is nested 301 levels deep; the limit is 256.' "$WORK/response" \
+  && expect "3.8: an SVG nested 300 deep is refused with the limit, nothing in Media" "$(sq "SELECT COUNT(*) FROM ka_media WHERE obr_poloha LIKE '%/deep-%'")" 0 \
+  || { echo "  CHYBA  3.8: SVG upload over the nesting limit"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=news&action=new"
+code=$(curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=news&action=save" -d "_csrf=$(csrf)" -d idc=0 -d "titulek=Limit form" -d "tema=$(sq "SELECT MIN(idt) FROM ka_kategorie")" --data-urlencode "text=$LIMIT_DEEP")
+contains -q 'chyba-pole' "$WORK/response" && contains -q '3 000' "$WORK/response" \
+  && expect "3.8: the admin news form shows the limit at the text, keeps the text in the form and saves nothing" "$code/$(sq "SELECT COUNT(*) FROM ka_novinky WHERE titulek = 'Limit form'")/$(grep -c '&lt;div&gt;&lt;div&gt;' "$WORK/response")" "200/0/1" \
+  || { echo "  CHYBA  3.8: admin news form over the limit: $code"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_newsletters (subject, intro, status, scheduled_at, created) VALUES ('Scheduled 251', 'Original intro', 'scheduled', '$(site_time)' + INTERVAL 1 DAY, '$(site_time)')"
 NL_SCHEDULED=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT id FROM ka_newsletters WHERE subject = 'Scheduled 251'")
 mcp_as "$DRAFT_TOKEN" draft_newsletter "{\"id\":$NL_SCHEDULED,\"intro\":\"Changed by a drafts connection\"}" > /dev/null
@@ -2626,6 +2670,21 @@ mcp migration_report "{\"url\":\"$OLD\"}" > "$WORK/response"; REPORT_ID=$(import
 for i in $(seq 1 20); do [ "$(import_field phase)" = done ] && break; mcp migration_report "{\"report_id\":\"$REPORT_ID\"}" > "$WORK/response"; done
 expect "migration report: after a redirect and publishing, the contact address redirects (but the form is gone)" "$(import_field summary)" '{"addresses":4,"checked":4,"ok":2,"redirected":1,"not_published":1,"missing":0,"errors":1,"warnings":2}'
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zobrazit = 0 WHERE seo_link = 'about-us'; DELETE FROM ka_presmerovani WHERE z_adresy = 'contact'"
+# 3.8: an old page nested 3,000 deep is never parsed – the website import skips it with the limit among its failures, the
+# migration report checks only its address
+mkdir -p "$WORK/oldsite/deep"
+oldpage "Deep" "Deep page" "$(printf '<div>%.0s' $(seq 1 3000))" > "$WORK/oldsite/deep/index.html"
+printf '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>%s/deep/</loc></url></urlset>' "$OLD" > "$WORK/oldsite/sitemap.xml"
+mcp import_website "{\"url\":\"$OLD\"}" > "$WORK/response"; IMPORT_ID=$(import_field import_id)
+for i in $(seq 1 20); do [ "$(import_field phase)" = finding ] || break; mcp import_website "{\"import_id\":\"$IMPORT_ID\"}" > "$WORK/response"; done
+mcp import_website "{\"import_id\":\"$IMPORT_ID\",\"confirm\":true}" > "$WORK/response"
+for i in $(seq 1 20); do [ "$(import_field phase)" = importing ] || break; mcp import_website "{\"import_id\":\"$IMPORT_ID\"}" > "$WORK/response"; done
+expect "3.8: website import skips an old page over the nesting limit with the limit in its failures, nothing stored" \
+  "$(import_field result | grep -o '"failed":[0-9]*')|$(import_field failures | grep -c 'deep.*3 001')|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE titulek = 'Deep'")" '"failed":1|1|0'
+mcp migration_report "{\"url\":\"$OLD\"}" > "$WORK/response"; REPORT_ID=$(import_field report_id)
+for i in $(seq 1 20); do [ "$(import_field phase)" = done ] && break; mcp migration_report "{\"report_id\":\"$REPORT_ID\"}" > "$WORK/response"; done
+contains -q 'too_large' "$WORK/response" && echo "  ok     3.8: the migration report reads an old page over the limit as too large, only its address is checked" \
+  || { echo "  CHYBA  3.8: migration report of a page over the limit"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 kill "$OLDSITE_PID" 2>/dev/null; OLDSITE_PID=
 echo "== 3.7: migration II – past 300 old addresses, items in batches and from CSV"
 # a fake old shop (tools/fake-old-site.php): a sitemap index with 350 pages, a page its robots.txt disallows, images;
@@ -5337,6 +5396,7 @@ $zip->addFromString('.htaccess', "# htaccess nove verze\n");
 $bootstrap = (string) preg_replace("/const KALETA_VERSION = '[^']*';/", "const KALETA_VERSION = '9.9.9';", (string) file_get_contents($site . '/system/bootstrap.php'));
 $zip->addFromString('system/bootstrap.php', $bootstrap); // balíček musí nést jádro
 $zip->addFromString('index.php', (string) file_get_contents($site . '/index.php'));
+$zip->addFromString('system/aktualizace.pub', (string) file_get_contents($site . '/system/aktualizace.pub')); // the same test key: tools/check-channel.php checks the keys of the package
 $zip->close();
 $sha = hash_file('sha256', dirname($site) . '/kanal/k.zip');
 $m = ['verze' => '9.9.9', 'url' => "http://127.0.0.1:$port/k.zip", 'sha256' => $sha, 'min_php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION, 'zmeny' => ['test'],
@@ -5355,6 +5415,21 @@ file_put_contents(dirname($site) . '/kanal/rozbity.json', json_encode(['url' => 
 file_put_contents(dirname($site) . '/kanal/zly.json', json_encode(['podpis' => base64_encode(random_bytes(64))] + $m));
 // 3.7: a correctly signed release for a PHP newer than the server runs
 file_put_contents(dirname($site) . '/kanal/novephp.json', json_encode(['min_php' => '99.0'] + $m));
+// 3.8 (D3): release channels – folders with aktualizace.json (latest) and aktualizace-stable.json next to it, one key
+$signed = fn (string $version): array => ['verze' => $version, 'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage($version, $sha, false), $sk))];
+$channels = [
+    'kanaly' => [$signed('9.9.10') + ['kanal' => 'latest'] + $m, ['kanal' => 'stable'] + $m],   // latest 9.9.10, stable 9.9.9
+    'pozadu' => [$signed('9.9.10') + ['kanal' => 'latest'] + $m, $signed('1.0.0') + ['kanal' => 'stable'] + $m], // the stable line is behind the site
+    'spatne' => [$signed('9.9.10') + ['kanal' => 'latest'] + $m, $signed('9.9.10') + ['kanal' => 'latest'] + $m], // a wrong redirect: the latest manifest at the stable address
+    'bez' => [$signed('9.9.10') + ['kanal' => 'latest'] + $m, null],                              // no stable channel published yet
+];
+foreach ($channels as $folder => [$latest, $stable]) {
+    @mkdir(dirname($site) . '/kanal/' . $folder);
+    file_put_contents(dirname($site) . '/kanal/' . $folder . '/aktualizace.json', json_encode($latest));
+    if ($stable !== null) {
+        file_put_contents(dirname($site) . '/kanal/' . $folder . '/aktualizace-stable.json', json_encode($stable));
+    }
+}
 PHP
 # the channel on its own server: the built-in PHP server handles only one request at a time, it could not download from itself
 CHANNEL_PORT=$((PORT + 1))
@@ -5408,6 +5483,49 @@ sq "INSERT INTO ka_nastaveni VALUES ('auto_updates', '1') ON DUPLICATE KEY UPDAT
 curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
 [ ! -f "$WORK/web/image/test-aktualizace.txt" ] && grep -q 'updates: failed 9.9.9' "$WORK/tasks.txt" && echo "  ok     3.3.2: a security flag the signed package does not carry stops the automatic installation" || { echo "  CHYBA  automatic installation on an unverified security flag"; grep updates "$WORK/tasks.txt"; ERRORS=$((ERRORS+1)); }
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_attempt', 'update_cache'); UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'auto_updates'" > /dev/null
+# 3.8 (D3): release channels – Latest (default) reads aktualizace.json, Stable the signed aktualizace-stable.json next to it
+channel_source() { sq "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/$1') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null; }
+backups_page() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; }
+channel_source kanaly/aktualizace.json; backups_page
+expect "3.8 channels: an existing site stays on Latest" "$(sq "SELECT COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'update_channel'), 'latest')")|$(contains -F 'name="update_channel" value="latest" checked' "$WORK/response" && echo checked)" "latest|checked"
+contains -F 'value="9.9.10"' "$WORK/response" && echo "  ok     3.8 channels: Latest offers the newest version (9.9.10)" || { echo "  CHYBA  3.8 channels: Latest does not offer 9.9.10"; ERRORS=$((ERRORS+1)); }
+TOKEN=$(csrf)
+# the channel is chosen on the Backups and updates tab; the checkboxes of the tab are sent as they are
+backups_save() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=backups -d "update_channel=$1" \
+  $( [ "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'auto_backups'")" = 0 ] || echo "-d auto_backups=1" ) $( [ "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'backup_media'")" = 0 ] || echo "-d backup_media=1" ); }
+backups_save beta; backups_page # the refused value is shown back once for correction
+expect "3.8 channels: an unknown channel is not saved" "$(sq "SELECT COUNT(*) FROM ka_nastaveni WHERE promenna = 'update_channel' AND hodnota = 'beta'")" "0"
+backups_save stable; sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null; backups_page
+expect "3.8 channels: the site switched to Stable" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'update_channel'")" "stable"
+contains -F 'value="9.9.9"' "$WORK/response" && ! contains -F 'value="9.9.10"' "$WORK/response" && contains -F 'name="update_channel" value="stable" checked' "$WORK/response" \
+  && echo "  ok     3.8 channels: Stable offers the stable manifest (9.9.9), never the newer latest one" || { echo "  CHYBA  3.8 channels: Stable offers the wrong version"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
+contains -F 'Kanál aktualizací' "$WORK/response" && contains -F 'Stabilní – jen bezpečnostní opravy' "$WORK/response" && echo "  ok     3.8 channels: System status names the channel" || { echo "  CHYBA  3.8 channels: System status does not name the channel"; ERRORS=$((ERRORS+1)); }
+mcp get_health '{}' > "$WORK/response"; GH="$(mcp_value update channel)|$(mcp_value update available)"
+mcp site_info '{}' > "$WORK/response"; expect "3.8 channels: MCP get_health and site_info say the channel and the offered version" "$GH|$(mcp_value update_channel)" "stable|9.9.9|stable"
+# a site that switched to Stable while it runs a newer version than the stable line: no downgrade, it waits and says so
+channel_source pozadu/aktualizace.json; backups_page
+contains -F 'novější než stabilní kanál (1.0.0)' "$WORK/response" && ! contains -F 'value="1.0.0"' "$WORK/response" && echo "  ok     3.8 channels: a site ahead of the stable line is offered no downgrade and told why" || { echo "  CHYBA  3.8 channels: ahead of the stable line"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" -d verze=1.0.0
+mcp get_health '{}' > "$WORK/response"
+expect "3.8 channels: no downgrade is installed; get_health says the site is ahead of the stable line" "$([ -f "$WORK/web/image/test-aktualizace.txt" ] && echo installed || echo kept)|$(mcp_value update ahead_of_stable)" "kept|1.0.0"
+# the latest manifest at the stable address (a wrong redirect): nothing is offered nor installed
+channel_source spatne/aktualizace.json; backups_page
+contains -F 'nenabízí vydání stabilního kanálu' "$WORK/response" && ! contains -F 'value="9.9.10"' "$WORK/response" && echo "  ok     3.8 channels: a latest manifest at the stable address offers nothing" || { echo "  CHYBA  3.8 channels: wrong manifest on the stable channel"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" -d verze=9.9.10
+[ ! -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     3.8 channels: a latest manifest at the stable address does not install" || { echo "  CHYBA  3.8 channels: installed a latest release on the stable channel"; ERRORS=$((ERRORS+1)); }
+# a custom source with another file name has no stable twin: the site follows it as before, whatever the channel
+channel_source ok.json; backups_page
+contains -F 'nemá proto stabilní protějšek' "$WORK/response" && contains -F 'value="9.9.9"' "$WORK/response" && echo "  ok     3.8 channels: a custom source without a stable twin keeps working on Stable" || { echo "  CHYBA  3.8 channels: custom source on Stable"; ERRORS=$((ERRORS+1)); }
+# tools/check-channel.php checks both manifests (signature, package, keys, the channel mark) and skips a stable one not yet published
+for c in kanaly spatne bez; do
+  if php "$WORK/web/tools/check-channel.php" "http://127.0.0.1:$CHANNEL_PORT/$c/aktualizace.json" > "$WORK/channel-$c.txt" 2>&1; then echo ok >> "$WORK/channel-$c.txt"; else echo failed >> "$WORK/channel-$c.txt"; fi
+done
+expect "3.8 check-channel: both manifests pass, a latest one at the stable address fails, a missing stable one is skipped" \
+  "$(tail -1 "$WORK/channel-kanaly.txt")|$(contains -F 'aktualizace-stable.json – nabízená verze: 9.9.9' "$WORK/channel-kanaly.txt" && echo stable)|$(tail -1 "$WORK/channel-spatne.txt")|$(contains -F '"kanal": "stable"' "$WORK/channel-spatne.txt" && echo why)|$(tail -1 "$WORK/channel-bez.txt")|$(contains -F '404' "$WORK/channel-bez.txt" && echo skipped)" \
+  "ok|stable|failed|why|ok|skipped"
+[ "$(tail -1 "$WORK/channel-kanaly.txt")" = ok ] || cat "$WORK/channel-kanaly.txt"
+sq "UPDATE ka_nastaveni SET hodnota = 'latest' WHERE promenna = 'update_channel'" > /dev/null
 update_from ok.json
 [ -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     podepsaná aktualizace se nainstaluje" || { echo "  CHYBA  aktualizace se nenainstalovala"; sq "SELECT message, data FROM ka_events WHERE type LIKE 'update.%'"; ERRORS=$((ERRORS+1)); }
 grep -q "vlastni uprava spravce" "$WORK/web/.htaccess" && [ -f "$WORK/web/.htaccess.kaleta-nova" ] && echo "  ok     vlastní .htaccess zůstal, nová verze leží vedle" || { echo "  CHYBA  aktualizace přepsala vlastní .htaccess"; ERRORS=$((ERRORS+1)); }

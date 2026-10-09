@@ -49,7 +49,14 @@ $running = in_array($state['faze'], ['analyza', 'import', 'obrazky'], true);
 	<div class="dlazdice-polozka"><strong><?= (int) $v['skryto'] ?></strong><span><?= e(t('Public on WordPress, imported hidden')) ?></span></div>
 <?php endif ?>
 </div>
-<?php $menuReasons = ['no_location' => 'this site has a main and a footer menu, and other menus took them', 'empty' => 'none of its links lead to anything that was imported',
+<?php if (($tooLarge = Kaleta\Core\WpImport::tooLarge($state, Kaleta\Core\HtmlLimits::message(...))) !== []): // 3.8: left out, never imported in part ?>
+<div class="hlaska hlaska-varovani"><p><?= e(t('Not imported – the HTML is over a safety limit:')) ?></p><ul>
+<?php foreach ($tooLarge as $row): ?>
+	<li><?= e($row) ?></li>
+<?php endforeach ?>
+</ul></div>
+<?php endif ?>
+<?php $menuReasons =['no_location' => 'this site has a main and a footer menu, and other menus took them', 'empty' => 'none of its links lead to anything that was imported',
     'draft_taken' => 'the draft look already holds a different menu for this place – nothing was overwritten', 'already_imported' => 'it was imported by an earlier run']; ?>
 <?php if (($state['menu_vysledek'] ?? []) !== []): ?>
 <h2><?= e(t('Menus')) ?></h2>

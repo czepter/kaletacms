@@ -262,9 +262,19 @@ final class Batch
         $count = 0;
         foreach ($source->read((int) $state['pozice']) as $order => $record) {
             if ($record instanceof Post) {
-                $this->db->transaction(function () use ($record, &$state): void {
-                    $this->post($record, $state);
-                });
+                $before = $state;
+                try {
+                    $this->db->transaction(function () use ($record, &$state): void {
+                        // HTML over a limit of Core\HtmlLimits stops the record at once (3.8): nothing of it is stored
+                        \Kaleta\Core\HtmlLimits::guard(function () use ($record, &$state): void {
+                            $this->post($record, $state);
+                        });
+                    });
+                } catch (\Kaleta\Core\HtmlTooLarge $e) {
+                    $state = $before; // left out, with its title and the limit in the report (as WordPress posts)
+                    $state['prilis_velke'] = array_slice([...(array) ($state['prilis_velke'] ?? []),
+                        ['titulek' => mb_substr($record->title !== '' ? $record->title : $record->key, 0, 120), 'limit' => $e->violation]], -15);
+                }
             }
             $state['pozice'] = $order + 1;
             if ((++$count >= $batch || microtime(true) > $end) && $state['pozice'] < $state['celkem']) {

@@ -275,9 +275,9 @@ final class Build
             $clean[$key] = match ($def['typ']) {
                 'text' => mb_substr(trim(strip_tags(is_scalar($value) ? (string) $value : '')), 0, $max),
                 'radky' => mb_substr(strip_tags(is_scalar($value) ? (string) $value : ''), 0, $max),
-                'inline' => self::inline(is_scalar($value) ? (string) $value : '', $max),
-                'html' => WpContent::safeHtml(is_scalar($value) ? mb_substr((string) $value, 0, 200000) : ''),
-                'kod' => self::code(is_scalar($value) ? mb_substr((string) $value, 0, $max) : ''),
+                'inline' => self::withinLimits(fn (): string => self::inline(is_scalar($value) ? (string) $value : '', $max), $path . '.' . $key, $errors),
+                'html' => self::withinLimits(fn (): string => WpContent::safeHtml(is_scalar($value) ? mb_substr((string) $value, 0, 200000) : ''), $path . '.' . $key, $errors),
+                'kod' => self::withinLimits(fn (): string => self::code(is_scalar($value) ? mb_substr((string) $value, 0, $max) : ''), $path . '.' . $key, $errors),
                 'odkaz' => self::link(is_scalar($value) ? (string) $value : '', $path . '.' . $key, $errors),
                 'obrazek' => is_string($value) && preg_match('#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300}|\{\{[a-z][a-z0-9_]{0,30}\}\})$#D', $value) ? $value : '',
                 'vyber' => is_scalar($value) && isset($def['moznosti'][(string) $value]) ? (string) $value : (string) $def['vychozi'],
@@ -302,6 +302,45 @@ final class Build
         }
 
         return $clean;
+    }
+
+    /**
+     * A sanitized field; HTML over a limit of Core\HtmlLimits leaves the field empty with a note (never the input as it was).
+     *
+     * @param callable(): string $sanitize
+     * @param array<string, string> $errors
+     */
+    private static function withinLimits(callable $sanitize, string $place, array &$errors): string
+    {
+        try {
+            return \Kaleta\Core\HtmlLimits::guard($sanitize);
+        } catch (\Kaleta\Core\HtmlTooLarge $e) {
+            $errors[$place] = self::limitNote($e->violation);
+
+            return '';
+        }
+    }
+
+    /**
+     * The note for a field over a limit of Core\HtmlLimits (a Czech source text like every builder note; Mcp\Translator::NOTICES
+     * has the English).
+     *
+     * @param array{limit: string, value: int, max: int} $v
+     */
+    public static function limitNote(array $v): string
+    {
+        return sprintf(match ($v['limit']) {
+            'bytes' => 'Kód má %d bajtů, nejvýš smí mít %d – obsah pole vynechán.',
+            'depth' => 'Kód je vnořený do %d úrovní, nejvýš smí do %d – obsah pole vynechán.',
+            'attributes' => 'Prvek v kódu má %d atributů, nejvýš smí mít %d – obsah pole vynechán.',
+            default => 'Kód má %d prvků, nejvýš smí mít %d – obsah pole vynechán.',
+        }, $v['value'], $v['max']);
+    }
+
+    /** A note of limitNote(). */
+    public static function isLimitNote(string $note): bool
+    {
+        return str_ends_with($note, ' – obsah pole vynechán.');
     }
 
     /** Short text with bold, italic, highlight (mark = the accent color, e.g. a dot after a title), line break and link – nothing else. */
@@ -350,10 +389,10 @@ final class Build
     private static function codePass(string $html): string
     {
         if (trim($html) === '' || !preg_match('/<|&/', $html)) {
-            return $html;
+            return \Kaleta\Core\HtmlLimits::refuse(\Kaleta\Core\HtmlLimits::check($html)) ? '' : $html;
         }
-        $doc = \Dom\HTMLDocument::createFromString('<!DOCTYPE html><html><body>' . $html . '</body></html>', LIBXML_NOERROR, 'UTF-8');
-        $body = $doc->body;
+        $doc = \Kaleta\Core\HtmlLimits::fragment($html); // over a limit: '' (an error when saving, nothing when rendering)
+        $body = $doc?->body;
         if ($body === null) {
             return '';
         }

@@ -318,9 +318,16 @@ final class CollectionCategories
             'visible' => array_key_exists('visible', $input) ? (filter_var($input['visible'], FILTER_VALIDATE_BOOL) ? 1 : 0) : (int) ($previous['visible'] ?? true),
             'updated_at' => date('Y-m-d H:i:s'),
         ];
+        try {
+            $description = array_key_exists('description', $input)
+                ? \Kaleta\Core\HtmlLimits::guard(fn (): string => WpContent::safeHtml(mb_substr(is_scalar($input['description']) ? (string) $input['description'] : '', 0, 100000)))
+                : ($stored['description'] ?? '');
+        } catch (\Kaleta\Core\HtmlTooLarge $e) {
+            throw new \InvalidArgumentException(t('The description: %s', \Kaleta\Core\HtmlLimits::message($e->violation)), 0, $e); // nothing saved
+        }
         $texts = [
             'name' => $name, 'slug' => $slug,
-            'description' => array_key_exists('description', $input) ? WpContent::safeHtml(mb_substr(is_scalar($input['description']) ? (string) $input['description'] : '', 0, 100000)) : ($stored['description'] ?? ''),
+            'description' => $description,
             'seo_title' => $text('seo_title', 200) ?? $stored['seo_title'] ?? '', 'seo_description' => $text('seo_description', 300) ?? $stored['seo_description'] ?? '',
         ];
 

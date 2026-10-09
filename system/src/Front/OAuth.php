@@ -178,7 +178,7 @@ final class OAuth
         $r = $this->app->request;
         $client = $this->client($r->get('client_id'));
         $redirectUri = $r->get('redirect_uri');
-        if ($client === null || !in_array($redirectUri, json_decode((string) $client['presmerovani'], true) ?: [], true)) {
+        if ($client === null || !self::redirectAllowed($redirectUri, (array) (json_decode((string) $client['presmerovani'], true) ?: []))) {
             return new Response('<!doctype html><meta charset="utf-8"><title>' . e(t('Invalid sign-in request')) . '</title><p style="font:16px system-ui;margin:3em">'
                 . e(t('The application did not register correctly with this website (unknown client or return address). Please connect it again.')) . '</p>', 400, ['Content-Type' => 'text/html; charset=utf-8']);
         }
@@ -484,9 +484,38 @@ final class OAuth
         return isset(\Kaleta\Mcp\Catalog::CONNECTION_ACCESS[$access]) ? $access : 'read';
     }
 
+    /**
+     * Is the redirect_uri of a sign-in request one the client registered (3.8)? Exactly – or, for a loopback address, with
+     * any port: RFC 8252 §7.3 requires it for 127.0.0.1 and [::1], and Claude asks the same for localhost, because Claude
+     * Code listens for the answer on a port the system gives it each time. Scheme, host, path and query must still match.
+     *
+     * @param array<mixed> $registered the client's registered redirect_uris
+     */
+    public static function redirectAllowed(string $requested, array $registered): bool
+    {
+        if (in_array($requested, $registered, true)) {
+            return true;
+        }
+        $withoutPort = function (string $url): ?string {
+            // the port, when there is one, is a plain number 1–65535 (no :0, :01, :+1 or an empty port – N38-4)
+            if (preg_match('#^http://(?:localhost|127\.0\.0\.1|\[::1\])(?::([1-9][0-9]{0,4}))?(?:[/?]|$)#D', $url, $m) !== 1 || (int) ($m[1] ?? 1) > 65535) {
+                return null;
+            }
+            $parts = self::isValidRedirectUri($url) ? parse_url($url) : false;
+            if (!is_array($parts) || ($parts['scheme'] ?? '') !== 'http' || !in_array($parts['host'] ?? '', ['localhost', '127.0.0.1', '[::1]'], true) || isset($parts['user']) || isset($parts['pass'])) {
+                return null;
+            }
+
+            return 'http://' . $parts['host'] . ($parts['path'] ?? '') . (isset($parts['query']) ? '?' . $parts['query'] : '');
+        };
+        $loopback = $withoutPort($requested);
+
+        return $loopback !== null && in_array($loopback, array_map(fn (mixed $uri): ?string => is_string($uri) ? $withoutPort($uri) : null, $registered), true);
+    }
+
     public static function isValidRedirectUri(string $url): bool
     {
-        if (strlen($url) > 500 || str_contains($url, '#') || preg_match('/[\s<>"\\\\]/', $url)) {
+        if (strlen($url) > 500 || str_contains($url, '#') || preg_match('/[\s<>"\\\\\x00-\x1f\x7f]/', $url)) { // no control characters (N38-4: a NUL after the port)
             return false;
         }
         $parts = parse_url($url);

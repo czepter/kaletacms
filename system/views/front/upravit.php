@@ -9,6 +9,7 @@
  * @var string $akce      url for saving
  * @var string $zpet      url to return to after saving or cancelling
  * @var bool $chyba       saving failed (empty title)
+ * @var bool $limit       saving failed: the HTML was over a safety limit (Core\HtmlLimits)
  */
 ?>
 <link rel="stylesheet" href="<?= e($app->url('image/editor.css')) ?>?v=<?= e(KALETA_VERSION) ?>">
@@ -19,6 +20,8 @@
 		<input type="hidden" name="zpet" value="<?= e($zpet) ?>">
 <?php if ($chyba): ?>
 		<p class="ka-upravit-hlaska"><?= e(t('The title must not be empty.')) ?></p>
+<?php elseif ($limit ?? false): ?>
+		<p class="ka-upravit-hlaska"><?= e(t('Nothing was saved: the text is over a safety limit for HTML (too large or nested too deeply).')) ?></p>
 <?php endif ?>
 		<p><label for="ka-titulek"><?= e(t('Titulek')) ?></label>
 			<input class="ka-upravit-titulek" type="text" id="ka-titulek" name="titulek" value="<?= e($zaznam['titulek']) ?>" maxlength="200" required></p>

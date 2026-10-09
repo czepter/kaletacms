@@ -380,13 +380,13 @@ check('2.1: MCP catalog, English definitions, parameter types and methods agree'
     array_values(array_filter(array_column(Kaleta\Mcp\Tools::definitions(), 'name'), fn (string $n): bool => Kaleta\Mcp\Catalog::english($n) === null)),
     array_values(array_diff(array_map([Kaleta\Mcp\Catalog::class, 'method'], $catalogTools), $toolMethods)), array_values(array_diff($toolMethods, array_map([Kaleta\Mcp\Catalog::class, 'method'], $catalogTools))),
     count(Kaleta\Mcp\Tools::definitions()), Kaleta\Mcp\Tools::annotations('smaz_stranku'), Kaleta\Mcp\Tools::isWriteTool('site_audit'), Kaleta\Mcp\Catalog::extension('seznam_novinek'),
-], [[], [], [], [], [], count($catalogTools), ['readOnlyHint' => false, 'destructiveHint' => true, 'openWorldHint' => false], false, 'novinky']);
+], [[], [], [], [], [], count($catalogTools), ['title' => 'Move a page to the trash', 'readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => true, 'openWorldHint' => false], false, 'novinky']);
 // 2.2: what a connection may do – full everything, drafts only reads and drafts, read only reads; never an unknown level
 check('2.2: connection access', [Kaleta\Mcp\Catalog::allows('full', 'publish_look'), Kaleta\Mcp\Catalog::allows('drafts', 'save_build'), Kaleta\Mcp\Catalog::allows('drafts', 'create_page'),
     Kaleta\Mcp\Catalog::allows('drafts', 'publish_build'), Kaleta\Mcp\Catalog::allows('drafts', 'update_settings'), Kaleta\Mcp\Catalog::allows('drafts', 'trash_page'),
     Kaleta\Mcp\Catalog::allows('read', 'get_build'), Kaleta\Mcp\Catalog::allows('read', 'save_build'), Kaleta\Mcp\Catalog::allows('read', 'stavba_uloz'), Kaleta\Mcp\Catalog::allows('whatever', 'save_build'),
     Kaleta\Front\OAuth::access('drafts'), Kaleta\Front\OAuth::access('admin'), Kaleta\Mcp\Tools::annotations('save_build')],
-    [true, true, true, false, false, false, true, false, false, false, 'drafts', 'read', ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false]]);
+    [true, true, true, false, false, false, true, false, false, false, 'drafts', 'read', ['title' => 'Save a draft build', 'readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false]]);
 check('2.2: every drafts-only tool is a write that does not remove anything', array_values(array_filter(array_keys(Kaleta\Mcp\Catalog::TOOLS),
     fn (string $t): bool => Kaleta\Mcp\Catalog::access($t) === 'draft' && (Kaleta\Mcp\Tools::annotations($t)['readOnlyHint'] || Kaleta\Mcp\Tools::annotations($t)['destructiveHint']))), []);
 check('2.2: MCP protocol version negotiated', [Kaleta\Mcp\Server::protocol('2025-03-26'), Kaleta\Mcp\Server::protocol('2099-01-01'), Kaleta\Mcp\Server::protocol(null)],
@@ -530,6 +530,63 @@ check('2.3.1: settings forms post only fields the save reads', $unknownFields, [
 // outside the deprecation policy; an addition is recorded with php tools/contracts.php --update
 require_once __DIR__ . '/contracts.php';
 check('2.1: public contracts kept (tools/contracts)', kaleta_contract_diff(), ['broken' => [], 'added' => []]);
+// 3.8 (Connectors Directory): the contract lets annotations grow only – readOnlyHint and destructiveHint never change, a hint
+// may only turn more careful, a title is display only
+// 3.8 (Connectors Directory): Claude Code signs in through a loopback redirect on a port that changes every session
+// (RFC 8252 §7.3) – the port of a registered loopback address does not have to match; everything else still does
+$registered38 = ['https://claude.ai/api/mcp/auth_callback', 'http://127.0.0.1:33418/callback', 'http://localhost:33418/callback?x=1', 'http://[::1]:8080/cb'];
+check('3.8 OAuth: a loopback redirect_uri matches with any port, nothing else is loosened', array_map(fn (string $uri): bool => Kaleta\Front\OAuth::redirectAllowed($uri, $registered38), [
+    'https://claude.ai/api/mcp/auth_callback', 'http://127.0.0.1:51234/callback', 'http://127.0.0.1/callback', 'http://localhost:9/callback?x=1', 'http://[::1]:1/cb',
+    'https://claude.ai:8443/api/mcp/auth_callback', 'http://127.0.0.1:51234/other', 'http://localhost:51234/callback', 'http://127.0.0.1:51234/callback?y=2', 'https://127.0.0.1:51234/callback',
+    'http://evil.example:33418/callback', 'http://user@127.0.0.1:5/callback', 'http://127.0.0.1:5/callback#x']),
+    [true, true, true, true, true, false, false, false, false, false, false, false, false]);
+// N38-4: the port is a plain number 1–65535 – no :0, leading zeros, a sign, an empty port or a control character after it
+check('3.8 N38-4: a loopback port must be a plain number, no control characters', array_map(fn (string $uri): bool => Kaleta\Front\OAuth::redirectAllowed($uri, $registered38), [
+    'http://127.0.0.1:0/callback', 'http://127.0.0.1:01/callback', 'http://127.0.0.1:+1/callback', 'http://127.0.0.1:/callback', "http://127.0.0.1:5\0/callback",
+    'http://127.0.0.1:65536/callback', 'http://127.0.0.1:65535/callback', "http://127.0.0.1:5/call\tback"]), [false, false, false, false, false, false, true, false]);
+check('3.8: annotation changes in the contract – only additive or more careful ones pass', [
+    kaleta_annotation_diff(['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false], ['title' => 'List pages', 'readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => true]),
+    kaleta_annotation_diff(['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => true], ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false]),
+    kaleta_annotation_diff(['title' => 'A', 'readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => true], ['title' => 'B', 'readOnlyHint' => false, 'destructiveHint' => true]),
+    kaleta_annotation_diff(['readOnlyHint' => false, 'destructiveHint' => true], ['readOnlyHint' => false, 'idempotentHint' => true])],
+    [['broken' => [], 'added' => ['annotation openWorldHint false → true', 'annotation title "List pages"']],
+     ['broken' => ['annotation readOnlyHint changed', 'annotation openWorldHint changed'], 'added' => []],
+     ['broken' => [], 'added' => ['annotation title "A" → "B"', 'annotation idempotentHint true → null']],
+     ['broken' => ['annotation destructiveHint removed'], 'added' => ['annotation idempotentHint true']]]);
+// 3.8: every tool has a short English title, the same in tools/list (top level) and in annotations.title
+$titles38 = Kaleta\Mcp\Catalog::TITLES;
+check('3.8: every MCP tool has a title – one per tool, unique, at most 40 characters, sentence case', [
+    array_values(array_diff(array_keys(Kaleta\Mcp\Catalog::TOOLS), array_keys($titles38))), array_values(array_diff(array_keys($titles38), array_keys(Kaleta\Mcp\Catalog::TOOLS))),
+    array_keys(array_filter(array_count_values($titles38), fn (int $n): bool => $n > 1)),
+    array_keys(array_filter($titles38, fn (string $t): bool => mb_strlen($t) > 40 || preg_match('/^[A-Z][^.]*[^.\s]$/u', $t) !== 1))], [[], [], [], []]);
+$listed38 = array_map(Kaleta\Mcp\Server::listed(...), Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()));
+check('3.8: tools/list items lead with name and title, the title equals annotations.title, and nothing of the definition is lost', [
+    array_values(array_filter($listed38, fn (array $t): bool => array_slice(array_keys($t), 0, 2) !== ['name', 'title'] || $t['title'] !== $t['annotations']['title'] || $t['title'] !== $titles38[$t['name']])),
+    array_values(array_filter(Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()), fn (array $t): bool => array_diff_key(Kaleta\Mcp\Server::withReason($t), Kaleta\Mcp\Server::listed($t)) !== []))], [[], []]);
+// 3.8: the hints by the English name – a Czech alias gets exactly the same annotations (before, the open-world list mixed
+// Czech and English names and depended on which name the caller passed)
+check('3.8: a Czech alias and the English name have the same annotations', array_values(array_filter(array_keys(Kaleta\Mcp\Catalog::TOOLS),
+    fn (string $en): bool => Kaleta\Mcp\Tools::annotations((string) (Kaleta\Mcp\Translator::czech($en) ?? $en)) !== Kaleta\Mcp\Tools::annotations($en))), []);
+check('3.8: openWorldHint – exactly the tools that fetch an outside address or e-mail people outside the site', [
+    array_keys(array_filter(array_combine(array_keys(Kaleta\Mcp\Catalog::TOOLS), array_map(fn (string $t): bool => Kaleta\Mcp\Tools::annotations($t)['openWorldHint'], array_keys(Kaleta\Mcp\Catalog::TOOLS))))),
+    array_map(fn (string $cs): bool => Kaleta\Mcp\Tools::annotations($cs)['openWorldHint'], ['nahraj_soubor', 'importuj_web', 'uloz_polozku_kolekce', 'seznam_medii']),
+    array_values(array_diff(Kaleta\Mcp\Catalog::OPEN_WORLD, array_keys(Kaleta\Mcp\Catalog::TOOLS)))],
+    [['save_collection_items', 'upload_file', 'import_website', 'migration_report', 'import_wordpress', 'request_testimonial', 'cancel_booking', 'confirm_booking', 'decline_booking', 'propose_booking_times', 'send_newsletter'],
+     [true, true, false, false], []]);
+// the tools on the list really reach outside: each downloads through Core\ImageDownloader / WpImport::download, or e-mails
+$handlers38 = implode("\n", array_map(fn (string $f): string => (string) file_get_contents($f), [...glob(KALETA_ROOT . '/system/src/Mcp/Handlers/*.php') ?: [], KALETA_ROOT . '/system/src/Mcp/Tools.php']));
+$method38 = function (string $tool) use ($handlers38): string {
+    $start = strpos($handlers38, 'function ' . Kaleta\Mcp\Catalog::method($tool) . '(');
+
+    return $start === false ? '' : substr($handlers38, $start, (int) (strpos($handlers38, "\n    }\n", $start) ?: strlen($handlers38)) - $start);
+};
+check('3.8: every open-world tool\'s code downloads, imports or e-mails (or hands it to the class that does)', array_values(array_filter(Kaleta\Mcp\Catalog::OPEN_WORLD,
+    fn (string $t): bool => preg_match('/ImageDownloader|WpImport::download|WebImport|MigrationReport|ItemBatch|Mailing::|Testimonials::request|Booking::(confirm|decline|cancel|propose)|uploadFile|customer_notified/', $method38($t)) !== 1)), []);
+check('3.8: idempotentHint only on write tools of the verified list, never on a read, a send, a publish or an import', [
+    array_values(array_diff(Kaleta\Mcp\Catalog::IDEMPOTENT, array_keys(array_filter(Kaleta\Mcp\Catalog::TOOLS, fn (array $t): bool => $t[0] !== 'read')))),
+    array_values(array_filter(array_keys(Kaleta\Mcp\Catalog::TOOLS), fn (string $t): bool => isset(Kaleta\Mcp\Tools::annotations($t)['idempotentHint']) !== in_array($t, Kaleta\Mcp\Catalog::IDEMPOTENT, true))),
+    array_values(array_intersect(Kaleta\Mcp\Catalog::IDEMPOTENT, ['publish_build', 'publish_look', 'send_newsletter', 'send_test_newsletter', 'import_wordpress', 'import_website', 'edit_build', 'save_section', 'save_hours_exception', 'update_settings', 'create_page', 'create_news', 'upload_file']))],
+    [[], [], []]);
 // MCP in English: every tool has an English name, every fixed message a translation, parameters and results are converted
 $mcpSource = (string) file_get_contents(KALETA_ROOT . '/system/src/Mcp/Tools.php');
 preg_match_all("/^\s+\['([a-z_]+)', '/m", substr($mcpSource, 0, (int) strpos($mcpSource, 'public function call(')), $mcpTools);
@@ -1239,7 +1296,7 @@ check('3.6 WpImport::options: unknown values fall back, menu places only main/fo
 })(), [false, false, true, true]);
 check('3.6 import_wordpress: a write tool (not for a drafts-only connection) that reaches outside the site, English only',
     [Kaleta\Mcp\Catalog::access('import_wordpress'), Kaleta\Mcp\Catalog::allows('drafts', 'import_wordpress'), Kaleta\Mcp\Tools::annotations('import_wordpress'), Kaleta\Mcp\Translator::czech('import_wordpress')],
-    ['write', false, ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => true], 'import_wordpress']);
+    ['write', false, ['title' => 'Import a WordPress export', 'readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => true], 'import_wordpress']);
 check('WpImport náhled: adresy příloh pro galerie a hlavní obrázky', $wpState['prilohy'][202] ?? '', 'https://www.podhorsky-zpravodaj.example/wp-content/uploads/2026/05/pohled.jpg');
 
 /* ---------- import from WordPress: SEO plugin data (SmartCrawl, Yoast SEO, Rank Math) ---------- */
@@ -3345,6 +3402,12 @@ $api->mcpTool('greet', 'Greets.', ['properties' => []], 'write', fn (array $a): 
 check('3.0 Api: unknown filters, access levels and names are refused; a tool is ext_<slug>_<name> with its access in the catalog', [count($apiErrors), $reg->tool('ext_unit_greet')['access'] ?? null,
     Kaleta\Mcp\Catalog::access('ext_unit_greet'), Kaleta\Mcp\Catalog::english('ext_unit_greet'), Kaleta\Mcp\Catalog::allows('read', 'ext_unit_greet'), Kaleta\Mcp\Catalog::allows('full', 'ext_unit_greet')],
     [3, 'write', 'write', 'ext_unit_greet', false, true]);
+$api->mcpTool('list_orders', 'Lists orders.', ['properties' => []], 'read', fn (array $a): string => 'x');
+$api->mcpTool('sync_stock', 'Syncs the stock.', ['properties' => []], 'write', fn (array $a): string => 'x', '', '<b>Sync the  stock</b>', openWorld: true, idempotent: true);
+check('3.8 Api: an add-on tool gets a title (its own, or its name in words) and the hints it declares', [Kaleta\Mcp\Tools::annotations('ext_unit_list_orders'), Kaleta\Mcp\Tools::annotations('ext_unit_sync_stock'),
+    Kaleta\Mcp\Tools::annotations('ext_unit_greet')['title'], Kaleta\Mcp\Server::listed(['name' => 'ext_unit_list_orders', 'description' => 'Lists orders.', 'inputSchema' => ['type' => 'object']])['title']],
+    [['title' => 'List orders', 'readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+     ['title' => 'Sync the stock', 'readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => true], 'Greet', 'List orders']);
 
 /* ---------- 3.0: structured importers – the common base, Ghost and Blogger (Import\…) ---------- */
 $ghostPath = dirname(__DIR__) . '/tools/fixtures/ghost-export.json';
@@ -3808,7 +3871,7 @@ check('3.3.2 (N36): .htaccess and the development router serve only extensions/<
 check('3.3.2 (N39): add-on tools may name a role or a section; without it read and draft are open, write needs an editor, destructive an administrator', [
     Kaleta\Extension\Api::TOOL_ROLES, (new ReflectionClassConstant(Kaleta\Extension\Api::class, 'DEFAULT_ROLE'))->getValue(),
     array_map(fn (ReflectionParameter $p): string => $p->getName() . ($p->isOptional() ? '?' : ''), (new ReflectionMethod(Kaleta\Extension\Api::class, 'mcpTool'))->getParameters())],
-    [['author', 'editor', 'admin'], ['read' => 'author', 'draft' => 'author', 'write' => 'editor', 'destructive' => 'admin'], ['name', 'description', 'schema', 'access', 'handler', 'requires?']]);
+    [['author', 'editor', 'admin'], ['read' => 'author', 'draft' => 'author', 'write' => 'editor', 'destructive' => 'admin'], ['name', 'description', 'schema', 'access', 'handler', 'requires?', 'title?', 'openWorld?', 'idempotent?']]);
 check('3.3.2 (N40): the installation takes the version and the security flag it was decided for', array_map(fn (ReflectionParameter $p): string => $p->getName(),
     (new ReflectionMethod(Kaleta\Core\Updater::class, 'install'))->getParameters()), ['db', 'expectedVersion', 'expectedSecurity']);
 check('3.3.2 (N43): an API fetch that carries a token is not redirected from https to plain http', [
@@ -4482,16 +4545,268 @@ foreach ($pathological as $shape => $html) {
 }
 check('3.7 N37-3: 200 KB of pathological markup parses in under 3 s each, the tree at most about 512 deep', [$slow, $deepest <= 520], [[], true]);
 // a deep tree must not crash PHP: libxml copies and frees it recursively (8.3 old parser: a segfault at 5,000 levels with a 1 MB
-// stack). The sanitizers and HtmlConverter (cloneNode) run in a child PHP with a 1 MB stack, as on a small CI or thread stack.
-if (PHP_VERSION_ID < 80400 && DIRECTORY_SEPARATOR === '/' && function_exists('shell_exec')) {
+// stack; PHP 8.4's own parser between 4,000 and 5,000). Since 3.8 Core\HtmlLimits refuses such markup before any parser sees
+// it, on every PHP version: 20,000 nested elements give '' from every sanitizer and an HtmlTooLarge from HtmlConverter, and the
+// deepest markup the limits let through (510 levels) goes through all of them, the native parser and cloneNode – in a child
+// PHP with a 1 MB stack, as on a small CI or thread stack.
+if (DIRECTORY_SEPARATOR === '/' && function_exists('shell_exec')) {
     $deepScript = (string) tempnam(sys_get_temp_dir(), 'kaleta-deep');
-    file_put_contents($deepScript, '<?php require ' . var_export(KALETA_SYSTEM . '/bootstrap.php', true) . '; $deep = str_repeat("<div><b>", 20000);'
-        . ' Kaleta\Core\Html::safe($deep); Kaleta\Builder\Build::code($deep); Kaleta\Core\WpContent::safeHtml($deep); Kaleta\Core\WebImport::safeContent($deep);'
-        . ' Kaleta\Builder\HtmlConverter::convert("<details><summary>q</summary>" . $deep . "x</details>"); echo "ok";');
+    file_put_contents($deepScript, '<?php require ' . var_export(KALETA_SYSTEM . '/bootstrap.php', true) . '; use Kaleta\Core\{Html, HtmlLimits, HtmlTooLarge, WpContent, WebImport}; use Kaleta\Builder\{Build, HtmlConverter};'
+        . ' $deep = str_repeat("<div><b>", 20000); $edge = str_repeat("<div>", 500) . str_repeat("<span><b>", 5) . "x";'
+        . ' $refused = [Html::safe($deep), Build::code($deep), WpContent::safeHtml($deep), WebImport::safeContent($deep), Html::transform($deep, fn () => null)] === ["", "", "", "", ""];'
+        . ' try { HtmlConverter::convert("<details><summary>q</summary>" . $deep . "x</details>"); $refused = false; } catch (HtmlTooLarge) {}'
+        . ' $doc = HtmlLimits::fragment($edge); $copy = $doc?->body?->cloneNode(true); unset($copy, $doc);'
+        . ' $passed = HtmlLimits::check($edge) === null && Html::safe($edge) !== "" && Build::code($edge) !== "" && WpContent::safeHtml($edge) !== "" && WebImport::safeContent($edge) !== ""'
+        . ' && HtmlConverter::convert("<details><summary>q</summary>" . $edge . "</details>")["stavba"]["deti"] !== [];'
+        . ' echo $refused && $passed ? "ok" : "wrong " . var_export([$refused, $passed], true);');
     $deepRun = shell_exec('ulimit -s 1024 2>/dev/null; ' . escapeshellarg(PHP_BINARY) . ' -d memory_limit=512M ' . escapeshellarg($deepScript) . ' 2>&1');
     unlink($deepScript);
-    check('3.7: 20,000 nested elements through every sanitizer and HtmlConverter do not crash PHP 8.3 with a 1 MB stack', $deepRun, 'ok');
+    check('3.8 N37-3: 20,000 nested elements are refused by every sanitizer and HtmlConverter, the deepest allowed markup does not crash PHP ' . PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION . ' with a 1 MB stack', $deepRun, 'ok');
 }
+
+/* ---------- 3.8: size and nesting limits before any HTML is parsed (Core\HtmlLimits) ---------- */
+use Kaleta\Core\HtmlLimits;
+use Kaleta\Core\HtmlTooLarge;
+
+// the N37-3 shapes (and the one that made PHP 8.4's own parser use 2 GB): refused in well under a second each, by the limit
+// that is passed first; "p soup" is linear for every parser and stays allowed (39,000 elements)
+$limitShapes = $pathological + ['reopened in divs' => implode('', array_map(fn (int $i): string => '<div><b id=' . $i . '></div>', range(1, 3000))) . str_repeat('<p>x</p>', 3000),
+    '160,000 divs' => str_repeat('<div>', 160000), 'oversized' => str_repeat('x', HtmlLimits::MAX_BYTES + 1)];
+$limitResults = [];
+$limitSlow = [];
+foreach ($limitShapes as $shape => $html) {
+    $started = microtime(true);
+    $limitResults[$shape] = HtmlLimits::check($html)['limit'] ?? 'allowed';
+    if (($took = microtime(true) - $started) > 1.0) {
+        $limitSlow[] = $shape . ' ' . round($took, 2) . ' s';
+    }
+}
+check('3.8: every pathological shape is refused fast, by the right limit', [$limitResults, $limitSlow], [[
+    'unclosed div' => 'depth', 'p in button scope' => 'depth', 'p soup' => 'allowed', 'nested formatting' => 'depth', 'reopened formatting' => 'elements',
+    'formatting with ids' => 'elements', 'misnested a' => 'depth', 'many attributes' => 'attributes', 'unclosed li' => 'depth', 'svg' => 'depth', 'table' => 'depth',
+    'reopened in divs' => 'elements', '160,000 divs' => 'depth', 'oversized' => 'bytes'], []]);
+// the measured value is in the violation and in the messages (English for MCP and logs, the admin's language in forms)
+$limitDeep = HtmlLimits::check(str_repeat('<div>', 40000));
+check('3.8: a refusal names the limit and the measured value', [$limitDeep, HtmlLimits::english($limitDeep ?? ['limit' => '', 'value' => 0, 'max' => 0]),
+    (new HtmlTooLarge($limitDeep ?? ['limit' => '', 'value' => 0, 'max' => 0], 'text'))->getMessage()],
+    [['limit' => 'depth', 'value' => 40000, 'max' => 512], 'The markup is nested 40,000 levels deep; the limit is 512.', 'text: The markup is nested 40,000 levels deep; the limit is 512.']);
+// the model of the parser: what it does not see is markup – comments, raw text, attribute values, CDATA in SVG, script escapes
+check('3.8: the pre-scan skips comments, raw text, attribute values and script escapes; implied end tags close', [
+    HtmlLimits::measure(str_repeat('<!--<div>-->', 600) . '<style>' . str_repeat('<div>', 600) . '</style><textarea>' . str_repeat('<div>', 600) . '</textarea>'
+        . '<p title="' . str_repeat('<div>', 600) . '">x</p><script><!--<script></script>' . str_repeat('<div>', 600) . '</script>--></script>'),
+    HtmlLimits::measure('<svg><![CDATA[' . str_repeat('<g>', 600) . ']]><g/><g/></svg>'),
+    HtmlLimits::measure(str_repeat('<p>x', 2000) . '<ul>' . str_repeat('<li>x', 2000) . '</ul><table>' . str_repeat('<tr><td>a<td>b', 2000) . '</table><dl>' . str_repeat('<dt>a<dd>b', 2000)),
+    HtmlLimits::measure(str_repeat('<div>', 600), true)['depth'], HtmlLimits::check(str_repeat('<g>', 300), true)['limit'] ?? null,
+], [['depth' => 1, 'elements' => 4, 'attributes' => 1], ['depth' => 2, 'elements' => 3, 'attributes' => 0], ['depth' => 4, 'elements' => 14004, 'attributes' => 0], 600, 'depth']);
+// the model never lets the tree outgrow it: a fixed set of snippets, each repeated 10 and 40 times – a snippet whose tree grows
+// faster than the model would let pathological markup through (3.8 fuzzing on 8.4 and 8.3: 40,000 snippets, none)
+mt_srand(38);
+$limitTags = ['div', 'p', 'b', 'i', 'a', 'span', 'li', 'ul', 'dd', 'dt', 'table', 'tr', 'td', 'tbody', 'caption', 'col', 'svg', 'math', 'g', 'foreignObject',
+    'desc', 'mi', 'font', 'nobr', 'em', 'h1', 'h2', 'form', 'button', 'select', 'option', 'optgroup', 'script', 'style', 'title', 'textarea', 'template', 'object',
+    'marquee', 'br', 'img', 'input', 'ruby', 'rb', 'rt', 'rtc', 'section', 'small', 'sub', 'sup', 'label', 'details', 'address', 'frameset', 'noscript'];
+$limitAttributes = ['', '', '', ' id=1', ' id=2', ' class="x"', ' color=red', ' encoding="text/html"'];
+$limitTree = static function (string $html): array {
+    $doc = Dom\HTMLDocument::createFromString('<!DOCTYPE html><html><body>' . $html . '</body></html>', LIBXML_NOERROR, 'UTF-8'); // the parser itself, for comparison
+    [$deepest, $count, $stack] = [0, 0, [[$doc, 0]]];
+    while ($stack !== []) {
+        [$node, $depth] = array_pop($stack);
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof Dom\Element) {
+                [$count, $deepest, $stack[]] = [$count + 1, max($deepest, $depth + 1), [$child, $depth + 1]];
+            }
+        }
+    }
+
+    return [$deepest - 2, $count - 3]; // without html and body (and head)
+};
+$limitFaster = [];
+for ($i = 0; $i < 250; $i++) {
+    $snippet = '';
+    for ($k = mt_rand(2, 10); $k > 0; $k--) {
+        $tag = $limitTags[mt_rand(0, count($limitTags) - 1)];
+        $roll = mt_rand(0, 9);
+        $snippet .= $roll < 5 ? '<' . $tag . $limitAttributes[mt_rand(0, count($limitAttributes) - 1)] . (mt_rand(0, 12) === 0 ? '/' : '') . '>' : ($roll < 8 ? '</' . $tag . '>' : ['x', ' ', '&amp;', '</p>'][mt_rand(0, 3)]);
+    }
+    $few = HtmlLimits::measure(str_repeat($snippet, 10));
+    $many = HtmlLimits::measure(str_repeat($snippet, 40));
+    [$fewDepth, $fewCount] = $limitTree(str_repeat($snippet, 10));
+    [$manyDepth, $manyCount] = $limitTree(str_repeat($snippet, 40));
+    // unsafe would be: the tree gets deeper faster than the model, or it gets over twice as many more elements while the model
+    // does not get deeper with every repetition (if it does, the depth limit stops it after at most 512 repetitions)
+    if ((PHP_VERSION_ID >= 80400 || $manyDepth < 500) && ($many['depth'] - $few['depth'] < $manyDepth - $fewDepth
+        || (2 * ($many['elements'] - $few['elements']) < $manyCount - $fewCount && $many['depth'] - $few['depth'] < 30))) {
+        $limitFaster[] = $snippet;
+    }
+}
+check('3.8: the pre-scan grows at least as fast as the tree the parser builds (250 repeated snippets)', $limitFaster, []);
+
+// each kind of place that parses HTML refuses the pathological input – fast, never with the input passed through
+$limitDeepHtml = str_repeat('<div><b>', 20000);
+$limitDeepPage = '<!DOCTYPE html><html><head><title>Old</title></head><body><main>' . $limitDeepHtml . '</main></body></html>';
+$limitTimed = static function (callable $work): mixed {
+    $started = microtime(true);
+    try {
+        $result = $work();
+    } catch (HtmlTooLarge $e) {
+        $result = 'refused: ' . $e->violation['limit'];
+    }
+
+    return microtime(true) - $started < 2.0 ? $result : 'slow';
+};
+[, $limitBuildErrors] = Kaleta\Builder\Build::sanitize(['v' => 1, 'deti' => [['typ' => 'sekce', 'deti' => [
+    ['id' => 'kod1', 'typ' => 'html', 'obsah' => ['kod' => str_repeat('<div>', 4000)]], ['id' => 'txt1', 'typ' => 'text', 'obsah' => ['html' => str_repeat('<b>', 1000)]]]]]], true);
+$limitTooLarge = null;
+$limitBuildErrors2 = [];
+$limitItem =Kaleta\Builder\Collections::sanitizeData([['klic' => 'popis', 'popisek' => 'Description', 'typ' => 'html']], ['popis' => $limitDeepHtml], $limitBuildErrors2, $limitTooLarge);
+check('3.8: sanitizers, conversions, imports and the SVG cleaner refuse pathological markup', [
+    $limitTimed(fn () => Kaleta\Core\Html::safe($limitDeepHtml)), $limitTimed(fn () => HtmlLimits::guard(fn () => Kaleta\Core\Html::safe($limitDeepHtml))),
+    $limitTimed(fn () => Kaleta\Core\Html::safeOrFail($limitDeepHtml, 'description')), $limitTimed(fn () => Kaleta\Core\Html::transform($limitDeepHtml, fn () => null)),
+    $limitTimed(fn () => Kaleta\Core\Html::rewriteImages('<img src=a>' . $limitDeepHtml, fn () => null)),
+    $limitTimed(fn () => Kaleta\Core\WpContent::safeHtml($limitDeepHtml)), $limitTimed(fn () => Kaleta\Core\WpContent::sanitize($limitDeepHtml)),
+    $limitTimed(fn () => Kaleta\Builder\Build::code($limitDeepHtml)), array_values($limitBuildErrors),
+    $limitTimed(fn () => Kaleta\Builder\HtmlConverter::convert($limitDeepHtml)), $limitTimed(fn () => Kaleta\Core\WebImport::safeContent($limitDeepHtml)),
+    $limitTimed(fn () => Kaleta\Core\WebImport::extract($limitDeepPage, 'https://old.example/a')), $limitTimed(fn () => Kaleta\Core\MigrationReport::analyse($limitDeepPage, 'https://old.example/a')),
+    $limitTimed(fn () => Kaleta\Core\WebImport::sitemap('<urlset>' . str_repeat('<url>', 300) . '</urlset>')),
+    $limitTimed(fn () => Kaleta\Core\Svg::sanitize('<svg xmlns="http://www.w3.org/2000/svg">' . str_repeat('<g>', 300) . str_repeat('</g>', 300) . '</svg>')),
+    $limitTimed(fn () => Kaleta\Core\Svg::sanitize('<svg xmlns="http://www.w3.org/2000/svg"><path ' . implode(' ', array_map(fn (int $i): string => 'a' . $i . '="1"', range(1, 300))) . '/></svg>')),
+    $limitTimed(function () use ($limitDeepHtml): int {
+        $log = ini_set('error_log', '/dev/null'); // the recheck logs the refusal
+        try {
+            return Kaleta\Core\ImportRecheck::risk($limitDeepHtml);
+        } finally {
+            ini_set('error_log', (string) $log);
+        }
+    }), [$limitItem, $limitTooLarge['limit'] ?? null],
+], ['', 'refused: depth', 'refused: depth', '', '', '', '', '', [
+        'Kód je vnořený do 4000 úrovní, nejvýš smí do 512 – obsah pole vynechán.', 'Kód je vnořený do 1000 úrovní, nejvýš smí do 512 – obsah pole vynechán.'],
+    'refused: depth', '', 'refused: depth', 'refused: depth', 'refused: depth', 'refused: depth', 'refused: attributes', 2, [['popis' => ''], 'depth']]);
+check('3.8: the builder note over a limit has its English for Claude and the editor', Kaleta\Mcp\Translator::message(Kaleta\Builder\Build::limitNote(['limit' => 'depth', 'value' => 4000, 'max' => 512])),
+    'The markup is nested 4000 levels deep; the limit is 512 – the field was left empty.');
+
+// legitimate large input passes unchanged: a long article (2,000 paragraphs, 1,000 list items, a 500-row table), a full page
+// of a big site (3 MB, 30,000 elements, 40 levels), a builder Custom HTML element of 20,000 characters, an SVG of 1.9 MB
+$limitArticle = str_repeat('<h2>Section</h2><p>Some <strong>bold</strong> and <a href="/x">linked</a> text, <em>long</em> enough to read.</p>', 1000)
+    . '<ul>' . str_repeat('<li>Item with <b>bold</b></li>', 1000) . '</ul><table><tbody>' . str_repeat('<tr><td>a</td><td>b</td><td>c</td></tr>', 500) . '</tbody></table>';
+$limitPage = '<!DOCTYPE html><html><head><title>Big</title><style>' . str_repeat('.a>.b{color:red}', 2000) . '</style></head><body>'
+    . str_repeat(str_repeat('<div class="wrap">', 30) . '<nav><ul>' . str_repeat('<li><a href="/p">Page</a></li>', 100) . '</ul></nav><p>' . str_repeat('Lorem ipsum dolor sit amet. ', 650)
+        . '</p>' . str_repeat('</div>', 30) . '<script>var x = "<div>"; if (a < b) {}</script>', 140) . '</body></html>';
+$limitEmbed = mb_substr('<iframe src="https://www.google.com/maps/embed?pb=' . str_repeat('x', 1000) . '" width="600" height="450" loading="lazy"></iframe>'
+    . str_repeat('<div class="booking"><span class="slot">9:00</span><button type="button">Book</button></div>', 300), 0, 20000);
+$limitSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">' . str_repeat('<g><path d="M' . str_repeat('10 20 L30 40 ', 10) . 'Z" fill="#123"/></g>', 11500) . '</svg>';
+$limitArticleClean = Kaleta\Core\Html::safe($limitArticle);
+$limitPageMeasure = HtmlLimits::measure($limitPage);
+check('3.8: large legitimate input is within the limits and comes out whole', [
+    HtmlLimits::check($limitArticle), HtmlLimits::check($limitPage), $limitPageMeasure['elements'] > 25000 && $limitPageMeasure['depth'] >= 32, strlen($limitPage) > 3_000_000,
+    HtmlLimits::check($limitEmbed), HtmlLimits::check($limitSvg, true), strlen($limitSvg) > 1_800_000,
+    substr_count($limitArticleClean, '<li>'), substr_count($limitArticleClean, '<tr>'), substr_count(Kaleta\Core\WpContent::safeHtml($limitArticle), '<p>'),
+    substr_count(Kaleta\Builder\Build::code($limitEmbed), '<button'), substr_count((string) Kaleta\Core\Svg::sanitize($limitSvg), '<path'),
+    Kaleta\Core\WebImport::extract($limitPage, 'https://old.example/big')['titulek'],
+], [null, null, true, true, null, null, true, 1000, 500, 1000, 205, 11500, 'Big']);
+// every place that parses markup goes through HtmlLimits: no other file calls the parsers itself (the compat parser is the parser)
+$limitDirect = [];
+foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(KALETA_SYSTEM, FilesystemIterator::SKIP_DOTS)) as $limitFile) {
+    $limitPath = $limitFile->getPathname();
+    if (str_ends_with($limitPath, '.php') && !preg_match('#/(compat|Compat)/#', $limitPath) && !str_ends_with($limitPath, '/Core/HtmlLimits.php')
+        && preg_match('/createFromString\(|createFromFile\(|->loadXML\(|->loadHTML\(|loadHTMLFile\(|simplexml_load_|new \\\\?SimpleXMLElement\(|Html5Parser::parse\(/', (string) file_get_contents($limitPath))) {
+        $limitDirect[] = substr($limitPath, strlen(KALETA_SYSTEM) + 1);
+    }
+}
+check('3.8: no file parses HTML or XML past Core\HtmlLimits', $limitDirect, []);
+
+// 3.8 N38-1: the pre-scan itself is linear – every search is remembered per needle, so floods of what makes a scanner
+// search ahead (comments, script escapes, quotes, CDATA, DOCTYPE, end tags of raw text) take well under a second at the
+// 5 MB limit (before: 1.9 s for 100 KB of "<!--a-->", 82 s for 640 KB). Each shape is tried at 600 KB first, so a
+// quadratic scan fails fast instead of running for hours.
+$scanBytes = static fn (string $piece, int $bytes, string $prefix = '', string $suffix = ''): string
+    => $prefix . str_repeat($piece, intdiv($bytes - strlen($prefix) - strlen($suffix), strlen($piece))) . $suffix;
+$scanShapes = [
+    'comments' => ['<!--a-->'], 'unterminated comments' => ['<!--a--'], 'bang comments' => ['<!--a--!'], 'one script, many <!--' => ['<!--a', '<script>'],
+    'scripts, one <!-- at the end' => ['<script>a</script>', '', '<!--'], 'escaped scripts' => ['<script><!--a</script>'],
+    'double escaped scripts' => ['<script><!--<script>a</script>-->'], 'unclosed quotes' => ['<a b="x\'>'], '</ flood' => ['</'],
+    '</a flood' => ['</a '], 'bogus comments' => ['</3'], '<! flood' => ['<!x'], '<? flood' => ['<?x'], 'CDATA flood in SVG' => ['<![CDATA[a]]', '<svg>'],
+    'raw text near misses' => ['<style>a</stylex>'], 'textareas' => ['<textarea>a</textarea'], 'attribute floods' => ['<p a=1 b="2" c=\'3\'>x</p>'],
+];
+$scanSlow = [];
+foreach ($scanShapes as $shape => $parts) {
+    foreach ([600_000, HtmlLimits::MAX_BYTES - 100] as $bytes) {
+        $html = $scanBytes($parts[0], $bytes, $parts[1] ?? '', $parts[2] ?? '');
+        $started = microtime(true);
+        HtmlLimits::check($html);
+        if (($took = microtime(true) - $started) > ($bytes < 1_000_000 ? 0.3 : 1.0)) {
+            $scanSlow[] = $shape . ' (' . round($bytes / 1_000_000, 1) . ' MB) ' . round($took, 2) . ' s';
+            break;
+        }
+    }
+}
+foreach (['CDATA flood (XML)' => $scanBytes('<![CDATA[a]]', HtmlLimits::MAX_BYTES - 100, '<svg>'), 'DOCTYPE flood (XML)' => $scanBytes('<!DOCTYPE a', HtmlLimits::MAX_BYTES - 100, '', '>'),
+    'processing instructions (XML)' => $scanBytes('<?a', HtmlLimits::MAX_BYTES - 100)] as $shape => $xml) {
+    $started = microtime(true);
+    HtmlLimits::check($xml, true);
+    if (($took = microtime(true) - $started) > 1.0) {
+        $scanSlow[] = $shape . ' ' . round($took, 2) . ' s';
+    }
+}
+check('3.8 N38-1: 5 MB of every scanner-pathological shape is checked in well under a second (linear pre-scan)', $scanSlow, []);
+
+// 3.8 N38-2: the encoding is decided once (byte order mark, the caller's encoding, <meta> in the first 1024 bytes, else
+// UTF-8) and the check and the parser read the same UTF-8 string – so markup in UTF-16 or behind a <meta> label can never
+// be deeper for the parser than for the check. Differential: the depth the check measures is the depth the parser builds.
+$encodingDepth = static function (Dom\HTMLDocument $doc): int {
+    [$deepest, $stack] = [0, [[$doc, 0]]];
+    while ($stack !== []) {
+        [$node, $depth] = array_pop($stack);
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof Dom\Element) {
+                [$deepest, $stack[]] = [max($deepest, $depth + 1), [$child, $depth + 1]];
+            }
+        }
+    }
+
+    return $deepest - 2; // without html and body
+};
+$encodingDivs = static fn (int $n): string => str_repeat('<div>', $n) . 'Příliš žluťoučký kůň' . str_repeat('</div>', $n);
+$encodingPage = static fn (string $meta, string $body): string => '<!DOCTYPE html><html><head>' . $meta . '<title>T</title></head><body>' . $body . '</body></html>';
+$encodingCases = [
+    'UTF-16LE with BOM' => static fn (int $n): string => "\xFF\xFE" . mb_convert_encoding($encodingPage('', $encodingDivs($n)), 'UTF-16LE', 'UTF-8'),
+    'UTF-16BE with BOM' => static fn (int $n): string => "\xFE\xFF" . mb_convert_encoding($encodingPage('', $encodingDivs($n)), 'UTF-16BE', 'UTF-8'),
+    'meta charset=utf-16' => static fn (int $n): string => $encodingPage('<meta charset=utf-16>', $encodingDivs($n)),
+    'windows-1250' => static fn (int $n): string => (string) iconv('UTF-8', 'Windows-1250', $encodingPage('<meta http-equiv="Content-Type" content="text/html; charset=windows-1250">', $encodingDivs($n))),
+    'iso-2022-jp' => static fn (int $n): string => (string) mb_convert_encoding($encodingPage('<meta charset="iso-2022-jp">', str_repeat('<div>', $n) . '日本語' . str_repeat('</div>', $n)), 'ISO-2022-JP', 'UTF-8'),
+    'bogus label (utf-7)' => static fn (int $n): string => $encodingPage('<meta charset=utf-7>', str_repeat('+ADw-div+AD4-', 1000) . $encodingDivs($n)),
+];
+$encodingResults = [];
+foreach ($encodingCases as $case => $page) {
+    $doc = HtmlLimits::document($page(100));
+    $measured = HtmlLimits::measure(HtmlLimits::toUtf8($page(100), null))['depth'];
+    try {
+        HtmlLimits::document($page(600));
+        $deep = 'parsed';
+    } catch (HtmlTooLarge $e) {
+        $deep = $e->violation['limit'];
+    }
+    $encodingResults[$case] = [$measured === $encodingDepth($doc) ? 'same' : $measured . '/' . $encodingDepth($doc), $deep,
+        str_contains((string) $doc->body?->textContent, $case === 'iso-2022-jp' ? '日本語' : 'žluťoučký')];
+}
+// a fragment that names its own encoding (HtmlConverter lets a <meta> decide) and an SVG in UTF-16 are decided the same way
+$encodingSvg = static fn (int $n): string => "\xFF\xFE" . mb_convert_encoding('<?xml version="1.0" encoding="UTF-16"?><svg xmlns="http://www.w3.org/2000/svg">'
+    . str_repeat('<g>', $n) . str_repeat('</g>', $n) . '</svg>', 'UTF-16LE', 'UTF-8');
+$encodingSvgDeep = 'parsed';
+try {
+    HtmlLimits::xml(new DOMDocument(), $encodingSvg(300), LIBXML_NONET);
+} catch (HtmlTooLarge $e) {
+    $encodingSvgDeep = $e->violation['limit'];
+}
+$encodingSvgDom = new DOMDocument();
+HtmlLimits::xml($encodingSvgDom, $encodingSvg(20), LIBXML_NONET);
+try {
+    HtmlLimits::fragmentOrFail('<meta charset=utf-16>' . str_repeat('<div>', 600), null);
+    $encodingFragment = 'parsed';
+} catch (HtmlTooLarge $e) {
+    $encodingFragment = $e->violation['limit'];
+}
+check('3.8 N38-2: the check measures what the parser builds in every encoding, and deep markup in another encoding is refused', [
+    $encodingResults, $encodingSvgDom->getElementsByTagName('g')->length, $encodingSvgDeep, $encodingFragment,
+], [array_fill_keys(array_keys($encodingCases), ['same', 'depth', true]), 20, 'depth', 'depth']);
 // the contract PHPStan checks the code against (phpVersion 8.3) must not promise more than PHP 8.4 has
 if (PHP_VERSION_ID >= 80400) {
     $domMissing = [];
@@ -4518,6 +4833,35 @@ check('3.7 updates: min_php of a manifest decides, a missing or odd one counts a
     Kaleta\Core\Updater::phpTooOld(['min_php' => '8.4'], '8.3.30'), Kaleta\Core\Updater::phpTooOld(['min_php' => '8.3'], '8.3.0'),
     Kaleta\Core\Updater::phpTooOld([], '8.3.30'), Kaleta\Core\Updater::phpTooOld(['min_php' => '8.4'], '8.4.1')],
     ['8.3', '8.4', '8.4', true, false, true, false]);
+// 3.8 (D3): release channels – the version choice is pure (Updater::choose), the stable manifest lies next to the latest one
+$offer = static function (?array $manifest, string $channel, string $current, string $php = '8.4.5'): string {
+    $c = Kaleta\Core\Updater::choose($manifest, $channel, $current, $php);
+
+    return $c['nova'] !== null ? 'offer ' . $c['nova']['verze'] . (!empty($c['nova']['bezpecnostni']) ? ' security' : '')
+        : ($c['vyzaduje_php'] !== null ? 'needs php ' . $c['vyzaduje_php']['min_php'] : ($c['ahead_of'] !== null ? 'ahead of ' . $c['ahead_of'] : ($c['chyba'] !== null ? 'error' : 'nothing')));
+};
+$latest = ['verze' => '3.10.0', 'min_php' => '8.3', 'kanal' => 'latest'];
+$stable = ['verze' => '3.8.2', 'min_php' => '8.3', 'kanal' => 'stable', 'bezpecnostni' => true];
+check('3.8 channels: latest offers the newest minor, stable only its own line, no downgrade from either', [
+    $offer($latest, 'latest', '3.8.0'), $offer($stable, 'stable', '3.8.0'), $offer($stable, 'stable', '3.8.2'),
+    $offer(['kanal' => 'stable', 'verze' => '3.10.0'] + $stable, 'stable', '3.8.2'),
+    // switched from latest while running a newer minor: nothing, never 3.8.2 – the site waits until the stable line passes it
+    $offer($stable, 'stable', '3.9.1'), $offer($latest, 'latest', '3.11.0'),
+    // a latest manifest served as the stable one (a wrong redirect, an old mirror without "kanal") offers nothing
+    $offer($latest, 'stable', '3.8.0'), $offer(['verze' => '3.10.0', 'min_php' => '8.3'], 'stable', '3.8.0'),
+    // a manifest from before 3.8 (no "kanal") still works on latest, as it did
+    $offer(['verze' => '3.10.0', 'min_php' => '8.3'], 'latest', '3.8.0'),
+    // the PHP gate holds on both channels; a stable release for a newer PHP is not offered either
+    $offer(['min_php' => '8.4'] + $stable, 'stable', '3.8.0', '8.3.30'), $offer(['min_php' => '8.4'] + $latest, 'latest', '3.8.0', '8.3.30'),
+    $offer(null, 'stable', '3.8.0'), $offer(['kanal' => 'stable'], 'stable', '3.8.0')],
+    ['offer 3.10.0', 'offer 3.8.2 security', 'nothing', 'offer 3.10.0 security', 'ahead of 3.8.2', 'nothing', 'error', 'error', 'offer 3.10.0',
+        'needs php 8.4', 'needs php 8.4', 'nothing', 'nothing']);
+check('3.8 channels: the stable manifest is the twin of aktualizace.json, wherever the source is; another file has none', [
+    Kaleta\Core\Updater::stableUrl(Kaleta\Core\Updater::DEFAULT_URL), Kaleta\Core\Updater::stableUrl('https://mirror.example/kaleta/aktualizace.json?t=1'),
+    Kaleta\Core\Updater::stableUrl('https://mirror.example/updates.php'), Kaleta\Core\Updater::stableUrl('https://mirror.example/aktualizace.json.bak'),
+    Kaleta\Core\Settings::DEFAULTS['update_channel'], Kaleta\Core\Updater::CHANNELS, in_array('update_channel', Kaleta\Core\SiteExport::SETTINGS, true),
+    Kaleta\Admin\Modules\Settings::verifyValue('update_channel', 'stable'), Kaleta\Admin\Modules\Settings::verifyValue('update_channel', 'beta')],
+    ['https://kaletacms.com/aktualizace-stable.json', 'https://mirror.example/kaleta/aktualizace-stable.json?t=1', null, null, 'latest', ['latest', 'stable'], false, 'stable', null]);
 check('3.7 updates: response headers of file_get_contents() on 8.3 come from the calling scope, on 8.4 from PHP',
     PHP_VERSION_ID >= 80400 ? is_array(last_response_headers(['HTTP/1.1 999 ignored'])) : last_response_headers(['HTTP/1.1 200 OK']), PHP_VERSION_ID >= 80400 ? true : ['HTTP/1.1 200 OK']);
 // one minimum everywhere: the bootstrap gate, PHPStan, the CI matrix, the release manifest and the README
@@ -4646,5 +4990,137 @@ $jitProbe = static function (string $mode): string {
 $jitAvailable = function_exists('opcache_get_status') && PHP_VERSION_ID < 80400;
 check('3.7 JIT: per-function JIT on first runs (1235) is named on PHP 8.3, nothing on 8.4 or without opcache', $jitProbe('1235'), $jitAvailable ? "'1235'" : 'NULL');
 check('3.7 JIT: the default tracing JIT and JIT off are fine', [$jitProbe('tracing'), $jitProbe('off'), Kaleta\Core\Health::riskyJit()], ['NULL', 'NULL', null]);
+
+/* ---------- 3.8: the "Kaleta for Claude" plugin (integrations/claude-plugin) names only what the connection has ---------- */
+// Every SKILL.md follows the Agent Skills format (name = folder, description ≤ 1024 characters, simple YAML), lists the
+// tools it uses in metadata.kaleta-tools, and every snake_case word in it is a Catalog tool (and then listed), a
+// parameter of a tool, a setting update_settings accepts, or a term the skill marks in metadata.kaleta-terms – so a
+// renamed or invented tool name fails here instead of in a user's conversation.
+$pluginRoot = KALETA_ROOT . '/integrations/claude-plugin';
+$pluginParameters = [];
+foreach (Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()) as $pluginTool) {
+    $pluginParameters += array_fill_keys(array_keys((array) $pluginTool['inputSchema']['properties']), true);
+}
+$pluginSettingsPattern = (string) (new ReflectionClassConstant(Kaleta\Mcp\Tools::class, 'MCP_SETTINGS'))->getValue();
+$pluginIsSetting = fn (string $word): bool => array_key_exists($word, Kaleta\Core\Settings::DEFAULTS)
+    && (preg_match($pluginSettingsPattern, $word) === 1 || in_array($word, ['extensions', 'additional_languages'], true));
+/**
+ * The frontmatter of a SKILL.md as the simple YAML the skills use: "key: value" lines and one "metadata:" map of
+ * "  key: value" lines; anything else (a nested list, an unquoted ": " or " #") is a problem, not a guess.
+ *
+ * @return array{0: array<string, string>, 1: array<string, string>, 2: string, 3: list<string>} fields, metadata, body, problems
+ */
+$pluginFrontmatter = function (string $text): array {
+    if (!preg_match('/\A---\n(.*?)\n---\n(.*)\z/s', str_replace("\r\n", "\n", $text), $m)) {
+        return [[], [], $text, ['no frontmatter between --- lines']];
+    }
+    $fields = $metadata = [];
+    $problems = [];
+    $inMetadata = false;
+    foreach (explode("\n", $m[1]) as $line) {
+        if (!preg_match('/^(  )?([a-z][a-z0-9-]*):(?: (.*))?$/D', $line, $kv)) {
+            $problems[] = 'not a "key: value" line: ' . $line;
+            continue;
+        }
+        $value = $kv[3] ?? '';
+        if (preg_match('/^"(.*)"$/D', $value, $quoted)) {
+            $value = $quoted[1];
+        } elseif (str_contains($value, ': ') || str_contains($value, ' #') || str_starts_with($value, '"')) {
+            $problems[] = 'quote the value of ' . $kv[2];
+        }
+        if ($kv[1] === '  ' && $inMetadata) {
+            $metadata[$kv[2]] = $value;
+        } elseif ($kv[1] === '  ') {
+            $problems[] = 'an indented line outside metadata: ' . $line;
+        } else {
+            $inMetadata = $kv[2] === 'metadata' && $value === '';
+            if (!$inMetadata) {
+                $fields[$kv[2]] = $value;
+            }
+        }
+    }
+
+    return [$fields, $metadata, $m[2], $problems];
+};
+$pluginProblems = [];
+$pluginSkills = glob($pluginRoot . '/skills/*/SKILL.md') ?: [];
+foreach ($pluginSkills as $skillFile) {
+    $skill = basename(dirname($skillFile));
+    [$fields, $metadata, $body, $problems] = $pluginFrontmatter((string) file_get_contents($skillFile));
+    foreach ($problems as $problem) {
+        $pluginProblems[] = "{$skill}: {$problem}";
+    }
+    if (($fields['name'] ?? '') !== $skill || !preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/D', $skill) || strlen($skill) > 64) {
+        $pluginProblems[] = "{$skill}: name must equal the folder name (a-z, 0-9 and single hyphens, at most 64 characters)";
+    }
+    $description = $fields['description'] ?? '';
+    if ($description === '' || mb_strlen($description) > 1024) {
+        $pluginProblems[] = "{$skill}: description must have 1–1024 characters";
+    }
+    if (substr_count($body, "\n") > 500) {
+        $pluginProblems[] = "{$skill}: keep SKILL.md under 500 lines";
+    }
+    $listed = preg_split('/\s+/', trim($metadata['kaleta-tools'] ?? ''), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    $terms = preg_split('/\s+/', trim($metadata['kaleta-terms'] ?? ''), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    foreach (array_diff($listed, array_keys(Kaleta\Mcp\Catalog::TOOLS)) as $unknown) {
+        $pluginProblems[] = "{$skill}: kaleta-tools lists {$unknown}, which is not a tool of Mcp\\Catalog";
+    }
+    foreach (array_intersect($terms, array_keys(Kaleta\Mcp\Catalog::TOOLS)) as $tool) {
+        $pluginProblems[] = "{$skill}: {$tool} is a tool – list it in kaleta-tools, not kaleta-terms";
+    }
+    preg_match_all('/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/', $description . "\n" . $body, $words);
+    $words = array_values(array_unique($words[0]));
+    $mentioned = array_values(array_filter($words, fn (string $w): bool => isset(Kaleta\Mcp\Catalog::TOOLS[$w])));
+    foreach (array_diff($mentioned, $listed) as $tool) {
+        $pluginProblems[] = "{$skill}: uses {$tool} but kaleta-tools does not list it";
+    }
+    foreach (array_diff($listed, $mentioned) as $tool) {
+        $pluginProblems[] = "{$skill}: kaleta-tools lists {$tool} but the skill never mentions it";
+    }
+    foreach ($words as $word) {
+        if (!isset(Kaleta\Mcp\Catalog::TOOLS[$word]) && !isset($pluginParameters[$word]) && !$pluginIsSetting($word) && !in_array($word, $terms, true)) {
+            $pluginProblems[] = "{$skill}: {$word} is no tool, parameter or setting of the Kaleta connection (a typo, or mark it in kaleta-terms)";
+        }
+    }
+}
+check('3.8 plugin: the five skills are there', array_map(fn (string $f): string => basename(dirname($f)), $pluginSkills),
+    ['compliance-check', 'launch-site', 'migrate-from-wordpress', 'set-up-bookings', 'weekly-care']);
+check('3.8 plugin: every SKILL.md is valid and names only tools, parameters and settings the Kaleta connection has', $pluginProblems, []);
+check('3.8 plugin: the frontmatter check refuses an invented tool, an unlisted tool and an unquoted colon', (function () use ($pluginFrontmatter): array {
+    [$fields, $metadata, $body, $problems] = $pluginFrontmatter("---\nname: x\ndescription: Do this: then that\nmetadata:\n  kaleta-tools: \"site_info\"\n---\nCall `site_info`, then `list_pagez`.\n");
+    preg_match_all('/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/', $body, $words);
+
+    return [$fields['name'] ?? '', $metadata, $problems, array_values(array_filter($words[0], fn (string $w): bool => !isset(Kaleta\Mcp\Catalog::TOOLS[$w])))];
+})(), ['x', ['kaleta-tools' => 'site_info'], ['quote the value of description'], ['list_pagez']]);
+
+// the manifest: valid JSON with the fields Claude Code and claude.ai need, the version of this release, and the site's
+// connection as a remote http server whose address is the user's own (userConfig) – never a credential in the plugin
+$pluginManifest = json_decode((string) file_get_contents($pluginRoot . '/.claude-plugin/plugin.json'), true);
+$pluginMcp = json_decode((string) file_get_contents($pluginRoot . '/.mcp.json'), true);
+$pluginOption = is_array($pluginManifest) ? ($pluginManifest['userConfig']['mcp_url'] ?? null) : null;
+check('3.8 plugin: plugin.json and .mcp.json are valid and the connection address comes from the user', [
+    is_array($pluginManifest), $pluginManifest['name'] ?? null, $pluginManifest['version'] ?? null,
+    is_string($pluginManifest['description'] ?? null) && $pluginManifest['description'] !== '', is_string($pluginManifest['author']['name'] ?? null),
+    is_array($pluginOption) ? [$pluginOption['type'] ?? null, is_string($pluginOption['title'] ?? null), is_string($pluginOption['description'] ?? null), $pluginOption['sensitive'] ?? false] : null,
+    $pluginMcp['mcpServers'] ?? null, is_dir($pluginRoot . '/bin') || is_dir($pluginRoot . '/hooks') || is_dir($pluginRoot . '/agents'), is_file($pluginRoot . '/README.md')],
+    [true, 'kaleta', KALETA_VERSION, true, true, ['string', true, true, false], ['kaleta' => ['type' => 'http', 'url' => '${user_config.mcp_url}']], false, true]);
+
+// tools/build-plugin.php packs exactly the plugin's files under one top-level folder, named by KALETA_VERSION
+$pluginOut = sys_get_temp_dir() . '/kaleta-plugin-' . bin2hex(random_bytes(4));
+$pluginBuild = (string) shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(KALETA_ROOT . '/tools/build-plugin.php') . ' ' . escapeshellarg('--out=' . $pluginOut) . ' 2>&1');
+$pluginZip = new ZipArchive();
+$pluginEntries = [];
+if ($pluginZip->open($pluginOut . '/kaleta-claude-plugin-' . KALETA_VERSION . '.zip') === true) {
+    for ($i = 0; $i < $pluginZip->numFiles; $i++) {
+        $pluginEntries[] = (string) $pluginZip->getNameIndex($i);
+    }
+    $pluginZip->close();
+}
+array_map('unlink', glob($pluginOut . '/*') ?: []);
+@rmdir($pluginOut);
+sort($pluginEntries);
+check('3.8 plugin: tools/build-plugin.php zips the manifest, .mcp.json, the README and the five skills under kaleta/', [str_starts_with($pluginBuild, 'Done: '), $pluginEntries],
+    [true, ['kaleta/.claude-plugin/plugin.json', 'kaleta/.mcp.json', 'kaleta/README.md', 'kaleta/skills/compliance-check/SKILL.md', 'kaleta/skills/launch-site/SKILL.md',
+        'kaleta/skills/migrate-from-wordpress/SKILL.md', 'kaleta/skills/set-up-bookings/SKILL.md', 'kaleta/skills/weekly-care/SKILL.md']]);
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

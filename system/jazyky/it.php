@@ -1942,4 +1942,5 @@ return [
     'Item name' => 'Nome dell’elemento',
     'Previous and next item' => 'Elemento precedente e successivo',
     '%s – page %d' => '%s – pagina %d',
+    'Nothing was saved: the text is over a safety limit for HTML (too large or nested too deeply).' => 'Non è stato salvato nulla: il testo supera un limite di sicurezza per l’HTML (troppo grande o annidato troppo in profondità).',
 ];

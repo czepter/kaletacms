@@ -37,7 +37,12 @@ final class Tags extends Module
         if (!$this->request->isPost() || $tag === null || $name === '') {
             return $this->back('Enter the tag name.', type: 'chyba');
         }
-        $this->db->update('stitky', ['nazev' => $name, 'popis' => \Kaleta\Core\Html::forUser(trim($this->request->post('popis')), $this->app->auth()), 'obrazek' => mb_substr($this->request->post('obrazek'), 0, 255)], ['ids' => $tag['ids']]);
+        try {
+            $description = \Kaleta\Core\Html::forUserOrFail(trim($this->request->post('popis')), $this->app->auth(), 'popis');
+        } catch (\Kaleta\Core\HtmlTooLarge $e) {
+            return $this->back(t('Nothing was saved: %s', $e->localized()), '', ['edit' => $tag['ids']], 'chyba');
+        }
+        $this->db->update('stitky', ['nazev' => $name, 'popis' => $description, 'obrazek' => mb_substr($this->request->post('obrazek'), 0, 255)], ['ids' => $tag['ids']]);
 
         // merge: the news items get the target tag, this one ceases to exist and its slug is redirected
         $target = $this->db->one('SELECT * FROM {stitky} WHERE ids = ? AND ids <> ?', [$this->request->postInt('sloucit_do'), $tag['ids']]);

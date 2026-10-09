@@ -1,0 +1,32 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.kaletacms/kaleta",
+  "title": "Kaleta",
+  "description": "Build and run a company website with Claude: pages, news, collections and the look, as drafts.",
+  "version": "3.8.0",
+  "websiteUrl": "https://kaletacms.com",
+  "repository": {
+    "url": "https://github.com/phprs-cms/kaletacms",
+    "source": "github"
+  },
+  "icons": [
+    {
+      "src": "https://kaletacms.com/image/kaleta-znacka-180.png",
+      "mimeType": "image/png",
+      "sizes": ["180x180"]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://{site}/mcp",
+      "variables": {
+        "site": {
+          "description": "Your Kaleta site's address without https:// – the host, plus the folder if Kaleta runs in one (e.g. www.example.com or example.com/web)",
+          "isRequired": true,
+          "format": "string"
+        }
+      }
+    }
+  ]
+}
