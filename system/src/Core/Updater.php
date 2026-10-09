@@ -8,6 +8,7 @@ namespace Kaleta\Core;
  * System updates from the admin.
  *
  * The source is the file aktualizace.json: {"verze","vydano","url","sha256","podpis","min_php","bezpecnostni","zmeny":[...]}.
+ * 3.8: the stable channel reads aktualizace-stable.json next to it instead (setting update_channel, see CHANNELS).
  * A release marked "bezpecnostni": true can install itself ("Nastavení -> Zálohy a aktualizace", Settings -> Backups and updates).
  * The package (ZIP) is accepted only when the SHA-256 and the Ed25519 signature (Core\Signature::packageMessage) match,
  * verified by one of the public keys in system/aktualizace.pub (operational + backup, see docs/RELEASING.md). Only the
@@ -21,6 +22,16 @@ final class Updater
 
     /** Default update source; to be filled in once the project website runs. Can be overridden in Settings. */
     public const string DEFAULT_URL = 'https://kaletacms.com/aktualizace.json';
+
+    /**
+     * 3.8 (D3): release channels, setting update_channel. "latest" (the default, also for every site from before 3.8) reads
+     * aktualizace.json – a new minor every week. "stable" reads the second signed manifest next to it,
+     * aktualizace-stable.json, which the publisher moves only for security releases of the stable line and for a
+     * deliberate promotion to a newer minor (docs/RELEASING.md). Same key, same format, plus "kanal": "stable".
+     */
+    public const array CHANNELS = ['latest', 'stable'];
+
+    public const string STABLE_FILE = 'aktualizace-stable.json';
 
     private const array PROTECTED_PATHS = ['config.php', 'install.php', 'media/', 'storage/', 'extensions/', 'image/ukazka/', 'tools/', '.git/']; // extensions/: add-ons (3.0)
     private const int MAX_BYTES = 60 * 1024 * 1024;
@@ -38,7 +49,79 @@ final class Updater
             return ''; // the public demo is reset every hour and never updates itself
         }
 
-        return $this->settings->get('update_url') !== '' ? $this->settings->get('update_url') : self::DEFAULT_URL;
+        $source = $this->settings->get('update_url') !== '' ? $this->settings->get('update_url') : self::DEFAULT_URL;
+
+        return self::channel($this->settings) === 'stable' ? (self::stableUrl($source) ?? $source) : $source;
+    }
+
+    /** The channel the site chose; anything but "stable" is the default "latest" (3.8). */
+    public static function channel(Settings $settings): string
+    {
+        return $settings->get('update_channel') === 'stable' ? 'stable' : 'latest';
+    }
+
+    /**
+     * The stable manifest lies next to the latest one: …/aktualizace.json → …/aktualizace-stable.json – for the project's
+     * source as for a custom one (a mirror of both files). A custom source with another file name has no stable twin (null).
+     */
+    public static function stableUrl(string $source): ?string
+    {
+        $stable = preg_replace('#/aktualizace\.json(?=$|[?\#])#', '/' . self::STABLE_FILE, $source, 1, $count);
+
+        return $count === 1 && is_string($stable) ? $stable : null;
+    }
+
+    /**
+     * Which channel the site really follows: "latest", "stable", or "custom" – a custom update source without a stable twin,
+     * which the site follows whatever channel it chose.
+     */
+    public function effectiveChannel(): string
+    {
+        $custom = $this->settings->get('update_url');
+
+        return $custom !== '' && self::stableUrl($custom) === null ? 'custom' : self::channel($this->settings);
+    }
+
+    /**
+     * The version choice (pure, 3.8): what a site running $current on PHP $php is offered by the manifest of its channel.
+     * Only a newer version is ever offered – a site that moved to the stable channel while it runs a newer minor than the
+     * stable manifest gets no downgrade, it waits (ahead_of = the stable version) until the stable line passes it. A release
+     * for a newer PHP is not offered, the site says which PHP it needs (3.7). On the stable channel the manifest must say
+     * "kanal": "stable" – a latest manifest served there by mistake (a wrong redirect, a custom source) offers nothing.
+     *
+     * @param array<string, mixed>|null $manifest
+     * @return array{nova: ?array<string, mixed>, vyzaduje_php: ?array{verze: string, min_php: string, bezpecnostni: bool}, ahead_of: ?string, chyba: ?string}
+     */
+    public static function choose(?array $manifest, string $channel, string $current = KALETA_VERSION, string $php = PHP_VERSION): array
+    {
+        $choice = ['nova' => null, 'vyzaduje_php' => null, 'ahead_of' => null, 'chyba' => null];
+        if ($manifest === null || !is_scalar($manifest['verze'] ?? null)) {
+            return $choice;
+        }
+        if ($channel === 'stable' && ($manifest['kanal'] ?? null) !== 'stable') {
+            $choice['chyba'] = self::notStableMessage();
+
+            return $choice;
+        }
+        $version = (string) $manifest['verze'];
+        if (version_compare($version, $current, '>')) {
+            // 3.7: a release that needs a newer PHP than the server runs is not offered (nor installed in the background
+            // or by the fleet console) – the site says which PHP it needs instead
+            if (self::phpTooOld($manifest, $php)) {
+                $choice['vyzaduje_php'] = ['verze' => $version, 'min_php' => self::minPhp($manifest), 'bezpecnostni' => !empty($manifest['bezpecnostni'])];
+            } else {
+                $choice['nova'] = $manifest;
+            }
+        } elseif ($channel === 'stable' && version_compare($version, $current, '<')) {
+            $choice['ahead_of'] = $version;
+        }
+
+        return $choice;
+    }
+
+    private static function notStableMessage(): string
+    {
+        return t('The update source of the stable channel does not offer a stable-channel release (aktualizace-stable.json), so nothing is offered. Switch to the Latest channel or check the custom update source.');
     }
 
     /**
@@ -63,11 +146,15 @@ final class Updater
     /**
      * Update status; the result of the request is remembered for 12 hours.
      *
-     * @return array{nastaveno:bool, aktualni:string, nova:?array<string, mixed>, vyzaduje_php:?array{verze:string, min_php:string, bezpecnostni:bool}, chyba:?string, overeno:int}
+     * 3.8: channel = latest | stable | custom (effectiveChannel); ahead_of = on the stable channel, the stable version this
+     * site is already past (it waits for the stable line, never downgrades).
+     *
+     * @return array{nastaveno:bool, aktualni:string, nova:?array<string, mixed>, vyzaduje_php:?array{verze:string, min_php:string, bezpecnostni:bool}, chyba:?string, overeno:int, channel:string, ahead_of:?string}
      */
     public function state(bool $force = false): array
     {
-        $state = ['nastaveno' => $this->url() !== '', 'aktualni' => KALETA_VERSION, 'nova' => null, 'vyzaduje_php' => null, 'chyba' => null, 'overeno' => 0];
+        $state = ['nastaveno' => $this->url() !== '', 'aktualni' => KALETA_VERSION, 'nova' => null, 'vyzaduje_php' => null, 'chyba' => null, 'overeno' => 0,
+            'channel' => $this->effectiveChannel(), 'ahead_of' => null];
         if (!$state['nastaveno']) {
             return $state;
         }
@@ -88,17 +175,9 @@ final class Updater
             $state['overeno'] = time();
             $this->settings->set('update_cache', (string) json_encode(['url' => $this->url(), 'overeno' => time(), 'manifest' => $manifest, 'chyba' => $state['chyba']], JSON_UNESCAPED_UNICODE));
         }
-        if (is_array($manifest) && version_compare((string) $manifest['verze'], KALETA_VERSION, '>')) {
-            // 3.7: a release that needs a newer PHP than the server runs is not offered (nor installed in the background
-            // or by the fleet console) – the site says which PHP it needs instead
-            if (self::phpTooOld($manifest)) {
-                $state['vyzaduje_php'] = ['verze' => (string) $manifest['verze'], 'min_php' => self::minPhp($manifest), 'bezpecnostni' => !empty($manifest['bezpecnostni'])];
-            } else {
-                $state['nova'] = $manifest;
-            }
-        }
+        $choice = self::choose(is_array($manifest) ? $manifest : null, $state['channel']);
 
-        return $state;
+        return ['nova' => $choice['nova'], 'vyzaduje_php' => $choice['vyzaduje_php'], 'ahead_of' => $choice['ahead_of'], 'chyba' => $state['chyba'] ?? $choice['chyba']] + $state;
     }
 
     /**
@@ -186,6 +265,9 @@ final class Updater
             @set_time_limit(300);
         }
         $m = $this->manifest();
+        if ($this->effectiveChannel() === 'stable' && ($m['kanal'] ?? null) !== 'stable') {
+            throw new \RuntimeException(self::notStableMessage());
+        }
         if (!version_compare((string) $m['verze'], KALETA_VERSION, '>')) {
             throw new \RuntimeException(t('No newer version is available.'));
         }

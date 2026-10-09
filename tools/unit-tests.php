@@ -4474,6 +4474,35 @@ check('3.7 updates: min_php of a manifest decides, a missing or odd one counts a
     Kaleta\Core\Updater::phpTooOld(['min_php' => '8.4'], '8.3.30'), Kaleta\Core\Updater::phpTooOld(['min_php' => '8.3'], '8.3.0'),
     Kaleta\Core\Updater::phpTooOld([], '8.3.30'), Kaleta\Core\Updater::phpTooOld(['min_php' => '8.4'], '8.4.1')],
     ['8.3', '8.4', '8.4', true, false, true, false]);
+// 3.8 (D3): release channels – the version choice is pure (Updater::choose), the stable manifest lies next to the latest one
+$offer = static function (?array $manifest, string $channel, string $current, string $php = '8.4.5'): string {
+    $c = Kaleta\Core\Updater::choose($manifest, $channel, $current, $php);
+
+    return $c['nova'] !== null ? 'offer ' . $c['nova']['verze'] . (!empty($c['nova']['bezpecnostni']) ? ' security' : '')
+        : ($c['vyzaduje_php'] !== null ? 'needs php ' . $c['vyzaduje_php']['min_php'] : ($c['ahead_of'] !== null ? 'ahead of ' . $c['ahead_of'] : ($c['chyba'] !== null ? 'error' : 'nothing')));
+};
+$latest = ['verze' => '3.10.0', 'min_php' => '8.3', 'kanal' => 'latest'];
+$stable = ['verze' => '3.8.2', 'min_php' => '8.3', 'kanal' => 'stable', 'bezpecnostni' => true];
+check('3.8 channels: latest offers the newest minor, stable only its own line, no downgrade from either', [
+    $offer($latest, 'latest', '3.8.0'), $offer($stable, 'stable', '3.8.0'), $offer($stable, 'stable', '3.8.2'),
+    $offer(['kanal' => 'stable', 'verze' => '3.10.0'] + $stable, 'stable', '3.8.2'),
+    // switched from latest while running a newer minor: nothing, never 3.8.2 – the site waits until the stable line passes it
+    $offer($stable, 'stable', '3.9.1'), $offer($latest, 'latest', '3.11.0'),
+    // a latest manifest served as the stable one (a wrong redirect, an old mirror without "kanal") offers nothing
+    $offer($latest, 'stable', '3.8.0'), $offer(['verze' => '3.10.0', 'min_php' => '8.3'], 'stable', '3.8.0'),
+    // a manifest from before 3.8 (no "kanal") still works on latest, as it did
+    $offer(['verze' => '3.10.0', 'min_php' => '8.3'], 'latest', '3.8.0'),
+    // the PHP gate holds on both channels; a stable release for a newer PHP is not offered either
+    $offer(['min_php' => '8.4'] + $stable, 'stable', '3.8.0', '8.3.30'), $offer(['min_php' => '8.4'] + $latest, 'latest', '3.8.0', '8.3.30'),
+    $offer(null, 'stable', '3.8.0'), $offer(['kanal' => 'stable'], 'stable', '3.8.0')],
+    ['offer 3.10.0', 'offer 3.8.2 security', 'nothing', 'offer 3.10.0 security', 'ahead of 3.8.2', 'nothing', 'error', 'error', 'offer 3.10.0',
+        'needs php 8.4', 'needs php 8.4', 'nothing', 'nothing']);
+check('3.8 channels: the stable manifest is the twin of aktualizace.json, wherever the source is; another file has none', [
+    Kaleta\Core\Updater::stableUrl(Kaleta\Core\Updater::DEFAULT_URL), Kaleta\Core\Updater::stableUrl('https://mirror.example/kaleta/aktualizace.json?t=1'),
+    Kaleta\Core\Updater::stableUrl('https://mirror.example/updates.php'), Kaleta\Core\Updater::stableUrl('https://mirror.example/aktualizace.json.bak'),
+    Kaleta\Core\Settings::DEFAULTS['update_channel'], Kaleta\Core\Updater::CHANNELS, in_array('update_channel', Kaleta\Core\SiteExport::SETTINGS, true),
+    Kaleta\Admin\Modules\Settings::verifyValue('update_channel', 'stable'), Kaleta\Admin\Modules\Settings::verifyValue('update_channel', 'beta')],
+    ['https://kaletacms.com/aktualizace-stable.json', 'https://mirror.example/kaleta/aktualizace-stable.json?t=1', null, null, 'latest', ['latest', 'stable'], false, 'stable', null]);
 check('3.7 updates: response headers of file_get_contents() on 8.3 come from the calling scope, on 8.4 from PHP',
     PHP_VERSION_ID >= 80400 ? is_array(last_response_headers(['HTTP/1.1 999 ignored'])) : last_response_headers(['HTTP/1.1 200 OK']), PHP_VERSION_ID >= 80400 ? true : ['HTTP/1.1 200 OK']);
 // one minimum everywhere: the bootstrap gate, PHPStan, the CI matrix, the release manifest and the README

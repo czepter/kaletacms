@@ -116,6 +116,9 @@ final class MonthlyReport
             'enquiries' => $enquiries,
             'signups' => $signups,
             'updates' => $updates,
+            // 3.8 (D3): the version the site runs and the release channel it follows (latest | stable | custom)
+            'version' => KALETA_VERSION,
+            'update_channel' => (new Updater($s))->effectiveChannel(),
             'backups' => $backups,
             'changes' => $changes,
             'problems' => $problems,
@@ -256,6 +259,11 @@ final class MonthlyReport
             foreach ($updates as $u) {
                 $rows[] = $row(e(format_date((string) $u['date'])) . ' · ' . $safe((string) $u['message']), '');
                 $pairs[] = [format_date((string) $u['date']), (string) $u['message']];
+            }
+            if (isset($data['version'])) {
+                $channel = t(['stable' => 'Stable channel', 'custom' => 'custom update source'][(string) ($data['update_channel'] ?? '')] ?? 'Latest channel');
+                $rows[] = $row(e(t('Kaleta version')), e((string) $data['version'] . ' · ' . $channel));
+                $pairs[] = [t('Kaleta version'), (string) $data['version'] . ' · ' . $channel];
             }
             $backups = (array) ($data['backups'] ?? []);
             $backupText = t('%d made, %d failed', (int) ($backups['created'] ?? 0), (int) ($backups['failed'] ?? 0))

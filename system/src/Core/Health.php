@@ -169,6 +169,15 @@ final class Health
             $update['nova'] !== null => t('version %s is available (Settings → Backups and updates)', (string) $update['nova']['verze']),
             default => t('the system is up to date (%s)', KALETA_VERSION) . ($update['overeno'] > 0 ? ', ' . t('checked %s', format_date((new \DateTimeImmutable())->setTimestamp((int) $update['overeno']), true)) : ''),
         });
+        // 3.8 (D3): which release channel the site follows; a stable site that runs a newer minor than the stable line waits
+        if ($update['nastaveno']) {
+            $add(t('Operation'), t('Update channel'), $update['ahead_of'] !== null ? 'varovani' : 'ok', match (true) {
+                $update['ahead_of'] !== null => t('Stable – this site runs %s, newer than the stable channel (%s): nothing is offered until the stable channel passes it, so security fixes reach it only on Latest (Settings → Backups and updates)', KALETA_VERSION, $update['ahead_of']),
+                $update['channel'] === 'stable' => t('Stable – security fixes only, a new minor version about once a month'),
+                $update['channel'] === 'custom' => t('custom update source – the site follows it whatever channel is chosen'),
+                default => t('Latest – a new minor version every week'),
+            });
+        }
         // 2.8: background jobs (Core\Scheduler) and the problems of the last week (Core\Events)
         $failing = array_filter(Scheduler::overview($db, $app->settings()), fn (array $j): bool => $j['failures'] > 0);
         $add(t('Operation'), t('Background jobs'), $failing === [] ? 'ok' : (max(array_column($failing, 'failures')) >= Scheduler::FAILURES_TO_ALERT ? 'chyba' : 'varovani'),
