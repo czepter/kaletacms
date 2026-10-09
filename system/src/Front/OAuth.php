@@ -497,6 +497,10 @@ final class OAuth
             return true;
         }
         $withoutPort = function (string $url): ?string {
+            // the port, when there is one, is a plain number 1–65535 (no :0, :01, :+1 or an empty port – N38-4)
+            if (preg_match('#^http://(?:localhost|127\.0\.0\.1|\[::1\])(?::([1-9][0-9]{0,4}))?(?:[/?]|$)#D', $url, $m) !== 1 || (int) ($m[1] ?? 1) > 65535) {
+                return null;
+            }
             $parts = self::isValidRedirectUri($url) ? parse_url($url) : false;
             if (!is_array($parts) || ($parts['scheme'] ?? '') !== 'http' || !in_array($parts['host'] ?? '', ['localhost', '127.0.0.1', '[::1]'], true) || isset($parts['user']) || isset($parts['pass'])) {
                 return null;
@@ -511,7 +515,7 @@ final class OAuth
 
     public static function isValidRedirectUri(string $url): bool
     {
-        if (strlen($url) > 500 || str_contains($url, '#') || preg_match('/[\s<>"\\\\]/', $url)) {
+        if (strlen($url) > 500 || str_contains($url, '#') || preg_match('/[\s<>"\\\\\x00-\x1f\x7f]/', $url)) { // no control characters (N38-4: a NUL after the port)
             return false;
         }
         $parts = parse_url($url);
