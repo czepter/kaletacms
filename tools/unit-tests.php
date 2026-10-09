@@ -380,13 +380,13 @@ check('2.1: MCP catalog, English definitions, parameter types and methods agree'
     array_values(array_filter(array_column(Kaleta\Mcp\Tools::definitions(), 'name'), fn (string $n): bool => Kaleta\Mcp\Catalog::english($n) === null)),
     array_values(array_diff(array_map([Kaleta\Mcp\Catalog::class, 'method'], $catalogTools), $toolMethods)), array_values(array_diff($toolMethods, array_map([Kaleta\Mcp\Catalog::class, 'method'], $catalogTools))),
     count(Kaleta\Mcp\Tools::definitions()), Kaleta\Mcp\Tools::annotations('smaz_stranku'), Kaleta\Mcp\Tools::isWriteTool('site_audit'), Kaleta\Mcp\Catalog::extension('seznam_novinek'),
-], [[], [], [], [], [], count($catalogTools), ['readOnlyHint' => false, 'destructiveHint' => true, 'openWorldHint' => false], false, 'novinky']);
+], [[], [], [], [], [], count($catalogTools), ['title' => 'Move a page to the trash', 'readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => true, 'openWorldHint' => false], false, 'novinky']);
 // 2.2: what a connection may do – full everything, drafts only reads and drafts, read only reads; never an unknown level
 check('2.2: connection access', [Kaleta\Mcp\Catalog::allows('full', 'publish_look'), Kaleta\Mcp\Catalog::allows('drafts', 'save_build'), Kaleta\Mcp\Catalog::allows('drafts', 'create_page'),
     Kaleta\Mcp\Catalog::allows('drafts', 'publish_build'), Kaleta\Mcp\Catalog::allows('drafts', 'update_settings'), Kaleta\Mcp\Catalog::allows('drafts', 'trash_page'),
     Kaleta\Mcp\Catalog::allows('read', 'get_build'), Kaleta\Mcp\Catalog::allows('read', 'save_build'), Kaleta\Mcp\Catalog::allows('read', 'stavba_uloz'), Kaleta\Mcp\Catalog::allows('whatever', 'save_build'),
     Kaleta\Front\OAuth::access('drafts'), Kaleta\Front\OAuth::access('admin'), Kaleta\Mcp\Tools::annotations('save_build')],
-    [true, true, true, false, false, false, true, false, false, false, 'drafts', 'read', ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false]]);
+    [true, true, true, false, false, false, true, false, false, false, 'drafts', 'read', ['title' => 'Save a draft build', 'readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false]]);
 check('2.2: every drafts-only tool is a write that does not remove anything', array_values(array_filter(array_keys(Kaleta\Mcp\Catalog::TOOLS),
     fn (string $t): bool => Kaleta\Mcp\Catalog::access($t) === 'draft' && (Kaleta\Mcp\Tools::annotations($t)['readOnlyHint'] || Kaleta\Mcp\Tools::annotations($t)['destructiveHint']))), []);
 check('2.2: MCP protocol version negotiated', [Kaleta\Mcp\Server::protocol('2025-03-26'), Kaleta\Mcp\Server::protocol('2099-01-01'), Kaleta\Mcp\Server::protocol(null)],
@@ -530,6 +530,59 @@ check('2.3.1: settings forms post only fields the save reads', $unknownFields, [
 // outside the deprecation policy; an addition is recorded with php tools/contracts.php --update
 require_once __DIR__ . '/contracts.php';
 check('2.1: public contracts kept (tools/contracts)', kaleta_contract_diff(), ['broken' => [], 'added' => []]);
+// 3.8 (Connectors Directory): the contract lets annotations grow only – readOnlyHint and destructiveHint never change, a hint
+// may only turn more careful, a title is display only
+// 3.8 (Connectors Directory): Claude Code signs in through a loopback redirect on a port that changes every session
+// (RFC 8252 §7.3) – the port of a registered loopback address does not have to match; everything else still does
+$registered38 = ['https://claude.ai/api/mcp/auth_callback', 'http://127.0.0.1:33418/callback', 'http://localhost:33418/callback?x=1', 'http://[::1]:8080/cb'];
+check('3.8 OAuth: a loopback redirect_uri matches with any port, nothing else is loosened', array_map(fn (string $uri): bool => Kaleta\Front\OAuth::redirectAllowed($uri, $registered38), [
+    'https://claude.ai/api/mcp/auth_callback', 'http://127.0.0.1:51234/callback', 'http://127.0.0.1/callback', 'http://localhost:9/callback?x=1', 'http://[::1]:1/cb',
+    'https://claude.ai:8443/api/mcp/auth_callback', 'http://127.0.0.1:51234/other', 'http://localhost:51234/callback', 'http://127.0.0.1:51234/callback?y=2', 'https://127.0.0.1:51234/callback',
+    'http://evil.example:33418/callback', 'http://user@127.0.0.1:5/callback', 'http://127.0.0.1:5/callback#x']),
+    [true, true, true, true, true, false, false, false, false, false, false, false, false]);
+check('3.8: annotation changes in the contract – only additive or more careful ones pass', [
+    kaleta_annotation_diff(['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false], ['title' => 'List pages', 'readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => true]),
+    kaleta_annotation_diff(['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => true], ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false]),
+    kaleta_annotation_diff(['title' => 'A', 'readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => true], ['title' => 'B', 'readOnlyHint' => false, 'destructiveHint' => true]),
+    kaleta_annotation_diff(['readOnlyHint' => false, 'destructiveHint' => true], ['readOnlyHint' => false, 'idempotentHint' => true])],
+    [['broken' => [], 'added' => ['annotation openWorldHint false → true', 'annotation title "List pages"']],
+     ['broken' => ['annotation readOnlyHint changed', 'annotation openWorldHint changed'], 'added' => []],
+     ['broken' => [], 'added' => ['annotation title "A" → "B"', 'annotation idempotentHint true → null']],
+     ['broken' => ['annotation destructiveHint removed'], 'added' => ['annotation idempotentHint true']]]);
+// 3.8: every tool has a short English title, the same in tools/list (top level) and in annotations.title
+$titles38 = Kaleta\Mcp\Catalog::TITLES;
+check('3.8: every MCP tool has a title – one per tool, unique, at most 40 characters, sentence case', [
+    array_values(array_diff(array_keys(Kaleta\Mcp\Catalog::TOOLS), array_keys($titles38))), array_values(array_diff(array_keys($titles38), array_keys(Kaleta\Mcp\Catalog::TOOLS))),
+    array_keys(array_filter(array_count_values($titles38), fn (int $n): bool => $n > 1)),
+    array_keys(array_filter($titles38, fn (string $t): bool => mb_strlen($t) > 40 || preg_match('/^[A-Z][^.]*[^.\s]$/u', $t) !== 1))], [[], [], [], []]);
+$listed38 = array_map(Kaleta\Mcp\Server::listed(...), Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()));
+check('3.8: tools/list items lead with name and title, the title equals annotations.title, and nothing of the definition is lost', [
+    array_values(array_filter($listed38, fn (array $t): bool => array_slice(array_keys($t), 0, 2) !== ['name', 'title'] || $t['title'] !== $t['annotations']['title'] || $t['title'] !== $titles38[$t['name']])),
+    array_values(array_filter(Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()), fn (array $t): bool => array_diff_key(Kaleta\Mcp\Server::withReason($t), Kaleta\Mcp\Server::listed($t)) !== []))], [[], []]);
+// 3.8: the hints by the English name – a Czech alias gets exactly the same annotations (before, the open-world list mixed
+// Czech and English names and depended on which name the caller passed)
+check('3.8: a Czech alias and the English name have the same annotations', array_values(array_filter(array_keys(Kaleta\Mcp\Catalog::TOOLS),
+    fn (string $en): bool => Kaleta\Mcp\Tools::annotations((string) (Kaleta\Mcp\Translator::czech($en) ?? $en)) !== Kaleta\Mcp\Tools::annotations($en))), []);
+check('3.8: openWorldHint – exactly the tools that fetch an outside address or e-mail people outside the site', [
+    array_keys(array_filter(array_combine(array_keys(Kaleta\Mcp\Catalog::TOOLS), array_map(fn (string $t): bool => Kaleta\Mcp\Tools::annotations($t)['openWorldHint'], array_keys(Kaleta\Mcp\Catalog::TOOLS))))),
+    array_map(fn (string $cs): bool => Kaleta\Mcp\Tools::annotations($cs)['openWorldHint'], ['nahraj_soubor', 'importuj_web', 'uloz_polozku_kolekce', 'seznam_medii']),
+    array_values(array_diff(Kaleta\Mcp\Catalog::OPEN_WORLD, array_keys(Kaleta\Mcp\Catalog::TOOLS)))],
+    [['save_collection_items', 'upload_file', 'import_website', 'migration_report', 'import_wordpress', 'request_testimonial', 'cancel_booking', 'confirm_booking', 'decline_booking', 'propose_booking_times', 'send_newsletter'],
+     [true, true, false, false], []]);
+// the tools on the list really reach outside: each downloads through Core\ImageDownloader / WpImport::download, or e-mails
+$handlers38 = implode("\n", array_map(fn (string $f): string => (string) file_get_contents($f), [...glob(KALETA_ROOT . '/system/src/Mcp/Handlers/*.php') ?: [], KALETA_ROOT . '/system/src/Mcp/Tools.php']));
+$method38 = function (string $tool) use ($handlers38): string {
+    $start = strpos($handlers38, 'function ' . Kaleta\Mcp\Catalog::method($tool) . '(');
+
+    return $start === false ? '' : substr($handlers38, $start, (int) (strpos($handlers38, "\n    }\n", $start) ?: strlen($handlers38)) - $start);
+};
+check('3.8: every open-world tool\'s code downloads, imports or e-mails (or hands it to the class that does)', array_values(array_filter(Kaleta\Mcp\Catalog::OPEN_WORLD,
+    fn (string $t): bool => preg_match('/ImageDownloader|WpImport::download|WebImport|MigrationReport|ItemBatch|Mailing::|Testimonials::request|Booking::(confirm|decline|cancel|propose)|uploadFile|customer_notified/', $method38($t)) !== 1)), []);
+check('3.8: idempotentHint only on write tools of the verified list, never on a read, a send, a publish or an import', [
+    array_values(array_diff(Kaleta\Mcp\Catalog::IDEMPOTENT, array_keys(array_filter(Kaleta\Mcp\Catalog::TOOLS, fn (array $t): bool => $t[0] !== 'read')))),
+    array_values(array_filter(array_keys(Kaleta\Mcp\Catalog::TOOLS), fn (string $t): bool => isset(Kaleta\Mcp\Tools::annotations($t)['idempotentHint']) !== in_array($t, Kaleta\Mcp\Catalog::IDEMPOTENT, true))),
+    array_values(array_intersect(Kaleta\Mcp\Catalog::IDEMPOTENT, ['publish_build', 'publish_look', 'send_newsletter', 'send_test_newsletter', 'import_wordpress', 'import_website', 'edit_build', 'save_section', 'save_hours_exception', 'update_settings', 'create_page', 'create_news', 'upload_file']))],
+    [[], [], []]);
 // MCP in English: every tool has an English name, every fixed message a translation, parameters and results are converted
 $mcpSource = (string) file_get_contents(KALETA_ROOT . '/system/src/Mcp/Tools.php');
 preg_match_all("/^\s+\['([a-z_]+)', '/m", substr($mcpSource, 0, (int) strpos($mcpSource, 'public function call(')), $mcpTools);
@@ -1239,7 +1292,7 @@ check('3.6 WpImport::options: unknown values fall back, menu places only main/fo
 })(), [false, false, true, true]);
 check('3.6 import_wordpress: a write tool (not for a drafts-only connection) that reaches outside the site, English only',
     [Kaleta\Mcp\Catalog::access('import_wordpress'), Kaleta\Mcp\Catalog::allows('drafts', 'import_wordpress'), Kaleta\Mcp\Tools::annotations('import_wordpress'), Kaleta\Mcp\Translator::czech('import_wordpress')],
-    ['write', false, ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => true], 'import_wordpress']);
+    ['write', false, ['title' => 'Import a WordPress export', 'readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => true], 'import_wordpress']);
 check('WpImport náhled: adresy příloh pro galerie a hlavní obrázky', $wpState['prilohy'][202] ?? '', 'https://www.podhorsky-zpravodaj.example/wp-content/uploads/2026/05/pohled.jpg');
 
 /* ---------- import from WordPress: SEO plugin data (SmartCrawl, Yoast SEO, Rank Math) ---------- */
@@ -3345,6 +3398,12 @@ $api->mcpTool('greet', 'Greets.', ['properties' => []], 'write', fn (array $a): 
 check('3.0 Api: unknown filters, access levels and names are refused; a tool is ext_<slug>_<name> with its access in the catalog', [count($apiErrors), $reg->tool('ext_unit_greet')['access'] ?? null,
     Kaleta\Mcp\Catalog::access('ext_unit_greet'), Kaleta\Mcp\Catalog::english('ext_unit_greet'), Kaleta\Mcp\Catalog::allows('read', 'ext_unit_greet'), Kaleta\Mcp\Catalog::allows('full', 'ext_unit_greet')],
     [3, 'write', 'write', 'ext_unit_greet', false, true]);
+$api->mcpTool('list_orders', 'Lists orders.', ['properties' => []], 'read', fn (array $a): string => 'x');
+$api->mcpTool('sync_stock', 'Syncs the stock.', ['properties' => []], 'write', fn (array $a): string => 'x', '', '<b>Sync the  stock</b>', openWorld: true, idempotent: true);
+check('3.8 Api: an add-on tool gets a title (its own, or its name in words) and the hints it declares', [Kaleta\Mcp\Tools::annotations('ext_unit_list_orders'), Kaleta\Mcp\Tools::annotations('ext_unit_sync_stock'),
+    Kaleta\Mcp\Tools::annotations('ext_unit_greet')['title'], Kaleta\Mcp\Server::listed(['name' => 'ext_unit_list_orders', 'description' => 'Lists orders.', 'inputSchema' => ['type' => 'object']])['title']],
+    [['title' => 'List orders', 'readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+     ['title' => 'Sync the stock', 'readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => true], 'Greet', 'List orders']);
 
 /* ---------- 3.0: structured importers – the common base, Ghost and Blogger (Import\…) ---------- */
 $ghostPath = dirname(__DIR__) . '/tools/fixtures/ghost-export.json';
@@ -3808,7 +3867,7 @@ check('3.3.2 (N36): .htaccess and the development router serve only extensions/<
 check('3.3.2 (N39): add-on tools may name a role or a section; without it read and draft are open, write needs an editor, destructive an administrator', [
     Kaleta\Extension\Api::TOOL_ROLES, (new ReflectionClassConstant(Kaleta\Extension\Api::class, 'DEFAULT_ROLE'))->getValue(),
     array_map(fn (ReflectionParameter $p): string => $p->getName() . ($p->isOptional() ? '?' : ''), (new ReflectionMethod(Kaleta\Extension\Api::class, 'mcpTool'))->getParameters())],
-    [['author', 'editor', 'admin'], ['read' => 'author', 'draft' => 'author', 'write' => 'editor', 'destructive' => 'admin'], ['name', 'description', 'schema', 'access', 'handler', 'requires?']]);
+    [['author', 'editor', 'admin'], ['read' => 'author', 'draft' => 'author', 'write' => 'editor', 'destructive' => 'admin'], ['name', 'description', 'schema', 'access', 'handler', 'requires?', 'title?', 'openWorld?', 'idempotent?']]);
 check('3.3.2 (N40): the installation takes the version and the security flag it was decided for', array_map(fn (ReflectionParameter $p): string => $p->getName(),
     (new ReflectionMethod(Kaleta\Core\Updater::class, 'install'))->getParameters()), ['db', 'expectedVersion', 'expectedSecurity']);
 check('3.3.2 (N43): an API fetch that carries a token is not redirected from https to plain http', [
