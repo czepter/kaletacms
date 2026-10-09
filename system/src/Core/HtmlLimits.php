@@ -1480,13 +1480,23 @@ final class HtmlLimits
             $this->integration = [];
             $this->positions = $this->active = $this->entryAt = $this->before = $this->after = [];
             $this->last = null;
-            // the rest is only counted for the message, in one pass of two regular expressions (start tags, end tags):
-            // the number of elements, and open minus closed tags for the depth – the model stops here
+            // the model stops here; the rest is only counted for the message: the number of elements, and the running depth
+            // (a start tag one deeper, an end tag one up, <x/> neither) – its maximum is the depth, also when the markup closes
+            // everything again (a balanced SVG). One match at a time from where the last one ended: linear, no big arrays.
             if ($this->at < $this->length) {
-                $rest = substr($this->input, $this->at);
-                $opens = (int) preg_match_all('~<(?!(?:html|head|body)[\s/>])[a-zA-Z]~i', $rest);
-                $this->elements += $opens;
-                $this->deepest = max($this->deepest, $this->roughDepth + $opens - (int) preg_match_all('~</(?!(?:html|head|body)[\s/>])[a-zA-Z]~i', $rest));
+                $depth = $this->roughDepth;
+                $from = $this->at;
+                while (preg_match('~<(/?)(?!(?:html|head|body)[\s/>])[a-zA-Z][^<>]*?(/?)>~i', $this->input, $tag, PREG_OFFSET_CAPTURE, $from) === 1) {
+                    $from = $tag[0][1] + strlen($tag[0][0]);
+                    if ($tag[1][0] === '/') {
+                        $depth--;
+                    } else {
+                        $this->elements++;
+                        if ($tag[2][0] !== '/') {
+                            $this->deepest = max($this->deepest, ++$depth);
+                        }
+                    }
+                }
             }
         }
     }
