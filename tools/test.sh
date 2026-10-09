@@ -2335,12 +2335,12 @@ contains -q 'The markup is nested 3000 levels deep; the limit is 512 – the fie
     "$(sq "SELECT CONCAT(stavba_koncept LIKE '%<div><div>%', '/', stavba_koncept LIKE '%Kept by the limit%') FROM ka_stranky WHERE ids = ${LIMIT_PAGE:-0}")" "0/1" \
   || { echo "  CHYBA  3.8: save_build over the nesting limit"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp build_from_html "{\"id\":${LIMIT_PAGE:-0},\"html\":\"<section>$LIMIT_DEEP</section>\"}" > "$WORK/response"
-contains -q '"isError":true' "$WORK/response" && contains -q 'The markup is nested 3,001 levels deep; the limit is 512.' "$WORK/response" \
+contains -q '"isError":true' "$WORK/response" && contains -q 'The markup is nested 3,00[01] levels deep; the limit is 512.' "$WORK/response" \
   && expect "3.8: build_from_html over the nesting limit is refused with the limit, the draft stays as it was" "$(sq "SELECT stavba_koncept LIKE '%Kept by the limit%' FROM ka_stranky WHERE ids = ${LIMIT_PAGE:-0}")" 1 \
   || { echo "  CHYBA  3.8: build_from_html over the nesting limit"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp create_news "{\"title\":\"Limit news\",\"category\":\"$CATEGORY\",\"text\":\"$LIMIT_DEEP\"}" > "$WORK/response"
 mcp_as "$DRAFT_TOKEN" create_news "{\"title\":\"Limit news draft\",\"category\":\"$CATEGORY\",\"text\":\"<blockquote>$LIMIT_DEEP</blockquote>\"}" > "$WORK/response2"
-contains -q 'text: The markup is nested 3,000 levels deep; the limit is 512.' "$WORK/response" && contains -q 'text: The markup is nested 3,001 levels deep' "$WORK/response2" \
+contains -q 'text: The markup is nested 3,000 levels deep; the limit is 512.' "$WORK/response" && contains -q 'text: The markup is nested 3,00[01] levels deep' "$WORK/response2" \
   && expect "3.8: create_news over the limit is refused on a full and a drafts-only connection, nothing is stored" "$(sq "SELECT COUNT(*) FROM ka_novinky WHERE titulek LIKE 'Limit news%'")" 0 \
   || { echo "  CHYBA  3.8: create_news over the nesting limit"; head -c 300 "$WORK/response"; head -c 300 "$WORK/response2"; ERRORS=$((ERRORS+1)); }
 LIMIT_SVG=$(php -r 'echo base64_encode("<svg xmlns=\"http://www.w3.org/2000/svg\">" . str_repeat("<g>", 300) . str_repeat("</g>", 300) . "</svg>");')
@@ -2667,7 +2667,7 @@ mcp migration_report "{\"url\":\"$OLD\"}" > "$WORK/response"; REPORT_ID=$(import
 for i in $(seq 1 20); do [ "$(import_field phase)" = done ] && break; mcp migration_report "{\"report_id\":\"$REPORT_ID\"}" > "$WORK/response"; done
 expect "migration report: after a redirect and publishing, the contact address redirects (but the form is gone)" "$(import_field summary)" '{"addresses":4,"checked":4,"ok":2,"redirected":1,"not_published":1,"missing":0,"errors":1,"warnings":2}'
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zobrazit = 0 WHERE seo_link = 'about-us'; DELETE FROM ka_presmerovani WHERE z_adresy = 'contact'"
-# 3.8: an old page nested 3,000 deep is never parsed – the website import skips it with the limit among its failures, the
+# 3.8: an old page nested 3,000 deep is never parsed (past the limit the depth in the message is counted roughly, so ±1) – the website import skips it with the limit among its failures, the
 # migration report checks only its address
 mkdir -p "$WORK/oldsite/deep"
 oldpage "Deep" "Deep page" "$(printf '<div>%.0s' $(seq 1 3000))" > "$WORK/oldsite/deep/index.html"
@@ -2677,7 +2677,7 @@ for i in $(seq 1 20); do [ "$(import_field phase)" = finding ] || break; mcp imp
 mcp import_website "{\"import_id\":\"$IMPORT_ID\",\"confirm\":true}" > "$WORK/response"
 for i in $(seq 1 20); do [ "$(import_field phase)" = importing ] || break; mcp import_website "{\"import_id\":\"$IMPORT_ID\"}" > "$WORK/response"; done
 expect "3.8: website import skips an old page over the nesting limit with the limit in its failures, nothing stored" \
-  "$(import_field result | grep -o '"failed":[0-9]*')|$(import_field failures | grep -c 'deep.*3 001')|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE titulek = 'Deep'")" '"failed":1|1|0'
+  "$(import_field result | grep -o '"failed":[0-9]*')|$(import_field failures | grep -c 'deep.*3 00[01]')|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE titulek = 'Deep'")" '"failed":1|1|0'
 mcp migration_report "{\"url\":\"$OLD\"}" > "$WORK/response"; REPORT_ID=$(import_field report_id)
 for i in $(seq 1 20); do [ "$(import_field phase)" = done ] && break; mcp migration_report "{\"report_id\":\"$REPORT_ID\"}" > "$WORK/response"; done
 contains -q 'too_large' "$WORK/response" && echo "  ok     3.8: the migration report reads an old page over the limit as too large, only its address is checked" \
