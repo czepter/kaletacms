@@ -124,6 +124,10 @@ final class HtmlLimits
     /* ---------- the model of the parser's state ---------- */
 
     private string $input = '';
+    /** The input in lower case (raw text end tags are case-insensitive). */
+    private string $lower = '';
+    /** @var array<string, array{0: int, 1: int}> needle => [where the last search started, what it found or the length] */
+    private array $found = [];
     private int $length = 0;
     private int $at = 0;
     private bool $xmlMode = false;
@@ -176,8 +180,18 @@ final class HtmlLimits
      */
     public static function check(string $markup, bool $xml = false): ?array
     {
-        if (strlen($markup) > self::MAX_BYTES) {
-            return ['limit' => 'bytes', 'value' => strlen($markup), 'max' => self::MAX_BYTES];
+        return self::checkWith($markup, $xml, 0);
+    }
+
+    /**
+     * check() of a document that wraps a fragment: $wrapper bytes of the wrapping do not count against MAX_BYTES.
+     *
+     * @return array{limit: string, value: int, max: int}|null
+     */
+    private static function checkWith(string $markup, bool $xml, int $wrapper): ?array
+    {
+        if (strlen($markup) - $wrapper > self::MAX_BYTES) {
+            return ['limit' => 'bytes', 'value' => strlen($markup) - $wrapper, 'max' => self::MAX_BYTES];
         }
         $scan = new self();
         $scan->input = $markup;
@@ -218,11 +232,12 @@ final class HtmlLimits
      */
     public static function fragment(string $html, ?string $encoding = 'UTF-8'): ?\Dom\HTMLDocument
     {
-        if (self::refuse(self::check($html))) {
+        [$utf8, $violation] = self::prepareFragment($html, $encoding);
+        if (self::refuse($violation)) {
             return null;
         }
 
-        return \Dom\HTMLDocument::createFromString('<!DOCTYPE html><html><body>' . $html . '</body></html>', LIBXML_NOERROR, $encoding);
+        return \Dom\HTMLDocument::createFromString($utf8, LIBXML_NOERROR, 'UTF-8');
     }
 
     /**
@@ -232,12 +247,12 @@ final class HtmlLimits
      */
     public static function fragmentOrFail(string $html, ?string $encoding = 'UTF-8'): \Dom\HTMLDocument
     {
-        $violation = self::check($html);
+        [$utf8, $violation] = self::prepareFragment($html, $encoding);
         if ($violation !== null) {
             throw new HtmlTooLarge($violation);
         }
 
-        return \Dom\HTMLDocument::createFromString('<!DOCTYPE html><html><body>' . $html . '</body></html>', LIBXML_NOERROR, $encoding);
+        return \Dom\HTMLDocument::createFromString($utf8, LIBXML_NOERROR, 'UTF-8');
     }
 
     /**
@@ -247,29 +262,194 @@ final class HtmlLimits
      */
     public static function document(string $html): \Dom\HTMLDocument
     {
-        // UTF-16 and UTF-32 hide their markup from a byte scan: the check reads the page as the parser will decode it
-        $scanned = strlen($html) <= self::MAX_BYTES && str_contains($html, "\0") ? \Kaleta\Compat\Html5Parser::utf8($html) : $html;
-        $violation = self::check($scanned);
+        if (strlen($html) > self::MAX_BYTES) {
+            throw new HtmlTooLarge(['limit' => 'bytes', 'value' => strlen($html), 'max' => self::MAX_BYTES]);
+        }
+        $utf8 = self::toUtf8($html, null);
+        $violation = self::checkWith($utf8, false, max(0, strlen($utf8) - strlen($html))); // the bytes of the page as it came are checked above
         if ($violation !== null) {
             throw new HtmlTooLarge($violation);
         }
 
-        return \Dom\HTMLDocument::createFromString($html, LIBXML_NOERROR);
+        return \Dom\HTMLDocument::createFromString($utf8, LIBXML_NOERROR, 'UTF-8'); // exactly what was checked
     }
 
     /**
-     * An XML document (an SVG upload, a sitemap) into $dom; false when it is not well-formed.
+     * An XML document (an SVG upload, a sitemap) into $dom; false when it is not well-formed. The encoding is decided here
+     * (byte order mark, UTF-16 without one, the encoding of the XML declaration), the document converted to UTF-8 with a
+     * declaration saying so, checked, and exactly that string goes to libxml.
      *
      * @throws HtmlTooLarge when it is over a limit (bytes, depth or attributes – libxml reads XML in linear time otherwise)
      */
     public static function xml(\DOMDocument $dom, string $xml, int $options): bool
     {
-        $violation = self::check($xml, true);
+        if (strlen($xml) > self::MAX_BYTES) {
+            throw new HtmlTooLarge(['limit' => 'bytes', 'value' => strlen($xml), 'max' => self::MAX_BYTES]);
+        }
+        $utf8 = self::xmlToUtf8($xml);
+        $violation = self::checkWith($utf8, true, max(0, strlen($utf8) - strlen($xml)));
         if ($violation !== null) {
             throw new HtmlTooLarge($violation);
         }
 
-        return $xml !== '' && $dom->loadXML($xml, $options);
+        return $utf8 !== '' && $dom->loadXML($utf8, $options);
+    }
+
+    /* ---------- one decision about the encoding (3.8, N38-2) ---------- */
+
+    /** WHATWG encoding labels => the name mbstring or iconv knows; a label not here is ignored, as the standard does. */
+    private const array LABELS = [
+        'UTF-8' => ['unicode-1-1-utf-8', 'unicode11utf8', 'unicode20utf8', 'utf-8', 'utf8', 'x-unicode20utf8'],
+        'UTF-16BE' => ['unicodefffe', 'utf-16be'],
+        'UTF-16LE' => ['csunicode', 'iso-10646-ucs-2', 'ucs-2', 'unicode', 'unicodefeff', 'utf-16', 'utf-16le'],
+        'Windows-1252' => ['ansi_x3.4-1968', 'ascii', 'cp1252', 'cp819', 'csisolatin1', 'ibm819', 'iso-8859-1', 'iso-ir-100', 'iso8859-1',
+            'iso88591', 'iso_8859-1', 'iso_8859-1:1987', 'l1', 'latin1', 'us-ascii', 'windows-1252', 'x-cp1252', 'x-user-defined'],
+        'Windows-1250' => ['cp1250', 'windows-1250', 'x-cp1250'],
+        'Windows-1251' => ['cp1251', 'windows-1251', 'x-cp1251'],
+        'Windows-1253' => ['cp1253', 'windows-1253', 'x-cp1253'],
+        'Windows-1254' => ['cp1254', 'windows-1254', 'x-cp1254', 'iso-8859-9', 'latin5', 'l5'],
+        'Windows-1257' => ['cp1257', 'windows-1257', 'x-cp1257'],
+        'ISO-8859-2' => ['csisolatin2', 'iso-8859-2', 'iso-ir-101', 'iso8859-2', 'iso88592', 'iso_8859-2', 'iso_8859-2:1987', 'l2', 'latin2'],
+        'ISO-8859-15' => ['csisolatin9', 'iso-8859-15', 'iso8859-15', 'iso885915', 'iso_8859-15', 'l9'],
+        'KOI8-R' => ['cskoi8r', 'koi', 'koi8', 'koi8-r', 'koi8_r'],
+        'KOI8-U' => ['koi8-ru', 'koi8-u'],
+        'SJIS-win' => ['csshiftjis', 'ms932', 'ms_kanji', 'shift-jis', 'shift_jis', 'sjis', 'windows-31j', 'x-sjis'],
+        'eucJP-win' => ['cseucpkdfmtjapanese', 'euc-jp', 'x-euc-jp'],
+        'ISO-2022-JP' => ['csiso2022jp', 'iso-2022-jp'],
+        'CP936' => ['chinese', 'csgb2312', 'csiso58gb231280', 'gb2312', 'gb_2312', 'gb_2312-80', 'gbk', 'iso-ir-58', 'x-gbk'],
+        'GB18030' => ['gb18030'],
+        'BIG-5' => ['big5', 'big5-hkscs', 'cn-big5', 'csbig5', 'x-x-big5'],
+        'UHC' => ['cseuckr', 'csksc56011987', 'euc-kr', 'iso-ir-149', 'korean', 'ks_c_5601-1987', 'ks_c_5601-1989', 'ksc5601', 'ksc_5601', 'windows-949'],
+    ];
+
+    /** The encoding of a WHATWG label, or null for one the standard does not know (UTF-7, UTF-32, a typo…). */
+    public static function encodingOf(string $label): ?string
+    {
+        $label = strtolower(trim($label, " \t\n\f\r"));
+        foreach (self::LABELS as $encoding => $labels) {
+            if (in_array($label, $labels, true)) {
+                return $encoding;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The source as UTF-8, decided once by the WHATWG rules: a byte order mark, else the caller's encoding, else a <meta>
+     * charset in the first 1024 bytes (UTF-16 there means UTF-8), else UTF-8. Invalid bytes become U+FFFD. Both PHP 8.4's
+     * parser and the 8.3 compat parser then get this string with UTF-8 forced, so the check and the parser read the same.
+     */
+    public static function toUtf8(string $source, ?string $encoding): string
+    {
+        $chosen = null;
+        foreach (["\xEF\xBB\xBF" => 'UTF-8', "\xFE\xFF" => 'UTF-16BE', "\xFF\xFE" => 'UTF-16LE'] as $bom => $byBom) {
+            if (str_starts_with($source, $bom)) {
+                $source = substr($source, strlen($bom));
+                $chosen = $byBom;
+                break;
+            }
+        }
+        if ($chosen === null && $encoding !== null) {
+            $chosen = self::encodingOf($encoding) ?? 'UTF-8';
+        }
+        if ($chosen === null) {
+            $chosen = self::metaEncoding(substr($source, 0, 1024)) ?? 'UTF-8';
+            if ($chosen === 'UTF-16BE' || $chosen === 'UTF-16LE') {
+                $chosen = 'UTF-8'; // a <meta> readable as ASCII cannot be UTF-16 (the standard's rule)
+            }
+        }
+
+        return self::convert($source, $chosen);
+    }
+
+    /** The WHATWG prescan, simplified: the first <meta charset> or http-equiv Content-Type with a known label, outside comments. */
+    private static function metaEncoding(string $head): ?string
+    {
+        $head = (string) preg_replace('/<!--.*?(?:-->|$)/s', '', $head);
+        preg_match_all('~<meta[\s/]([^>]*)~i', $head, $metas);
+        foreach ($metas[1] as $attributes) {
+            preg_match_all('~([^\s=/>]+)\s*(?:=\s*("[^"]*"|\'[^\']*\'|[^\s>]*))?~', $attributes, $pairs, PREG_SET_ORDER);
+            $values = [];
+            foreach ($pairs as $pair) {
+                $values[strtolower($pair[1])] ??= trim($pair[2] ?? '', '"\'');
+            }
+            $label = $values['charset'] ?? null;
+            if ($label === null && strtolower($values['http-equiv'] ?? '') === 'content-type'
+                && preg_match('~charset\s*=\s*["\']?([^\s"\';]+)~i', $values['content'] ?? '', $m) === 1) {
+                $label = $m[1];
+            }
+            $encoding = $label === null ? null : self::encodingOf($label);
+            if ($encoding !== null) {
+                return $encoding;
+            }
+        }
+
+        return null;
+    }
+
+    /** XML as UTF-8: a byte order mark, UTF-16 without one ("<" next to a zero byte), else the declaration's encoding, else UTF-8. */
+    private static function xmlToUtf8(string $xml): string
+    {
+        $encoding = null;
+        foreach (["\xEF\xBB\xBF" => 'UTF-8', "\xFE\xFF" => 'UTF-16BE', "\xFF\xFE" => 'UTF-16LE'] as $bom => $byBom) {
+            if (str_starts_with($xml, $bom)) {
+                $xml = substr($xml, strlen($bom));
+                $encoding = $byBom;
+                break;
+            }
+        }
+        if ($encoding === null && str_starts_with($xml, "<\0")) {
+            $encoding = 'UTF-16LE';
+        } elseif ($encoding === null && str_starts_with($xml, "\0<")) {
+            $encoding = 'UTF-16BE';
+        } elseif ($encoding === null && preg_match('~^\s*<\?xml[^>]*?\sencoding\s*=\s*["\']([^"\']+)~', $xml, $m) === 1) {
+            $encoding = self::encodingOf($m[1]) ?? 'UTF-8';
+        }
+        $utf8 = self::convert($xml, $encoding ?? 'UTF-8');
+
+        // the declaration now says UTF-8, so libxml reads exactly these bytes
+        return (string) preg_replace('~^(\s*<\?xml[^>]*?\s)encoding\s*=\s*(["\'])[^"\']*\2~', '$1encoding="UTF-8"', $utf8, 1);
+    }
+
+    private static function convert(string $source, string $encoding): string
+    {
+        $previous = mb_substitute_character();
+        mb_substitute_character(0xFFFD);
+        try {
+            if ($encoding !== 'UTF-8') {
+                try {
+                    return (string) mb_convert_encoding($source, 'UTF-8', $encoding);
+                } catch (\ValueError) {
+                    // mbstring lacks some single-byte encodings (Windows-1250…) – iconv has them
+                    $converted = function_exists('iconv') ? @iconv($encoding, 'UTF-8//IGNORE', $source) : false;
+                    if (is_string($converted)) {
+                        return $converted;
+                    }
+                }
+            }
+
+            return mb_check_encoding($source, 'UTF-8') ? $source : (string) mb_scrub($source, 'UTF-8');
+        } finally {
+            mb_substitute_character($previous);
+        }
+    }
+
+    /**
+     * A fragment wrapped as a document, as UTF-8, and its check (the wrapping does not count against MAX_BYTES).
+     *
+     * @return array{0: string, 1: array{limit: string, value: int, max: int}|null}
+     */
+    private static function prepareFragment(string $html, ?string $encoding): array
+    {
+        if (strlen($html) > self::MAX_BYTES) {
+            return ['', ['limit' => 'bytes', 'value' => strlen($html), 'max' => self::MAX_BYTES]];
+        }
+        $prefix = '<!DOCTYPE html><html><body>';
+        $suffix = '</body></html>';
+        $utf8 = self::toUtf8($prefix . $html . $suffix, $encoding);
+
+        return [$utf8, self::checkWith($utf8, false, max(0, strlen($utf8) - strlen($html)))];
     }
 
     /**
@@ -345,10 +525,33 @@ final class HtmlLimits
 
     /* ---------- the scan ---------- */
 
+    /**
+     * The first position of $needle at or after $from, or the end of the input. Every search of the scan goes through here
+     * (3.8, N38-1): the last answer for each needle is remembered, and the scan only moves forward, so each part of the
+     * input is searched at most once per needle – a flood of "<!--a-->", "<![CDATA[" or "<script><!--" stays linear.
+     */
+    private function find(string $needle, int $from, bool $caseless = false): int
+    {
+        if ($from >= $this->length) {
+            return $this->length;
+        }
+        $key = ($caseless ? 'i' : 's') . $needle;
+        [$searched, $at] = $this->found[$key] ?? [PHP_INT_MAX, 0];
+        if ($from >= $searched && $from <= $at) {
+            return $at; // nothing of it between the last start and the last answer
+        }
+        $position = strpos($caseless ? $this->lower : $this->input, $needle, $from);
+        $at = $position === false ? $this->length : $position;
+        $this->found[$key] = [$from, $at];
+
+        return $at;
+    }
+
     private function run(): void
     {
-        while ($this->at < $this->length) {
-            $lt = strpos($this->input, '<', $this->at);
+        $this->lower = strtolower($this->input); // once, for the case-insensitive end tags of raw text
+        while ($this->at < $this->length && $this->violation === null) {
+            $lt = strpos($this->input, '<', $this->at); // the scan continues at what it finds: each byte is read once
             if ($lt === false) {
                 $this->text();
                 return;
@@ -396,24 +599,23 @@ final class HtmlLimits
                 $this->at = $body + 2; // and so is <!--->
                 return;
             }
-            $end = strpos($this->input, '-->', $body);
-            $bang = strpos($this->input, '--!>', $body);
-            if ($bang !== false && ($end === false || $bang < $end)) {
+            $end = $this->find('-->', $body);
+            $bang = $this->find('--!>', $body);
+            if ($bang < $end) {
                 $this->at = $bang + 4;
             } else {
-                $this->at = $end === false ? $this->length : $end + 3;
+                $this->at = min($this->length, $end + 3);
             }
             return;
         }
         if (substr($this->input, $start, 9) === '<![CDATA[' && ($this->xmlMode || $this->inForeignContent())) {
-            $end = strpos($this->input, ']]>', $start + 9);
-            $this->at = $end === false ? $this->length : $end + 3;
+            $this->at = min($this->length, $this->find(']]>', $start + 9) + 3);
             return;
         }
         if ($this->xmlMode && strtoupper(substr($this->input, $start, 9)) === '<!DOCTYPE') {
             // an internal subset in [ ] may hold > characters
-            $bracket = $start + strcspn($this->input, '[>', $start);
-            if (($this->input[$bracket] ?? '') === '[') {
+            $bracket = $this->find('[', $start);
+            if ($bracket < $this->find('>', $start)) {
                 $this->skipPast(']', $bracket);
             }
         }
@@ -422,8 +624,7 @@ final class HtmlLimits
 
     private function skipPast(string $char, int $from): void
     {
-        $end = $from >= $this->length ? false : strpos($this->input, $char, $from);
-        $this->at = $end === false ? $this->length : $end + 1;
+        $this->at = min($this->length, $this->find($char, $from) + 1);
     }
 
     /**
@@ -461,9 +662,16 @@ final class HtmlLimits
             }
             // an attribute name: its first character may be "=", then anything up to a space, "/", ">" or "="
             $nameLength = $at + 1 < $this->length ? 1 + strcspn($this->input, self::SPACE . '/>=', $at + 1) : 1;
-            $attribute = strtolower(substr($this->input, $at, $nameLength));
+            $attribute = $keep ? strtolower(substr($this->input, $at, $nameLength)) : '';
             $at += $nameLength;
-            $count++;
+            if (++$count > self::MAX_ATTRIBUTES) {
+                // the rest of the tag is only counted (attributes are separated by spaces), and the scan stops
+                $end = $this->find('>', $at);
+                $this->at = $at;
+                $this->mostAttributes = $count + (int) preg_match_all('~\s+[^\s>]~', substr($this->input, $at, $end - $at));
+                $this->fail('attributes', $this->mostAttributes, self::MAX_ATTRIBUTES);
+                return null;
+            }
             $value = '';
             if ($at < $this->length) {
                 $at += strspn($this->input, self::SPACE, $at);
@@ -475,15 +683,15 @@ final class HtmlLimits
                 }
                 $quote = $this->input[$at] ?? '';
                 if ($quote === '"' || $quote === "'") {
-                    $end = strpos($this->input, $quote, $at + 1);
-                    if ($end === false) {
+                    $end = $this->find($quote, $at + 1);
+                    if ($end >= $this->length) {
                         return null;
                     }
-                    $value = substr($this->input, $at + 1, $end - $at - 1);
+                    $value = $keep ? substr($this->input, $at + 1, $end - $at - 1) : '';
                     $at = $end + 1;
                 } elseif ($at < $this->length) {
                     $valueLength = strcspn($this->input, self::SPACE . '>', $at);
-                    $value = substr($this->input, $at, $valueLength);
+                    $value = $keep ? substr($this->input, $at, $valueLength) : '';
                     $at += $valueLength;
                 }
             }
@@ -493,9 +701,6 @@ final class HtmlLimits
         }
         $this->at = $at + 1;
         $this->mostAttributes = max($this->mostAttributes, $count);
-        if ($count > self::MAX_ATTRIBUTES) {
-            $this->fail('attributes', $count, self::MAX_ATTRIBUTES);
-        }
 
         return ['name' => $name, 'attributes' => $attributes, 'selfClosing' => $selfClosing];
     }
@@ -678,27 +883,19 @@ final class HtmlLimits
             $this->at = $this->findEndTag($name, $this->at);
             return;
         }
-        // script data: <!-- <script> … </script> --> hides an end tag (the escaped states of the tokenizer); each search goes
-        // forward and is remembered until it is passed, so the skip stays linear
-        $next = ['end' => -1, 'open' => -1, 'close' => -1, 'inner' => -1];
-        $find = function (string $what, int $from) use (&$next): int {
-            if ($next[$what] < $from) {
-                $found = match ($what) {
-                    'end' => $this->findEndTag('script', $from),
-                    'inner' => $this->findStartTag('script', $from),
-                    default => $from >= $this->length ? false : strpos($this->input, $what === 'open' ? '<!--' : '-->', $from),
-                };
-                $next[$what] = $found === false ? $this->length : $found;
-            }
-
-            return $next[$what];
-        };
+        // script data: <!-- <script> … </script> --> hides an end tag (the escaped states of the tokenizer); every search goes
+        // through find(), which remembers it across all scripts of the input, so the skip stays linear
         $at = $this->at;
         $state = 0; // 0 data, 1 escaped, 2 double escaped
+        [$endAt, $openAt, $closeAt, $innerAt] = [-1, -1, -1, -1]; // the next of each, asked again only once passed
         while (true) {
-            $end = $find('end', $at);
-            $dash = $find($state === 0 ? 'open' : 'close', $at);
-            $inner = $state === 1 ? $find('inner', $at) : $this->length;
+            $end = $endAt >= $at ? $endAt : $endAt = $this->findEndTag('script', $at);
+            if ($state === 0) {
+                $dash = $openAt >= $at ? $openAt : $openAt = $this->find('<!--', $at);
+            } else {
+                $dash = $closeAt >= $at ? $closeAt : $closeAt = $this->find('-->', $at);
+            }
+            $inner = $state !== 1 ? $this->length : ($innerAt >= $at ? $innerAt : $innerAt = $this->findStartTag('script', $at));
             if ($dash < $end && $dash <= $inner) {
                 // the dashes of "<!--" can end it again at once: "<!-->" and "<!--->" go back to script data
                 $at = $dash + ($state === 0 ? 2 : 3);
@@ -724,7 +921,7 @@ final class HtmlLimits
     private function findEndTag(string $name, int $from): int
     {
         $length = strlen($name) + 2;
-        while ($from < $this->length && ($found = stripos($this->input, '</' . $name, $from)) !== false) {
+        while (($found = $this->find('</' . $name, $from, true)) < $this->length) {
             $after = $this->input[$found + $length] ?? '';
             if ($after === '' || str_contains(self::SPACE . '/>', $after)) {
                 return $found;
@@ -739,7 +936,7 @@ final class HtmlLimits
     private function findStartTag(string $name, int $from): int
     {
         $length = strlen($name) + 1;
-        while ($from < $this->length && ($found = stripos($this->input, '<' . $name, $from)) !== false) {
+        while (($found = $this->find('<' . $name, $from, true)) < $this->length) {
             $after = $this->input[$found + $length] ?? '';
             if ($after !== '' && str_contains(self::SPACE . '/>', $after)) {
                 return $found;
@@ -1283,6 +1480,14 @@ final class HtmlLimits
             $this->integration = [];
             $this->positions = $this->active = $this->entryAt = $this->before = $this->after = [];
             $this->last = null;
+            // the rest is only counted for the message, in one pass of two regular expressions (start tags, end tags):
+            // the number of elements, and open minus closed tags for the depth – the model stops here
+            if ($this->at < $this->length) {
+                $rest = substr($this->input, $this->at);
+                $opens = (int) preg_match_all('~<(?!(?:html|head|body)[\s/>])[a-zA-Z]~i', $rest);
+                $this->elements += $opens;
+                $this->deepest = max($this->deepest, $this->roughDepth + $opens - (int) preg_match_all('~</(?!(?:html|head|body)[\s/>])[a-zA-Z]~i', $rest));
+            }
         }
     }
 }

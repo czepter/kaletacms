@@ -4664,6 +4664,101 @@ foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(KALETA_SYS
     }
 }
 check('3.8: no file parses HTML or XML past Core\HtmlLimits', $limitDirect, []);
+
+// 3.8 N38-1: the pre-scan itself is linear – every search is remembered per needle, so floods of what makes a scanner
+// search ahead (comments, script escapes, quotes, CDATA, DOCTYPE, end tags of raw text) take well under a second at the
+// 5 MB limit (before: 1.9 s for 100 KB of "<!--a-->", 82 s for 640 KB). Each shape is tried at 600 KB first, so a
+// quadratic scan fails fast instead of running for hours.
+$scanBytes = static fn (string $piece, int $bytes, string $prefix = '', string $suffix = ''): string
+    => $prefix . str_repeat($piece, intdiv($bytes - strlen($prefix) - strlen($suffix), strlen($piece))) . $suffix;
+$scanShapes = [
+    'comments' => ['<!--a-->'], 'unterminated comments' => ['<!--a--'], 'bang comments' => ['<!--a--!'], 'one script, many <!--' => ['<!--a', '<script>'],
+    'scripts, one <!-- at the end' => ['<script>a</script>', '', '<!--'], 'escaped scripts' => ['<script><!--a</script>'],
+    'double escaped scripts' => ['<script><!--<script>a</script>-->'], 'unclosed quotes' => ['<a b="x\'>'], '</ flood' => ['</'],
+    '</a flood' => ['</a '], 'bogus comments' => ['</3'], '<! flood' => ['<!x'], '<? flood' => ['<?x'], 'CDATA flood in SVG' => ['<![CDATA[a]]', '<svg>'],
+    'raw text near misses' => ['<style>a</stylex>'], 'textareas' => ['<textarea>a</textarea'], 'attribute floods' => ['<p a=1 b="2" c=\'3\'>x</p>'],
+];
+$scanSlow = [];
+foreach ($scanShapes as $shape => $parts) {
+    foreach ([600_000, HtmlLimits::MAX_BYTES - 100] as $bytes) {
+        $html = $scanBytes($parts[0], $bytes, $parts[1] ?? '', $parts[2] ?? '');
+        $started = microtime(true);
+        HtmlLimits::check($html);
+        if (($took = microtime(true) - $started) > ($bytes < 1_000_000 ? 0.3 : 1.0)) {
+            $scanSlow[] = $shape . ' (' . round($bytes / 1_000_000, 1) . ' MB) ' . round($took, 2) . ' s';
+            break;
+        }
+    }
+}
+foreach (['CDATA flood (XML)' => $scanBytes('<![CDATA[a]]', HtmlLimits::MAX_BYTES - 100, '<svg>'), 'DOCTYPE flood (XML)' => $scanBytes('<!DOCTYPE a', HtmlLimits::MAX_BYTES - 100, '', '>'),
+    'processing instructions (XML)' => $scanBytes('<?a', HtmlLimits::MAX_BYTES - 100)] as $shape => $xml) {
+    $started = microtime(true);
+    HtmlLimits::check($xml, true);
+    if (($took = microtime(true) - $started) > 1.0) {
+        $scanSlow[] = $shape . ' ' . round($took, 2) . ' s';
+    }
+}
+check('3.8 N38-1: 5 MB of every scanner-pathological shape is checked in well under a second (linear pre-scan)', $scanSlow, []);
+
+// 3.8 N38-2: the encoding is decided once (byte order mark, the caller's encoding, <meta> in the first 1024 bytes, else
+// UTF-8) and the check and the parser read the same UTF-8 string – so markup in UTF-16 or behind a <meta> label can never
+// be deeper for the parser than for the check. Differential: the depth the check measures is the depth the parser builds.
+$encodingDepth = static function (Dom\HTMLDocument $doc): int {
+    [$deepest, $stack] = [0, [[$doc, 0]]];
+    while ($stack !== []) {
+        [$node, $depth] = array_pop($stack);
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof Dom\Element) {
+                [$deepest, $stack[]] = [max($deepest, $depth + 1), [$child, $depth + 1]];
+            }
+        }
+    }
+
+    return $deepest - 2; // without html and body
+};
+$encodingDivs = static fn (int $n): string => str_repeat('<div>', $n) . 'Příliš žluťoučký kůň' . str_repeat('</div>', $n);
+$encodingPage = static fn (string $meta, string $body): string => '<!DOCTYPE html><html><head>' . $meta . '<title>T</title></head><body>' . $body . '</body></html>';
+$encodingCases = [
+    'UTF-16LE with BOM' => static fn (int $n): string => "\xFF\xFE" . mb_convert_encoding($encodingPage('', $encodingDivs($n)), 'UTF-16LE', 'UTF-8'),
+    'UTF-16BE with BOM' => static fn (int $n): string => "\xFE\xFF" . mb_convert_encoding($encodingPage('', $encodingDivs($n)), 'UTF-16BE', 'UTF-8'),
+    'meta charset=utf-16' => static fn (int $n): string => $encodingPage('<meta charset=utf-16>', $encodingDivs($n)),
+    'windows-1250' => static fn (int $n): string => (string) iconv('UTF-8', 'Windows-1250', $encodingPage('<meta http-equiv="Content-Type" content="text/html; charset=windows-1250">', $encodingDivs($n))),
+    'iso-2022-jp' => static fn (int $n): string => (string) mb_convert_encoding($encodingPage('<meta charset="iso-2022-jp">', str_repeat('<div>', $n) . '日本語' . str_repeat('</div>', $n)), 'ISO-2022-JP', 'UTF-8'),
+    'bogus label (utf-7)' => static fn (int $n): string => $encodingPage('<meta charset=utf-7>', str_repeat('+ADw-div+AD4-', 1000) . $encodingDivs($n)),
+];
+$encodingResults = [];
+foreach ($encodingCases as $case => $page) {
+    $doc = HtmlLimits::document($page(100));
+    $measured = HtmlLimits::measure(HtmlLimits::toUtf8($page(100), null))['depth'];
+    try {
+        HtmlLimits::document($page(600));
+        $deep = 'parsed';
+    } catch (HtmlTooLarge $e) {
+        $deep = $e->violation['limit'];
+    }
+    $encodingResults[$case] = [$measured === $encodingDepth($doc) ? 'same' : $measured . '/' . $encodingDepth($doc), $deep,
+        str_contains((string) $doc->body?->textContent, $case === 'iso-2022-jp' ? '日本語' : 'žluťoučký')];
+}
+// a fragment that names its own encoding (HtmlConverter lets a <meta> decide) and an SVG in UTF-16 are decided the same way
+$encodingSvg = static fn (int $n): string => "\xFF\xFE" . mb_convert_encoding('<?xml version="1.0" encoding="UTF-16"?><svg xmlns="http://www.w3.org/2000/svg">'
+    . str_repeat('<g>', $n) . str_repeat('</g>', $n) . '</svg>', 'UTF-16LE', 'UTF-8');
+$encodingSvgDeep = 'parsed';
+try {
+    HtmlLimits::xml(new DOMDocument(), $encodingSvg(300), LIBXML_NONET);
+} catch (HtmlTooLarge $e) {
+    $encodingSvgDeep = $e->violation['limit'];
+}
+$encodingSvgDom = new DOMDocument();
+HtmlLimits::xml($encodingSvgDom, $encodingSvg(20), LIBXML_NONET);
+try {
+    HtmlLimits::fragmentOrFail('<meta charset=utf-16>' . str_repeat('<div>', 600), null);
+    $encodingFragment = 'parsed';
+} catch (HtmlTooLarge $e) {
+    $encodingFragment = $e->violation['limit'];
+}
+check('3.8 N38-2: the check measures what the parser builds in every encoding, and deep markup in another encoding is refused', [
+    $encodingResults, $encodingSvgDom->getElementsByTagName('g')->length, $encodingSvgDeep, $encodingFragment,
+], [array_fill_keys(array_keys($encodingCases), ['same', 'depth', true]), 20, 'depth', 'depth']);
 // the contract PHPStan checks the code against (phpVersion 8.3) must not promise more than PHP 8.4 has
 if (PHP_VERSION_ID >= 80400) {
     $domMissing = [];
