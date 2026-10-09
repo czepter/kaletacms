@@ -346,14 +346,25 @@ final class WpImport
         $end = microtime(true) + self::SECONDS;
         $count = 0;
         foreach ($wp->items((int) $state['pozice']) as $order => $p) {
-            $this->db->transaction(function () use ($p, &$state): void {
-                match ($p['typ']) {
-                    'post' => $this->article($p, $state),
-                    'page' => $state['volby']['stranky'] ? $this->page($p, $state) : self::leftOut($state, 'pages_off'),
-                    default => !isset($state['prehled']['typy'][$p['typ']]) ? null
-                        : (($state['volby']['kolekce'] ?? true) ? $this->collectionItem($p, $state) : self::leftOut($state, 'collections_off')),
-                };
-            });
+            $before = $state;
+            try {
+                $this->db->transaction(function () use ($p, &$state): void {
+                    // HTML over a limit of HtmlLimits stops the post at once (3.8): nothing of it is stored
+                    HtmlLimits::guard(function () use ($p, &$state): void {
+                        match ($p['typ']) {
+                            'post' => $this->article($p, $state),
+                            'page' => $state['volby']['stranky'] ? $this->page($p, $state) : self::leftOut($state, 'pages_off'),
+                            default => !isset($state['prehled']['typy'][$p['typ']]) ? null
+                                : (($state['volby']['kolekce'] ?? true) ? $this->collectionItem($p, $state) : self::leftOut($state, 'collections_off')),
+                        };
+                    });
+                });
+            } catch (HtmlTooLarge $e) {
+                $state = $before; // counted as left out, with its title and the limit in the report
+                self::leftOut($state, 'too_large');
+                $state['prilis_velke'] = array_slice([...(array) ($state['prilis_velke'] ?? []),
+                    ['titulek' => mb_substr($p['titulek'] !== '' ? $p['titulek'] : '#' . $p['id'], 0, 120), 'limit' => $e->violation]], -15);
+            }
             $state['pozice'] = $order + 1;
             if ((++$count >= $batch || microtime(true) > $end) && $state['pozice'] < $state['celkem']) {
                 return; // the rest next time; the import knows the number of posts (celkem) from the preview
@@ -932,9 +943,15 @@ final class WpImport
      */
     public static function rewriteImages(string $html, callable $image): string
     {
-        $rewritten = Html::rewriteImages($html, $image);
+        try {
+            return HtmlLimits::guard(function () use ($html, $image): string {
+                $rewritten = Html::rewriteImages($html, $image);
 
-        return $rewritten === $html ? $html : WpContent::safeHtml($rewritten);
+                return $rewritten === $html ? $html : WpContent::safeHtml($rewritten);
+            });
+        } catch (HtmlTooLarge) {
+            return $html; // stored content over a limit of HtmlLimits (an import before 3.8) stays as it is, with its images
+        }
     }
 
     /**
@@ -1179,6 +1196,7 @@ final class WpImport
         'drafts_off' => 'drafts and posts pending review – the drafts option is off',
         'pages_off' => 'pages – the pages option is off',
         'collections_off' => 'items of custom post types – the collections option is off',
+        'too_large' => 'posts whose HTML is over a safety limit (size, nesting or number of elements) – nothing of them was imported; too_large lists them',
     ];
 
     /** Why a redirect was not made or a menu was not put into the draft look, in English for the summary. */
@@ -1257,7 +1275,27 @@ final class WpImport
                 'why' => ['volba' => 'chosen in the options', 'email' => 'a user here has the same e-mail', 'import' => 'no user here has the author\'s e-mail – the user who runs the import'][$a['jak']] ?? $a['jak']],
                 array_map('strval', array_keys($state['autori_vysledek'])), array_values($state['autori_vysledek'])),
             'images' => ['downloaded' => (int) $state['obr']['stazeno'], 'failed' => (int) $state['obr']['chyb'], 'recent_failures' => $state['obr']['chyby']],
-        ];
+        ] + (($state['prilis_velke'] ?? []) !== [] ? ['too_large' => self::tooLarge($state, HtmlLimits::english(...))] : []);
+    }
+
+    /**
+     * The posts left out because their HTML is over a limit of HtmlLimits (3.8), as "title – reason".
+     *
+     * @param array<string, mixed> $state
+     * @param callable(array{limit: string, value: int, max: int}): string $describe HtmlLimits::english or HtmlLimits::message
+     * @return list<string>
+     */
+    public static function tooLarge(array $state, callable $describe): array
+    {
+        $rows = [];
+        foreach ((array) ($state['prilis_velke'] ?? []) as $row) {
+            if (is_array($row) && is_array($row['limit'] ?? null)) {
+                $limit = $row['limit'];
+                $rows[] = (string) ($row['titulek'] ?? '') . ' – ' . $describe(['limit' => (string) ($limit['limit'] ?? ''), 'value' => (int) ($limit['value'] ?? 0), 'max' => (int) ($limit['max'] ?? 0)]);
+            }
+        }
+
+        return $rows;
     }
 
     /* ---------- navigation menus (3.6) ---------- */

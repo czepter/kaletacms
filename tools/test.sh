@@ -2323,6 +2323,36 @@ expect "a drafts-only connection cannot insert Custom HTML" "$("${MYSQL[@]}" "$D
 mcp_as "$DRAFT_TOKEN" create_news '{"title":"N37-1 prefixed attributes","category":"'"$CATEGORY"'","text":"<p><img xml:onerror=alert(1) src=/media/x.png><a xml:href=javascript:alert(2) href=/ok>a</a> <a xlink:href=javascript:alert(3)>b</a> <span XML:ONCLICK=alert(4) x:onmouseover=alert(5) xmlns:x=y>c</span></p><svg><a xlink:href=javascript:alert(6)><text>d</text></a></svg><math><mi xml:onclick=alert(7)>e</mi></math>"}' > /dev/null
 expect "N37-1: create_news over a drafts-only connection with xml:/xlink:/x: attributes stores nothing executable, the safe href stays" \
   "$(sq "SELECT CONCAT(text REGEXP '[[:space:]]on[a-z]+[[:space:]]*=', '/', text LIKE '%javascript%', '/', text LIKE '%<a href=\"/ok\">a</a>%', '/', text LIKE '%src=\"/media/x.png\"%') FROM ka_novinky WHERE titulek = 'N37-1 prefixed attributes'")" "0/0/1/1"
+# 3.8 (N37-3 follow-up): markup over a limit of Core\HtmlLimits is refused before any parser sees it, on every PHP version – a
+# Custom HTML element nested 3,000 deep is stored empty with the limit and the measured value among the errors, build_from_html,
+# create_news, an SVG upload and the admin news form refuse it and store nothing
+LIMIT_DEEP=$(printf '<div>%.0s' $(seq 1 3000))
+mcp create_page '{"title":"Limit MCP","slug":"limit-mcp"}' > /dev/null
+LIMIT_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'limit-mcp'")
+mcp save_build "{\"id\":${LIMIT_PAGE:-0},\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"children\":[{\"type\":\"custom_html\",\"content\":{\"code\":\"$LIMIT_DEEP\"}},{\"type\":\"heading\",\"content\":{\"text\":\"Kept by the limit\"}}]}]}}" > "$WORK/response"
+contains -q 'The markup is nested 3000 levels deep; the limit is 512 – the field was left empty.' "$WORK/response" \
+  && expect "3.8: save_build with Custom HTML nested 3,000 deep returns the limit, the element stays empty, the rest is saved" \
+    "$(sq "SELECT CONCAT(stavba_koncept LIKE '%<div><div>%', '/', stavba_koncept LIKE '%Kept by the limit%') FROM ka_stranky WHERE ids = ${LIMIT_PAGE:-0}")" "0/1" \
+  || { echo "  CHYBA  3.8: save_build over the nesting limit"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp build_from_html "{\"id\":${LIMIT_PAGE:-0},\"html\":\"<section>$LIMIT_DEEP</section>\"}" > "$WORK/response"
+contains -q '"isError":true' "$WORK/response" && contains -q 'The markup is nested 3,001 levels deep; the limit is 512.' "$WORK/response" \
+  && expect "3.8: build_from_html over the nesting limit is refused with the limit, the draft stays as it was" "$(sq "SELECT stavba_koncept LIKE '%Kept by the limit%' FROM ka_stranky WHERE ids = ${LIMIT_PAGE:-0}")" 1 \
+  || { echo "  CHYBA  3.8: build_from_html over the nesting limit"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp create_news "{\"title\":\"Limit news\",\"category\":\"$CATEGORY\",\"text\":\"$LIMIT_DEEP\"}" > "$WORK/response"
+mcp_as "$DRAFT_TOKEN" create_news "{\"title\":\"Limit news draft\",\"category\":\"$CATEGORY\",\"text\":\"<blockquote>$LIMIT_DEEP</blockquote>\"}" > "$WORK/response2"
+contains -q 'text: The markup is nested 3,000 levels deep; the limit is 512.' "$WORK/response" && contains -q 'text: The markup is nested 3,001 levels deep' "$WORK/response2" \
+  && expect "3.8: create_news over the limit is refused on a full and a drafts-only connection, nothing is stored" "$(sq "SELECT COUNT(*) FROM ka_novinky WHERE titulek LIKE 'Limit news%'")" 0 \
+  || { echo "  CHYBA  3.8: create_news over the nesting limit"; head -c 300 "$WORK/response"; head -c 300 "$WORK/response2"; ERRORS=$((ERRORS+1)); }
+LIMIT_SVG=$(php -r 'echo base64_encode("<svg xmlns=\"http://www.w3.org/2000/svg\">" . str_repeat("<g>", 300) . str_repeat("</g>", 300) . "</svg>");')
+mcp upload_file "{\"filename\":\"deep.svg\",\"data\":\"$LIMIT_SVG\"}" > "$WORK/response"
+contains -q '"isError":true' "$WORK/response" && contains -q 'The markup is nested 301 levels deep; the limit is 256.' "$WORK/response" \
+  && expect "3.8: an SVG nested 300 deep is refused with the limit, nothing in Media" "$(sq "SELECT COUNT(*) FROM ka_media WHERE obr_poloha LIKE '%/deep-%'")" 0 \
+  || { echo "  CHYBA  3.8: SVG upload over the nesting limit"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=news&action=new"
+code=$(curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=news&action=save" -d "_csrf=$(csrf)" -d idc=0 -d "titulek=Limit form" -d "tema=$(sq "SELECT MIN(idt) FROM ka_kategorie")" --data-urlencode "text=$LIMIT_DEEP")
+contains -q 'chyba-pole' "$WORK/response" && contains -q '3 000' "$WORK/response" \
+  && expect "3.8: the admin news form shows the limit at the text, keeps the text in the form and saves nothing" "$code/$(sq "SELECT COUNT(*) FROM ka_novinky WHERE titulek = 'Limit form'")/$(grep -c '&lt;div&gt;&lt;div&gt;' "$WORK/response")" "200/0/1" \
+  || { echo "  CHYBA  3.8: admin news form over the limit: $code"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_newsletters (subject, intro, status, scheduled_at, created) VALUES ('Scheduled 251', 'Original intro', 'scheduled', '$(site_time)' + INTERVAL 1 DAY, '$(site_time)')"
 NL_SCHEDULED=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT id FROM ka_newsletters WHERE subject = 'Scheduled 251'")
 mcp_as "$DRAFT_TOKEN" draft_newsletter "{\"id\":$NL_SCHEDULED,\"intro\":\"Changed by a drafts connection\"}" > /dev/null
@@ -2637,6 +2667,21 @@ mcp migration_report "{\"url\":\"$OLD\"}" > "$WORK/response"; REPORT_ID=$(import
 for i in $(seq 1 20); do [ "$(import_field phase)" = done ] && break; mcp migration_report "{\"report_id\":\"$REPORT_ID\"}" > "$WORK/response"; done
 expect "migration report: after a redirect and publishing, the contact address redirects (but the form is gone)" "$(import_field summary)" '{"addresses":4,"checked":4,"ok":2,"redirected":1,"not_published":1,"missing":0,"errors":1,"warnings":2}'
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zobrazit = 0 WHERE seo_link = 'about-us'; DELETE FROM ka_presmerovani WHERE z_adresy = 'contact'"
+# 3.8: an old page nested 3,000 deep is never parsed – the website import skips it with the limit among its failures, the
+# migration report checks only its address
+mkdir -p "$WORK/oldsite/deep"
+oldpage "Deep" "Deep page" "$(printf '<div>%.0s' $(seq 1 3000))" > "$WORK/oldsite/deep/index.html"
+printf '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>%s/deep/</loc></url></urlset>' "$OLD" > "$WORK/oldsite/sitemap.xml"
+mcp import_website "{\"url\":\"$OLD\"}" > "$WORK/response"; IMPORT_ID=$(import_field import_id)
+for i in $(seq 1 20); do [ "$(import_field phase)" = finding ] || break; mcp import_website "{\"import_id\":\"$IMPORT_ID\"}" > "$WORK/response"; done
+mcp import_website "{\"import_id\":\"$IMPORT_ID\",\"confirm\":true}" > "$WORK/response"
+for i in $(seq 1 20); do [ "$(import_field phase)" = importing ] || break; mcp import_website "{\"import_id\":\"$IMPORT_ID\"}" > "$WORK/response"; done
+expect "3.8: website import skips an old page over the nesting limit with the limit in its failures, nothing stored" \
+  "$(import_field result | grep -o '"failed":[0-9]*')|$(import_field failures | grep -c 'deep.*3 001')|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE titulek = 'Deep'")" '"failed":1|1|0'
+mcp migration_report "{\"url\":\"$OLD\"}" > "$WORK/response"; REPORT_ID=$(import_field report_id)
+for i in $(seq 1 20); do [ "$(import_field phase)" = done ] && break; mcp migration_report "{\"report_id\":\"$REPORT_ID\"}" > "$WORK/response"; done
+contains -q 'too_large' "$WORK/response" && echo "  ok     3.8: the migration report reads an old page over the limit as too large, only its address is checked" \
+  || { echo "  CHYBA  3.8: migration report of a page over the limit"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 kill "$OLDSITE_PID" 2>/dev/null; OLDSITE_PID=
 echo "== 3.7: migration II – past 300 old addresses, items in batches and from CSV"
 # a fake old shop (tools/fake-old-site.php): a sitemap index with 350 pages, a page its robots.txt disallows, images;

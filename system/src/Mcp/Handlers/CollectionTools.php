@@ -263,7 +263,11 @@ trait CollectionTools
             throw new \InvalidArgumentException('Parametr data musí být objekt {"klic":"hodnota"} podle polí kolekce.');
         }
         $errors = [];
-        $data = Collections::sanitizeData($collection['pole'], (is_array($a['data'] ?? null) ? $a['data'] : []) + (json_decode((string) ($previous['data'] ?? '{}'), true) ?: []), $errors);
+        $tooLarge = null;
+        $data = Collections::sanitizeData($collection['pole'], (is_array($a['data'] ?? null) ? $a['data'] : []) + (json_decode((string) ($previous['data'] ?? '{}'), true) ?: []), $errors, $tooLarge);
+        if ($tooLarge !== null) {
+            throw new \Kaleta\Core\HtmlTooLarge($tooLarge); // a rich text field over a limit: nothing is saved, the error says which limit
+        }
         $url = trim((string) ($a['adresa'] ?? ''));
         $seo = $url !== '' ? slugify($url, 150) : ($previous['seo_link'] ?? slugify($itemName, 150));
         if ($seo === '' || $seo === '_ukazka') {

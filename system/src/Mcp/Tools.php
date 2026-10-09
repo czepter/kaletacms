@@ -536,7 +536,8 @@ final class Tools
         }
         foreach (['uvod', 'text'] as $field) {
             if (isset($data[$field])) {
-                $data[$field] = \Kaleta\Core\Html::forUser($data[$field], $this->app->auth());
+                // over a limit of Core\HtmlLimits the call is refused: nothing is saved, the error names the parameter and the limit
+                $data[$field] = \Kaleta\Core\Html::forUserOrFail($data[$field], $this->app->auth(), $field === 'uvod' ? 'intro' : 'text');
             }
         }
         if (array_key_exists('kategorie', $a)) {
@@ -611,7 +612,8 @@ final class Tools
         }
         foreach (['uvod', 'text'] as $field) {
             if (isset($data[$field])) {
-                $data[$field] = \Kaleta\Core\Html::forUser($data[$field], $this->app->auth());
+                // over a limit of Core\HtmlLimits the call is refused: nothing is saved, the error names the parameter and the limit
+                $data[$field] = \Kaleta\Core\Html::forUserOrFail($data[$field], $this->app->auth(), $field);
             }
         }
         foreach (['v_menu', 'zobrazit', 'noindex'] as $field) {

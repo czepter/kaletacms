@@ -200,7 +200,15 @@ final class ImportRecheck
         if (!str_contains($html, '<')) {
             return 0;
         }
-        $doc = \Dom\HTMLDocument::createFromString('<!DOCTYPE html><html><body>' . $html . '</body></html>', LIBXML_NOERROR, 'UTF-8');
+        $violation = HtmlLimits::check($html);
+        if ($violation !== null) {
+            // over a limit of HtmlLimits (3.8): never parsed, so treated as risky – the sanitizer refuses it as well and the
+            // record keeps an empty text, with the old one in its version history
+            error_log('Import recheck: ' . HtmlLimits::english($violation));
+
+            return 2;
+        }
+        $doc = HtmlLimits::fragmentOrFail($html);
         $risk = 0;
         foreach ($doc->querySelectorAll('*') as $element) {
             $name = strtolower($element->localName);

@@ -470,6 +470,11 @@ final class Translator
         '/^Značka <(\w+)> mimo formulář nemá ve stavbě obdobu – vynechána\.$/su' => 'The <$1> tag outside a form has no builder equivalent – left out.',
         '/^Vložené styly \(atribut style\) se nepřevádějí – vzhled patří do tříd v <style>\.$/su' => 'Inline styles (the style attribute) are not converted – the look belongs in classes in <style>.',
         '/^Příliš hluboké vnoření – nejhlubší část převedena jako text\.$/su' => 'Nesting too deep – the deepest part was converted as text.',
+        // Builder\Build::limitNote() – a field over a limit of Core\HtmlLimits (3.8)
+        '/^Kód má (\d+) bajtů, nejvýš smí mít (\d+) – obsah pole vynechán\.$/su' => 'The markup is $1 bytes long; the limit is $2 – the field was left empty.',
+        '/^Kód je vnořený do (\d+) úrovní, nejvýš smí do (\d+) – obsah pole vynechán\.$/su' => 'The markup is nested $1 levels deep; the limit is $2 – the field was left empty.',
+        '/^Prvek v kódu má (\d+) atributů, nejvýš smí mít (\d+) – obsah pole vynechán\.$/su' => 'An element in the markup has $1 attributes; the limit is $2 – the field was left empty.',
+        '/^Kód má (\d+) prvků, nejvýš smí mít (\d+) – obsah pole vynechán\.$/su' => 'The markup has $1 elements; the limit is $2 – the field was left empty.',
         '/^Pole typu (\S+) formulář nepodporuje – vynecháno\.$/su' => 'The form does not support fields of type $1 – left out.',
         '/^Formulář převeden na prvek Formulář: .*$/su' => 'The form was converted to the Form element: it sends to the site’s Enquiries and by e-mail (the action address is not used).',
         '/^Značka <(\w+)> jde vložit jen jako Vlastní HTML, a to smí jen správce webu – vynechána\.$/su' => 'The <$1> tag can only be added as Custom HTML, which only the site administrator may do – left out.',

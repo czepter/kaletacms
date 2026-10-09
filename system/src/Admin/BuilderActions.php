@@ -545,7 +545,11 @@ trait BuilderActions
         } catch (\RuntimeException $e) {
             return Response::json(['ok' => false, 'chyba' => t($e->getMessage())], 502);
         }
-        ['stavba' => $build, 'hlaseni' => $messages] = \Kaleta\Builder\HtmlConverter::saveToSite($this->db, $html, false);
+        try {
+            ['stavba' => $build, 'hlaseni' => $messages] = \Kaleta\Builder\HtmlConverter::saveToSite($this->db, $html, false);
+        } catch (\Kaleta\Core\HtmlTooLarge $e) {
+            return Response::json(['ok' => false, 'chyba' => $e->localized()], 502); // the model's HTML over a limit of Core\HtmlLimits
+        }
         [$clean] = Build::sanitize($build, $this->app->auth()->isAdmin());
         if ($clean['deti'] === []) {
             return Response::json(['ok' => false, 'chyba' => t('The assistant did not return a usable section. Try refining the description.')], 502);

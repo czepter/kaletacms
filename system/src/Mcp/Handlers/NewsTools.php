@@ -178,7 +178,9 @@ trait NewsTools
         }
         $seo = $this->availableSlug('kategorie', 'idt', slugify($displayName, 110));
 
-        return ['id' => $db->insert('kategorie', ['nazev' => $displayName, 'seo_link' => $seo, 'popis' => \Kaleta\Core\Html::safe((string) ($a['popis'] ?? ''))]), 'adresa' => $seo];
+        $description = \Kaleta\Core\Html::safeOrFail((string) ($a['popis'] ?? ''), 'description');
+
+        return ['id' => $db->insert('kategorie', ['nazev' => $displayName, 'seo_link' => $seo, 'popis' => $description]), 'adresa' => $seo];
     }
 
     /** update_category */
@@ -200,7 +202,7 @@ trait NewsTools
             $changes['nazev'] = mb_substr(trim((string) $a['name']), 0, 255);
         }
         if (isset($a['description'])) {
-            $changes['popis'] = \Kaleta\Core\Html::forUser((string) $a['description'], $auth);
+            $changes['popis'] = \Kaleta\Core\Html::forUserOrFail((string) $a['description'], $auth, 'description');
         }
         if (isset($a['order'])) {
             $changes['hodnost'] = max(0, min(65535, (int) $a['order']));

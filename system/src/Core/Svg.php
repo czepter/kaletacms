@@ -20,7 +20,11 @@ final class Svg
         'fx', 'fy', 'clip-path', 'mask', 'font-family', 'font-size', 'font-weight', 'text-anchor', 'dominant-baseline', 'letter-spacing', 'preserveaspectratio',
         'xmlns', 'version', 'href', 'xlink:href', 'style', 'role', 'aria-label', 'aria-hidden', 'focusable', 'patternunits', 'vector-effect', 'color'];
 
-    /** The cleaned SVG, or null when the file is not an SVG. */
+    /**
+     * The cleaned SVG, or null when the file is not an SVG.
+     *
+     * @throws HtmlTooLarge when it is over a limit of HtmlLimits (nested too deep, too many attributes): refused, never parsed
+     */
     public static function sanitize(string $svg): ?string
     {
         if (strlen($svg) > 2_000_000 || !str_contains($svg, '<svg')) {
@@ -28,9 +32,12 @@ final class Svg
         }
         $dom = new \DOMDocument();
         $previous = libxml_use_internal_errors(true);
-        // without DTD and external entities (XXE) and without network access
-        $ok = $dom->loadXML(preg_replace('/<!DOCTYPE[^>]*>/i', '', $svg) ?? '', LIBXML_NONET | LIBXML_NOBLANKS);
-        libxml_use_internal_errors($previous);
+        try {
+            // without DTD and external entities (XXE) and without network access
+            $ok = HtmlLimits::xml($dom, preg_replace('/<!DOCTYPE[^>]*>/i', '', $svg) ?? '', LIBXML_NONET | LIBXML_NOBLANKS);
+        } finally {
+            libxml_use_internal_errors($previous);
+        }
         if (!$ok || $dom->documentElement === null || strtolower($dom->documentElement->localName) !== 'svg') {
             return null;
         }

@@ -48,12 +48,12 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <?php if (($page['stavba'] ?? null) !== null): ?>
 <div class="radek pres-celou">
 	<p class="hlaska"><?= e(t('This page\'s content is built in the builder.')) ?> <a class="tl" href="<?= e($module->url('builder', ['id' => (int) $page['ids']])) ?>"><?= e(t('Open the builder')) ?></a></p>
-	<input type="hidden" name="text" value="<?= e($page['text']) ?>">
+	<input type="hidden" name="text" value="<?= e($page['text']) ?>"><?= $error('text') ?>
 </div>
 <?php else: ?>
 <div class="radek pres-celou">
 	<label for="text"><?= e(t('Content')) ?></label>
-	<textarea class="textbox vysoky" id="text" name="text" rows="18" data-editor><?= e($page['text']) ?></textarea>
+	<textarea class="textbox vysoky" id="text" name="text" rows="18" data-editor><?= e($page['text']) ?></textarea><?= $error('text') ?>
 <?php if ($page['ids']): ?>
 	<span class="napoveda"><?= e(t('Want to build the page from sections, columns and buttons?')) ?> <a href="<?= e($module->url('builder', ['id' => (int) $page['ids']])) ?>"><?= e(t('Open in the builder')) ?></a></span>
 <?php endif ?>
