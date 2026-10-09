@@ -27,7 +27,7 @@
 <?php if ($update['nastaveno']): ?>
 <p><button class="navigace" type="submit" formaction="<?= e($module->url('check')) ?>"><?= e(t('Check now')) ?></button></p>
 <?php endif ?>
-<div class="radek"><span class="popisek"><?= e(t('Update channel')) ?></span><div>
+<div class="radek"><span class="popisek" id="update_channel_popisek"><?= e(t('Update channel')) ?></span><div role="radiogroup" aria-labelledby="update_channel_popisek">
 <div class="karty-volby karty-volby-text">
 <?php foreach ([
     'latest' => ['Latest', 'A new minor version every week, with new features and fixes. Recommended for most sites.'],
