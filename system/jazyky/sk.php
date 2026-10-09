@@ -1916,4 +1916,5 @@ return [
     'Item name' => 'Názov položky',
     'Previous and next item' => 'Predchádzajúca a ďalšia položka',
     '%s – page %d' => '%s – strana %d',
+    'Nothing was saved: the text is over a safety limit for HTML (too large or nested too deeply).' => 'Nič sa neuložilo: text prekračuje bezpečnostný limit pre HTML (je príliš veľký alebo príliš hlboko vnorený).',
 ];

@@ -1936,4 +1936,5 @@ return [
     'There is nothing in this category yet.' => 'Il n’y a encore rien dans cette catégorie.',
     'Item name' => 'Nom de l’élément',
     'Previous and next item' => 'Élément précédent et suivant',
+    'Nothing was saved: the text is over a safety limit for HTML (too large or nested too deeply).' => 'Rien n’a été enregistré : le texte dépasse une limite de sécurité pour le HTML (trop volumineux ou trop imbriqué).',
 ];

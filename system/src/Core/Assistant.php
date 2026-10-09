@@ -221,7 +221,14 @@ class Assistant
         }
 
         // the model's answer is untrusted input
-        return $html ? trim(strip_tags(WpContent::safeHtml($result), '<p><ul><ol><li><strong><b><em><i><a><br>')) : trim(strip_tags($result));
+        if (!$html) {
+            return trim(strip_tags($result));
+        }
+        try {
+            return trim(strip_tags(HtmlLimits::guard(fn (): string => WpContent::safeHtml($result)), '<p><ul><ol><li><strong><b><em><i><a><br>'));
+        } catch (HtmlTooLarge) {
+            throw new \RuntimeException('The assistant\'s reply is over a safety limit for HTML. Please try again.');
+        }
     }
 
     /** Tags that stay inside a translated segment – the sentence is not split because of them. Everything else separates segments. */
@@ -237,8 +244,12 @@ class Assistant
     {
         // written out again by Html first: then a < or > is only ever a tag's edge, never text inside an attribute value
         // (stored text from before 3.3.2 can have them raw), so the regular expressions below cut only between tags
-        $html = Html::transform($html, static function (): void {
-        });
+        try {
+            $html = HtmlLimits::guard(fn (): string => Html::transform($html, static function (): void {
+            }));
+        } catch (HtmlTooLarge) {
+            throw new \RuntimeException('The text is over a safety limit for HTML (too large or nested too deeply), so it cannot be translated.');
+        }
         $parts = preg_split('#(<!--.*?-->|<(?:script|style|pre)\b.*?</(?:script|style|pre)>|</?(?!(?:' . self::INLINE_HTML_TAGS . ')\b)[a-zA-Z][^>]*>)#is', $html, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [$html];
         $skeleton = [];
         $segments = [];

@@ -72,6 +72,9 @@ final class SiteImport
     /** @var list<list<string>> what the import changed so the site keeps working: [format, ...arguments] for t(), shown at the end */
     private array $notes = [];
 
+    /** @var list<list<string>> the same from the static row cleaners: content over a limit of HtmlLimits (3.8) */
+    private static array $limitNotes = [];
+
     public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly int $admin)
     {
     }
@@ -374,9 +377,10 @@ final class SiteImport
             });
         }
         // what was changed so the imported site keeps working (3.7, N37-2 and N37-11) – listed with the result
-        $state['zmeny'] = array_slice([...(array) $state['zmeny'], ...$this->notes], 0, 200);
+        $state['zmeny'] = array_slice([...(array) $state['zmeny'], ...$this->notes, ...self::$limitNotes], 0, 200);
         $state['prejmenovane_stranky'] = $this->renamedPages;
         $this->notes = [];
+        self::$limitNotes = [];
         if ($state['tabulka'] >= count(self::TABLES)) {
             $this->applySettings((string) $state['soubor'], (string) ($state['hlavicka']['kaleta'] ?? ''));
             $state['faze'] = $state['media_celkem'] > 0 ? 'media' : 'hotovo';
@@ -556,6 +560,18 @@ final class SiteImport
         return Html::safe(WpContent::embeddedVideos(self::text($v, $max)));
     }
 
+    /** html(), or null when it is over a limit of HtmlLimits: the record is skipped, with the reason among the notes. */
+    private function htmlOrSkip(mixed $v, int $max, string $title): ?string
+    {
+        try {
+            return HtmlLimits::guard(fn (): string => self::html($v, $max));
+        } catch (HtmlTooLarge $e) {
+            $this->notes[] = ['“%s” was skipped: %s', $title, $e->localized()];
+
+            return null;
+        }
+    }
+
     private static function date(mixed $v): ?string
     {
         return is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/D', $v) ? $v : null;
@@ -707,7 +723,12 @@ final class SiteImport
         if (!is_array($build)) {
             return null;
         }
-        [$clean] = Build::sanitize($build, true);
+        [$clean, $errors] = Build::sanitize($build, true);
+        foreach ($errors as $place => $error) {
+            if (Build::isLimitNote($error)) {
+                self::$limitNotes[] = ['A builder field (%s) was over a safety limit for HTML and was left empty.', $place];
+            }
+        }
 
         return Build::toJson($clean);
     }
@@ -735,10 +756,14 @@ final class SiteImport
         if ((int) ($r['ids'] ?? 0) <= 0 || $title === '') {
             return null;
         }
+        $text = $this->htmlOrSkip($r['text'] ?? '', 4_000_000, $title);
+        if ($text === null) {
+            return null;
+        }
 
         return ['ids' => (int) $r['ids'], 'titulek' => $title, 'seo_link' => $this->freePageSlug(self::pageSlug($r['seo_link'] ?? '', $title)), 'popis' => self::text($r['popis'] ?? '', 300),
             'seo_titulek' => self::text($r['seo_titulek'] ?? '', 200), 'obrazek' => self::file($r['obrazek'] ?? ''), 'noindex' => (int) !empty($r['noindex']),
-            'text' => self::html($r['text'] ?? '', 4_000_000), 'zobrazit' => (int) !empty($r['zobrazit']), 'zverejnit_od' => self::date($r['zverejnit_od'] ?? null),
+            'text' => $text, 'zobrazit' => (int) !empty($r['zobrazit']), 'zverejnit_od' => self::date($r['zverejnit_od'] ?? null),
             'v_menu' => (int) !empty($r['v_menu']), 'poradi' => (int) ($r['poradi'] ?? 0), 'zmeneno' => self::date($r['zmeneno'] ?? null) ?? date('Y-m-d H:i:s'),
             'jazyk' => self::language($r['jazyk'] ?? ''), 'preklad_z' => (int) ($r['preklad_z'] ?? 0) ?: null, 'nadrazena' => (int) ($r['nadrazena'] ?? 0) ?: null,
             'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null)] + self::validity($r);
@@ -750,8 +775,13 @@ final class SiteImport
         if ((int) ($r['idc'] ?? 0) <= 0 || $title === '') {
             return null;
         }
-        $row = ['idc' => (int) $r['idc'], 'titulek' => $title, 'seo_link' => self::slug($r['seo_link'] ?? '', $title, 160), 'uvod' => self::html($r['uvod'] ?? '', 100_000),
-            'text' => self::html($r['text'] ?? '', 4_000_000), 'obrazek' => self::file($r['obrazek'] ?? ''), 'obrazek_popis' => self::text($r['obrazek_popis'] ?? '', 300),
+        $intro = $this->htmlOrSkip($r['uvod'] ?? '', 100_000, $title);
+        $text = $intro === null ? null : $this->htmlOrSkip($r['text'] ?? '', 4_000_000, $title);
+        if ($intro === null || $text === null) {
+            return null;
+        }
+        $row = ['idc' => (int) $r['idc'], 'titulek' => $title, 'seo_link' => self::slug($r['seo_link'] ?? '', $title, 160), 'uvod' => $intro,
+            'text' => $text, 'obrazek' => self::file($r['obrazek'] ?? ''), 'obrazek_popis' => self::text($r['obrazek_popis'] ?? '', 300),
             'obrazek_autor' => self::text($r['obrazek_autor'] ?? '', 120), 'tema' => (int) ($r['tema'] ?? 0), 'autor' => $this->admin,
             'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s'), 'visible' => (int) !empty($r['visible']), 't_slova' => self::text($r['t_slova'] ?? '', 500),
             'seo_titulek' => self::text($r['seo_titulek'] ?? '', 255), 'seo_popis' => self::text($r['seo_popis'] ?? '', 320), 'noindex' => (int) !empty($r['noindex']),
@@ -876,9 +906,17 @@ final class SiteImport
             return null; // an item without its collection
         }
         $data = is_array($r['data'] ?? null) ? $r['data'] : json_decode((string) ($r['data'] ?? ''), true);
+        $errors = [];
+        $tooLarge = null;
+        $clean = Collections::sanitizeData($fields, is_array($data) ? $data : [], $errors, $tooLarge);
+        if ($tooLarge !== null) {
+            $this->notes[] = ['“%s” was skipped: %s', $name, HtmlLimits::message($tooLarge)];
+
+            return null;
+        }
 
         return ['idp' => (int) $r['idp'], 'idk' => $idk, 'nazev' => $name, 'seo_link' => self::slug($r['seo_link'] ?? '', $name, 160),
-            'data' => (string) json_encode(Collections::sanitizeData($fields, is_array($data) ? $data : []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'data' => (string) json_encode($clean, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'poradi' => (int) ($r['poradi'] ?? 0), 'zobrazit' => (int) !empty($r['zobrazit']), 'jazyk' => self::language($r['jazyk'] ?? ''),
             'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s'), 'zmeneno' => date('Y-m-d H:i:s'),
             'seo_titulek' => self::text($r['seo_titulek'] ?? '', 200), 'popis' => self::text($r['popis'] ?? '', 300), 'obrazek' => self::file($r['obrazek'] ?? ''),
@@ -936,8 +974,14 @@ final class SiteImport
             $slug = Slug::makeUnique($wanted, fn (string $a): bool => $unusable($a) || $other($a), 160);
             $this->notes[] = ['Collection category “%s”: the address %s cannot be used (an item of the collection has it, or it is reserved), so the category got %s.', $name, $wanted, $slug];
         }
+        try {
+            $description = HtmlLimits::guard(fn (): string => WpContent::safeHtml(self::text($r['description'] ?? '', 100000)));
+        } catch (HtmlTooLarge $e) {
+            $description = ''; // the category itself is kept: its items and addresses depend on it
+            $this->notes[] = ['Collection category “%s”: the description was left empty: %s', $name, $e->localized()];
+        }
 
-        return ['category_id' => $id, 'language' => $language, 'idk' => $idk, 'name' => $name, 'slug' => $slug, 'description' => \Kaleta\Core\WpContent::safeHtml(self::text($r['description'] ?? '', 100000)),
+        return ['category_id' => $id, 'language' => $language, 'idk' => $idk, 'name' => $name, 'slug' => $slug, 'description' => $description,
             'seo_title' => self::text(trim(strip_tags((string) ($r['seo_title'] ?? ''))), 200), 'seo_description' => self::text(trim(strip_tags((string) ($r['seo_description'] ?? ''))), 300)];
     }
 
@@ -1065,8 +1109,14 @@ final class SiteImport
             $done++;
             $full = KALETA_ROOT . '/' . $target;
             $ok = is_dir(dirname($full)) || @mkdir(dirname($full), 0775, true);
+            $reason = '';
             if ($ok && str_ends_with(strtolower($target), '.svg')) {
-                $content = Svg::sanitize((string) $zip->getFromName($name)); // an SVG is cleaned like an uploaded one
+                try {
+                    $content = Svg::sanitize((string) $zip->getFromName($name)); // an SVG is cleaned like an uploaded one
+                } catch (HtmlTooLarge $e) {
+                    $content = null; // over a limit of HtmlLimits: skipped with the reason
+                    $reason = ' – ' . $e->localized();
+                }
                 $ok = $content !== null && file_put_contents($full, $content) !== false;
             } elseif ($ok) {
                 // streamed: a video or a large PDF does not have to fit in memory
@@ -1082,7 +1132,7 @@ final class SiteImport
             if (!$ok) {
                 $state['media']['preskoceno']++;
                 if (count($state['chyby']) < 20) {
-                    $state['chyby'][] = $target;
+                    $state['chyby'][] = $target . $reason;
                 }
                 continue;
             }

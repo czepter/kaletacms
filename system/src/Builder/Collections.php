@@ -248,17 +248,19 @@ final class Collections
      *
      * @param list<array{klic: string, popisek: string, typ: string, kolekce?: string, moznosti?: list<string>}> $field
      * @param array<string, string> $errors
+     * @param array{limit: string, value: int, max: int}|null $tooLarge the first HTML field over a limit of Core\HtmlLimits (left empty)
      * @return array<string, string>
      */
-    public static function sanitizeData(array $field, array $input, array &$errors = []): array
+    public static function sanitizeData(array $field, array $input, array &$errors = [], ?array &$tooLarge = null): array
     {
         $data = [];
         foreach ($field as $p) {
             $h = trim((string) (is_scalar($input[$p['klic']] ?? null) ? $input[$p['klic']] : ''));
+            $limit = null;
             $clean = match ($p['typ']) {
                 'text' => mb_substr(strip_tags(str_replace(["\r", "\n"], ' ', $h)), 0, 500),
                 'radky' => mb_substr(strip_tags(str_replace("\r\n", "\n", $h)), 0, 5000),
-                'html' => WpContent::safeHtml(mb_substr($h, 0, 100000)),
+                'html' => self::htmlField(mb_substr($h, 0, 100000), $limit),
                 'obrazek' => $h === '' || preg_match('#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#D', $h) ? $h : null,
                 'odkaz' => $h === '' || (WpContent::isSafeUrl($h) && !preg_match('/[\s"<>]/', $h)) ? mb_substr($h, 0, 500) : null,
                 'cislo' => $h === '' || is_numeric(str_replace([' ', ','], ['', '.'], $h)) ? str_replace(' ', '', $h) : null,
@@ -273,13 +275,31 @@ final class Collections
                 default => '',
             };
             if ($clean === null) {
-                $errors[$p['klic']] = $p['popisek'];
+                $errors[$p['klic']] = $limit === null ? $p['popisek'] : $p['popisek'] . ' – ' . \Kaleta\Core\HtmlLimits::message($limit);
+                $tooLarge ??= $limit;
                 $clean = '';
             }
             $data[$p['klic']] = $clean;
         }
 
         return $data;
+    }
+
+    /**
+     * A rich text value (WpContent::safeHtml); null when it is over a limit of Core\HtmlLimits – the field is then left empty
+     * and reported, never kept as it came.
+     *
+     * @param array{limit: string, value: int, max: int}|null $limit
+     */
+    private static function htmlField(string $html, ?array &$limit): ?string
+    {
+        try {
+            return \Kaleta\Core\HtmlLimits::guard(fn (): string => WpContent::safeHtml($html));
+        } catch (\Kaleta\Core\HtmlTooLarge $e) {
+            $limit = $e->violation;
+
+            return null;
+        }
     }
 
     /**

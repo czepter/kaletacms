@@ -234,7 +234,12 @@ final class WebImport
                     continue;
                 }
                 $state['mapy_prectene'][] = $map;
-                [$pages, $maps] = self::sitemap((string) $this->fetch($map, (array) ($state['robots'] ?? []), false));
+                try {
+                    [$pages, $maps] = self::sitemap((string) $this->fetch($map, (array) ($state['robots'] ?? []), false));
+                } catch (HtmlTooLarge $e) {
+                    [$pages, $maps] = [[], []]; // a sitemap over a limit is skipped with the reason in the report
+                    $state['chyby'] = array_slice([...$state['chyby'], mb_substr(self::path($map) ?: '/', 0, 120) . ' – ' . $e->localized()], -15);
+                }
                 foreach ($maps as $child) {
                     $this->queueSitemap($state, $child);
                 }
@@ -353,9 +358,10 @@ final class WebImport
             $url = $urls[$state['pozice']];
             try {
                 $this->importPage($url, $state);
-            } catch (\RuntimeException $e) {
+            } catch (\RuntimeException | HtmlTooLarge $e) {
                 $state['vysledek']['chyb']++;
-                $state['chyby'] = array_slice([...$state['chyby'], mb_substr(self::path($url) ?: '/', 0, 120) . ' – ' . t($e->getMessage())], -15);
+                $reason = $e instanceof HtmlTooLarge ? $e->localized() : t($e->getMessage());
+                $state['chyby'] = array_slice([...$state['chyby'], mb_substr(self::path($url) ?: '/', 0, 120) . ' – ' . $reason], -15);
             }
             $state['pozice']++;
             $this->checkpoint($state);
@@ -387,9 +393,13 @@ final class WebImport
             throw new \RuntimeException('The page has no content to import.');
         }
         if ($state['volby']['obrazky']) {
-            $page['obsah'] = $this->images($page['obsah'], $state);
+            $page['obsah'] = HtmlLimits::guard(function () use ($page, &$state): string {
+                return $this->images($page['obsah'], $state);
+            });
         }
-        $page['obsah'] = self::safeContent($page['obsah']); // sanitized once more as the very last step before it is stored
+        // sanitized once more as the very last step before it is stored; over a limit of HtmlLimits the page is skipped
+        // with the reason (HtmlTooLarge, recorded by import())
+        $page['obsah'] = HtmlLimits::guard(fn (): string => self::safeContent($page['obsah']));
         $language = Language::column($this->settings, (string) $state['volby']['jazyk']);
         $article = $state['volby']['novinky'] && $page['clanek'] && Extensions::isEnabled($this->settings, 'novinky');
         $old = self::path($url);
@@ -735,16 +745,22 @@ final class WebImport
      * Page addresses and further sitemaps from a sitemap or a sitemap index.
      *
      * @return array{0: list<string>, 1: list<string>}
+     * @throws HtmlTooLarge when the XML is over a limit of HtmlLimits
      */
     public static function sitemap(string $xml): array
     {
         if ($xml === '' || !str_contains($xml, '<')) {
             return [[], []];
         }
+        $dom = new \DOMDocument();
         $previous = libxml_use_internal_errors(true);
-        $doc = simplexml_load_string($xml, \SimpleXMLElement::class, LIBXML_NONET);
-        libxml_use_internal_errors($previous);
-        if ($doc === false) {
+        try {
+            $ok = HtmlLimits::xml($dom, $xml, LIBXML_NONET);
+        } finally {
+            libxml_use_internal_errors($previous);
+        }
+        $doc = $ok ? simplexml_import_dom($dom) : null;
+        if ($doc === null) {
             return [[], []];
         }
         $pages = [];
@@ -830,10 +846,11 @@ final class WebImport
      * clean HTML with absolute image addresses.
      *
      * @return array{titulek: string, popis: string, obsah: string, datum: string, clanek: bool}
+     * @throws HtmlTooLarge when the page or its content is over a limit of HtmlLimits
      */
     public static function extract(string $html, string $url): array
     {
-        $doc = \Dom\HTMLDocument::createFromString($html, LIBXML_NOERROR);
+        $doc = HtmlLimits::document($html);
         $meta = function (string $selector) use ($doc): string {
             return trim((string) $doc->querySelector($selector)?->getAttribute('content'));
         };
@@ -898,7 +915,7 @@ final class WebImport
         return [
             'titulek' => $title !== '' ? mb_substr($title, 0, 200) : t('(untitled)'),
             'popis' => mb_substr(trim($description), 0, 300),
-            'obsah' => self::safeContent($content),
+            'obsah' => HtmlLimits::guard(fn (): string => self::safeContent($content)),
             'datum' => $timestamp !== false ? date('Y-m-d H:i:s', $timestamp) : '',
             'clanek' => $article,
         ];

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kaleta\Builder;
 
 use Dom\Element;
-use Dom\HTMLDocument;
 use Dom\Node;
 
 /**
@@ -42,11 +41,12 @@ final class HtmlConverter
     /**
      * @param bool $admin a Custom HTML element may be created (for SVG and embedded maps)
      * @return array{stavba: array<string, mixed>, tridy: array<string, string>, tridy_styl: array<string, array<string, array<string, string>>>, hlaseni: list<string>}
+     * @throws \Kaleta\Core\HtmlTooLarge when the HTML is over a limit of Core\HtmlLimits (nothing is converted)
      */
     public static function convert(string $html, bool $admin = false): array
     {
         $conversion = new self($admin);
-        $document = HTMLDocument::createFromString('<!doctype html><html><body>' . $html . '</body></html>', LIBXML_NOERROR);
+        $document = \Kaleta\Core\HtmlLimits::fragmentOrFail($html, null);
         foreach ($document->querySelectorAll('style') as $style) {
             $conversion->styles($style->textContent);
         }

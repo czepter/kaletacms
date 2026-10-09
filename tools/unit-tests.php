@@ -4438,16 +4438,173 @@ foreach ($pathological as $shape => $html) {
 }
 check('3.7 N37-3: 200 KB of pathological markup parses in under 3 s each, the tree at most about 512 deep', [$slow, $deepest <= 520], [[], true]);
 // a deep tree must not crash PHP: libxml copies and frees it recursively (8.3 old parser: a segfault at 5,000 levels with a 1 MB
-// stack). The sanitizers and HtmlConverter (cloneNode) run in a child PHP with a 1 MB stack, as on a small CI or thread stack.
-if (PHP_VERSION_ID < 80400 && DIRECTORY_SEPARATOR === '/' && function_exists('shell_exec')) {
+// stack; PHP 8.4's own parser between 4,000 and 5,000). Since 3.8 Core\HtmlLimits refuses such markup before any parser sees
+// it, on every PHP version: 20,000 nested elements give '' from every sanitizer and an HtmlTooLarge from HtmlConverter, and the
+// deepest markup the limits let through (510 levels) goes through all of them, the native parser and cloneNode – in a child
+// PHP with a 1 MB stack, as on a small CI or thread stack.
+if (DIRECTORY_SEPARATOR === '/' && function_exists('shell_exec')) {
     $deepScript = (string) tempnam(sys_get_temp_dir(), 'kaleta-deep');
-    file_put_contents($deepScript, '<?php require ' . var_export(KALETA_SYSTEM . '/bootstrap.php', true) . '; $deep = str_repeat("<div><b>", 20000);'
-        . ' Kaleta\Core\Html::safe($deep); Kaleta\Builder\Build::code($deep); Kaleta\Core\WpContent::safeHtml($deep); Kaleta\Core\WebImport::safeContent($deep);'
-        . ' Kaleta\Builder\HtmlConverter::convert("<details><summary>q</summary>" . $deep . "x</details>"); echo "ok";');
+    file_put_contents($deepScript, '<?php require ' . var_export(KALETA_SYSTEM . '/bootstrap.php', true) . '; use Kaleta\Core\{Html, HtmlLimits, HtmlTooLarge, WpContent, WebImport}; use Kaleta\Builder\{Build, HtmlConverter};'
+        . ' $deep = str_repeat("<div><b>", 20000); $edge = str_repeat("<div>", 500) . str_repeat("<span><b>", 5) . "x";'
+        . ' $refused = [Html::safe($deep), Build::code($deep), WpContent::safeHtml($deep), WebImport::safeContent($deep), Html::transform($deep, fn () => null)] === ["", "", "", "", ""];'
+        . ' try { HtmlConverter::convert("<details><summary>q</summary>" . $deep . "x</details>"); $refused = false; } catch (HtmlTooLarge) {}'
+        . ' $doc = HtmlLimits::fragment($edge); $copy = $doc?->body?->cloneNode(true); unset($copy, $doc);'
+        . ' $passed = HtmlLimits::check($edge) === null && Html::safe($edge) !== "" && Build::code($edge) !== "" && WpContent::safeHtml($edge) !== "" && WebImport::safeContent($edge) !== ""'
+        . ' && HtmlConverter::convert("<details><summary>q</summary>" . $edge . "</details>")["stavba"]["deti"] !== [];'
+        . ' echo $refused && $passed ? "ok" : "wrong " . var_export([$refused, $passed], true);');
     $deepRun = shell_exec('ulimit -s 1024 2>/dev/null; ' . escapeshellarg(PHP_BINARY) . ' -d memory_limit=512M ' . escapeshellarg($deepScript) . ' 2>&1');
     unlink($deepScript);
-    check('3.7: 20,000 nested elements through every sanitizer and HtmlConverter do not crash PHP 8.3 with a 1 MB stack', $deepRun, 'ok');
+    check('3.8 N37-3: 20,000 nested elements are refused by every sanitizer and HtmlConverter, the deepest allowed markup does not crash PHP ' . PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION . ' with a 1 MB stack', $deepRun, 'ok');
 }
+
+/* ---------- 3.8: size and nesting limits before any HTML is parsed (Core\HtmlLimits) ---------- */
+use Kaleta\Core\HtmlLimits;
+use Kaleta\Core\HtmlTooLarge;
+
+// the N37-3 shapes (and the one that made PHP 8.4's own parser use 2 GB): refused in well under a second each, by the limit
+// that is passed first; "p soup" is linear for every parser and stays allowed (39,000 elements)
+$limitShapes = $pathological + ['reopened in divs' => implode('', array_map(fn (int $i): string => '<div><b id=' . $i . '></div>', range(1, 3000))) . str_repeat('<p>x</p>', 3000),
+    '160,000 divs' => str_repeat('<div>', 160000), 'oversized' => str_repeat('x', HtmlLimits::MAX_BYTES + 1)];
+$limitResults = [];
+$limitSlow = [];
+foreach ($limitShapes as $shape => $html) {
+    $started = microtime(true);
+    $limitResults[$shape] = HtmlLimits::check($html)['limit'] ?? 'allowed';
+    if (($took = microtime(true) - $started) > 1.0) {
+        $limitSlow[] = $shape . ' ' . round($took, 2) . ' s';
+    }
+}
+check('3.8: every pathological shape is refused fast, by the right limit', [$limitResults, $limitSlow], [[
+    'unclosed div' => 'depth', 'p in button scope' => 'depth', 'p soup' => 'allowed', 'nested formatting' => 'depth', 'reopened formatting' => 'elements',
+    'formatting with ids' => 'elements', 'misnested a' => 'depth', 'many attributes' => 'attributes', 'unclosed li' => 'depth', 'svg' => 'depth', 'table' => 'depth',
+    'reopened in divs' => 'elements', '160,000 divs' => 'depth', 'oversized' => 'bytes'], []]);
+// the measured value is in the violation and in the messages (English for MCP and logs, the admin's language in forms)
+$limitDeep = HtmlLimits::check(str_repeat('<div>', 40000));
+check('3.8: a refusal names the limit and the measured value', [$limitDeep, HtmlLimits::english($limitDeep ?? ['limit' => '', 'value' => 0, 'max' => 0]),
+    (new HtmlTooLarge($limitDeep ?? ['limit' => '', 'value' => 0, 'max' => 0], 'text'))->getMessage()],
+    [['limit' => 'depth', 'value' => 40000, 'max' => 512], 'The markup is nested 40,000 levels deep; the limit is 512.', 'text: The markup is nested 40,000 levels deep; the limit is 512.']);
+// the model of the parser: what it does not see is markup – comments, raw text, attribute values, CDATA in SVG, script escapes
+check('3.8: the pre-scan skips comments, raw text, attribute values and script escapes; implied end tags close', [
+    HtmlLimits::measure(str_repeat('<!--<div>-->', 600) . '<style>' . str_repeat('<div>', 600) . '</style><textarea>' . str_repeat('<div>', 600) . '</textarea>'
+        . '<p title="' . str_repeat('<div>', 600) . '">x</p><script><!--<script></script>' . str_repeat('<div>', 600) . '</script>--></script>'),
+    HtmlLimits::measure('<svg><![CDATA[' . str_repeat('<g>', 600) . ']]><g/><g/></svg>'),
+    HtmlLimits::measure(str_repeat('<p>x', 2000) . '<ul>' . str_repeat('<li>x', 2000) . '</ul><table>' . str_repeat('<tr><td>a<td>b', 2000) . '</table><dl>' . str_repeat('<dt>a<dd>b', 2000)),
+    HtmlLimits::measure(str_repeat('<div>', 600), true)['depth'], HtmlLimits::check(str_repeat('<g>', 300), true)['limit'] ?? null,
+], [['depth' => 1, 'elements' => 4, 'attributes' => 1], ['depth' => 2, 'elements' => 3, 'attributes' => 0], ['depth' => 4, 'elements' => 14004, 'attributes' => 0], 600, 'depth']);
+// the model never lets the tree outgrow it: a fixed set of snippets, each repeated 10 and 40 times – a snippet whose tree grows
+// faster than the model would let pathological markup through (3.8 fuzzing on 8.4 and 8.3: 40,000 snippets, none)
+mt_srand(38);
+$limitTags = ['div', 'p', 'b', 'i', 'a', 'span', 'li', 'ul', 'dd', 'dt', 'table', 'tr', 'td', 'tbody', 'caption', 'col', 'svg', 'math', 'g', 'foreignObject',
+    'desc', 'mi', 'font', 'nobr', 'em', 'h1', 'h2', 'form', 'button', 'select', 'option', 'optgroup', 'script', 'style', 'title', 'textarea', 'template', 'object',
+    'marquee', 'br', 'img', 'input', 'ruby', 'rb', 'rt', 'rtc', 'section', 'small', 'sub', 'sup', 'label', 'details', 'address', 'frameset', 'noscript'];
+$limitAttributes = ['', '', '', ' id=1', ' id=2', ' class="x"', ' color=red', ' encoding="text/html"'];
+$limitTree = static function (string $html): array {
+    $doc = Dom\HTMLDocument::createFromString('<!DOCTYPE html><html><body>' . $html . '</body></html>', LIBXML_NOERROR, 'UTF-8'); // the parser itself, for comparison
+    [$deepest, $count, $stack] = [0, 0, [[$doc, 0]]];
+    while ($stack !== []) {
+        [$node, $depth] = array_pop($stack);
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof Dom\Element) {
+                [$count, $deepest, $stack[]] = [$count + 1, max($deepest, $depth + 1), [$child, $depth + 1]];
+            }
+        }
+    }
+
+    return [$deepest - 2, $count - 3]; // without html and body (and head)
+};
+$limitFaster = [];
+for ($i = 0; $i < 250; $i++) {
+    $snippet = '';
+    for ($k = mt_rand(2, 10); $k > 0; $k--) {
+        $tag = $limitTags[mt_rand(0, count($limitTags) - 1)];
+        $roll = mt_rand(0, 9);
+        $snippet .= $roll < 5 ? '<' . $tag . $limitAttributes[mt_rand(0, count($limitAttributes) - 1)] . (mt_rand(0, 12) === 0 ? '/' : '') . '>' : ($roll < 8 ? '</' . $tag . '>' : ['x', ' ', '&amp;', '</p>'][mt_rand(0, 3)]);
+    }
+    $few = HtmlLimits::measure(str_repeat($snippet, 10));
+    $many = HtmlLimits::measure(str_repeat($snippet, 40));
+    [$fewDepth, $fewCount] = $limitTree(str_repeat($snippet, 10));
+    [$manyDepth, $manyCount] = $limitTree(str_repeat($snippet, 40));
+    // unsafe would be: the tree gets deeper faster than the model, or it gets over twice as many more elements while the model
+    // does not get deeper with every repetition (if it does, the depth limit stops it after at most 512 repetitions)
+    if ((PHP_VERSION_ID >= 80400 || $manyDepth < 500) && ($many['depth'] - $few['depth'] < $manyDepth - $fewDepth
+        || (2 * ($many['elements'] - $few['elements']) < $manyCount - $fewCount && $many['depth'] - $few['depth'] < 30))) {
+        $limitFaster[] = $snippet;
+    }
+}
+check('3.8: the pre-scan grows at least as fast as the tree the parser builds (250 repeated snippets)', $limitFaster, []);
+
+// each kind of place that parses HTML refuses the pathological input – fast, never with the input passed through
+$limitDeepHtml = str_repeat('<div><b>', 20000);
+$limitDeepPage = '<!DOCTYPE html><html><head><title>Old</title></head><body><main>' . $limitDeepHtml . '</main></body></html>';
+$limitTimed = static function (callable $work): mixed {
+    $started = microtime(true);
+    try {
+        $result = $work();
+    } catch (HtmlTooLarge $e) {
+        $result = 'refused: ' . $e->violation['limit'];
+    }
+
+    return microtime(true) - $started < 2.0 ? $result : 'slow';
+};
+[, $limitBuildErrors] = Kaleta\Builder\Build::sanitize(['v' => 1, 'deti' => [['typ' => 'sekce', 'deti' => [
+    ['id' => 'kod1', 'typ' => 'html', 'obsah' => ['kod' => str_repeat('<div>', 4000)]], ['id' => 'txt1', 'typ' => 'text', 'obsah' => ['html' => str_repeat('<b>', 1000)]]]]]], true);
+$limitTooLarge = null;
+$limitBuildErrors2 = [];
+$limitItem =Kaleta\Builder\Collections::sanitizeData([['klic' => 'popis', 'popisek' => 'Description', 'typ' => 'html']], ['popis' => $limitDeepHtml], $limitBuildErrors2, $limitTooLarge);
+check('3.8: sanitizers, conversions, imports and the SVG cleaner refuse pathological markup', [
+    $limitTimed(fn () => Kaleta\Core\Html::safe($limitDeepHtml)), $limitTimed(fn () => HtmlLimits::guard(fn () => Kaleta\Core\Html::safe($limitDeepHtml))),
+    $limitTimed(fn () => Kaleta\Core\Html::safeOrFail($limitDeepHtml, 'description')), $limitTimed(fn () => Kaleta\Core\Html::transform($limitDeepHtml, fn () => null)),
+    $limitTimed(fn () => Kaleta\Core\Html::rewriteImages('<img src=a>' . $limitDeepHtml, fn () => null)),
+    $limitTimed(fn () => Kaleta\Core\WpContent::safeHtml($limitDeepHtml)), $limitTimed(fn () => Kaleta\Core\WpContent::sanitize($limitDeepHtml)),
+    $limitTimed(fn () => Kaleta\Builder\Build::code($limitDeepHtml)), array_values($limitBuildErrors),
+    $limitTimed(fn () => Kaleta\Builder\HtmlConverter::convert($limitDeepHtml)), $limitTimed(fn () => Kaleta\Core\WebImport::safeContent($limitDeepHtml)),
+    $limitTimed(fn () => Kaleta\Core\WebImport::extract($limitDeepPage, 'https://old.example/a')), $limitTimed(fn () => Kaleta\Core\MigrationReport::analyse($limitDeepPage, 'https://old.example/a')),
+    $limitTimed(fn () => Kaleta\Core\WebImport::sitemap('<urlset>' . str_repeat('<url>', 300) . '</urlset>')),
+    $limitTimed(fn () => Kaleta\Core\Svg::sanitize('<svg xmlns="http://www.w3.org/2000/svg">' . str_repeat('<g>', 300) . str_repeat('</g>', 300) . '</svg>')),
+    $limitTimed(fn () => Kaleta\Core\Svg::sanitize('<svg xmlns="http://www.w3.org/2000/svg"><path ' . implode(' ', array_map(fn (int $i): string => 'a' . $i . '="1"', range(1, 300))) . '/></svg>')),
+    $limitTimed(function () use ($limitDeepHtml): int {
+        $log = ini_set('error_log', '/dev/null'); // the recheck logs the refusal
+        try {
+            return Kaleta\Core\ImportRecheck::risk($limitDeepHtml);
+        } finally {
+            ini_set('error_log', (string) $log);
+        }
+    }), [$limitItem, $limitTooLarge['limit'] ?? null],
+], ['', 'refused: depth', 'refused: depth', '', '', '', '', '', [
+        'Kód je vnořený do 4000 úrovní, nejvýš smí do 512 – obsah pole vynechán.', 'Kód je vnořený do 1000 úrovní, nejvýš smí do 512 – obsah pole vynechán.'],
+    'refused: depth', '', 'refused: depth', 'refused: depth', 'refused: depth', 'refused: depth', 'refused: attributes', 2, [['popis' => ''], 'depth']]);
+check('3.8: the builder note over a limit has its English for Claude and the editor', Kaleta\Mcp\Translator::message(Kaleta\Builder\Build::limitNote(['limit' => 'depth', 'value' => 4000, 'max' => 512])),
+    'The markup is nested 4000 levels deep; the limit is 512 – the field was left empty.');
+
+// legitimate large input passes unchanged: a long article (2,000 paragraphs, 1,000 list items, a 500-row table), a full page
+// of a big site (3 MB, 30,000 elements, 40 levels), a builder Custom HTML element of 20,000 characters, an SVG of 1.9 MB
+$limitArticle = str_repeat('<h2>Section</h2><p>Some <strong>bold</strong> and <a href="/x">linked</a> text, <em>long</em> enough to read.</p>', 1000)
+    . '<ul>' . str_repeat('<li>Item with <b>bold</b></li>', 1000) . '</ul><table><tbody>' . str_repeat('<tr><td>a</td><td>b</td><td>c</td></tr>', 500) . '</tbody></table>';
+$limitPage = '<!DOCTYPE html><html><head><title>Big</title><style>' . str_repeat('.a>.b{color:red}', 2000) . '</style></head><body>'
+    . str_repeat(str_repeat('<div class="wrap">', 30) . '<nav><ul>' . str_repeat('<li><a href="/p">Page</a></li>', 100) . '</ul></nav><p>' . str_repeat('Lorem ipsum dolor sit amet. ', 650)
+        . '</p>' . str_repeat('</div>', 30) . '<script>var x = "<div>"; if (a < b) {}</script>', 140) . '</body></html>';
+$limitEmbed = mb_substr('<iframe src="https://www.google.com/maps/embed?pb=' . str_repeat('x', 1000) . '" width="600" height="450" loading="lazy"></iframe>'
+    . str_repeat('<div class="booking"><span class="slot">9:00</span><button type="button">Book</button></div>', 300), 0, 20000);
+$limitSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">' . str_repeat('<g><path d="M' . str_repeat('10 20 L30 40 ', 10) . 'Z" fill="#123"/></g>', 11500) . '</svg>';
+$limitArticleClean = Kaleta\Core\Html::safe($limitArticle);
+$limitPageMeasure = HtmlLimits::measure($limitPage);
+check('3.8: large legitimate input is within the limits and comes out whole', [
+    HtmlLimits::check($limitArticle), HtmlLimits::check($limitPage), $limitPageMeasure['elements'] > 25000 && $limitPageMeasure['depth'] >= 32, strlen($limitPage) > 3_000_000,
+    HtmlLimits::check($limitEmbed), HtmlLimits::check($limitSvg, true), strlen($limitSvg) > 1_800_000,
+    substr_count($limitArticleClean, '<li>'), substr_count($limitArticleClean, '<tr>'), substr_count(Kaleta\Core\WpContent::safeHtml($limitArticle), '<p>'),
+    substr_count(Kaleta\Builder\Build::code($limitEmbed), '<button'), substr_count((string) Kaleta\Core\Svg::sanitize($limitSvg), '<path'),
+    Kaleta\Core\WebImport::extract($limitPage, 'https://old.example/big')['titulek'],
+], [null, null, true, true, null, null, true, 1000, 500, 1000, 205, 11500, 'Big']);
+// every place that parses markup goes through HtmlLimits: no other file calls the parsers itself (the compat parser is the parser)
+$limitDirect = [];
+foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(KALETA_SYSTEM, FilesystemIterator::SKIP_DOTS)) as $limitFile) {
+    $limitPath = $limitFile->getPathname();
+    if (str_ends_with($limitPath, '.php') && !preg_match('#/(compat|Compat)/#', $limitPath) && !str_ends_with($limitPath, '/Core/HtmlLimits.php')
+        && preg_match('/createFromString\(|createFromFile\(|->loadXML\(|->loadHTML\(|loadHTMLFile\(|simplexml_load_|new \\\\?SimpleXMLElement\(|Html5Parser::parse\(/', (string) file_get_contents($limitPath))) {
+        $limitDirect[] = substr($limitPath, strlen(KALETA_SYSTEM) + 1);
+    }
+}
+check('3.8: no file parses HTML or XML past Core\HtmlLimits', $limitDirect, []);
 // the contract PHPStan checks the code against (phpVersion 8.3) must not promise more than PHP 8.4 has
 if (PHP_VERSION_ID >= 80400) {
     $domMissing = [];
