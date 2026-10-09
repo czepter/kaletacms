@@ -186,6 +186,7 @@ final class Settings
         'remote_media_status' => '',   // "YYYY-MM-DD HH:MM|ok or error|files waiting"
         'media_sync_check' => '0',     // when the background media copy last ran
         'update_url' => '',      // URL of the aktualizace.json file; empty = the project's default source
+        'update_channel' => 'latest', // 3.8: latest (a new minor every week) or stable (security fixes, a new minor about monthly) – Core\Updater
         'update_cache' => '',
         'auto_updates' => '1',    // install security releases automatically
         'update_attempt' => '',    // the version the background maintenance has already tried / announced

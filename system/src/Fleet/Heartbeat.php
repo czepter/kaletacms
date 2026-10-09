@@ -56,6 +56,7 @@ final class Heartbeat
             'update_available' => $update['nova']['verze'] ?? null,
             'update_problem' => $rolledBack !== null && strtotime((string) $rolledBack['created_at']) > time() - 14 * 86400 ? mb_substr((string) $rolledBack['message'], 0, 200) : null,
             'auto_updates' => $s->bool('auto_updates'),
+            'update_channel' => $update['channel'], // 3.8 (D3): latest | stable | custom
             'enquiries_unanswered' => Extensions::isEnabled($s, 'poptavky') ? (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0') : null,
             'enquiries_7_days' => Extensions::isEnabled($s, 'poptavky') ? (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE datum > NOW() - INTERVAL 7 DAY') : null,
             'visits_7_days' => \Kaleta\Front\Stats::enabled($s) ? (int) $db->value('SELECT COALESCE(SUM(navstevy), 0) FROM {stat_dny} WHERE den > CURDATE() - INTERVAL 7 DAY') : null,

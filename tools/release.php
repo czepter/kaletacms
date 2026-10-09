@@ -6,6 +6,10 @@
  *       --zmena="Oprava ..." --zmena="Nové ..." [--bezpecnostni]
  *
  * --bezpecnostni marks the release as a security fix: installations update to it by themselves and the administrator gets an e-mail.
+ * --channel=stable (3.8, D3) writes dist/aktualizace-stable.json instead of dist/aktualizace.json: the manifest of the stable
+ * channel (same key, same format, "kanal": "stable"). With --package=dist/kaleta-X.Y.Z.zip the package already built and
+ * uploaded for the latest channel is signed for the stable channel as it is (a promotion) instead of building a new one.
+ *   php tools/release.php 3.8.4 --channel=stable --package=dist/kaleta-3.8.4.zip --url=…/v3.8.4/kaleta-3.8.4.zip --zmena="…"
  * Instead of a file, the private key can be passed in the KALETA_KLIC environment variable (base64) - for releasing from GitHub Actions.
  *
  * Creates dist/kaleta-<version>.zip (files tracked by git) and dist/aktualizace.json signed with the private key.
@@ -22,7 +26,7 @@ if (PHP_SAPI !== 'cli') {
 }
 $root = dirname(__DIR__);
 $version = $argv[1] ?? '';
-$options = ['url' => '', 'zmeny' => [], 'bezpecnostni' => false, 'klic' => 'provozni'];
+$options = ['url' => '', 'zmeny' => [], 'bezpecnostni' => false, 'klic' => 'provozni', 'channel' => 'latest', 'package' => ''];
 foreach (array_slice($argv, 2) as $arg) {
     if (str_starts_with($arg, '--url=')) {
         $options['url'] = substr($arg, 6);
@@ -32,6 +36,10 @@ foreach (array_slice($argv, 2) as $arg) {
         $options['zmeny'][] = substr($arg, 8);
     } elseif (str_starts_with($arg, '--klic=')) {
         $options['klic'] = substr($arg, 7);
+    } elseif (str_starts_with($arg, '--channel=')) {
+        $options['channel'] = substr($arg, 10);
+    } elseif (str_starts_with($arg, '--package=')) {
+        $options['package'] = substr($arg, 10);
     }
 }
 if (str_starts_with($version, '--novy-klic=')) {
@@ -57,12 +65,29 @@ if (str_starts_with($version, '--novy-klic=')) {
 if (!preg_match('/^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$/', $version)) {
     exit("Použití: php tools/release.php <verze> --url=<adresa ZIPu> [--zmena=\"...\"]\n");
 }
-if (!str_contains((string) file_get_contents($root . '/system/bootstrap.php'), "const KALETA_VERSION = '{$version}';")) {
-    exit("V system/bootstrap.php není KALETA_VERSION = '{$version}'. Nejprve zvyšte verzi a změnu commitněte.\n");
+if (!in_array($options['channel'], ['latest', 'stable'], true)) {
+    exit("--channel must be latest or stable.\n");
+}
+// the files of the release: the working tree, or (--package) the package that was already built – read from inside the ZIP
+$releaseFile = static fn (string $path): string => (string) @file_get_contents($root . '/' . $path);
+if ($options['package'] !== '') {
+    $packageZip = new ZipArchive();
+    if (!is_file($options['package']) || $packageZip->open($options['package']) !== true) {
+        exit("The package {$options['package']} cannot be opened.\n");
+    }
+    $releaseFile = static fn (string $path): string => (string) $packageZip->getFromName($path);
+}
+if (!str_contains($releaseFile('system/bootstrap.php'), "const KALETA_VERSION = '{$version}';")) {
+    exit($options['package'] !== '' ? "The package {$options['package']} is not version {$version}.\n" : "V system/bootstrap.php není KALETA_VERSION = '{$version}'. Nejprve zvyšte verzi a změnu commitněte.\n");
 }
 // the oldest PHP the release runs on: sites on an older one are not offered it (Core\Updater::state) and refuse to install it
-if (!preg_match("/const KALETA_MIN_PHP = '(\\d+\\.\\d+)';/", (string) file_get_contents($root . '/system/bootstrap.php'), $minPhp)) {
+if (!preg_match("/const KALETA_MIN_PHP = '(\\d+\\.\\d+)';/", $releaseFile('system/bootstrap.php'), $minPhp)) {
     exit("V system/bootstrap.php chybí KALETA_MIN_PHP.\n");
+}
+// a release on the stable channel must know the channel itself (3.8+): a site that installed one without it would read the
+// latest manifest again and leave the stable channel without noticing
+if ($options['channel'] === 'stable' && !str_contains($releaseFile('system/src/Core/Updater.php'), "STABLE_FILE = 'aktualizace-stable.json'")) {
+    exit("Version {$version} does not know the stable channel (Kaleta 3.8 and later do) – it cannot be published on it.\n");
 }
 
 // --- keys: system/aktualizace.pub carries several public keys (primary + backup), a signature is valid against any of them - see docs/RELEASING.md
@@ -79,51 +104,55 @@ if (!isset(Kaleta\Core\Signature::keys($publicKeyFile)[$keyId])) {
     exit("Klíč {$keyId} není uveden v system/aktualizace.pub - instalace by jeho podpis odmítly.\n");
 }
 
-// --- package from the files tracked by git
-$files = array_filter(explode("\n", (string) shell_exec('cd ' . escapeshellarg($root) . ' && git ls-files')));
-$exclude = ['tools/', 'docs/', 'integrations/', '.github/', '.claude/', 'CLAUDE.md', '.gitignore', '.gitleaks.toml', '.git-blame-ignore-revs', 'phpstan.neon.dist', 'phpstan-baseline.neon', 'docker/', 'Dockerfile', 'compose.yaml', '.dockerignore']; // the root CLAUDE.md is for development; layout/CLAUDE.md (layout rules) belongs in the package
-@mkdir($root . '/dist');
-$zipFile = $root . "/dist/kaleta-{$version}.zip";
-@unlink($zipFile);
-$zip = new ZipArchive();
-$zip->open($zipFile, ZipArchive::CREATE);
-$hashes = [];
-foreach ($files as $file) {
-    foreach ($exclude as $v) {
-        if ($file === $v || str_starts_with($file, $v)) {
-            continue 2;
+if ($options['package'] === '') {
+    // --- package from the files tracked by git
+    $files = array_filter(explode("\n", (string) shell_exec('cd ' . escapeshellarg($root) . ' && git ls-files')));
+    $exclude = ['tools/', 'docs/', 'integrations/', '.github/', '.claude/', 'CLAUDE.md', '.gitignore', '.gitleaks.toml', '.git-blame-ignore-revs', 'phpstan.neon.dist', 'phpstan-baseline.neon', 'docker/', 'Dockerfile', 'compose.yaml', '.dockerignore']; // the root CLAUDE.md is for development; layout/CLAUDE.md (layout rules) belongs in the package
+    @mkdir($root . '/dist');
+    $zipFile = $root . "/dist/kaleta-{$version}.zip";
+    @unlink($zipFile);
+    $zip = new ZipArchive();
+    $zip->open($zipFile, ZipArchive::CREATE);
+    $hashes = [];
+    foreach ($files as $file) {
+        foreach ($exclude as $v) {
+            if ($file === $v || str_starts_with($file, $v)) {
+                continue 2;
+            }
+        }
+        $zip->addFile($root . '/' . $file, $file);
+        // the list of core files with hashes: by it an installation recognizes changed, missing and added files (Core\Integrity)
+        // without user folders and without install.php (an update does not overwrite it and the administrator may delete it after installation)
+        if (!preg_match('#^(media|storage)/|^install\.php$#', $file)) {
+            $hashes[$file] = hash_file('sha256', $root . '/' . $file);
         }
     }
-    $zip->addFile($root . '/' . $file, $file);
-    // the list of core files with hashes: by it an installation recognizes changed, missing and added files (Core\Integrity)
-    // without user folders and without install.php (an update does not overwrite it and the administrator may delete it after installation)
-    if (!preg_match('#^(media|storage)/|^install\.php$#', $file)) {
-        $hashes[$file] = hash_file('sha256', $root . '/' . $file);
-    }
-}
-// classes of older releases that this one renamed or removed ride along unchanged: an older release installs this package
-// and, in the same request, may still load its own classes after its cleanup. Every earlier release counts, not only the
-// previous one – a site may skip releases (1.3 straight to 1.4.1). Each file comes from the newest release that had it.
-// The new version deletes them on the first admin load (Updater::cleanUpRemoved, 'legacy' list).
-$legacy = [];
-$git = fn (string $args): string => (string) shell_exec('cd ' . escapeshellarg($root) . ' && git ' . $args . ' 2>/dev/null');
-foreach (array_filter(explode("\n", $git('tag --sort=-v:refname --merged HEAD^ "v*"'))) as $release) {
-    // system/class-aliases.php (1.4–2.0): the autoloader of 1.x requires it on a class it cannot find
-    foreach (array_filter(explode("\n", $git('ls-tree -r --name-only ' . escapeshellarg($release) . ' -- system/src/ system/class-aliases.php'))) as $old) {
-        if (!in_array($old, $files, true) && !isset($legacy[$old])) {
-            $content = $git('show ' . escapeshellarg($release . ':' . $old));
-            $zip->addFromString($old, $content);
-            $legacy[$old] = hash('sha256', $content);
+    // classes of older releases that this one renamed or removed ride along unchanged: an older release installs this package
+    // and, in the same request, may still load its own classes after its cleanup. Every earlier release counts, not only the
+    // previous one – a site may skip releases (1.3 straight to 1.4.1). Each file comes from the newest release that had it.
+    // The new version deletes them on the first admin load (Updater::cleanUpRemoved, 'legacy' list).
+    $legacy = [];
+    $git = fn (string $args): string => (string) shell_exec('cd ' . escapeshellarg($root) . ' && git ' . $args . ' 2>/dev/null');
+    foreach (array_filter(explode("\n", $git('tag --sort=-v:refname --merged HEAD^ "v*"'))) as $release) {
+        // system/class-aliases.php (1.4–2.0): the autoloader of 1.x requires it on a class it cannot find
+        foreach (array_filter(explode("\n", $git('ls-tree -r --name-only ' . escapeshellarg($release) . ' -- system/src/ system/class-aliases.php'))) as $old) {
+            if (!in_array($old, $files, true) && !isset($legacy[$old])) {
+                $content = $git('show ' . escapeshellarg($release . ':' . $old));
+                $zip->addFromString($old, $content);
+                $legacy[$old] = hash('sha256', $content);
+            }
         }
     }
+    require_once $root . '/system/src/Core/Integrity.php';
+    ksort($hashes);
+    $zip->addFromString('system/soubory.json', json_encode([
+        'verze' => $version, 'soubory' => $hashes, 'legacy' => $legacy,
+        'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Integrity::stringToSign($version, $hashes), $sk)),
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
+    $zip->close();
+} else {
+    $zipFile = $options['package']; // a promotion: the package keeps its hash, only the manifest is new
 }
-require_once $root . '/system/src/Core/Integrity.php';
-ksort($hashes);
-$zip->addFromString('system/soubory.json', json_encode([
-    'verze' => $version, 'soubory' => $hashes, 'legacy' => $legacy,
-    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Integrity::stringToSign($version, $hashes), $sk)),
-], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
-$zip->close();
 
 $sha = hash_file('sha256', $zipFile);
 $manifest = [
@@ -131,7 +160,16 @@ $manifest = [
     'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage($version, $sha, $options['bezpecnostni']), $sk)),
     'klic' => $keyId, // only for reference, which key signed it; installations try all keys they know
     'min_php' => $minPhp[1], 'bezpecnostni' => $options['bezpecnostni'], 'zmeny' => $options['zmeny'],
+    'kanal' => $options['channel'], // 3.8: a site on the stable channel accepts only a manifest that says "stable" (Core\Updater::choose)
 ];
-file_put_contents($root . '/dist/aktualizace.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
-echo "Hotovo: dist/kaleta-{$version}.zip (" . round(filesize($zipFile) / 1024) . " kB) a dist/aktualizace.json\n";
-echo $options['url'] === '' ? "POZOR: nezadali jste --url, doplňte adresu ZIPu do dist/aktualizace.json PŘED podpisem (spusťte znovu s --url).\n" : "1) ZIP nahrajte na {$options['url']}\n2) aktualizace.json nahrajte na web projektu.\n";
+$manifestName = $options['channel'] === 'stable' ? 'aktualizace-stable.json' : 'aktualizace.json';
+@mkdir($root . '/dist');
+file_put_contents($root . '/dist/' . $manifestName, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
+echo "Hotovo: " . ($options['package'] !== '' ? $options['package'] : "dist/kaleta-{$version}.zip") . " (" . round(filesize($zipFile) / 1024) . " kB) a dist/{$manifestName}\n";
+if ($options['url'] === '') {
+    echo "POZOR: nezadali jste --url, doplňte adresu ZIPu do dist/{$manifestName} PŘED podpisem (spusťte znovu s --url).\n";
+} elseif ($options['channel'] === 'stable') {
+    echo "1) The ZIP must be at {$options['url']} (its release on GitHub)\n2) gh release upload stable-channel dist/aktualizace-stable.json --clobber (docs/RELEASING.md, Release channels)\n";
+} else {
+    echo "1) ZIP nahrajte na {$options['url']}\n2) aktualizace.json nahrajte na web projektu.\n";
+}

@@ -3,7 +3,7 @@
 ?>
 <fieldset>
 <legend><?= e(t('System update')) ?></legend>
-<p><?= e(t('Installed version:')) ?> <strong><?= e($update['aktualni']) ?></strong></p>
+<p><?= e(t('Installed version:')) ?> <strong><?= e($update['aktualni']) ?></strong><?php if ($update['nastaveno']): ?> · <?= e(t(['latest' => 'Latest channel', 'stable' => 'Stable channel', 'custom' => 'custom update source'][$update['channel']] ?? 'Latest channel')) ?><?php endif ?></p>
 <?php if (!$update['nastaveno']): ?>
 <p class="hlaska"><?= e(t('No update source is set yet. Upload a new version via FTP (overwrite all files except config.php, media/ and storage/); the database will be adjusted automatically.')) ?></p>
 <?php elseif ($update['chyba'] !== null): ?>
@@ -19,12 +19,25 @@
 	<p><button class="tl" type="submit" name="verze" value="<?= e((string) $update['nova']['verze']) ?>" formaction="<?= e($module->url('update')) ?>" data-potvrdit="<?= e(t('Update the system? A database backup will be created first. The site will be unavailable for a few seconds.')) ?>"><?= e(t('Update to %s', $update['nova']['verze'])) ?></button></p>
 </div>
 <p class="napoveda"><?= e(t('The database is backed up before the update. The package is accepted only with a valid publisher signature. config.php, uploaded media and a custom PHP theme are not overwritten.')) ?></p>
+<?php elseif ($update['ahead_of'] !== null): ?>
+<p class="hlaska"><?= e(t('This site runs version %s, which is newer than the stable channel (%s). Nothing is offered until the stable channel moves past this version – a site never goes back to an older one. Until then, security fixes reach this site only on the Latest channel.', $update['aktualni'], $update['ahead_of'])) ?></p>
 <?php else: ?>
-<p><?= e(t('You have the latest version.')) ?><?= $update['overeno'] ? ' <small>' . e(t('Checked %s.', format_date((new DateTimeImmutable())->setTimestamp((int) $update['overeno']), true))) . '</small>' : '' ?></p>
+<p><?= e(t($update['channel'] === 'stable' ? 'You have the newest version of the stable channel.' : 'You have the latest version.')) ?><?= $update['overeno'] ? ' <small>' . e(t('Checked %s.', format_date((new DateTimeImmutable())->setTimestamp((int) $update['overeno']), true))) . '</small>' : '' ?></p>
 <?php endif ?>
 <?php if ($update['nastaveno']): ?>
 <p><button class="navigace" type="submit" formaction="<?= e($module->url('check')) ?>"><?= e(t('Check now')) ?></button></p>
 <?php endif ?>
+<div class="radek"><span class="popisek" id="update_channel_popisek"><?= e(t('Update channel')) ?></span><div role="radiogroup" aria-labelledby="update_channel_popisek">
+<div class="karty-volby karty-volby-text">
+<?php foreach ([
+    'latest' => ['Latest', 'A new minor version every week, with new features and fixes. Recommended for most sites.'],
+    'stable' => ['Stable', 'Security fixes only, and a new minor version about once a month, after it has run on Latest. For sites that should change as little as possible.'],
+] as $key => [$name, $description]): ?>
+	<label class="karta-volba"><input type="radio" name="update_channel" value="<?= e($key) ?>"<?= ($values['update_channel'] === 'stable' ? 'stable' : 'latest') === $key ? ' checked' : '' ?>><strong><?= e(t($name)) ?></strong><span><?= e(t($description)) ?></span></label>
+<?php endforeach ?>
+</div>
+<span class="napoveda"><?= e($update['channel'] === 'custom' ? t('The custom update source below is not a file named aktualizace.json, so it has no stable twin: the site follows it whatever channel you choose.') : t('A site on Stable never goes back to an older version: after switching from Latest it waits until the stable channel passes the version it runs.')) ?></span>
+</div></div>
 <?php $field('auto_updates', 'Install security updates automatically', 'ano', 'Recommended. Applies only to releases marked as security releases; you install regular versions yourself. The system checks for updates twice a day, backs up the database before installing and e-mails the result to the site e-mail.'); ?>
 <?php $field('update_url', 'Custom update source', 'url', 'Leave empty. Enter a different address of the update list (the aktualizace.json file) only if you manage versions yourself.', 'placeholder="https://"'); ?>
 </fieldset>
