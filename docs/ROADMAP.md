@@ -585,6 +585,31 @@ The third release of the 30-day plan: what the owner's first five sites need bef
    names that mode and asks for the default `tracing`. The compat parser avoids the `SplObjectStorage` methods PHP 8.5
    deprecates.
 
+## 3.8 – reach (released 9 October 2026)
+
+The fourth release of the 30-day plan: Kaleta where Claude users look, and a calmer update rhythm for those who want it.
+
+1. **Ready for the Connectors Directory:** every MCP tool has a human-readable title and the hints a client needs
+   (read-only, destructive, idempotent, open-world – the open-world list now by English name, so a Czech alias gets the
+   same hints); the server introduces itself with a title, website and icon. Additive only: names, parameters, Czech
+   aliases and the read-only/destructive hints are unchanged, and the contract check now refuses any change to them.
+   OAuth accepts a loopback redirect on any port (RFC 8252), as Claude Code needs. `docs/connectors-directory.md` is the
+   submission package, `docs/server.json` the MCP registry entry.
+2. **Release channels (D3):** Settings → Backups and updates offers Latest (a minor every week, the default for every
+   site) or Stable (security fixes, a new minor about once a month). Stable reads a second signed manifest
+   (`aktualizace-stable.json`), never offers a downgrade and says when a site is ahead of it; System status, the
+   monthly report, MCP and the fleet heartbeat name the channel. `tools/release.php --channel=stable --package=…`
+   publishes it.
+3. **Limits before parsing:** every place that parses HTML, SVG or XML first checks size (5 MB), nesting (512), elements
+   (50,000) and attributes (256) in one linear pass (`Core\HtmlLimits`), on every PHP version. Oversized input is
+   refused with the measured value – in the admin, over MCP and in import reports – and never passed through.
+4. **Kaleta for Claude:** a plugin with five skills (migrate from WordPress, launch a site, weekly care, set up bookings,
+   compliance check) in `integrations/claude-plugin`, built by `tools/build-plugin.php`; a unit test keeps every tool
+   name in the skills real.
+
+Audited before release (N38): the HTML pre-scan is linear on every input, the check and the parser always read the same
+UTF-8 text, a loopback OAuth port is a plain number, and the weekly-care skill prepares live edits for approval first.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
