@@ -52,11 +52,14 @@ foreach ($skills as $file) {
 }
 sort($files);
 
+// a developer tool: --out is the maintainer's own folder on their own machine, not input from a request
+// nosemgrep: php.lang.security.injection.tainted-filename.tainted-filename
 if (!is_dir($out) && !@mkdir($out, 0775, true)) {
     fwrite(STDERR, "Cannot create {$out}.\n");
     exit(1);
 }
 $zipFile = $out . '/kaleta-claude-plugin-' . KALETA_VERSION . '.zip';
+// nosemgrep: php.lang.security.injection.tainted-filename.tainted-filename
 @unlink($zipFile);
 $zip = new ZipArchive();
 if ($zip->open($zipFile, ZipArchive::CREATE) !== true) {
@@ -71,4 +74,5 @@ foreach ($files as $file) {
     $zip->addFile($source . '/' . $file, 'kaleta/' . $file);
 }
 $zip->close();
+// nosemgrep: php.lang.security.injection.tainted-filename.tainted-filename
 echo 'Done: ' . $zipFile . ' (' . count($files) . ' files, ' . max(1, (int) round((int) filesize($zipFile) / 1024)) . " kB)\n";
