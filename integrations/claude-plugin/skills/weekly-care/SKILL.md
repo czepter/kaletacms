@@ -36,7 +36,8 @@ fix in the administration: mail, backups, updates, the domain and the certificat
 
 ## 3. Site audit and fixes
 
-Run `site_audit`. Fix what is safe without asking, as drafts or small edits:
+Run `site_audit`. Prepare fixes for these as drafts and show them with preview links; change a live field (a page or
+news description, an image description) only after the user approves the list – the same rule as everywhere else:
 
 - descriptions of pages and item pages;
 - broken internal links;

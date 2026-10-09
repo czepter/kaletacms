@@ -540,6 +540,10 @@ check('3.8 OAuth: a loopback redirect_uri matches with any port, nothing else is
     'https://claude.ai:8443/api/mcp/auth_callback', 'http://127.0.0.1:51234/other', 'http://localhost:51234/callback', 'http://127.0.0.1:51234/callback?y=2', 'https://127.0.0.1:51234/callback',
     'http://evil.example:33418/callback', 'http://user@127.0.0.1:5/callback', 'http://127.0.0.1:5/callback#x']),
     [true, true, true, true, true, false, false, false, false, false, false, false, false]);
+// N38-4: the port is a plain number 1–65535 – no :0, leading zeros, a sign, an empty port or a control character after it
+check('3.8 N38-4: a loopback port must be a plain number, no control characters', array_map(fn (string $uri): bool => Kaleta\Front\OAuth::redirectAllowed($uri, $registered38), [
+    'http://127.0.0.1:0/callback', 'http://127.0.0.1:01/callback', 'http://127.0.0.1:+1/callback', 'http://127.0.0.1:/callback', "http://127.0.0.1:5\0/callback",
+    'http://127.0.0.1:65536/callback', 'http://127.0.0.1:65535/callback', "http://127.0.0.1:5/call\tback"]), [false, false, false, false, false, false, true, false]);
 check('3.8: annotation changes in the contract – only additive or more careful ones pass', [
     kaleta_annotation_diff(['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false], ['title' => 'List pages', 'readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => true]),
     kaleta_annotation_diff(['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => true], ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false]),

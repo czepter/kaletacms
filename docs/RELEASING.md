@@ -102,6 +102,9 @@ Jak to funguje (`Core\Updater`):
 - Výběr verze je jedna čistá funkce `Updater::choose()` (jednotkové testy): nabídne se **jen novější** verze, než web
   běží; vydání pro novější PHP se nenabídne (`min_php`, 3.7). Na kanálu Stable musí manifest říkat `"kanal": "stable"` –
   když na stabilní adrese omylem leží manifest Latest (špatné přesměrování), web nenabídne ani nenainstaluje nic a řekne proč.
+  Pole `kanal` (stejně jako `min_php`) zatím není součástí podpisu (N38-3): kdo ovládne stabilní adresu, může jako Stable
+  podstrčit jiné, ale vždy pravé a novější vydání – downgrade, nepodepsaný balíček ani změnu příznaku bezpečnostní nikoli.
+  Podpis kanálu a min_php přijde s verzí 2 podpisu manifestu.
 - **Web napřed před stabilní řadou** (přepnul z Latest, když běžel na novější minor): žádný downgrade. Nic se nenabízí,
   dokud stabilní řada jeho verzi nepředežene; administrace, Stav systému (řádek *Kanál aktualizací*, varování) i MCP
   `get_health` (`update.ahead_of_stable`) to říkají. Bezpečnostní opravy k němu do té doby dorazí jen na Latest.
