@@ -186,6 +186,203 @@ final class Catalog
         'delete_newsletter' => ['destructive', 'newsletter'],
     ];
 
+    /**
+     * A short human-readable English title of every tool (3.8): tools/list sends it as the tool's `title` and as
+     * `annotations.title` (MCP 2025-06-18), the Connectors Directory requires one for every tool. Unique, at most 40
+     * characters, sentence case (tools/unit-tests.php checks it).
+     *
+     * @var array<string, string>
+     */
+    public const array TITLES = [
+        'site_info' => 'Get site info',
+        'list_pages' => 'List pages',
+        'get_page' => 'Get a page',
+        'create_page' => 'Create a page',
+        'update_page' => 'Update a page',
+        'trash_page' => 'Move a page to the trash',
+        'get_menu' => 'Get a menu',
+        'save_menu' => 'Save a menu to the draft look',
+        'list_trash' => 'List the trash',
+        'restore_from_trash' => 'Restore from the trash',
+        'builder_schema' => 'Get the builder schema',
+        'get_build' => 'Get a build',
+        'edit_build' => 'Edit a draft build',
+        'build_from_html' => 'Build from HTML',
+        'save_build' => 'Save a draft build',
+        'insert_section' => 'Insert a library section',
+        'publish_build' => 'Publish a build',
+        'list_build_versions' => 'List build versions',
+        'restore_build_version' => 'Restore a build version',
+        'discard_draft' => 'Discard a draft build',
+        'save_section' => 'Save a reusable section',
+        'delete_section' => 'Delete a saved section',
+        'list_components' => 'List components',
+        'save_component' => 'Save a component',
+        'delete_component' => 'Delete a component',
+        'list_site_parts' => 'List site parts',
+        'save_part_variant' => 'Save a header or footer variant',
+        'apply_part_template' => 'Apply a site part template',
+        'preview_link' => 'Get a draft preview link',
+        'list_draft_comments' => 'List draft comments',
+        'resolve_draft_comment' => 'Resolve a draft comment',
+        'list_classes' => 'List shared classes',
+        'save_classes' => 'Save shared classes',
+        'update_design_system' => 'Update the design system',
+        'publish_look' => 'Publish the draft look',
+        'discard_look' => 'Discard the draft look',
+        'list_look_versions' => 'List look versions',
+        'restore_look_version' => 'Restore a look version',
+        'list_collections' => 'List collections',
+        'create_collection' => 'Create a collection',
+        'update_collection' => 'Update a collection',
+        'delete_collection' => 'Delete a collection',
+        'list_collection_items' => 'List collection items',
+        'save_collection_item' => 'Save a collection item',
+        'save_collection_items' => 'Save many collection items',
+        'delete_collection_item' => 'Delete a collection item',
+        'list_item_versions' => 'List item versions',
+        'restore_item_version' => 'Restore an item version',
+        'get_email_signature' => 'Get an e-mail signature',
+        'list_collection_categories' => 'List collection categories',
+        'save_collection_category' => 'Save a collection category',
+        'delete_collection_category' => 'Delete a collection category',
+        'list_news' => 'List news',
+        'get_news' => 'Get a news item',
+        'create_news' => 'Create a news item',
+        'update_news' => 'Update a news item',
+        'trash_news' => 'Move a news item to the trash',
+        'list_categories' => 'List news categories',
+        'create_category' => 'Create a news category',
+        'update_category' => 'Update a news category',
+        'delete_category' => 'Delete a news category',
+        'list_media' => 'List media',
+        'upload_file' => 'Upload a file',
+        'import_website' => 'Import a website by its address',
+        'update_media' => 'Update a media file',
+        'delete_media' => 'Delete a media file',
+        'list_media_without_alt' => 'List images without alt text',
+        'list_enquiries' => 'List enquiries',
+        'update_enquiry' => 'Update an enquiry',
+        'delete_enquiry' => 'Delete an enquiry',
+        'find_personal_data' => 'Find personal data',
+        'erase_personal_data' => 'Erase personal data',
+        'import_enquiries' => 'Import old enquiries',
+        'list_popups' => 'List pop-ups',
+        'save_popup' => 'Save a pop-up',
+        'delete_popup' => 'Delete a pop-up',
+        'update_settings' => 'Update settings',
+        'list_redirects' => 'List redirects',
+        'save_redirect' => 'Save a redirect',
+        'ignore_not_found' => 'Ignore not-found addresses',
+        'save_redirects' => 'Save many redirects',
+        'site_audit' => 'Audit the site',
+        'list_broken_links' => 'List broken links',
+        'suggest_internal_links' => 'Suggest internal links',
+        'list_agent_sessions' => 'List Claude sessions',
+        'undo_agent_session' => 'Undo a Claude session',
+        'list_changes' => 'List the change log',
+        'get_stats' => 'Get visitor statistics',
+        'migration_report' => 'Report on a site migration',
+        'import_wordpress' => 'Import a WordPress export',
+        'get_health' => 'Get site health',
+        'list_events' => 'List site events',
+        'list_facts' => 'List business facts',
+        'save_fact' => 'Save a business fact',
+        'delete_fact' => 'Delete a business fact',
+        'find_claims' => 'Find claims in content',
+        'list_hours' => 'List opening hours',
+        'list_collection_presets' => 'List collection presets',
+        'triage_enquiries' => 'List enquiries to sort',
+        'request_testimonial' => 'Request a testimonial',
+        'get_blueprint' => 'Get the industry blueprint',
+        'list_connectors' => 'List integrations',
+        'processing_record' => 'Get the record of processing',
+        'accessibility_statement' => 'Get the accessibility statement',
+        'get_social_drafts' => 'Get social post drafts',
+        'read_notebook' => 'Read the notebook',
+        'write_notebook' => 'Write to the notebook',
+        'delete_notebook_entry' => 'Delete a notebook entry',
+        'update_social_draft' => 'Update a social post draft',
+        'apply_blueprint' => 'Apply an industry blueprint',
+        'remove_blueprint' => 'Remove an industry blueprint',
+        'export_blueprint' => 'Export the site as a blueprint',
+        'list_notice_log' => 'List the notice board log',
+        'save_hours_exception' => 'Save an opening hours exception',
+        'delete_hours_exception' => 'Delete an opening hours exception',
+        'list_bookings' => 'List bookings',
+        'booking_availability' => 'Get booking availability',
+        'save_booking_service' => 'Save a booking service',
+        'save_booking_staff' => 'Save a booking staff member',
+        'cancel_booking' => 'Cancel a booking',
+        'confirm_booking' => 'Confirm a booking',
+        'decline_booking' => 'Decline a booking',
+        'propose_booking_times' => 'Propose other booking times',
+        'list_sites' => 'List fleet sites',
+        'get_site' => 'Get a fleet site',
+        'list_requests' => 'List requests to Claude',
+        'list_pending_review' => 'List what waits for review',
+        'update_request' => 'Answer a request',
+        'get_due_agent_runs' => 'Get due scheduled runs',
+        'report_agent_run' => 'Report a scheduled run',
+        'translation_status' => 'Get translation status',
+        'list_newsletters' => 'List newsletters',
+        'draft_newsletter' => 'Draft a newsletter',
+        'send_test_newsletter' => 'Send a test newsletter to yourself',
+        'send_newsletter' => 'Send a newsletter',
+        'delete_newsletter' => 'Delete a newsletter',
+    ];
+
+    /**
+     * Tools that reach outside the site during the call (3.8, MCP openWorldHint), by their English names. Verified in the
+     * code: a download from an address the caller gives (upload_file with url, import_website, migration_report,
+     * import_wordpress with url and its images, save_collection_items with media by URL – Core\ImageDownloader), and an
+     * e-mail to people outside the site's users (subscribers, customers of an enquiry or a booking). Not on the list:
+     * deliveries the site owner set up that run later in the background (webhooks, IndexNow, the Business Profile and CRM
+     * integrations – Core\Connectors queue), the link check (a background job; list_broken_links reads its results),
+     * list_connectors (status from the database) and e-mails to the site's own users (update_request, send_test_newsletter).
+     */
+    public const array OPEN_WORLD = ['upload_file', 'import_website', 'migration_report', 'import_wordpress', 'save_collection_items', 'send_newsletter',
+        'request_testimonial', 'cancel_booking', 'confirm_booking', 'decline_booking', 'propose_booking_times'];
+
+    /**
+     * Write tools that a repeated call with the same arguments changes nothing more (3.8, MCP idempotentHint), verified in
+     * the code: setters that overwrite (a draft, a field, a key – an unchanged build or item stores no new version,
+     * Builder\Publisher::version), soft deletes that never become hard ones and hard deletes (a repeat finds nothing), and
+     * booking decisions that hold only for one status (no second e-mail). Not on the list: tools that may create a new
+     * record (save_* without an id, save_section, edit_build inserting elements), queue a delivery on every call
+     * (update_settings with company hours, save_hours_exception) or that publish, send or import.
+     */
+    public const array IDEMPOTENT = ['update_page', 'trash_page', 'save_menu', 'restore_from_trash', 'save_build', 'restore_build_version', 'discard_draft',
+        'delete_section', 'delete_component', 'resolve_draft_comment', 'update_design_system', 'discard_look', 'restore_look_version', 'update_collection',
+        'delete_collection', 'delete_collection_item', 'restore_item_version', 'save_collection_category', 'delete_collection_category', 'trash_news',
+        'update_category', 'delete_category', 'update_media', 'delete_media', 'update_enquiry', 'delete_enquiry', 'erase_personal_data', 'delete_popup',
+        'save_redirect', 'ignore_not_found', 'save_redirects', 'save_fact', 'delete_fact', 'delete_notebook_entry', 'update_social_draft', 'remove_blueprint',
+        'delete_hours_exception', 'cancel_booking', 'confirm_booking', 'decline_booking', 'delete_newsletter'];
+
+    /** The title of a tool by either name (3.8): Kaleta's own from TITLES, an add-on's from its declaration. */
+    public static function title(string $name): string
+    {
+        $english = self::english($name) ?? $name;
+
+        return self::TITLES[$english] ?? \Kaleta\Extension\Registry::get()->tool($english)['title'] ?? ucfirst(str_replace('_', ' ', $english));
+    }
+
+    /** Does the tool reach outside the site (3.8, OPEN_WORLD; an add-on's tool as it declares)? */
+    public static function isOpenWorld(string $name): bool
+    {
+        $english = self::english($name) ?? $name;
+
+        return in_array($english, self::OPEN_WORLD, true) || (\Kaleta\Extension\Registry::get()->tool($english)['openWorld'] ?? false);
+    }
+
+    /** Is the write tool idempotent (3.8, IDEMPOTENT; an add-on's tool as it declares)? */
+    public static function isIdempotent(string $name): bool
+    {
+        $english = self::english($name) ?? $name;
+
+        return in_array($english, self::IDEMPOTENT, true) || (\Kaleta\Extension\Registry::get()->tool($english)['idempotent'] ?? false);
+    }
+
     /** The English name of a tool given by either name (Czech names are hidden aliases of the older tools). */
     public static function english(string $name): ?string
     {

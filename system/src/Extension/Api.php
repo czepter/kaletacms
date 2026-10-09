@@ -79,9 +79,13 @@ final class Api
      * role), or the ident of an admin section the user must have (pages, news, enquiries…). Left empty, a read or draft
      * tool is open to every user, a write tool needs an editor and a destructive one an administrator.
      *
+     * The MCP hints (3.8): $title is the short human-readable title Claude shows (empty = the name in words, "list_orders"
+     * → "List orders"); $openWorld says the tool reaches outside the site (fetches an address, e-mails a customer, calls
+     * another service); $idempotent says that calling a write tool again with the same arguments changes nothing more.
+     *
      * @param array<string, mixed> $schema
      */
-    public function mcpTool(string $name, string $description, array $schema, string $access, callable $handler, string $requires = ''): void
+    public function mcpTool(string $name, string $description, array $schema, string $access, callable $handler, string $requires = '', string $title = '', bool $openWorld = false, bool $idempotent = false): void
     {
         if (!in_array($access, self::TOOL_ACCESS, true)) {
             throw new \InvalidArgumentException('Unknown access: ' . $access);
@@ -90,7 +94,7 @@ final class Api
             throw new \InvalidArgumentException('Unknown role or section: ' . $requires);
         }
         $this->registry->addTool('ext_' . $this->slug . '_' . self::name($name), $description, $schema + ['type' => 'object'], $access, $handler,
-            $requires !== '' ? $requires : self::DEFAULT_ROLE[$access]);
+            $requires !== '' ? $requires : self::DEFAULT_ROLE[$access], $title !== '' ? $title : ucfirst(str_replace('_', ' ', $name)), $openWorld, $idempotent);
     }
 
     /** May the signed-in user call a tool that requires $requires (a role of TOOL_ROLES or a section ident)? */

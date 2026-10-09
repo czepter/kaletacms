@@ -305,6 +305,16 @@ contains() { grep "$@" > /dev/null; }
 mcp() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2}}"; }
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$WORK/response"
 grep -q '"name":"create_page"' "$WORK/response" && ! grep -q '"name":"vytvor_stranku"' "$WORK/response" && grep -q '"title":{' "$WORK/response" && echo "  ok     MCP: nástroje s anglickými názvy a parametry" || { echo "  CHYBA  MCP tools/list anglicky"; ERRORS=$((ERRORS+1)); }
+# 3.8 (Connectors Directory): every tool has a title (top level = annotations.title), the hints are by the English name
+php -r '$t = json_decode(file_get_contents($argv[1]), true)["result"]["tools"]; $bad = array_filter($t, fn ($x) => !is_string($x["title"] ?? null) || $x["title"] === "" || $x["title"] !== ($x["annotations"]["title"] ?? null) || array_slice(array_keys($x), 0, 2) !== ["name", "title"]);
+  $a = array_column($t, "annotations", "name"); exit($bad === [] && $a["upload_file"]["openWorldHint"] === true && $a["import_website"]["openWorldHint"] === true && $a["list_pages"]["openWorldHint"] === false
+  && ($a["save_build"]["idempotentHint"] ?? null) === true && !isset($a["publish_build"]["idempotentHint"]) && $a["list_pages"]["title"] === "List pages" ? 0 : 1);' "$WORK/response" \
+  && echo "  ok     3.8 MCP: every tool has a title, open-world and idempotent hints by the English name" || { echo "  CHYBA  3.8 MCP titles and hints"; ERRORS=$((ERRORS+1)); }
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}' > "$WORK/initialize.json"
+php -r '$i = json_decode(file_get_contents($argv[1]), true)["result"]; $s = $i["serverInfo"]; exit($i["protocolVersion"] === "2025-06-18" && str_starts_with($s["name"], "Kaleta – ") && $s["title"] === "Kaleta" && $s["websiteUrl"] === "https://kaletacms.com"
+  && $s["icons"][0]["src"] === $argv[2] . "/image/kaleta-znacka.svg" && $s["icons"][1]["sizes"] === ["180x180"] ? 0 : 1);' "$WORK/initialize.json" "$B" \
+  && [ "$(curl -s -o /dev/null -w '%{http_code}' "$B/image/kaleta-znacka-180.png")" = 200 ] \
+  && echo "  ok     3.8 MCP: initialize names the server (title Kaleta, websiteUrl, icons the site serves)" || { echo "  CHYBA  3.8 MCP serverInfo"; head -c 400 "$WORK/initialize.json"; ERRORS=$((ERRORS+1)); }
 mcp list_pages '{}' > "$WORK/response"; grep -q 'title\\":' "$WORK/response" && grep -q 'in_menu\\":' "$WORK/response" && echo "  ok     MCP: anglický nástroj vrací anglické klíče" || { echo "  CHYBA  MCP list_pages"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp seznam_stranek '{}' > "$WORK/response"; grep -q 'titulek\\":' "$WORK/response" && echo "  ok     MCP: český název funguje dál jako skrytý alias" || { echo "  CHYBA  MCP český alias"; ERRORS=$((ERRORS+1)); }
 mcp get_page '{"id":99999}' > "$WORK/response"; grep -q 'The page does not exist. Use list_pages.' "$WORK/response" && echo "  ok     MCP: chyba anglického nástroje anglicky" || { echo "  CHYBA  MCP anglická chyba"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -2230,6 +2240,10 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?action=oauth" -d 
 sq "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('claude_apps_only', '1') ON DUPLICATE KEY UPDATE hodnota = '1'" > /dev/null
 expect "3.3.4 N65: with claude_apps_only a foreign host cannot register or sign in, Claude and Claude Code can" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/register" -H 'Content-Type: application/json' -d '{"redirect_uris":["https://evil.example/cb"]}')|$(curl -s -o /dev/null -w '%{http_code}' "$B/oauth/authorize?$(authorize_query "$CLIENT_B" "$URI_B" only)")|$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/register" -H 'Content-Type: application/json' -d '{"redirect_uris":["https://claude.ai/api/mcp/auth_callback","http://localhost:33418/callback"]}')|$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' "$B/oauth/authorize?$(authorize_query "$CLIENT_A" "$URI_A" only)")" "400|403|201|302"
 sq "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'claude_apps_only'" > /dev/null
+# 3.8 (Connectors Directory): Claude Code registers a loopback redirect and comes back on another port next time (RFC 8252
+# §7.3 – any port for a loopback address); a different path or a non-loopback host with another port is still refused
+CLIENT_CC=$(register_client "Claude Code" "http://127.0.0.1:33418/callback")
+expect "3.8 OAuth: a loopback redirect_uri on another port goes to the consent, another path or host does not" "$(curl -s -o /dev/null -w '%{http_code}' "$B/oauth/authorize?$(authorize_query "$CLIENT_CC" "http://127.0.0.1:51234/callback" cc)")|$(curl -s -o /dev/null -w '%{http_code}' "$B/oauth/authorize?$(authorize_query "$CLIENT_CC" "http://127.0.0.1:51234/other" cc)")|$(curl -s -o /dev/null -w '%{http_code}' "$B/oauth/authorize?$(authorize_query "$CLIENT_A" "https://claude.ai:8443/api/mcp/auth_callback" cc)")" "302|400|400"
 # N13: six parallel redemptions of one code give one token pair; a second server on the same files with six workers runs
 # them at the same time, as PHP-FPM would
 RACE_PORT=$((PORT + 17)); RACE="http://127.0.0.1:$RACE_PORT"

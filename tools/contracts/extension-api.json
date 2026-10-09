@@ -27,7 +27,10 @@
             "array $schema",
             "string $access",
             "callable $handler",
-            "string $requires"
+            "string $requires",
+            "string $title",
+            "bool $openWorld",
+            "bool $idempotent"
         ],
         "on": [
             "string $eventType",

@@ -468,14 +468,19 @@ final class Tools
 
     /**
      * MCP annotations of a tool, so a client knows what to confirm with the user: reads, writes, and writes that remove
-     * something or cannot be taken back (Catalog). Every tool works only on this site.
+     * something or cannot be taken back (Catalog). 3.8: the title, idempotentHint on the write tools where it holds, and
+     * openWorldHint for the tools that reach outside the site – all by the English name, whichever name is given.
      *
-     * @return array{readOnlyHint: bool, destructiveHint: bool, openWorldHint: bool}
+     * @return array{title: string, readOnlyHint: bool, destructiveHint: bool, idempotentHint?: true, openWorldHint: bool}
      */
     public static function annotations(string $name): array
     {
-        return ['readOnlyHint' => !self::isWriteTool($name), 'destructiveHint' => Catalog::access($name) === 'destructive',
-            'openWorldHint' => in_array($name, ['nahraj_soubor', 'importuj_web', 'migration_report', 'import_wordpress', 'save_collection_items'], true)]; // an upload from a URL, an import, the migration report and media of items by URL reach outside the site
+        $english = Catalog::english($name) ?? $name;
+        $write = self::isWriteTool($english);
+
+        return ['title' => Catalog::title($english), 'readOnlyHint' => !$write, 'destructiveHint' => Catalog::access($english) === 'destructive']
+            + ($write && Catalog::isIdempotent($english) ? ['idempotentHint' => true] : [])
+            + ['openWorldHint' => Catalog::isOpenWorld($english)];
     }
 
     public static function isWriteTool(string $name): bool
