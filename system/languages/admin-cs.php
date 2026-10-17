@@ -5813,4 +5813,7 @@ return [
     'Book an appointment' => 'Rezervujte si termín',
     'Choose a service and a free time – the confirmation arrives by email.' => 'Vyberte službu a volný termín – potvrzení přijde e-mailem.',
     'Our work' => 'Naše práce',
+    'Hours for %s' => 'Hodiny pro %s',
+    'Only for this service: when set, these hours replace the weekly hours above for it. All empty = the weekly hours above. Bookings of all services share the same calendar of the person, so times never overlap.' => 'Jen pro tuto službu: když jsou vyplněné, nahradí pro ni týdenní hodiny výše. Vše prázdné = týdenní hodiny výše. Rezervace všech služeb sdílejí jeden kalendář osoby, takže se časy nikdy nepřekrývají.',
+    'Hours per service need an existing service.' => 'Hodiny pro službu potřebují existující službu.',
 ];

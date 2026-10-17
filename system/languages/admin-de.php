@@ -5817,4 +5817,7 @@ return [
     'Our work' => 'Unsere Arbeiten',
     'Beauty' => 'Kosmetik',
     'Palette %d' => 'Palette %d',
+    'Hours for %s' => 'Zeiten für %s',
+    'Only for this service: when set, these hours replace the weekly hours above for it. All empty = the weekly hours above. Bookings of all services share the same calendar of the person, so times never overlap.' => 'Nur für diese Leistung: Wenn ausgefüllt, ersetzen diese Zeiten für sie die Wochenstunden oben. Alles leer = die Wochenstunden oben. Buchungen aller Leistungen teilen sich den einen Kalender der Person, Termine überschneiden sich also nie.',
+    'Hours per service need an existing service.' => 'Zeiten pro Leistung brauchen eine vorhandene Leistung.',
 ];
